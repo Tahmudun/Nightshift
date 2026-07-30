@@ -1,0 +1,59 @@
+# ATS board registry — source data, version-controlled, human-reviewed.
+#
+# AMENDMENTS A1: none of Greenhouse, Lever, or Ashby exposes a way to enumerate
+# its customers. There is no directory endpoint and no master list, so board
+# tokens must be known in advance. This file is that knowledge.
+#
+# Rules:
+#   * Nothing writes to this file automatically. The token resolution pipeline
+#     (M1) emits candidate entries for review; a human commits them.
+#   * `status: dead` entries stay in the file. They surface on the source health
+#     page for review and they do NOT close the jobs they previously produced
+#     (invariant I3).
+#   * `verified_at` means "a human confirmed this token returned real postings",
+#     not "a poll succeeded". Liveness is tracked in the database, not here.
+#
+# Fields:
+#   company       display name
+#   ats           greenhouse | lever | ashby
+#   token         the board slug used in the provider's URL
+#   added         date the entry was first committed
+#   verified_at   date a human last confirmed it serves real postings
+#   status        active | dead | moved | disabled
+#   nyc_presence  known NYC office; used only to prioritise polling order
+#   notes         anything a future reader needs
+
+boards:
+  # M0 polls exactly one board (§28 / AMENDMENTS A6: one real listing, end to
+  # end, before any breadth). Datadog is the choice because its headquarters is
+  # in Manhattan, its board is large enough to be representative at 426
+  # postings, and — usefully for a project whose first invariant is about not
+  # fabricating locations — its location strings are among the messiest
+  # available, routinely naming ten places in one field.
+  - company: Datadog
+    ats: greenhouse
+    token: datadog
+    added: 2026-07-29
+    verified_at: 2026-07-29
+    status: active
+    nyc_presence: true
+    notes: >-
+      NYC HQ (620 8th Ave). 426 postings at time of verification, 134 naming
+      New York. Publishes pay-transparency ranges in `metadata` as
+      value_type=currency_range. Publishes no application_deadline values at
+      all, which is the concrete evidence behind AMENDMENTS A10.
+
+  # Verified live during M0 but not polled: breadth is M1's deliverable, and
+  # adding boards before the closure state machine exists would mean ingesting
+  # jobs the system cannot yet honestly age out. Kept here because the
+  # verification was real and re-doing it would be waste.
+  - company: Stripe
+    ats: greenhouse
+    token: stripe
+    added: 2026-07-29
+    verified_at: 2026-07-29
+    status: disabled
+    nyc_presence: true
+    notes: >-
+      Endpoint returns HTTP 200 with postings (confirmed 2026-07-29). Disabled
+      until M1: enable once the freshness and closure state machine lands.
