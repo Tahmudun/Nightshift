@@ -7,35 +7,6 @@ the date, because the reasoning is usually worth more than the decision.
 
 ---
 
-## Q3 — Which boards go in the registry, and who vets them?
-
-**Raised:** 2026-07-29 (M0) · **Type:** product / effort · **Blocking:** no
-
-A1 is right that the board registry is the most interesting infrastructure
-problem here, and it is also the one that needs a judgement call I should not
-make alone.
-
-The registry has two entries today: Datadog (active, polled) and Stripe
-(verified, disabled until M1). Scaling it means deciding how the list is built:
-
-1. **Curated NYC tech list, ~50–100 companies, hand-verified once.** Highest
-   signal, a few hours of one-time work, and the resulting registry is a genuine
-   asset. My recommendation.
-2. **Resolve from a community internship aggregator's company list.** A1 permits
-   this explicitly — as a source of *company names to resolve into board tokens*,
-   never as a source of listings. Faster and broader, noisier, and biased toward
-   internships.
-3. **Both**, curated first.
-
-What I need from you: roughly how many companies, and are you willing to be the
-human in the human-in-the-loop for the candidate entries the resolution pipeline
-emits? A1 says never auto-commit, so someone has to review them.
-
-**Not blocking:** M1 builds the resolution pipeline against however many entries
-exist. The pipeline is the deliverable; the list length is a dial.
-
----
-
 ## Q2 — Deployment target for the M4 ship
 
 **Raised:** 2026-07-29 (M0) · **Type:** cost · **Blocking:** no
@@ -96,4 +67,47 @@ Nothing to do now. Flagging at M0 so M7 does not end in a surprise.
 
 ## Answered
 
-*(none yet)*
+## Q3 — Which boards go in the registry, and who vets them?
+
+**Raised:** 2026-07-29 (M0) · **Answered:** 2026-07-30
+
+**The question was wrong, and the answer changed the milestone.**
+
+It asked how many companies to curate — 50, 100 — and assumed a hand-built list.
+Asked directly, the human's goal turned out to be: *if any tech job or internship
+opens in NYC, the system knows the day of, from any employer.* Curation cannot
+reach that at any list length, so the registry stops being curated and becomes
+the output of a discovery pipeline.
+
+Answers to what was actually asked:
+
+- **How many companies:** as many as can be discovered. **2,605** board tokens
+  were available immediately from one Common Crawl index, measured 2026-07-30.
+  Not a target — a floor.
+- **Which companies:** not decided in advance at all. Whole boards are polled and
+  NYC-ness is read off the postings, so no list needs to declare a city. This
+  also means expanding beyond NYC costs nothing at ingestion.
+- **Who vets them:** the human, in batches rather than per entry. Candidates
+  whose employer name came from the provider are approved as a batch and
+  committed from a git diff; unnameable and colliding ones are held for
+  individual review. This departs from A1 and is recorded in **ADR 0005**.
+- **How often it runs:** a command the human runs, not a schedule. New crawl data
+  appears monthly. This only affects finding *new companies* — checking known
+  boards for new jobs is hourly or daily and unaffected.
+
+Scope decisions taken at the same time:
+
+- **Employer breadth:** tech roles at *any* employer, not only at tech companies.
+  Banks, hospitals, media and universities are in scope eventually — they are on
+  Workday/iCIMS/Taleo, which is the milestone after this one and until then a
+  stated blind spot.
+- **LinkedIn and Indeed: no.** LinkedIn's robots.txt is a blanket `Disallow: /`
+  for all agents with an address to email for permission; Indeed's public API is
+  partner-only and its inventory is largely resold from the same ATS boards read
+  here first-hand. `docs/architecture/board-discovery.md` §9.
+- **Long-term ambition** — other cities, then every state, then every job type —
+  is answered in §10 of the same document, including where it stops being
+  honestly possible.
+
+Full design: `docs/architecture/board-discovery.md`. Decisions: ADRs 0005, 0006,
+0007.

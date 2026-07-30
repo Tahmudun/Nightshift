@@ -3,26 +3,54 @@
 > Read this first, every session. If the repo state does not match what this
 > file claims, fix this file before writing code.
 
-**Current milestone: M0 — Foundation with a heartbeat — COMPLETE**
-**Status: 6 of 6 acceptance criteria VERIFIED at commit `4c1643f`.**
+**Current milestone: M1 — Employment data spine (board discovery)**
+**M0: COMPLETE — 6 of 6 acceptance criteria verified at commit `4c1643f`.**
 **Last updated: 2026-07-30**
 
 ---
 
 ## Next exact action
 
-**Start M1 — employment data spine.** M0 is closed out; work the ordered list in
-"Before M1 starts" below, which carries the milestone review's findings. Items 1
-and 2 are the ones that get expensive later.
+**Start M1, beginning with item 1 of "Before M1 starts" below** — Lever and Ashby
+location fixtures, then parser breadth. It is first because everything else
+depends on it: the discovery design derives NYC-ness from parsed locations, and
+`"New York"` alone currently returns `unknown`.
 
-Before writing M1 code, per CLAUDE.md §5: skim `docs/spec/AMENDMENTS.md`, then
-read the M1 section of this file and `docs/spec/PRODUCT-SPEC.md` for the
-subsystem being touched.
+**Read before writing any M1 code**, in this order:
 
-Still open, none blocking: the three questions in `docs/QUESTIONS.md`. Q3 (how
-many boards go in the registry, and who vets candidates) is the one M1 will
-actually want an answer to — the pipeline is the deliverable and the list length
-is a dial, so it does not block starting.
+1. `docs/architecture/board-discovery.md` — the approved design for the registry
+   and polling. **This is the M1 registry deliverable.** Nothing in this session's
+   design lives anywhere else.
+2. ADRs **0005** (batch approval, overrides A1's per-entry review), **0006**
+   (Common Crawl discovery, and why it cannot see Lever), **0007** (two-phase
+   conditional polling).
+3. `docs/spec/AMENDMENTS.md` — skim, per CLAUDE.md §5. A1 still governs the
+   registry except where ADR 0005 says otherwise.
+
+**No implementation plan has been written yet.** The design is approved; turning
+it into an ordered, testable task list is the first thing to do if picking this up
+cold. `superpowers:writing-plans` is the intended route.
+
+### What was decided this session, in one place
+
+The product goal was restated by the human: *if any tech job or internship opens
+in NYC, the system knows the day of, from any employer.* That changed M1's
+registry from a curated file into a discovery pipeline.
+
+| Decision | Where it lives |
+|---|---|
+| Registry filled by discovery, not curation; 2,605 tokens measured available | `board-discovery.md` §3 |
+| Batch approval, exceptions held individually | ADR 0005 |
+| Common Crawl as primary source; Lever needs careers-page probing | ADR 0006 |
+| Two-phase conditional polling, hot/warm tiers, queue-driven | ADR 0007 |
+| Employer scope: tech roles at *any* employer | `board-discovery.md` §2 |
+| Workday/iCIMS/Taleo deferred to the next milestone | `board-discovery.md` §2 |
+| LinkedIn and Indeed rejected, with reasons | `board-discovery.md` §9 |
+| Scaling to other cities, states, and job types | `board-discovery.md` §10 |
+| Discovery runs on command, not on a schedule | ADR 0006, `board-discovery.md` §4 |
+
+Two open questions remain in `docs/QUESTIONS.md` (Q1 Gmail, Q2 deployment cost),
+neither blocking. Q3 is answered there in full.
 
 `make acceptance` is the single-command acceptance run. Last run at `4c1643f`
 on 2026-07-30, preceded by `make reset-db` so the migration path ran against an
@@ -102,6 +130,12 @@ the `e2e` job guards acceptance row 5 from regressing.
 
 Carried from `docs/reviews/milestone-0-review.md` so a new session does not have to
 open it. Do these in order; items 1 and 2 are the ones that get expensive later.
+
+The board-discovery design (`docs/architecture/board-discovery.md` §14) depends on
+the first three and does not replace them. Item 1 is a hard prerequisite: NYC-ness
+is derived from parsed locations, so a first-provider parser caps the accuracy of
+everything downstream. Item 2 stops being theoretical the moment polling becomes
+queue-driven (ADR 0007) — concurrency above 1 is the point of that design.
 
 1. **Write Lever and Ashby location fixtures before touching the parser.** A2
    requires the fixture file to grow first. `parse_location_field` has 98 passing
@@ -326,6 +360,65 @@ presented to a user as working.
 ---
 
 ## Session log
+
+### 2026-07-30 — M1 design: board discovery
+
+Design only. No implementation code was written; the deliverable is
+`docs/architecture/board-discovery.md` plus ADRs 0005–0007.
+
+**The milestone changed shape because the goal was restated.** M1's registry was
+specified as a curated file. Asked how many companies belonged in it, the human
+answered that the goal is same-day knowledge of *any* NYC tech opening from *any*
+employer. No list length reaches that, so the registry becomes the output of a
+pipeline. Q3 in `docs/QUESTIONS.md` records the original question and why it was
+the wrong one.
+
+**Everything in §3 of the design was measured, not estimated.** Common Crawl's
+July 2026 index yields 2,605 board tokens in about two minutes at no cost.
+Greenhouse serves two board domains and the newer one contributed 433 tokens the
+older one did not. Listing a board costs 27 KB against 841 KB for full
+descriptions — a 31× gap that decided the polling design — and the listing
+endpoint carries an `ETag`, so unchanged boards revalidate for nothing.
+
+**Lever is structurally invisible to the archive.** `jobs.lever.co/robots.txt`
+names `CCBot` — Common Crawl's crawler — and disallows it, so Lever job pages are
+absent and always will be. Its API remains sanctioned. Lever must be discovered by
+careers-page probing, which is now a test assertion rather than a footnote.
+
+**Two errors in my own first draft, both found by checking rather than reading.**
+I wrote that Ashby returns the employer name. It does not — not at board level,
+not on any job object — which would have routed all 383 Ashby boards to manual
+review and quietly broken the approval design. The name is on the board page,
+which Ashby's robots.txt permits. Second, I had treated the token as a usable
+name; Ashby's `0g` is "0g Labs" and `10xteam` is "10x Team". Deriving an employer
+from its slug is exactly the fabrication I2 forbids, and it is now a fixture.
+
+Also established: Lever returns `404` with `{"ok":false}` for an unknown token and
+`200` with `[]` for a live board with no openings. I3 depends on those being
+distinguishable and they are.
+
+**A rule of the human's was relaxed, deliberately and on the record.** A1 requires
+per-entry human review of discovered boards. At 2,605 that is a control nobody
+performs, and an unperformed control is worse than a weaker one that runs, because
+the documentation still claims the strong one. ADR 0005 moves it to batch approval
+with typed exceptions. Asked whether I would have invented that rule unprompted,
+the honest answer was mostly no — the tell being that my first instinct on seeing
+the number was to ask for it to be relaxed. The junk board `a3c41b8b71eff8c4`,
+which returns ten well-formed postings under a machine-generated name, is why the
+rule earns its place and why deleting its fixture would hollow out the gate.
+
+**Scope answered for the long term** (§10): geography is nearly free because the
+unit of polling is a company, not a city — whole boards are already fetched and
+`job_locations` already stores every location, so NYC is a query filter. What
+costs money is the geocoder, which A4 chose as an NYC-government service that
+knows nothing else. Job-type breadth is free to collect and expensive to be useful
+about, since M3's matching is tech-shaped. And the small end of the labour market
+— local restaurants, contractors — publishes nothing machine-readable, so it is
+unreachable by any polling strategy. The honest ceiling is every job posted to a
+machine-readable board in the US.
+
+**LinkedIn and Indeed were asked about directly and refused** (§9), with the
+robots.txt evidence recorded so it is not re-litigated.
 
 ### 2026-07-30 — renamed CitySignal → Nightshift
 

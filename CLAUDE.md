@@ -26,6 +26,7 @@ detail lives in `docs/spec/` and you read those files on demand.
 | `docs/spec/PRODUCT-SPEC.md` | You need full product detail on any subsystem |
 | `docs/spec/AMENDMENTS.md` | **Always skim once per session.** Overrides PRODUCT-SPEC where they conflict |
 | `docs/architecture/*.md` | Working inside that subsystem |
+| `docs/architecture/board-discovery.md` | **Required before any M1 registry, discovery or polling work.** Supersedes the shape of A1's registry; A1's rules still hold except where ADR 0005 says otherwise |
 | `docs/adr/*.md` | Revisiting or contradicting a past decision |
 
 **Precedence when documents disagree:**
@@ -263,10 +264,18 @@ Acceptance:
 
 ### M1 — Employment data spine
 
-The board registry (A1), Greenhouse + Lever + Ashby adapters behind one interface,
-`source_job_records` preserving raw payloads, normalization, canonical job creation,
-`job_locations` (A2), layered dedupe, ingestion runs, freshness + closure state machine,
-admin job table, source health page, committed fixtures for every adapter.
+Greenhouse + Lever + Ashby adapters behind one interface, `source_job_records`
+preserving raw payloads, normalization, canonical job creation, `job_locations` (A2),
+layered dedupe, ingestion runs, freshness + closure state machine, admin job table,
+source health page, committed fixtures for every adapter.
+
+**Plus board discovery, which is the registry deliverable and has its own design:
+`docs/architecture/board-discovery.md`. Read it before touching the registry.**
+A1's registry stands, but it is filled by a pipeline rather than by hand — the
+goal is same-day knowledge of any NYC tech opening, which curation cannot reach at
+any list length. 2,605 board tokens were measured as immediately discoverable.
+Decisions in ADR 0005 (batch approval, overriding A1's per-entry review), 0006
+(Common Crawl, and why it is blind to Lever), 0007 (two-phase conditional polling).
 
 Acceptance:
 - Same fixture input → byte-identical normalized output, twice
@@ -276,6 +285,10 @@ Acceptance:
 - Every canonical job traces to at least one raw source record
 - Multi-location postings produce multiple `job_locations` rows
 - Ingestion failures are visible in the UI, not just logs
+- Discovery yields candidates from a committed crawl fixture, deterministically
+- A live-but-unnameable board cannot reach bulk approval
+- A `304 Not Modified` produces zero writes and closes zero jobs
+- The coverage page names what is *not* covered, not only what is
 
 ### M2 — Functional command center
 
