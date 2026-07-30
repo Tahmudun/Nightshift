@@ -1,0 +1,116 @@
+@import 'tailwindcss';
+
+/*
+ * CitySignal design tokens.
+ *
+ * The palette is taken directly from PRODUCT-SPEC §4.2: blackened masses,
+ * cyan and electric-blue energy, thin white highlights, controlled magenta,
+ * sparse gold. §4.2 is equally specific about what to avoid — generic purple
+ * gradients, glassmorphism everywhere, excessive bloom, glowing text that is
+ * hard to read — so there is exactly one glow in this stylesheet and it is on a
+ * 6px dot.
+ *
+ * Two rules govern colour use here:
+ *
+ * 1. Magenta means "something is wrong and you can act on it". It is never
+ *    decorative. Gold means "urgent and actionable". Per AMENDMENTS A7, visual
+ *    intensity tracks what the user can act on, not what happened to them.
+ * 2. Colour never carries meaning alone (§12.4). Every state that has a colour
+ *    also has a text label or a shape.
+ */
+
+@theme {
+  /* Blackened building masses — blue-black, not neutral black. */
+  --color-ink-950: #04070c;
+  --color-ink-900: #070b14;
+  --color-ink-800: #0c1220;
+  --color-ink-700: #131b2c;
+  --color-ink-600: #1d2739;
+  --color-ink-500: #2b374d;
+
+  /* Cyan / electric blue: the signal. */
+  --color-signal-400: #5ce8ff;
+  --color-signal-500: #29d3f5;
+  --color-signal-600: #10a8c9;
+  --color-signal-900: #0a2b34;
+
+  /* Controlled magenta — failure and degradation only. */
+  --color-alert-400: #ff5fa8;
+  --color-alert-500: #f0347f;
+  --color-alert-900: #3d0a22;
+
+  /* Sparse gold — urgency only. Unused in M0; nothing is urgent yet. */
+  --color-gold-400: #ffcf5c;
+
+  /* Thin white highlights. */
+  --color-paper: #eaf1fa;
+  --color-paper-dim: #94a6c0;
+  --color-paper-faint: #5d6e88;
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, Helvetica, Arial, sans-serif;
+  /* Mono is the utility face for every piece of instrument data: counts,
+   * timestamps, confidence values, board tokens. It is the typographic way of
+   * saying "this is a reading, not prose". */
+  --font-mono:
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+
+  --radius-sharp: 2px;
+}
+
+/* Tailwind v4's reset does not include a base background/colour. */
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--color-ink-950);
+    color: var(--color-paper);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    /* A faint vertical gradient reads as depth without being a "purple
+     * gradient" or costing a repaint. */
+    background-image: linear-gradient(180deg, #070b14 0%, #04070c 60%);
+    background-attachment: fixed;
+  }
+
+  /* §12.4: visible focus states. Cyan ring, generous offset, never removed. */
+  :focus-visible {
+    outline: 2px solid var(--color-signal-500);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* Tabular numerals everywhere data is aligned in a column. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* The one animation in M0: a slow breath on the health dot, and only while
+ * healthy. A degraded dot is static — a blinking error is harder to read, and
+ * AMENDMENTS A7 rejects simulated malfunction as a communication device. */
+@keyframes signal-breath {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.signal-breath {
+  animation: signal-breath 3.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

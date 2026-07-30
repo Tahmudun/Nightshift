@@ -1,0 +1,26 @@
+import { FlatCompat } from '@eslint/eslintrc';
+
+const compat = new FlatCompat({ baseDirectory: import.meta.dirname });
+
+const config = [
+  ...compat.extends('next/core-web-vitals', 'next/typescript'),
+  {
+    ignores: ['.next/**', 'node_modules/**', 'playwright-report/**', 'test-results/**'],
+  },
+  {
+    rules: {
+      // CLAUDE.md §7: no `any`; use `unknown` and narrow.
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
+      // Named exports (§7). Next.js requires default exports for pages and
+      // layouts, so those files are exempt below.
+      'no-restricted-syntax': 'off',
+    },
+  },
+  {
+    files: ['src/app/**/{page,layout,error,not-found,loading,template}.tsx', 'src/app/**/route.ts'],
+    rules: {},
+  },
+];
+
+export default config;
