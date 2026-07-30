@@ -505,3 +505,77 @@ cases:
         country: null
         confidence: remote
         is_primary: true
+
+  # -------------------------------------------------------------------------
+  # Regression: `parse_location_list` — the entry point Lever's
+  # `categories.allLocations` and Ashby's `secondaryLocations` actually call —
+  # never ran `_SEGMENT_SPLIT` on each array element, unlike
+  # `parse_location_field`. A single array element carrying a ';'/'|'
+  # delimiter therefore parsed as ONE segment: "New York, NY; Boston, MA"
+  # came out with city "NY; Boston" — a fabricated place at `city_only`
+  # confidence, the exact I1 failure class the borough/subdivision fixes
+  # above exist to prevent. `raw_list` drives `parse_location_list` directly;
+  # `raw` is the same string flattened, so both entry points are pinned to
+  # the identical, correct two-row split.
+  # -------------------------------------------------------------------------
+  - name: list_entry_point_splits_delimiter_within_one_element
+    synthetic: true
+    raw: "New York, NY; Boston, MA"
+    raw_list: ["New York, NY; Boston, MA"]
+    expect:
+      - raw_text: "New York, NY"
+        city: "New York"
+        state: "New York"
+        country: null
+        confidence: city_only
+        is_primary: true
+      - raw_text: "Boston, MA"
+        city: "Boston"
+        state: "Massachusetts"
+        country: null
+        confidence: city_only
+        is_primary: false
+
+  # Same regression, but the delimiter shows up inside the *second* array
+  # element while the first element is a plain string, and one of the split
+  # pieces duplicates the first element exactly. Pins that de-duplication and
+  # primary-first ordering both survive splitting elements that arrive after
+  # the first one — not just the single-element case above.
+  - name: list_entry_point_dedupes_and_splits_across_elements
+    synthetic: true
+    raw: "Austin, TX; Austin, TX; Denver, CO"
+    raw_list: ["Austin, TX", "Austin, TX; Denver, CO"]
+    expect:
+      - raw_text: "Austin, TX"
+        city: "Austin"
+        state: "Texas"
+        country: null
+        confidence: city_only
+        is_primary: true
+      - raw_text: "Denver, CO"
+        city: "Denver"
+        state: "Colorado"
+        country: null
+        confidence: city_only
+        is_primary: false
+
+  # -------------------------------------------------------------------------
+  # Regression: a trailing parenthetical Remote annotation was swallowed.
+  # Parenthetical annotations are lifted before Remote detection runs, and
+  # Remote detection only ever looked at comma parts, never at the lifted
+  # annotations — so "Austin, TX (Remote)" resolved city "Austin", state
+  # "Texas", and `remote=False`, misclassifying a remote role as `on_site`.
+  # `"(Remote)"` as a trailing annotation is a common real shape; leading
+  # Remote ("Remote (US)", covered above) already worked, which is what made
+  # this easy to miss.
+  # -------------------------------------------------------------------------
+  - name: parenthetical_remote_annotation_is_detected
+    synthetic: true
+    raw: "Austin, TX (Remote)"
+    expect:
+      - raw_text: "Austin, TX (Remote)"
+        city: "Austin"
+        state: "Texas"
+        country: null
+        confidence: remote
+        is_primary: true

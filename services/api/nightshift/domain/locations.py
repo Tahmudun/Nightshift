@@ -16,7 +16,10 @@ Two rules do most of the work of keeping the output honest:
   present at all, resolved or not (``"Bengaluru, KA"`` keeps its city even
   though ``KA`` names no known subdivision). ``Remote`` never corroborates:
   it is the token asserting there is *no* place, so ``"Global, Remote"``
-  stays ``unknown`` same as a lone ``"Global"`` would.
+  comes out with the same ``city=None`` as a lone ``"Global"`` would — but
+  not the same confidence. A lone ``"Global"`` is ``unknown`` (nothing
+  resolved); ``"Global, Remote"`` is ``remote`` (the ``Remote`` token itself
+  resolved), even though neither one names a city.
 * Coarser-than-city information never rounds up. ``"Germany"`` on its own
   resolves a country and no city, so its confidence is ``unknown``: we know
   something, but not enough to place it, and ``city_only`` would overstate it.
@@ -407,6 +410,27 @@ def _strip_tail_tokens(segment: str) -> _Tail:
             remaining.append(part)
     tail.parts = remaining
 
+    # 2b. Remote can also arrive as a lifted parenthetical annotation rather
+    #     than a comma part: "Austin, TX (Remote)" lifts "Remote" into
+    #     `annotations` in step 1, before this function ever gets a chance to
+    #     look for the token there. Skipping this check is what let a
+    #     parenthesised Remote survive undetected — city "Austin", state
+    #     "Texas", and no `tail.remote`, so the posting came out `city_only`
+    #     and `on_site` instead of `remote`. Any residue trailing the token
+    #     inside the parenthesis ("Remote - Canada)") is kept as its own
+    #     annotation, same as step 2 keeps residue from a comma part.
+    remaining_annotations: list[str] = []
+    for annotation in tail.annotations:
+        if _REMOTE_TOKEN.match(annotation):
+            tail.remote = True
+            tail.dropped.append(annotation)
+            residue = _REMOTE_PREFIX.sub("", annotation).strip()
+            if residue:
+                remaining_annotations.append(residue)
+        else:
+            remaining_annotations.append(annotation)
+    tail.annotations = remaining_annotations
+
     # `raw_part_count` is measured here, after Remote is gone but before
     # country/subdivision consumption or the bare-code drop. Measuring before
     # this step would count "Remote" itself as a corroborating comma part,
@@ -534,21 +558,29 @@ def parse_location_list(segments: Sequence[str]) -> list[ParsedLocation]:
     JSON arrays. Joining them into a delimited string so that
     :func:`parse_location_field` can split them again would discard structure
     the provider handed us — and would break on any location containing the
-    delimiter. Both entry points share every downstream rule.
+    delimiter. Both entry points share every downstream rule, including this
+    one: a single array element can itself carry a ``;`` or ``|`` delimiter
+    (a board can put "New York, NY; Boston, MA" in one array slot just as
+    easily as in a flat string field), so every element is run through the
+    same segment split before parsing. Skipping that step is what let
+    "New York, NY; Boston, MA" parse as one segment with city "NY; Boston" —
+    a fabricated place at ``city_only`` confidence.
     """
     cleaned: list[str] = []
     seen: set[str] = set()
     for chunk in segments:
-        text = " ".join((chunk or "").split())
-        if not text:
-            continue
-        # Collapse exact duplicates. A board that lists the same office twice
-        # should not produce two rows that later look like two offices.
-        key = text.casefold()
-        if key in seen:
-            continue
-        seen.add(key)
-        cleaned.append(text)
+        for piece in _SEGMENT_SPLIT.split(chunk or ""):
+            text = " ".join(piece.split())
+            if not text:
+                continue
+            # Collapse exact duplicates. A board that lists the same office
+            # twice should not produce two rows that later look like two
+            # offices.
+            key = text.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            cleaned.append(text)
 
     return [
         parse_location_segment(segment, is_primary=(index == 0))

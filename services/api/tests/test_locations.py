@@ -18,6 +18,7 @@ from nightshift.domain.locations import (
     ParsedLocation,
     infer_remote_policy,
     parse_location_field,
+    parse_location_list,
 )
 
 FIXTURE = Path(__file__).parent / "fixtures" / "locations.yaml"
@@ -32,10 +33,48 @@ def _load_cases() -> list[dict[str, Any]]:
 
 CASES = _load_cases()
 
+# Cases that also pin `parse_location_list` — the entry point Lever's
+# `categories.allLocations` and Ashby's `secondaryLocations` actually call —
+# via an explicit `raw_list` array, in addition to the `parse_location_field`
+# coverage every case gets through `raw`. Kept as a subset rather than a
+# separate fixture section: `raw_list` is opt-in per case precisely because
+# most cases don't need to prove anything about the second entry point.
+LIST_CASES = [c for c in CASES if "raw_list" in c]
+assert LIST_CASES, "no case exercises parse_location_list — the split-per-element fix is unpinned"
+
 
 @pytest.mark.parametrize("case", CASES, ids=[c["name"] for c in CASES])
 def test_parses_fixture_case(case: dict[str, Any]) -> None:
     parsed = parse_location_field(case["raw"])
+    expected = case["expect"]
+
+    assert len(parsed) == len(expected), (
+        f"{case['name']}: expected {len(expected)} location(s), got {len(parsed)} "
+        f"({[p.raw_text for p in parsed]})"
+    )
+
+    for actual, want in zip(parsed, expected, strict=True):
+        assert actual.raw_text == want["raw_text"], case["name"]
+        assert actual.city == want["city"], f"{case['name']}: city"
+        assert actual.state == want["state"], f"{case['name']}: state"
+        assert actual.country == want["country"], f"{case['name']}: country"
+        assert actual.confidence == LocationConfidence(want["confidence"]), (
+            f"{case['name']}: confidence"
+        )
+        assert actual.is_primary == want["is_primary"], f"{case['name']}: is_primary"
+
+
+@pytest.mark.parametrize("case", LIST_CASES, ids=[c["name"] for c in LIST_CASES])
+def test_list_entry_point_matches_field_entry_point(case: dict[str, Any]) -> None:
+    """`parse_location_list` must behave identically to `parse_location_field`.
+
+    Both are called on real ATS payloads (Lever/Ashby arrays vs. a delimited
+    string field) and must apply the same segment split, the same
+    de-duplication, and the same primary-first ordering — divergence between
+    them is exactly how the fabricated-city regression this fixture pins
+    got in.
+    """
+    parsed = parse_location_list(case["raw_list"])
     expected = case["expect"]
 
     assert len(parsed) == len(expected), (
