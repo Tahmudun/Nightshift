@@ -3,30 +3,30 @@
 > Read this first, every session. If the repo state does not match what this
 > file claims, fix this file before writing code.
 
-**Current milestone: M0 — Foundation with a heartbeat**
-**Status: 5 of 6 acceptance criteria VERIFIED at HEAD. Row 2 (CI green) needs a git remote.**
+**Current milestone: M0 — Foundation with a heartbeat — COMPLETE**
+**Status: 6 of 6 acceptance criteria VERIFIED at commit `4c1643f`.**
 **Last updated: 2026-07-30**
 
 ---
 
 ## Next exact action
 
-**Create a git remote** so CI can run. It is the only thing left in M0, and it
-needs a human. Row 2 cannot be verified locally at all: CI green means a real run
-on real infrastructure, and no amount of passing the same commands on this
-machine substitutes for it.
+**Start M1 — employment data spine.** M0 is closed out; work the ordered list in
+"Before M1 starts" below, which carries the milestone review's findings. Items 1
+and 2 are the ones that get expensive later.
 
-```bash
-# Create an empty repo (no README, no .gitignore), then:
-git remote add origin git@github.com:<you>/citysignal.git
-git push -u origin main
-```
+Before writing M1 code, per CLAUDE.md §5: skim `docs/spec/AMENDMENTS.md`, then
+read the M1 section of this file and `docs/spec/PRODUCT-SPEC.md` for the
+subsystem being touched.
 
-Then check the Actions tab. Five jobs must pass: `python`, `web`, `migrations`,
-`e2e`, `secrets`. Record the run URL in row 2 below and mark M0 complete.
+Still open, none blocking: the three questions in `docs/QUESTIONS.md`. Q3 (how
+many boards go in the registry, and who vets candidates) is the one M1 will
+actually want an answer to — the pipeline is the deliverable and the list length
+is a dial, so it does not block starting.
 
-`make acceptance` is the single-command acceptance run. Last run at `14abb68`
-on 2026-07-30, from a clean shell with nothing pre-started:
+`make acceptance` is the single-command acceptance run. Last run at `4c1643f`
+on 2026-07-30, preceded by `make reset-db` so the migration path ran against an
+empty schema rather than one already at head:
 
 ```
 18 verify checks + 6 seeded browser tests, all green
@@ -60,8 +60,11 @@ current HEAD.
 ### B2 — Host disk was full — RESOLVED 2026-07-30
 
 `/System/Volumes/Data` was down to **1.2 GB free** of 233 GB, which is why the
-final clean-clone re-run was skipped rather than risk destabilising the host. Now
-**14 GB free**. The earlier clean-clone run at `0830589` stands and row 1 says
+final clean-clone re-run was skipped rather than risk destabilising the host.
+Recovered to 14 GB, and **5.8 GB free** as of the end of the CI session, which
+pulled a 4 GB Postgres image to replicate CI locally and then deleted it again.
+Still tight: this host has no room for a spare clone. The earlier clean-clone run
+at `0830589` stands and row 1 says
 precisely what it covers; a fresh clean-clone run is no longer blocked, but it is
 also no longer load-bearing, since `make acceptance` passes at HEAD.
 
@@ -79,18 +82,19 @@ with recorded output or explicitly marked blocked.
 | # | Criterion | Status | Evidence |
 |---|---|---|---|
 | 1 | Clean clone → `make setup && make demo` works, documented, no hidden steps | **VERIFIED** | Genuine `git clone` into a scratch directory at commit `0830589`, no `.env`, no Docker volumes: `make setup` built the venv and installed JS deps in **47.8s**, then `make setup && make acceptance` passed **18/18** checks. Postgres initialised from an empty volume, so the extension init script ran for real. `make acceptance` was re-run to completion at `bb46732` from a wiped volume with nothing pre-started, which is the same chain minus the `git clone`. Commits after that (`f0cb5a6` palette, `14abb68` docs) were verified in place rather than by re-cloning, because the host disk filled (B2). Of everything post-clone, only the Makefile `browsers` target touches the setup path, and it was exercised including its ~100 MB first-run download |
-| 2 | CI green | **UNVERIFIED — needs a git remote** | `.github/workflows/ci.yml`, five jobs: `python`, `web`, `migrations`, `e2e`, `secrets`. `git remote -v` is empty and `gh` is not installed, so it has never run. Every command it issues was run locally and passes (see the table below), and the YAML parses — but "the same commands pass on my laptop" is **not** the criterion, and this row stays UNVERIFIED until a real run exists |
+| 2 | CI green | **VERIFIED** | Run **#3** at commit `4c1643f` on `github.com/Tahmudun/Nightshift`: all five jobs green — `python`, `web`, `migrations`, `e2e`, `secrets`. https://github.com/Tahmudun/Nightshift/actions/runs/30528565491 · Longest job 129s, inside A14's five-minute target. Runs 1 and 2 failed and were worth more than a first-try pass: between them they exposed a secret scan that had never executed, a Postgres image that did not exist, a formatter hook that could never resolve, a drift probe comparing our models against the whole server, and a migration path that rolled back every upgrade while exiting 0. Every one of those lived in configuration no local command runs, which is precisely the gap this row exists to close |
 | 3 | Migrations apply and roll back | **VERIFIED** | Against live PostGIS 16 + pgvector. Before: 12 tables, 8 enum types. `make migrate-down` → the 8 project tables and **all 8 enum types** dropped, leaving only `alembic_version` and PostGIS's own `geography_columns` / `geometry_columns` / `spatial_ref_sys`. A downgrade that forgets `DROP TYPE` leaves enums behind and this is how you see it. `make migrate` → 12 tables and 8 enums restored; re-seeding produced a byte-identical corpus (10 jobs, 21 locations, same confidence split) |
 | 4 | `/health` reports DB + Redis honestly, including when they are down | **VERIFIED** | Real containers stopped, not mocked. Both up → `200 {"status":"ok",…"database":{"ok":true,"detail":"postgis + pgvector present","latency_ms":4.27},"redis":{"ok":true,"detail":"PONG","latency_ms":3.2}}`. Postgres stopped → `503 "degraded"`, `database.ok:false`, `detail:"ConnectionRefusedError: [Errno 61] Connection refused"`, **redis still `ok:true`** — the two are reported independently. Redis stopped too → both false, with distinguishable details. `/health/live` stayed `204` throughout, as a liveness probe should. Both restarted → `200`, and `/stats` still reported all 10 jobs open: an outage closed nothing (I3) |
 | 5 | One real Greenhouse board's jobs appear in the browser | **VERIFIED** | Board fetched live 2026-07-29: `boards-api.greenhouse.io/v1/boards/datadog/jobs?content=true` → HTTP 200, 5,309,493 bytes, 426 postings, 134 naming New York. 10 recorded verbatim into a committed fixture. Now rendered in a real Chromium via `apps/web/e2e-seeded/` — **6 tests, all passing** — which reads the expected titles from the API at run time and finds them in the DOM. Also asserts the A2 multi-location rows, the I7 "committed fixture" badge, and that no job ladder claims verified/approximate placement |
 | 6 | No secrets committed | **VERIFIED** | No key-shaped strings anywhere in the tree (scanned for `sk-*`, `AKIA*`, `ghp_*`, PEM private keys). `.env` is gitignored (`.gitignore:2`), confirmed via `git check-ignore`. Only credential-shaped value in the repo is `citysignal_dev_only`, the local compose password, confined to the files entitled to contain it. `tests/test_env_example.py` asserts this rather than trusting it. **gitleaks itself had never executed until 2026-07-30** — its config used a negative lookahead, which Go's RE2 cannot compile, so it panicked at config load on every invocation (see the session log). Now: `gitleaks detect` over full history exits 0 on gitleaks **8.24.3**, the version the action pins, and a planted `citysignal_dev_only` in a non-allowlisted file exits 2 — so the rule is proven able to fail |
 
-**M0 is not complete.** Row 2 is unsatisfied and it needs a human to create a
-remote. Rows 1 and 3–6 are verified with the recorded output above.
+**M0 is complete.** All six rows are verified with recorded output above.
 
-Row 2 is not a formality: CI is the only thing that runs the `migrations` up →
-down → up sequence and the drift probe on every change, and it is where the
-`e2e` job guards acceptance row 5 from regressing.
+Row 2 was not a formality, and the record shows it: three CI runs were needed,
+and the two failures found five defects that every local command had passed
+straight over. CI is the only thing that runs the `migrations` up → down → up
+sequence, the drift probe, and the secret scan on every change, and it is where
+the `e2e` job guards acceptance row 5 from regressing.
 
 ---
 
@@ -133,7 +137,7 @@ These ran on this machine and passed:
 | Python format | `ruff format --check services/api` | 35 files already formatted |
 | Python lint | `ruff check services/api` | All checks passed |
 | Python types | `mypy citysignal` | Success: no issues found in 28 source files (strict) |
-| Python tests | `pytest -q` | **196 passed** in 2.26s |
+| Python tests | `pytest -q` | **204 passed** in 3.01s |
 | Web types | `tsc --noEmit` | clean, `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes` |
 | Web lint | `eslint . --max-warnings 0` | clean |
 | Web tests | `vitest run` | **35 passed** (4 files) |
@@ -146,7 +150,7 @@ These ran on this machine and passed:
 | Whole-stack acceptance | `make acceptance` | **18 checks + 6 browser tests**, from an empty volume, nothing pre-started |
 | Live source reachable | `GET /v1/boards/datadog/jobs` | HTTP 200, 426 postings |
 
-**Total: 242 automated tests passing** (196 Python, 35 web unit, 5 degraded e2e,
+**Total: 250 automated tests passing** (204 Python, 35 web unit, 5 degraded e2e,
 6 seeded e2e), plus the 18 assertions in `scripts/verify.py`, which are not
 pytest tests but do gate `make acceptance` with an exit code.
 
@@ -443,6 +447,16 @@ completely compatible with an empty schema.
 (version row present, 10 tables), `make acceptance` (18 checks + 6 browser
 tests), and CI's full migrations sequence replayed against a local replica of
 the CI image: up, down, up, drift probe clean, seed loads.
+
+Run 3 at `4c1643f`: **all five jobs green**, longest 129s.
+https://github.com/Tahmudun/Nightshift/actions/runs/30528565491 — acceptance
+row 2 satisfied, and M0 closed.
+
+The pattern across all three runs is worth keeping. Every defect CI found lived
+in a file no local command executes: a scanner config, a service image tag, a
+formatter hook, an autogenerate filter. The application code was green on run 1
+and never broke. "The same commands pass on my laptop" was true the whole time
+and would have shipped five bugs.
 
 ### 2026-07-30 — M0 acceptance
 
