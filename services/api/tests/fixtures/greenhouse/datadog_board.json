@@ -1,0 +1,1097 @@
+{
+  "jobs": [
+    {
+      "absolute_url": "https://careers.datadoghq.com/detail/6572669/?gh_jid=6572669",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3056731,
+      "location": {
+        "name": "New York, New York, USA"
+      },
+      "metadata": [
+        {
+          "id": 33310,
+          "name": "Time Type",
+          "value": "Full time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 166208,
+          "name": "Area - Engineering",
+          "value": "Data Science",
+          "value_type": "single_select"
+        },
+        {
+          "id": 498252,
+          "name": "Cost Center",
+          "value": "Engineering - Dev Eng",
+          "value_type": "single_select"
+        },
+        {
+          "id": 516515,
+          "name": "Geography",
+          "value": "North America",
+          "value_type": "single_select"
+        },
+        {
+          "id": 9593635,
+          "name": "Early Career Time Type",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 29446322,
+          "name": "Pay Transparency Range",
+          "value": {
+            "unit": "USD",
+            "max_value": "400000.0",
+            "min_value": "320000.0"
+          },
+          "value_type": "currency_range"
+        },
+        {
+          "id": 31273219,
+          "name": "Does this role require access to ITAR-controlled data?",
+          "value": "No",
+          "value_type": "single_select"
+        },
+        {
+          "id": 58619948,
+          "name": "IC or MG",
+          "value": "IC",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 6572669,
+      "updated_at": "2026-07-28T05:41:06-04:00",
+      "requisition_id": "R12181",
+      "title": "AI Research Scientist - Datadog AI Research (DAIR)",
+      "company_name": "Datadog",
+      "first_published": "2025-01-24T09:48:23-05:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;As a Research Scientist on our team, you will partner with Research Engineers, working on fundamental research problems and collaborating with Datadog&#39;s product and engineering teams to translate research advances into products.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;Building on our track record of AI-powered solutions (e.g., &lt;a href=&quot;https://www.datadoghq.com/blog/bits-ai-sre/&quot;&gt;Bits AI&lt;/a&gt;, &lt;a href=&quot;https://www.datadoghq.com/blog/engineering/self-optimizing-system/&quot;&gt;Bits Evolve&lt;/a&gt;, and our &lt;a href=&quot;https://www.datadoghq.com/blog/ai/toto-boom-unleashed/&quot;&gt;time series foundation model&lt;/a&gt;), Datadog AI Research tackles high-risk, high-reward problems grounded in real-world challenges in cloud observability and security.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;We are focused on two research areas:&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;ol&gt;\n&lt;li&gt;&lt;strong&gt;World Models for Observability&lt;/strong&gt; -- Training multimodal foundation models that learn the joint dynamics of distributed systems across metrics, traces, logs, topology, and events. These models power advanced forecasting, anomaly detection, root cause analysis, counterfactual simulation (&quot;what if?&quot;), and provide a learned planning backbone for our autonomous agents.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Trained Agents for Observability &lt;/strong&gt;-- Post-training models to operate autonomously across Datadog&#39;s domain. SRE incident response is our first target, with a clear path to code repair, security response, and infrastructure optimization. We build the simulation environments, RL training loops, and evaluation infrastructure needed to train agents that match or surpass frontier models at a fraction of the cost.&lt;/li&gt;\n&lt;/ol&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;What You&#39;ll Do:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Conduct research in generative AI and machine learning, building specialized foundation models and trained agents for observability&lt;/li&gt;\n&lt;li&gt;Train multimodal models on large-scale, diverse telemetry data (metrics, logs, traces, topology, events) using distributed training infrastructure&lt;/li&gt;\n&lt;li&gt;Design and build simulated environments and RL training loops for on-policy agent training and evaluation&lt;/li&gt;\n&lt;li&gt;Collaborate with cross-functional teams (Product, Engineering) to integrate capabilities like multimodal world modeling and autonomous agents into Datadog&#39;s products&lt;/li&gt;\n&lt;li&gt;Stay at the forefront of foundation models, world models, and RL-based agent research&lt;/li&gt;\n&lt;li&gt;Contribute to research publications, present at top-tier conferences (e.g., NeurIPS, ICLR, ICML), and help open-source key model artifacts and benchmarks&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Who You Are:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;You hold a PhD in Computer Science, Machine Learning, or a related field, with deep expertise in areas like generative modeling, world models, AI agents, reinforcement learning, or multimodal learning (or have equivalent experience)&lt;/li&gt;\n&lt;li&gt;You have extensive experience designing and implementing deep learning models and agents, with a strong background in distributed training frameworks (e.g., DeepSpeed, Megatron-LM) and ML libraries (PyTorch)&lt;/li&gt;\n&lt;li&gt;You have a track record of impactful publications at top-tier venues (e.g., NeurIPS, ICLR, ICML, TMLR)&lt;/li&gt;\n&lt;li&gt;You are familiar with efficient training, post-training, and inference techniques for large foundation models&lt;/li&gt;\n&lt;li&gt;You can explain complex models and research findings to both technical and non-technical audiences&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Bonus Points (any of the following):&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Experience bridging research and real-world product applications, especially with large foundation models, world models, or RL-trained agents&lt;/li&gt;\n&lt;li&gt;Passion for pushing the boundaries of AI with a focus on customer impact and scalable deployment&lt;/li&gt;\n&lt;li&gt;Experience writing production data pipelines and applications&lt;/li&gt;\n&lt;li&gt;Hands-on experience with GPU programming and optimization, including CUDA&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;Datadog values people from all walks of life. We understand not everyone will meet all the above qualifications on day one. That&#39;s okay. If you’re passionate about technology and want to grow your skills, we encourage you to apply.&lt;/em&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Benefits and Growth:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Competitive global benefits&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;New hire stock equity (RSUs) and employee stock purchase plan (ESPP)&lt;/li&gt;\n&lt;li&gt;Opportunity to collaborate closely with colleagues across the Datadog offices in New York City and Paris&lt;/li&gt;\n&lt;li&gt;Opportunity to attend and present at conferences and meetups&lt;/li&gt;\n&lt;li&gt;Intra-departmental mentor and buddy program for in-house networking&lt;/li&gt;\n&lt;li&gt;An inclusive company culture, ability to join our Community Guilds (Datadog employee resource groups)&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;Benefits and Growth listed above may vary based on the country of your employment and the nature of your employment with Datadog.&lt;/em&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;About Datadog:&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Datadog (NASDAQ: DDOG) is a global SaaS business, delivering a rare combination of growth and profitability. We are on a mission to break down silos and solve complexity in the cloud age by enabling digital transformation, cloud migration, and infrastructure monitoring of our customers’ entire technology stacks. Built by engineers, for engineers, Datadog is used by organizations of all sizes across a wide range of industries. Together, we champion professional development, diversity of thought, innovation, and work excellence to empower continuous growth. Join the pack and become part of a collaborative, pragmatic, and thoughtful people-first community where we solve tough problems, take smart risks, and celebrate one another. Learn more about #DatadogLife on Instagram, LinkedIn, and Datadog Learning Center.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Equal Opportunity at Datadog:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Datadog is an Affirmative Action and Equal Opportunity Employer and is proud to offer equal employment opportunity to everyone regardless of race, color, ancestry, religion, sex, national origin, sexual orientation, age, citizenship, marital status, disability, gender identity, veteran status, and more. We also consider qualified applicants regardless of criminal histories, consistent with legal requirements. Here are our Candidate Legal Notices for your reference.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Your Privacy:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Any information you submit to Datadog as part of your application will be processed in accordance with Datadog’s Applicant and Candidate Privacy Notice.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;&lt;div class=&quot;content-pay-transparency&quot;&gt;&lt;div class=&quot;pay-input&quot;&gt;&lt;div class=&quot;description&quot;&gt;&lt;p&gt;Datadog offers a competitive salary and equity package, and may include variable compensation. Actual compensation is based on factors such as the candidate&#39;s skills, qualifications, and experience. In addition, Datadog offers a wide range of best in class, comprehensive and inclusive employee benefits for this role including healthcare, dental, parental planning, and mental health benefits, a 401(k) plan and match, paid time off, fitness reimbursements, and a discounted employee stock purchase plan.&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;title&quot;&gt;The reasonably estimated yearly salary for this role at Datadog is:&lt;/div&gt;&lt;div class=&quot;pay-range&quot;&gt;&lt;span&gt;$320,000&lt;/span&gt;&lt;span class=&quot;divider&quot;&gt;&amp;mdash;&lt;/span&gt;&lt;span&gt;$400,000 USD&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;hr&gt;\n&lt;p&gt;&lt;strong&gt;About Datadog:&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Datadog is the leading observability and security platform for the AI era, providing businesses with unified visibility across the technology stack to manage complexity at scale. It brings applications, infrastructure, data, models, and security into one place, using AI to detect and resolve issues before they impact customers. Trusted globally by Fortune 500 companies and high-growth AI leaders, Datadog enables businesses to move faster with clarity and confidence. Learn more about #DatadogLife on &lt;a href=&quot;https://www.instagram.com/datadoghq/?hl=en&quot; target=&quot;_blank&quot;&gt;Instagram&lt;/a&gt;, &lt;a href=&quot;https://www.linkedin.com/company/datadog&quot; target=&quot;_blank&quot;&gt;LinkedIn,&lt;/a&gt; and &lt;a href=&quot;https://learn.datadoghq.com/&quot; target=&quot;_blank&quot;&gt;Datadog Learning Center. &lt;/a&gt;&lt;/p&gt;\n&lt;hr&gt;\n&lt;p data-renderer-start-pos=&quot;215&quot;&gt;&lt;strong data-renderer-mark=&quot;true&quot;&gt;Equal Opportunity at Datadog:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Datadog is proud to offer &lt;a href=&quot;https://www.eeoc.gov/sites/default/files/2023-06/22-088_EEOC_KnowYourRights6.12ScreenRdr.pdf&quot; target=&quot;_blank&quot;&gt;equal employment opportunity&lt;/a&gt; to everyone regardless of race, color, ancestry, religion, sex, national origin, sexual orientation, age, citizenship, marital status, disability, gender identity, veteran status, and other characteristics protected by law. We also consider qualified applicants regardless of criminal histories, consistent with legal requirements. Here are our &lt;a href=&quot;https://www.datadoghq.com/legal/candidate-legal-notices/&quot; target=&quot;_blank&quot;&gt;Candidate Legal Notices&lt;/a&gt; for your reference.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;Datadog endeavors to make our Careers Page accessible to all users. If you would like to contact us regarding the accessibility of our website or need assistance completing the application process, please complete &lt;a href=&quot;https://docs.google.com/forms/d/e/1FAIpQLSeoJeduEZ2NdZF_65uZmWUrCM-zee7yADXX1s6Xr9zAGq8iKA/viewform&quot; target=&quot;_blank&quot;&gt;this form&lt;/a&gt;. This form is for accommodation requests only and cannot be used to inquire about the status of applications.&amp;nbsp;&lt;/p&gt;\n&lt;p data-renderer-start-pos=&quot;662&quot;&gt;&lt;strong data-renderer-mark=&quot;true&quot;&gt;Privacy and AI Guidelines:&lt;/strong&gt;&lt;/p&gt;\n&lt;p data-renderer-start-pos=&quot;662&quot;&gt;Any information you submit to Datadog as part of your application will be processed in accordance with Datadog’s&amp;nbsp;&lt;a class=&quot;c-link&quot; href=&quot;https://www.datadoghq.com/legal/applicant-candidate-privacy/&quot; target=&quot;_blank&quot; data-stringify-link=&quot;https://www.datadoghq.com/legal/applicant-candidate-privacy/&quot; data-sk=&quot;tooltip_parent&quot;&gt;Applicant and Candidate Privacy Notice&lt;/a&gt;. For information on our AI policy, please visit &lt;a href=&quot;https://www.datadoghq.com/legal/interviewing-at-datadog-ai-guidelines/&quot; target=&quot;_blank&quot;&gt;Interviewing at Datadog AI Guidelines&lt;/a&gt;.&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 72253,
+          "name": "Dev Eng",
+          "child_ids": [],
+          "parent_id": 9022
+        }
+      ],
+      "offices": [
+        {
+          "id": 5664,
+          "name": "New York",
+          "location": "New York, NY, United States",
+          "child_ids": [
+            81327,
+            76746
+          ],
+          "parent_id": 73429
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://careers.datadoghq.com/detail/7762722/?gh_jid=7762722",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3400647,
+      "location": {
+        "name": "Boston, Massachusetts, USA; New York, New York, USA; San Francisco, California, USA"
+      },
+      "metadata": [
+        {
+          "id": 33310,
+          "name": "Time Type",
+          "value": "Full time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 166208,
+          "name": "Area - Engineering",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 498252,
+          "name": "Cost Center",
+          "value": "Technical Solutions - Enterprise Sales Engineering",
+          "value_type": "single_select"
+        },
+        {
+          "id": 516515,
+          "name": "Geography",
+          "value": "North America",
+          "value_type": "single_select"
+        },
+        {
+          "id": 9593635,
+          "name": "Early Career Time Type",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 29446322,
+          "name": "Pay Transparency Range",
+          "value": {
+            "unit": "USD",
+            "max_value": "317000.0",
+            "min_value": "238000.0"
+          },
+          "value_type": "currency_range"
+        },
+        {
+          "id": 31273219,
+          "name": "Does this role require access to ITAR-controlled data?",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 58619948,
+          "name": "IC or MG",
+          "value": "MG",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 7762722,
+      "updated_at": "2026-07-28T05:41:06-04:00",
+      "requisition_id": "R18533",
+      "title": "Area Vice President, Sales Engineering",
+      "company_name": "Datadog",
+      "first_published": "2026-03-27T16:00:14-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;Datadog is looking for a visionary Senior Leader of Sales Engineering (SE) to lead and scale a high-performing team of SE Directors in North America across Enterprise, Majors, and Public Sector accounts.&lt;/p&gt;\n&lt;p&gt;This is a strategic leadership role with regional and global impact. You will define the Sales Engineering strategy for North America and act as a regional voice in global discussions with Product Management, Engineering, and Go-To-Market teams—ensuring that customer needs in North America influence Datadog’s global direction.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;At Datadog, we place value in our office culture - the relationships and collaboration it builds, and the creativity it brings to the table. We operate as a hybrid workplace to ensure our Datadogs can create a work-life harmony that best fits them.&lt;/em&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;What You Will Do&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Executive Leadership &amp;amp; Organizational Growth&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Recruit, develop, and lead a team 3rd line SE Directors, fostering a culture of technical excellence, customer-centricity, and continuous growth.&lt;/li&gt;\n&lt;li&gt;Define and drive the technical sales strategy across North America, and globally.&lt;/li&gt;\n&lt;li&gt;Set the vision, priorities, and operating model for Sales Engineering, ensuring alignment with Datadog’s business objectives and local market dynamics.&lt;/li&gt;\n&lt;li&gt;Partner with Sales Leadership to align on revenue targets, go-to-market initiatives, and strategic customer engagement across the region.&lt;/li&gt;\n&lt;li&gt;Represent North America Sales Engineering globally, ensuring regional perspectives and requirements are reflected in Datadog’s product roadmap and GTM planning.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Customer Partnership &amp;amp; Advocacy&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Act as a trusted advisor to C-level and senior technical executives, demonstrating how Datadog solves critical observability, performance, and security challenges, especially given the rapid business adoption of AI.&lt;/li&gt;\n&lt;li&gt;Provide executive support for high-stakes opportunities, offering guidance throughout complex sales cycles.&lt;/li&gt;\n&lt;li&gt;Serve as an executive sponsor for strategic customers across North America.&lt;/li&gt;\n&lt;li&gt;Promote value-based technical selling, empowering teams to deliver impactful business outcomes.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Cross-functional Collaboration &amp;amp; Global Influence&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Collaborate closely with Sales, Marketing, Product, Engineering, and Customer Success to align field execution and messaging.&lt;/li&gt;\n&lt;li&gt;Use customer and field insights to advocate for innovation and regional needs within Product and Engineering.&lt;/li&gt;\n&lt;li&gt;Influence Datadog’s product roadmap and go-to-market strategies through close collaboration with global stakeholders.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Operational Excellence&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Implement and scale pre-sales methodologies, tools, and KPIs to drive consistency and customer impact across North America.&lt;/li&gt;\n&lt;li&gt;Analyze team performance and regional trends to drive data-driven improvements.&lt;/li&gt;\n&lt;li&gt;Stay current on market trends, competitive landscape, customer pain points, and evolving partner ecosystems.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Who You Are&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;10+ years of experience in Sales Engineering, Solutions Architecture, or similar pre-sales leadership roles, with multiple years of SE leadership experience or second line leadership.&lt;/li&gt;\n&lt;li&gt;Proven expertise in enterprise SaaS, cloud, observability, AI, and security solutions, with a track record of driving technical sales success at scale.&lt;/li&gt;\n&lt;li&gt;Strong executive presence and ability to engage and influence C-level stakeholders in large, complex organizations.&lt;/li&gt;\n&lt;li&gt;Exceptional leadership, coaching, and team-building capabilities, with experience scaling high-impact teams.&lt;/li&gt;\n&lt;li&gt;Proven track record in building customer relationships and willing to get in the field and help with top down sale&lt;/li&gt;\n&lt;li&gt;Deep understanding of sales methodologies such as MEDDICC, Command of Message (CoM), or similar frameworks.&lt;/li&gt;\n&lt;li&gt;The general travel expectation is 25%, though during peak periods it may increase to 50%&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;em&gt;Datadog values people from all walks of life. We understand not everyone will meet all the above qualifications on day one. That&#39;s okay. If you’re passionate about technology and want to grow your skills, we encourage you to apply.&lt;/em&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;&lt;em&gt;Benefits and Growth :&lt;/em&gt;&lt;/strong&gt;&lt;em&gt;&amp;nbsp;&lt;/em&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Best-in-breed onboarding&lt;/li&gt;\n&lt;li&gt;Generous global benefits&lt;/li&gt;\n&lt;li&gt;Intra-departmental mentor and buddy program for in-house networking&lt;/li&gt;\n&lt;li&gt;New hire stock equity (RSUs) and employee stock purchase plan (ESPP)&lt;/li&gt;\n&lt;li&gt;Continuous professional development, product training, and career pathing&lt;/li&gt;\n&lt;li&gt;An inclusive company culture, able to join our Community Guilds and Inclusion Talks&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;em&gt;Benefits and Growth listed above may vary based on the country of your employment and the nature of your employment with Datadog.&lt;/em&gt;&lt;/p&gt;\n&lt;p style=&quot;color: white;&quot;&gt;#LI-Hybrid&lt;/p&gt;&lt;div class=&quot;content-pay-transparency&quot;&gt;&lt;div class=&quot;pay-input&quot;&gt;&lt;div class=&quot;description&quot;&gt;&lt;p&gt;Datadog offers a competitive salary and equity package, and may include variable compensation. Actual compensation is based on factors such as the candidate&#39;s skills, qualifications, and experience. In addition, Datadog offers a wide range of best in class, comprehensive and inclusive employee benefits for this role including healthcare, dental, parental planning, and mental health benefits, a 401(k) plan and match, paid time off, fitness reimbursements, and a discounted employee stock purchase plan.&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;title&quot;&gt;The reasonably estimated yearly salary for this role at Datadog is:&lt;/div&gt;&lt;div class=&quot;pay-range&quot;&gt;&lt;span&gt;$238,000&lt;/span&gt;&lt;span class=&quot;divider&quot;&gt;&amp;mdash;&lt;/span&gt;&lt;span&gt;$317,000 USD&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;hr&gt;\n&lt;p&gt;&lt;strong&gt;About Datadog:&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Datadog is the leading observability and security platform for the AI era, providing businesses with unified visibility across the technology stack to manage complexity at scale. It brings applications, infrastructure, data, models, and security into one place, using AI to detect and resolve issues before they impact customers. Trusted globally by Fortune 500 companies and high-growth AI leaders, Datadog enables businesses to move faster with clarity and confidence. Learn more about #DatadogLife on &lt;a href=&quot;https://www.instagram.com/datadoghq/?hl=en&quot; target=&quot;_blank&quot;&gt;Instagram&lt;/a&gt;, &lt;a href=&quot;https://www.linkedin.com/company/datadog&quot; target=&quot;_blank&quot;&gt;LinkedIn,&lt;/a&gt; and &lt;a href=&quot;https://learn.datadoghq.com/&quot; target=&quot;_blank&quot;&gt;Datadog Learning Center. &lt;/a&gt;&lt;/p&gt;\n&lt;hr&gt;\n&lt;p data-renderer-start-pos=&quot;215&quot;&gt;&lt;strong data-renderer-mark=&quot;true&quot;&gt;Equal Opportunity at Datadog:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Datadog is proud to offer &lt;a href=&quot;https://www.eeoc.gov/sites/default/files/2023-06/22-088_EEOC_KnowYourRights6.12ScreenRdr.pdf&quot; target=&quot;_blank&quot;&gt;equal employment opportunity&lt;/a&gt; to everyone regardless of race, color, ancestry, religion, sex, national origin, sexual orientation, age, citizenship, marital status, disability, gender identity, veteran status, and other characteristics protected by law. We also consider qualified applicants regardless of criminal histories, consistent with legal requirements. Here are our &lt;a href=&quot;https://www.datadoghq.com/legal/candidate-legal-notices/&quot; target=&quot;_blank&quot;&gt;Candidate Legal Notices&lt;/a&gt; for your reference.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;Datadog endeavors to make our Careers Page accessible to all users. If you would like to contact us regarding the accessibility of our website or need assistance completing the application process, please complete &lt;a href=&quot;https://docs.google.com/forms/d/e/1FAIpQLSeoJeduEZ2NdZF_65uZmWUrCM-zee7yADXX1s6Xr9zAGq8iKA/viewform&quot; target=&quot;_blank&quot;&gt;this form&lt;/a&gt;. This form is for accommodation requests only and cannot be used to inquire about the status of applications.&amp;nbsp;&lt;/p&gt;\n&lt;p data-renderer-start-pos=&quot;662&quot;&gt;&lt;strong data-renderer-mark=&quot;true&quot;&gt;Privacy and AI Guidelines:&lt;/strong&gt;&lt;/p&gt;\n&lt;p data-renderer-start-pos=&quot;662&quot;&gt;Any information you submit to Datadog as part of your application will be processed in accordance with Datadog’s&amp;nbsp;&lt;a class=&quot;c-link&quot; href=&quot;https://www.datadoghq.com/legal/applicant-candidate-privacy/&quot; target=&quot;_blank&quot; data-stringify-link=&quot;https://www.datadoghq.com/legal/applicant-candidate-privacy/&quot; data-sk=&quot;tooltip_parent&quot;&gt;Applicant and Candidate Privacy Notice&lt;/a&gt;. For information on our AI policy, please visit &lt;a href=&quot;https://www.datadoghq.com/legal/interviewing-at-datadog-ai-guidelines/&quot; target=&quot;_blank&quot;&gt;Interviewing at Datadog AI Guidelines&lt;/a&gt;.&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 202107,
+          "name": "Enterprise Sales Engineering",
+          "child_ids": [],
+          "parent_id": 9023
+        }
+      ],
+      "offices": [
+        {
+          "id": 5455,
+          "name": "Boston",
+          "location": "Boston, MA, United States",
+          "child_ids": [],
+          "parent_id": 78117
+        },
+        {
+          "id": 5664,
+          "name": "New York",
+          "location": "New York, NY, United States",
+          "child_ids": [
+            81327,
+            76746
+          ],
+          "parent_id": 73429
+        },
+        {
+          "id": 57627,
+          "name": "San Francisco",
+          "location": "San Francisco, CA, United States",
+          "child_ids": [],
+          "parent_id": 78108
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://careers.datadoghq.com/detail/7582679/?gh_jid=7582679",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3352269,
+      "location": {
+        "name": "Boston, Massachusetts, USA; Denver, Colorado, USA; Florida, USA, Remote; Illinois, USA, Remote; New Jersey, USA, Remote; New York, New York, USA; San Francisco, California, USA; Texas, USA, Remote; Washington, USA, Remote"
+      },
+      "metadata": [
+        {
+          "id": 33310,
+          "name": "Time Type",
+          "value": "Full time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 166208,
+          "name": "Area - Engineering",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 498252,
+          "name": "Cost Center",
+          "value": "Sales - Channels & Alliances",
+          "value_type": "single_select"
+        },
+        {
+          "id": 516515,
+          "name": "Geography",
+          "value": "North America",
+          "value_type": "single_select"
+        },
+        {
+          "id": 9593635,
+          "name": "Early Career Time Type",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 29446322,
+          "name": "Pay Transparency Range",
+          "value": {
+            "unit": "USD",
+            "max_value": "184000.0",
+            "min_value": "138000.0"
+          },
+          "value_type": "currency_range"
+        },
+        {
+          "id": 31273219,
+          "name": "Does this role require access to ITAR-controlled data?",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 58619948,
+          "name": "IC or MG",
+          "value": "IC",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 7582679,
+      "updated_at": "2026-07-28T05:41:06-04:00",
+      "requisition_id": "R17668",
+      "title": "Principal Partner Manager - Channels (GSI)",
+      "company_name": "Datadog",
+      "first_published": "2026-02-23T12:46:38-05:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;We are looking for an experienced Partner Sales Manager to ignite partnerships by identifying and recruiting new partners for long-term success and nurture ongoing relationships with key strategic Global Systems Integrator partners. &amp;nbsp;Our ultimate goal is building channels and alliances that drive new customer adoption and revenue. This is a great opportunity for you to join a high-growth cloud software company and help blaze the path for our company&#39;s expansion.&lt;br&gt;&lt;br&gt;At Datadog, we place value in our office culture - the relationships and collaboration it builds and the creativity it brings to the table. We operate as a hybrid workplace to ensure our Datadogs can create a work-life harmony that best fits them.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;What You&#39;ll Do:&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Identify and recruit new strategic Global SI partners to drive revenue growth&lt;/li&gt;\n&lt;li&gt;Enable and activate existing GSI partners through training, planning and joint selling activities&lt;/li&gt;\n&lt;li&gt;Coordinate the technical and marketing aspects of integrated partnership launches&lt;/li&gt;\n&lt;li&gt;Host regular business reviews with partners to drive accountability and report on success metrics&lt;/li&gt;\n&lt;li&gt;Work hand-in-hand with Datadog’s regional enterprise and commercial sales organizations&lt;/li&gt;\n&lt;li&gt;Generate partner-sourced net-new sales pipeline and revenue&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Who You Are:&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;10+ years of partner-facing, quota-carrying experience in business development, strategic alliances, or channel sales at a cloud services or software as a service organization&lt;/li&gt;\n&lt;li&gt;Proven experience in driving sales opportunities from lead generation to closure, effectively negotiating agreements and building long-lasting partnerships&lt;/li&gt;\n&lt;li&gt;Understanding of, and exposure to working with, the leading Global and regional SIs&lt;/li&gt;\n&lt;li&gt;Ability to quickly understand technical concepts and architectural scenarios, and explain them to others verbally and in writing&lt;/li&gt;\n&lt;li&gt;Willingness to travel 40-50% of the time&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Bonus Points:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;10+ years of partner-facing, quota-carrying experience in business development, strategic alliances, or channel sales at a cloud services or software as a service organization&lt;/li&gt;\n&lt;li&gt;Proven experience in driving sales opportunities from lead generation to closure, effectively negotiating agreements and building long-lasting partnerships&lt;/li&gt;\n&lt;li&gt;Understanding of, and exposure to working with, the leading Global and regional SIs&lt;/li&gt;\n&lt;li&gt;Ability to quickly understand technical concepts and architectural scenarios, and explain them to others verbally and in writing&lt;/li&gt;\n&lt;li&gt;Willingness to travel 40-50% of the time&lt;/li&gt;\n&lt;li&gt;Entrepreneurial mindset with a passion for taking initiatives from ideation to impact&lt;/li&gt;\n&lt;li&gt;Passion for fast-paced, sometimes unpredictable growth culture and environment&lt;/li&gt;\n&lt;li&gt;Background in SaaS and / or consumption based software platforms&lt;/li&gt;\n&lt;li&gt;Experience in identifying market opportunities with a track record of initiating go-to-market plans and sales follow-through&lt;/li&gt;\n&lt;li&gt;&amp;nbsp;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Datadog values people from all walks of life. We understand not everyone will meet all the above qualifications on day one. That&#39;s okay. If you’re passionate about technology and want to grow your skills, we encourage you to apply.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Benefits and Growth:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Entrepreneurial mindset with a passion for taking initiatives from ideation to impact&lt;/li&gt;\n&lt;li&gt;Passion for fast-paced, sometimes unpredictable growth culture and environment&lt;/li&gt;\n&lt;li&gt;Experience in identifying market opportunities with a track record of initiating go-to-market plans and sales follow-through&lt;/li&gt;\n&lt;li&gt;Background in SaaS and / or consumption based software platforms&lt;/li&gt;\n&lt;li&gt;Experience with systems management or monitoring&lt;/li&gt;\n&lt;li&gt;Experience with partnerships supporting Containers and/or DevOps, particularly in a cloud environment&lt;/li&gt;\n&lt;li&gt;Technical background/education&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;Benefits and Growth listed above may vary based on the country of your employment and the nature of your employment with Datadog.&lt;/p&gt;&lt;div class=&quot;content-pay-transparency&quot;&gt;&lt;div class=&quot;pay-input&quot;&gt;&lt;div class=&quot;description&quot;&gt;&lt;p&gt;Datadog offers a competitive salary and equity package, and may include variable compensation. Actual compensation is based on factors such as the candidate&#39;s skills, qualifications, and experience. In addition, Datadog offers a wide range of best in class, comprehensive and inclusive employee benefits for this role including healthcare, dental, parental planning, and mental health benefits, a 401(k) plan and match, paid time off, fitness reimbursements, and a discounted employee stock purchase plan.&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;title&quot;&gt;The reasonably estimated yearly salary for this role at Datadog is:&lt;/div&gt;&lt;div class=&quot;pay-range&quot;&gt;&lt;span&gt;$138,000&lt;/span&gt;&lt;span class=&quot;divider&quot;&gt;&amp;mdash;&lt;/span&gt;&lt;span&gt;$184,000 USD&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;hr&gt;\n&lt;p&gt;&lt;strong&gt;About Datadog:&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Datadog is the leading observability and security platform for the AI era, providing businesses with unified visibility across the technology stack to manage complexity at scale. It brings applications, infrastructure, data, models, and security into one place, using AI to detect and resolve issues before they impact customers. Trusted globally by Fortune 500 companies and high-growth AI leaders, Datadog enables businesses to move faster with clarity and confidence. Learn more about #DatadogLife on &lt;a href=&quot;https://www.instagram.com/datadoghq/?hl=en&quot; target=&quot;_blank&quot;&gt;Instagram&lt;/a&gt;, &lt;a href=&quot;https://www.linkedin.com/company/datadog&quot; target=&quot;_blank&quot;&gt;LinkedIn,&lt;/a&gt; and &lt;a href=&quot;https://learn.datadoghq.com/&quot; target=&quot;_blank&quot;&gt;Datadog Learning Center. &lt;/a&gt;&lt;/p&gt;\n&lt;hr&gt;\n&lt;p data-renderer-start-pos=&quot;215&quot;&gt;&lt;strong data-renderer-mark=&quot;true&quot;&gt;Equal Opportunity at Datadog:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Datadog is proud to offer &lt;a href=&quot;https://www.eeoc.gov/sites/default/files/2023-06/22-088_EEOC_KnowYourRights6.12ScreenRdr.pdf&quot; target=&quot;_blank&quot;&gt;equal employment opportunity&lt;/a&gt; to everyone regardless of race, color, ancestry, religion, sex, national origin, sexual orientation, age, citizenship, marital status, disability, gender identity, veteran status, and other characteristics protected by law. We also consider qualified applicants regardless of criminal histories, consistent with legal requirements. Here are our &lt;a href=&quot;https://www.datadoghq.com/legal/candidate-legal-notices/&quot; target=&quot;_blank&quot;&gt;Candidate Legal Notices&lt;/a&gt; for your reference.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;Datadog endeavors to make our Careers Page accessible to all users. If you would like to contact us regarding the accessibility of our website or need assistance completing the application process, please complete &lt;a href=&quot;https://docs.google.com/forms/d/e/1FAIpQLSeoJeduEZ2NdZF_65uZmWUrCM-zee7yADXX1s6Xr9zAGq8iKA/viewform&quot; target=&quot;_blank&quot;&gt;this form&lt;/a&gt;. This form is for accommodation requests only and cannot be used to inquire about the status of applications.&amp;nbsp;&lt;/p&gt;\n&lt;p data-renderer-start-pos=&quot;662&quot;&gt;&lt;strong data-renderer-mark=&quot;true&quot;&gt;Privacy and AI Guidelines:&lt;/strong&gt;&lt;/p&gt;\n&lt;p data-renderer-start-pos=&quot;662&quot;&gt;Any information you submit to Datadog as part of your application will be processed in accordance with Datadog’s&amp;nbsp;&lt;a class=&quot;c-link&quot; href=&quot;https://www.datadoghq.com/legal/applicant-candidate-privacy/&quot; target=&quot;_blank&quot; data-stringify-link=&quot;https://www.datadoghq.com/legal/applicant-candidate-privacy/&quot; data-sk=&quot;tooltip_parent&quot;&gt;Applicant and Candidate Privacy Notice&lt;/a&gt;. For information on our AI policy, please visit &lt;a href=&quot;https://www.datadoghq.com/legal/interviewing-at-datadog-ai-guidelines/&quot; target=&quot;_blank&quot;&gt;Interviewing at Datadog AI Guidelines&lt;/a&gt;.&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 72274,
+          "name": "Channels & Alliances",
+          "child_ids": [],
+          "parent_id": 9021
+        }
+      ],
+      "offices": [
+        {
+          "id": 5455,
+          "name": "Boston",
+          "location": "Boston, MA, United States",
+          "child_ids": [],
+          "parent_id": 78117
+        },
+        {
+          "id": 61865,
+          "name": "Denver",
+          "location": "Denver, Colorado, United States",
+          "child_ids": [],
+          "parent_id": 78231
+        },
+        {
+          "id": 5664,
+          "name": "New York",
+          "location": "New York, NY, United States",
+          "child_ids": [
+            81327,
+            76746
+          ],
+          "parent_id": 73429
+        },
+        {
+          "id": 76731,
+          "name": "Remote - Florida",
+          "location": "Florida, United States",
+          "child_ids": [],
+          "parent_id": 63588
+        },
+        {
+          "id": 76735,
+          "name": "Remote - Illinois",
+          "location": "Illinois, United States",
+          "child_ids": [],
+          "parent_id": 78119
+        },
+        {
+          "id": 76767,
+          "name": "Remote - New Jersey",
+          "location": "New Jersey, United States",
+          "child_ids": [],
+          "parent_id": 78251
+        },
+        {
+          "id": 76757,
+          "name": "Remote - Texas",
+          "location": null,
+          "child_ids": [],
+          "parent_id": 63589
+        },
+        {
+          "id": 76761,
+          "name": "Remote - Washington",
+          "location": "Washington, United States",
+          "child_ids": [],
+          "parent_id": 78112
+        },
+        {
+          "id": 57627,
+          "name": "San Francisco",
+          "location": "San Francisco, CA, United States",
+          "child_ids": [],
+          "parent_id": 78108
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://careers.datadoghq.com/detail/7194969/?gh_jid=7194969",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": true
+        }
+      ],
+      "internal_job_id": 3228359,
+      "location": {
+        "name": "Paris, France"
+      },
+      "metadata": [
+        {
+          "id": 33310,
+          "name": "Time Type",
+          "value": "Full time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 166208,
+          "name": "Area - Engineering",
+          "value": "Data Science",
+          "value_type": "single_select"
+        },
+        {
+          "id": 498252,
+          "name": "Cost Center",
+          "value": "Engineering - Dev Eng",
+          "value_type": "single_select"
+        },
+        {
+          "id": 516515,
+          "name": "Geography",
+          "value": "EMEA",
+          "value_type": "single_select"
+        },
+        {
+          "id": 9593635,
+          "name": "Early Career Time Type",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 29446322,
+          "name": "Pay Transparency Range",
+          "value": null,
+          "value_type": "currency_range"
+        },
+        {
+          "id": 31273219,
+          "name": "Does this role require access to ITAR-controlled data?",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 58619948,
+          "name": "IC or MG",
+          "value": "IC",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 7194969,
+      "updated_at": "2026-07-28T05:41:06-04:00",
+      "requisition_id": "R15376",
+      "title": "AI Research Engineer - Datadog AI Research (DAIR)",
+      "company_name": "Datadog",
+      "first_published": "2025-08-27T10:34:20-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;As a Research Engineer on our team, you will partner with Research Scientists to turn research ideas into working systems, building the data, tooling, and infrastructure that enable rapid iteration, trustworthy evaluation, and a smooth path from prototype to production.&lt;/p&gt;\n&lt;p data-renderer-start-pos=&quot;4616&quot;&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;Building on our track record of AI-powered solutions (e.g., &lt;a href=&quot;https://www.datadoghq.com/blog/bits-ai-sre/&quot;&gt;Bits AI&lt;/a&gt;, &lt;a href=&quot;https://www.datadoghq.com/blog/engineering/self-optimizing-system/&quot;&gt;Bits Evolve&lt;/a&gt;, and our &lt;a href=&quot;https://www.datadoghq.com/blog/ai/toto-boom-unleashed/&quot;&gt;time series foundation model&lt;/a&gt;), Datadog AI Research tackles high-risk, high-reward problems grounded in real-world challenges in cloud observability and security.&lt;/p&gt;\n&lt;p data-renderer-start-pos=&quot;4616&quot;&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;We are focused on two research areas:&lt;/p&gt;\n&lt;p data-renderer-start-pos=&quot;4616&quot;&gt;&amp;nbsp;&lt;/p&gt;\n&lt;ol&gt;\n&lt;li&gt;&lt;strong&gt;World Models for Observability&lt;/strong&gt; -- Training multimodal foundation models that learn the joint dynamics of distributed systems across metrics, traces, logs, topology, and events. These models power advanced forecasting, anomaly detection, root cause analysis, counterfactual simulation (&quot;what if?&quot;), and provide a learned planning backbone for our autonomous agents.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Trained Agents for Observability&lt;/strong&gt;-- Post-training models to operate autonomously across Datadog&#39;s domain. SRE incident response is our first target, with a clear path to code repair, security response, and infrastructure optimization. We build the simulation environments, RL training loops, and evaluation infrastructure needed to train agents that match or surpass frontier models at a fraction of the cost.&lt;/li&gt;\n&lt;/ol&gt;\n&lt;p data-renderer-start-pos=&quot;4616&quot;&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;What You&#39;ll Do:&lt;/strong&gt;&lt;/p&gt;\n&lt;p data-renderer-start-pos=&quot;4616&quot;&gt;&amp;nbsp;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Build and operate multimodal data pipelines, training and evaluation infrastructure, benchmarks, and internal tooling&lt;/li&gt;\n&lt;li&gt;Implement models, run experiments at scale, and profile for reliability, performance, and cost&lt;/li&gt;\n&lt;li&gt;Build simulation environments and replay infrastructure for agent training and evaluation&lt;/li&gt;\n&lt;li&gt;Orchestrate distributed training and distributed RL with Ray, including scheduling, scaling, and failure recovery&lt;/li&gt;\n&lt;li&gt;Establish rigorous automated benchmarks and regression tests for world model predictions, agent performance, and simulation fidelity&lt;/li&gt;\n&lt;li&gt;Collaborate with Research Scientists, Product, and Engineering to integrate capabilities into Datadog&#39;s products and to harden prototypes into reliable services&lt;/li&gt;\n&lt;li&gt;Contribute to research publications at top-tier conferences (e.g., NeurIPS, ICLR, ICML), and produce high-quality code, documentation, and open-source artifacts&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p data-renderer-start-pos=&quot;4616&quot;&gt;&lt;br&gt;&lt;br&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Who You Are:&lt;/strong&gt;&lt;/p&gt;\n&lt;p data-renderer-start-pos=&quot;4616&quot;&gt;&amp;nbsp;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;You have depth in distributed computing, RL Infra, and ML systems for training and inference at scale; experience with Ray, Slurm, or similar frameworks is a plus&lt;/li&gt;\n&lt;li&gt;You are proficient in Python, familiar with a systems language (e.g., Rust, C++, or Go), and comfortable with modern cloud and data infrastructure&lt;/li&gt;\n&lt;li&gt;You have practical experience implementing and operating ML training and inference systems (e.g., PyTorch or JAX), including containerization, orchestration, and GPU acceleration&lt;/li&gt;\n&lt;li&gt;You have practical experience with large-scale model training and fine-tuning, including frameworks like Megatron-LM, DeepSpeed, SkyRL, VeRL, or TorchTitan, and techniques such as SFT, RLVR, RLHF, and efficient inference (quantization, speculative decoding)&lt;/li&gt;\n&lt;li&gt;You can explain design and performance trade-offs clearly to both technical and non-technical audiences&lt;/li&gt;\n&lt;li&gt;You have experience supporting or contributing to research publications&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p data-renderer-start-pos=&quot;4616&quot;&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Bonus Points (any of the following):&lt;/strong&gt;&lt;/p&gt;\n&lt;p data-renderer-start-pos=&quot;4616&quot;&gt;&amp;nbsp;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;You have strong software engineering skills with experience in domains such as observability, SRE, or security&lt;/li&gt;\n&lt;li&gt;You have experience bridging research prototypes and real-world product applications, especially with large foundation models, world models, or RL-trained agents&lt;/li&gt;\n&lt;li&gt;You have a passion for pushing the boundaries of AI with a focus on customer impact and scalable deployment&lt;/li&gt;\n&lt;li&gt;You have hands-on experience with GPU programming and optimization, including CUDA&lt;/li&gt;\n&lt;li&gt;You have experience writing production data pipelines and applications&lt;/li&gt;\n&lt;li&gt;You have experience building simulation or sandbox environments for agent training&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p data-renderer-start-pos=&quot;4616&quot;&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;Datadog values people from all walks of life. We understand not everyone will meet all the above qualifications on day one. That&#39;s okay. If you’re passionate about technology and want to grow your skills, we encourage you to apply.&lt;/em&gt;&lt;/p&gt;\n&lt;p data-renderer-start-pos=&quot;4616&quot;&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Benefits and Growth:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Competitive global benefits&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;New hire stock equity (RSUs) and employee stock purchase plan (ESPP)&lt;/li&gt;\n&lt;li&gt;Opportunity to collaborate closely with colleagues across the Datadog offices in New York City and Paris&lt;/li&gt;\n&lt;li&gt;Opportunity to attend and present at conferences and meetups&lt;/li&gt;\n&lt;li&gt;Intra-departmental mentor and buddy program for in-house networking&lt;/li&gt;\n&lt;li&gt;An inclusive company culture, ability to join our Community Guilds (Datadog employee resource groups)&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p data-renderer-start-pos=&quot;4616&quot;&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;Benefits and Growth listed above may vary based on the country of your employment and the nature of your employment with Datadog.&lt;/em&gt;&lt;/p&gt;\n&lt;p data-renderer-start-pos=&quot;4616&quot;&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;About Datadog:&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Datadog (NASDAQ: DDOG) is a global SaaS business, delivering a rare combination of growth and profitability. We are on a mission to break down silos and solve complexity in the cloud age by enabling digital transformation, cloud migration, and infrastructure monitoring of our customers’ entire technology stacks. Built by engineers, for engineers, Datadog is used by organizations of all sizes across a wide range of industries. Together, we champion professional development, diversity of thought, innovation, and work excellence to empower continuous growth. Join the pack and become part of a collaborative, pragmatic, and thoughtful people-first community where we solve tough problems, take smart risks, and celebrate one another. Learn more about #DatadogLife on Instagram, LinkedIn, and Datadog Learning Center.&lt;/p&gt;\n&lt;p data-renderer-start-pos=&quot;4616&quot;&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Equal Opportunity at Datadog:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Datadog is an Affirmative Action and Equal Opportunity Employer and is proud to offer equal employment opportunity to everyone regardless of race, color, ancestry, religion, sex, national origin, sexual orientation, age, citizenship, marital status, disability, gender identity, veteran status, and more. We also consider qualified applicants regardless of criminal histories, consistent with legal requirements. Here are our Candidate Legal Notices for your reference.&lt;/p&gt;\n&lt;p data-renderer-start-pos=&quot;4616&quot;&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Your Privacy:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Any information you submit to Datadog as part of your application will be processed in accordance with Datadog’s Applicant and Candidate Privacy Notice.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p style=&quot;color: white;&quot;&gt;#LI-hybrid&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;hr&gt;\n&lt;p&gt;&lt;strong&gt;About Datadog:&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Datadog is the leading observability and security platform for the AI era, providing businesses with unified visibility across the technology stack to manage complexity at scale. It brings applications, infrastructure, data, models, and security into one place, using AI to detect and resolve issues before they impact customers. Trusted globally by Fortune 500 companies and high-growth AI leaders, Datadog enables businesses to move faster with clarity and confidence. Learn more about #DatadogLife on &lt;a href=&quot;https://www.instagram.com/datadoghq/?hl=en&quot; target=&quot;_blank&quot;&gt;Instagram&lt;/a&gt;, &lt;a href=&quot;https://www.linkedin.com/company/datadog&quot; target=&quot;_blank&quot;&gt;LinkedIn,&lt;/a&gt; and &lt;a href=&quot;https://learn.datadoghq.com/&quot; target=&quot;_blank&quot;&gt;Datadog Learning Center. &lt;/a&gt;&lt;/p&gt;\n&lt;hr&gt;\n&lt;p data-renderer-start-pos=&quot;215&quot;&gt;&lt;strong data-renderer-mark=&quot;true&quot;&gt;Equal Opportunity at Datadog:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Datadog is proud to offer &lt;a href=&quot;https://www.eeoc.gov/sites/default/files/2023-06/22-088_EEOC_KnowYourRights6.12ScreenRdr.pdf&quot; target=&quot;_blank&quot;&gt;equal employment opportunity&lt;/a&gt; to everyone regardless of race, color, ancestry, religion, sex, national origin, sexual orientation, age, citizenship, marital status, disability, gender identity, veteran status, and other characteristics protected by law. We also consider qualified applicants regardless of criminal histories, consistent with legal requirements. Here are our &lt;a href=&quot;https://www.datadoghq.com/legal/candidate-legal-notices/&quot; target=&quot;_blank&quot;&gt;Candidate Legal Notices&lt;/a&gt; for your reference.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;Datadog endeavors to make our Careers Page accessible to all users. If you would like to contact us regarding the accessibility of our website or need assistance completing the application process, please complete &lt;a href=&quot;https://docs.google.com/forms/d/e/1FAIpQLSeoJeduEZ2NdZF_65uZmWUrCM-zee7yADXX1s6Xr9zAGq8iKA/viewform&quot; target=&quot;_blank&quot;&gt;this form&lt;/a&gt;. This form is for accommodation requests only and cannot be used to inquire about the status of applications.&amp;nbsp;&lt;/p&gt;\n&lt;p data-renderer-start-pos=&quot;662&quot;&gt;&lt;strong data-renderer-mark=&quot;true&quot;&gt;Privacy and AI Guidelines:&lt;/strong&gt;&lt;/p&gt;\n&lt;p data-renderer-start-pos=&quot;662&quot;&gt;Any information you submit to Datadog as part of your application will be processed in accordance with Datadog’s&amp;nbsp;&lt;a class=&quot;c-link&quot; href=&quot;https://www.datadoghq.com/legal/applicant-candidate-privacy/&quot; target=&quot;_blank&quot; data-stringify-link=&quot;https://www.datadoghq.com/legal/applicant-candidate-privacy/&quot; data-sk=&quot;tooltip_parent&quot;&gt;Applicant and Candidate Privacy Notice&lt;/a&gt;. For information on our AI policy, please visit &lt;a href=&quot;https://www.datadoghq.com/legal/interviewing-at-datadog-ai-guidelines/&quot; target=&quot;_blank&quot;&gt;Interviewing at Datadog AI Guidelines&lt;/a&gt;.&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 72253,
+          "name": "Dev Eng",
+          "child_ids": [],
+          "parent_id": 9022
+        }
+      ],
+      "offices": [
+        {
+          "id": 8604,
+          "name": "Paris",
+          "location": "Paris, Paris, France",
+          "child_ids": [],
+          "parent_id": 78094
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://careers.datadoghq.com/detail/7773320/?gh_jid=7773320",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3403728,
+      "location": {
+        "name": "Texas, USA, Remote"
+      },
+      "metadata": [
+        {
+          "id": 33310,
+          "name": "Time Type",
+          "value": "Full time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 166208,
+          "name": "Area - Engineering",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 498252,
+          "name": "Cost Center",
+          "value": "Sales - Enterprise Sales",
+          "value_type": "single_select"
+        },
+        {
+          "id": 516515,
+          "name": "Geography",
+          "value": "North America",
+          "value_type": "single_select"
+        },
+        {
+          "id": 9593635,
+          "name": "Early Career Time Type",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 29446322,
+          "name": "Pay Transparency Range",
+          "value": {
+            "unit": "USD",
+            "max_value": "200000.0",
+            "min_value": "150000.0"
+          },
+          "value_type": "currency_range"
+        },
+        {
+          "id": 31273219,
+          "name": "Does this role require access to ITAR-controlled data?",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 58619948,
+          "name": "IC or MG",
+          "value": "MG",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 7773320,
+      "updated_at": "2026-07-28T05:41:06-04:00",
+      "requisition_id": "R18603",
+      "title": "Director, Enterprise Sales",
+      "company_name": "Datadog",
+      "first_published": "2026-07-23T14:08:11-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;Our Director, Enterprise Sales will provide strategy, mentorship, and guidance for a team of Enterprise Sales Executives who are responsible for driving new business through the full sales cycle.&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;At Datadog, we place value in our office culture - the relationships and collaboration it builds and the creativity it brings to the table. We operate as a hybrid workplace to ensure our Datadogs can create a work-life harmony that best fits them.&lt;/em&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;What You’ll Do:&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Manage, hire, train and ramp a team of Enterprise Sales Executives responsible for new and expansion bookings&lt;/li&gt;\n&lt;li&gt;Achieve annual Enterprise bookings quota with monthly and quarterly targets&lt;/li&gt;\n&lt;li&gt;Develop and manage Enterprise Sales Executives on productivity metrics such as deal size, win rate, and forecast accuracy as well as how to lead a customer through a proactive sales cycle&lt;/li&gt;\n&lt;li&gt;Coach Sales Executives through building executive relationships with Named Enterprise accounts in their territories and through complex Enterprise deals and negotiations&lt;/li&gt;\n&lt;li&gt;Shape the direction of the go-to market strategy and execution for your region&lt;/li&gt;\n&lt;li&gt;Work collaboratively with Marketing, Product and Success to build targeted messaging and collateral, and mapping a customer journey for the specific business needs of your region&lt;/li&gt;\n&lt;li&gt;Conduct weekly forecast meetings&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Support direct reports by participating and leading in client and prospect meetings. Engaging other corporate resources as required&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Who You Are:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Experienced in managing a high performing Enterprise Sales team for a B2B technology company&lt;/li&gt;\n&lt;li&gt;A strong relationship builder with 5+ years of overall Enterprise sales experience working with Fortune 1000 companies&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Confident in managing complex sales processes with multiple stakeholders and negotiations with pricing based on business value, legal and procurement&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Knowledgeable in selling to C-level executives in the IT space&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Experienced in setting quotas and managing people against those quotas&lt;/li&gt;\n&lt;li&gt;Passionate about coaching others with a successful track record as an individual contributor and can share relevant and complex closing experience with a growing team&lt;/li&gt;\n&lt;li&gt;Role requires regular travel to client sites, within your area and other regions, using various modes of transportation (car, train, air), depending on business needs&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;em&gt;Datadog values people from all walks of life. We understand not everyone will meet all the above qualifications on day one. That&#39;s okay. If you’re passionate about technology and want to grow your skills, we encourage you to apply.&lt;/em&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Benefits and Growth:&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;High income earning opportunities based on self performance&lt;/li&gt;\n&lt;li&gt;New hire stock equity (RSU) and employee stock purchase plan (ESPP)&lt;/li&gt;\n&lt;li&gt;Continuous professional development, product training, and career pathing&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Sales training in MEDDIC and Command of the Message&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Intra-departmental mentor and buddy program for in-house networking&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;An inclusive company culture, opportunity to join our Community Guilds&lt;/li&gt;\n&lt;li&gt;Generous and competitive medical benefits package&lt;/li&gt;\n&lt;li&gt;Retirement savings match&lt;/li&gt;\n&lt;li&gt;Pet adoption and insurance program&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;em&gt;Benefits and Growth listed above may vary based on the country of your employment and the nature of your employment with Datadog.&lt;br&gt;&lt;br&gt;&lt;/em&gt;&lt;/p&gt;\n&lt;p style=&quot;color: white;&quot;&gt;#LI-Remote&lt;/p&gt;&lt;div class=&quot;content-pay-transparency&quot;&gt;&lt;div class=&quot;pay-input&quot;&gt;&lt;div class=&quot;description&quot;&gt;&lt;p&gt;Datadog offers a competitive salary and equity package, and may include variable compensation. Actual compensation is based on factors such as the candidate&#39;s skills, qualifications, and experience. In addition, Datadog offers a wide range of best in class, comprehensive and inclusive employee benefits for this role including healthcare, dental, parental planning, and mental health benefits, a 401(k) plan and match, paid time off, fitness reimbursements, and a discounted employee stock purchase plan.&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;title&quot;&gt;The reasonably estimated yearly salary for this role at Datadog is:&lt;/div&gt;&lt;div class=&quot;pay-range&quot;&gt;&lt;span&gt;$150,000&lt;/span&gt;&lt;span class=&quot;divider&quot;&gt;&amp;mdash;&lt;/span&gt;&lt;span&gt;$200,000 USD&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;hr&gt;\n&lt;p&gt;&lt;strong&gt;About Datadog:&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Datadog is the leading observability and security platform for the AI era, providing businesses with unified visibility across the technology stack to manage complexity at scale. It brings applications, infrastructure, data, models, and security into one place, using AI to detect and resolve issues before they impact customers. Trusted globally by Fortune 500 companies and high-growth AI leaders, Datadog enables businesses to move faster with clarity and confidence. Learn more about #DatadogLife on &lt;a href=&quot;https://www.instagram.com/datadoghq/?hl=en&quot; target=&quot;_blank&quot;&gt;Instagram&lt;/a&gt;, &lt;a href=&quot;https://www.linkedin.com/company/datadog&quot; target=&quot;_blank&quot;&gt;LinkedIn,&lt;/a&gt; and &lt;a href=&quot;https://learn.datadoghq.com/&quot; target=&quot;_blank&quot;&gt;Datadog Learning Center. &lt;/a&gt;&lt;/p&gt;\n&lt;hr&gt;\n&lt;p data-renderer-start-pos=&quot;215&quot;&gt;&lt;strong data-renderer-mark=&quot;true&quot;&gt;Equal Opportunity at Datadog:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Datadog is proud to offer &lt;a href=&quot;https://www.eeoc.gov/sites/default/files/2023-06/22-088_EEOC_KnowYourRights6.12ScreenRdr.pdf&quot; target=&quot;_blank&quot;&gt;equal employment opportunity&lt;/a&gt; to everyone regardless of race, color, ancestry, religion, sex, national origin, sexual orientation, age, citizenship, marital status, disability, gender identity, veteran status, and other characteristics protected by law. We also consider qualified applicants regardless of criminal histories, consistent with legal requirements. Here are our &lt;a href=&quot;https://www.datadoghq.com/legal/candidate-legal-notices/&quot; target=&quot;_blank&quot;&gt;Candidate Legal Notices&lt;/a&gt; for your reference.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;Datadog endeavors to make our Careers Page accessible to all users. If you would like to contact us regarding the accessibility of our website or need assistance completing the application process, please complete &lt;a href=&quot;https://docs.google.com/forms/d/e/1FAIpQLSeoJeduEZ2NdZF_65uZmWUrCM-zee7yADXX1s6Xr9zAGq8iKA/viewform&quot; target=&quot;_blank&quot;&gt;this form&lt;/a&gt;. This form is for accommodation requests only and cannot be used to inquire about the status of applications.&amp;nbsp;&lt;/p&gt;\n&lt;p data-renderer-start-pos=&quot;662&quot;&gt;&lt;strong data-renderer-mark=&quot;true&quot;&gt;Privacy and AI Guidelines:&lt;/strong&gt;&lt;/p&gt;\n&lt;p data-renderer-start-pos=&quot;662&quot;&gt;Any information you submit to Datadog as part of your application will be processed in accordance with Datadog’s&amp;nbsp;&lt;a class=&quot;c-link&quot; href=&quot;https://www.datadoghq.com/legal/applicant-candidate-privacy/&quot; target=&quot;_blank&quot; data-stringify-link=&quot;https://www.datadoghq.com/legal/applicant-candidate-privacy/&quot; data-sk=&quot;tooltip_parent&quot;&gt;Applicant and Candidate Privacy Notice&lt;/a&gt;. For information on our AI policy, please visit &lt;a href=&quot;https://www.datadoghq.com/legal/interviewing-at-datadog-ai-guidelines/&quot; target=&quot;_blank&quot;&gt;Interviewing at Datadog AI Guidelines&lt;/a&gt;.&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 72277,
+          "name": "Enterprise Sales",
+          "child_ids": [],
+          "parent_id": 9021
+        }
+      ],
+      "offices": [
+        {
+          "id": 76757,
+          "name": "Remote - Texas",
+          "location": null,
+          "child_ids": [],
+          "parent_id": 63589
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://careers.datadoghq.com/detail/7950433/?gh_jid=7950433",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3452547,
+      "location": {
+        "name": "Boston, Massachusetts, USA; New York, New York, USA"
+      },
+      "metadata": [
+        {
+          "id": 33310,
+          "name": "Time Type",
+          "value": "Full time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 166208,
+          "name": "Area - Engineering",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 498252,
+          "name": "Cost Center",
+          "value": "General and Administrative - Business Recruiting",
+          "value_type": "single_select"
+        },
+        {
+          "id": 516515,
+          "name": "Geography",
+          "value": "North America",
+          "value_type": "single_select"
+        },
+        {
+          "id": 9593635,
+          "name": "Early Career Time Type",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 29446322,
+          "name": "Pay Transparency Range",
+          "value": {
+            "unit": "USD",
+            "max_value": "65000.0",
+            "min_value": "49000.0"
+          },
+          "value_type": "currency_range"
+        },
+        {
+          "id": 31273219,
+          "name": "Does this role require access to ITAR-controlled data?",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 58619948,
+          "name": "IC or MG",
+          "value": "IC",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 7950433,
+      "updated_at": "2026-07-28T05:41:06-04:00",
+      "requisition_id": "R19190",
+      "title": "Coordinator, Business Recruiting - Contract",
+      "company_name": "Datadog",
+      "first_published": "2026-05-22T15:17:38-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;The Recruiting team is responsible for growing our teams at Datadog with great people in multiple technical and business areas. Our Recruiters are strategic business partners, matchmakers, sellers, and marketers that have strategic relationships with the leadership team. As a Recruiting Coordinator, you have a high-impact role with significant visibility and the opportunity to make a real difference in Datadog&#39;s future.&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;At Datadog, we place value in our office culture - the relationships and collaboration it builds, and the creativity it brings to the table. We operate as a hybrid workplace to ensure our Datadogs can create a work-life harmony that best fits them.&lt;/em&gt;&lt;em&gt;&lt;br&gt;&lt;br&gt;&lt;/em&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;What You’ll Do:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Organize all facets of a candidate’s interview process: scheduling interviews (on-site and remote), managing communication workflow, coordinating travel/reimbursement, sending offer letters&lt;/li&gt;\n&lt;li&gt;Manage job opening and job posts in our Applicant Tracking System, ensuring all information externally publicized is accurate and compliant&lt;/li&gt;\n&lt;li&gt;Provide exceptional experiences for all candidates, greeting and providing office tours for those who come onsite&lt;/li&gt;\n&lt;li&gt;Support the training of new interviewers to scale interview panels&lt;/li&gt;\n&lt;li&gt;Partner with internal and cross-functional team members to improve processes&lt;/li&gt;\n&lt;li&gt;Develop stakeholder relationships with recruiters, people business partners, people coordinators, and hiring managers, maintaining effective and proactive communication&lt;/li&gt;\n&lt;li&gt;Support the onboarding of new team members, deliver informative sessions, provide ongoing support while upholding the high standards of excellence&lt;/li&gt;\n&lt;li&gt;Based on your bandwidth and contributions, you may have the opportunity to take on additional projects that further develop your skills and impact&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Who You Are:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;“Can-do” attitude: You are ready to take on any challenges that come your way and eager to do your best to give each candidate a top-notch experience&lt;/li&gt;\n&lt;li&gt;Effective over-communicator: You are proactive in sharing updates and information with all the parties involved. You are able to convey your thoughts and ideas through both writing and speaking, and you are confident exchanging with candidates, colleagues, and company leaders alike&lt;/li&gt;\n&lt;li&gt;Organized: You are comfortable with multi-tasking, and find the most efficient ways to prioritize daily tasks and ongoing projects&lt;/li&gt;\n&lt;li&gt;Attentive: You catch all of the small details and are able to match the speed of recruitment activity in an ever-changing environment&lt;/li&gt;\n&lt;li&gt;Business acumen: You handle confidential and highly sensitive information with discretion and professionalism&lt;/li&gt;\n&lt;li&gt;+3 years of professional experience, +2 years of relevant experience&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;Datadog values people from all walks of life. We understand not everyone will meet all the above qualifications on day one. That&#39;s okay. If you’re passionate about technology and want to grow your skills, we encourage you to apply.&lt;/em&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Benefits and Growth:&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Product training to develop an in-depth understanding of our product and space&lt;/li&gt;\n&lt;li&gt;Continuous career development and pathing opportunities for internal mobility&lt;/li&gt;\n&lt;li&gt;Intradepartmental mentor and buddy program for in-house networking&lt;/li&gt;\n&lt;li&gt;An inclusive company culture, ability to join our Community Guilds (Datadog employee resource groups)&lt;/li&gt;\n&lt;li&gt;Free global mental health benefit through Spring Health&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;em&gt;Benefits and Growth listed above may vary based on the country of your employment and the nature of your employment with Datadog.&lt;/em&gt;&lt;/p&gt;\n&lt;p style=&quot;color: white;&quot;&gt;##LI-Hybrid&lt;/p&gt;&lt;div class=&quot;content-pay-transparency&quot;&gt;&lt;div class=&quot;pay-input&quot;&gt;&lt;div class=&quot;description&quot;&gt;&lt;p&gt;Datadog offers a competitive salary and equity package, and may include variable compensation. Actual compensation is based on factors such as the candidate&#39;s skills, qualifications, and experience. In addition, Datadog offers a wide range of best in class, comprehensive and inclusive employee benefits for this role including healthcare, dental, parental planning, and mental health benefits, a 401(k) plan and match, paid time off, fitness reimbursements, and a discounted employee stock purchase plan.&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;title&quot;&gt;The reasonably estimated yearly salary for this role at Datadog is:&lt;/div&gt;&lt;div class=&quot;pay-range&quot;&gt;&lt;span&gt;$49,000&lt;/span&gt;&lt;span class=&quot;divider&quot;&gt;&amp;mdash;&lt;/span&gt;&lt;span&gt;$65,000 USD&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;hr&gt;\n&lt;p&gt;&lt;strong&gt;About Datadog:&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Datadog is the leading observability and security platform for the AI era, providing businesses with unified visibility across the technology stack to manage complexity at scale. It brings applications, infrastructure, data, models, and security into one place, using AI to detect and resolve issues before they impact customers. Trusted globally by Fortune 500 companies and high-growth AI leaders, Datadog enables businesses to move faster with clarity and confidence. Learn more about #DatadogLife on &lt;a href=&quot;https://www.instagram.com/datadoghq/?hl=en&quot; target=&quot;_blank&quot;&gt;Instagram&lt;/a&gt;, &lt;a href=&quot;https://www.linkedin.com/company/datadog&quot; target=&quot;_blank&quot;&gt;LinkedIn,&lt;/a&gt; and &lt;a href=&quot;https://learn.datadoghq.com/&quot; target=&quot;_blank&quot;&gt;Datadog Learning Center. &lt;/a&gt;&lt;/p&gt;\n&lt;hr&gt;\n&lt;p data-renderer-start-pos=&quot;215&quot;&gt;&lt;strong data-renderer-mark=&quot;true&quot;&gt;Equal Opportunity at Datadog:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Datadog is proud to offer &lt;a href=&quot;https://www.eeoc.gov/sites/default/files/2023-06/22-088_EEOC_KnowYourRights6.12ScreenRdr.pdf&quot; target=&quot;_blank&quot;&gt;equal employment opportunity&lt;/a&gt; to everyone regardless of race, color, ancestry, religion, sex, national origin, sexual orientation, age, citizenship, marital status, disability, gender identity, veteran status, and other characteristics protected by law. We also consider qualified applicants regardless of criminal histories, consistent with legal requirements. Here are our &lt;a href=&quot;https://www.datadoghq.com/legal/candidate-legal-notices/&quot; target=&quot;_blank&quot;&gt;Candidate Legal Notices&lt;/a&gt; for your reference.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;Datadog endeavors to make our Careers Page accessible to all users. If you would like to contact us regarding the accessibility of our website or need assistance completing the application process, please complete &lt;a href=&quot;https://docs.google.com/forms/d/e/1FAIpQLSeoJeduEZ2NdZF_65uZmWUrCM-zee7yADXX1s6Xr9zAGq8iKA/viewform&quot; target=&quot;_blank&quot;&gt;this form&lt;/a&gt;. This form is for accommodation requests only and cannot be used to inquire about the status of applications.&amp;nbsp;&lt;/p&gt;\n&lt;p data-renderer-start-pos=&quot;662&quot;&gt;&lt;strong data-renderer-mark=&quot;true&quot;&gt;Privacy and AI Guidelines:&lt;/strong&gt;&lt;/p&gt;\n&lt;p data-renderer-start-pos=&quot;662&quot;&gt;Any information you submit to Datadog as part of your application will be processed in accordance with Datadog’s&amp;nbsp;&lt;a class=&quot;c-link&quot; href=&quot;https://www.datadoghq.com/legal/applicant-candidate-privacy/&quot; target=&quot;_blank&quot; data-stringify-link=&quot;https://www.datadoghq.com/legal/applicant-candidate-privacy/&quot; data-sk=&quot;tooltip_parent&quot;&gt;Applicant and Candidate Privacy Notice&lt;/a&gt;. For information on our AI policy, please visit &lt;a href=&quot;https://www.datadoghq.com/legal/interviewing-at-datadog-ai-guidelines/&quot; target=&quot;_blank&quot;&gt;Interviewing at Datadog AI Guidelines&lt;/a&gt;.&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 72263,
+          "name": "People",
+          "child_ids": [],
+          "parent_id": 9025
+        }
+      ],
+      "offices": [
+        {
+          "id": 5455,
+          "name": "Boston",
+          "location": "Boston, MA, United States",
+          "child_ids": [],
+          "parent_id": 78117
+        },
+        {
+          "id": 5664,
+          "name": "New York",
+          "location": "New York, NY, United States",
+          "child_ids": [
+            81327,
+            76746
+          ],
+          "parent_id": 73429
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://careers.datadoghq.com/detail/7338847/?gh_jid=7338847",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": true
+        }
+      ],
+      "internal_job_id": 3274767,
+      "location": {
+        "name": "Riyadh, Saudi Arabia"
+      },
+      "metadata": [
+        {
+          "id": 33310,
+          "name": "Time Type",
+          "value": "Full time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 166208,
+          "name": "Area - Engineering",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 498252,
+          "name": "Cost Center",
+          "value": "Sales - Enterprise Sales",
+          "value_type": "single_select"
+        },
+        {
+          "id": 516515,
+          "name": "Geography",
+          "value": "EMEA",
+          "value_type": "single_select"
+        },
+        {
+          "id": 9593635,
+          "name": "Early Career Time Type",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 29446322,
+          "name": "Pay Transparency Range",
+          "value": null,
+          "value_type": "currency_range"
+        },
+        {
+          "id": 31273219,
+          "name": "Does this role require access to ITAR-controlled data?",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 58619948,
+          "name": "IC or MG",
+          "value": "MG",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 7338847,
+      "updated_at": "2026-07-28T05:41:06-04:00",
+      "requisition_id": null,
+      "title": "Regional Director - Enterprise Sales (Saudi Arabia) ",
+      "company_name": "Datadog",
+      "first_published": "2026-04-14T08:07:28-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;Our Director, Enterprise Sales will provide strategy, mentorship, and guidance for a team of Enterprise Sales Executives who are responsible for driving new business through the full sales cycle.&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;At Datadog, we place value in our office culture - the relationships and collaboration it builds and the creativity it brings to the table. We operate as a hybrid workplace to ensure our Datadogs can create a work-life harmony that best fits them.&lt;/em&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;What You’ll Do:&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Manage, hire, train and ramp a team of Enterprise Sales Executives responsible for new and expansion bookings&lt;/li&gt;\n&lt;li&gt;Achieve annual Enterprise bookings quota with monthly and quarterly targets&lt;/li&gt;\n&lt;li&gt;Develop and manage Enterprise Sales Executives on productivity metrics such as deal size, win rate, and forecast accuracy as well as how to lead a customer through a proactive sales cycle&lt;/li&gt;\n&lt;li&gt;Coach Sales Executives through building executive relationships with Named Enterprise accounts in their territories and through complex Enterprise deals and negotiations&lt;/li&gt;\n&lt;li&gt;Shape the direction of the go-to market strategy and execution for your region&lt;/li&gt;\n&lt;li&gt;Work collaboratively with Marketing, Product and Success to build targeted messaging and collateral, and mapping a customer journey for the specific business needs of your region&lt;/li&gt;\n&lt;li&gt;Conduct weekly forecast meetings&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Support direct reports by participating and leading in client and prospect meetings. Engaging other corporate resources as required&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Who You Are:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Experienced in managing a high performing Enterprise Sales team for a B2B technology company&lt;/li&gt;\n&lt;li&gt;A strong relationship builder with 5+ years of overall Enterprise sales experience working with Fortune 1000 companies&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Confident in managing complex sales processes with multiple stakeholders and negotiations with pricing based on business value, legal and procurement&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Knowledgeable in selling to C-level executives in the IT space&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Experienced in setting quotas and managing people against those quotas&lt;/li&gt;\n&lt;li&gt;Passionate about coaching others with a successful track record as an individual contributor and can share relevant and complex closing experience with a growing team&lt;/li&gt;\n&lt;li&gt;Role requires regular travel to client sites, within your area and other regions, using various modes of transportation (car, train, air), depending on business needs.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;em&gt;Datadog values people from all walks of life. We understand not everyone will meet all the above qualifications on day one. That&#39;s okay. If you’re passionate about technology and want to grow your skills, we encourage you to apply.&lt;/em&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Benefits and Growth:&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;High income earning opportunities based on self performance&lt;/li&gt;\n&lt;li&gt;New hire stock equity (RSU) and employee stock purchase plan (ESPP)&lt;/li&gt;\n&lt;li&gt;Continuous professional development, product training, and career pathing&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Sales training in MEDDIC and Command of the Message&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Intra-departmental mentor and buddy program for in-house networking&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;An inclusive company culture, opportunity to join our Community Guilds&lt;/li&gt;\n&lt;li&gt;Generous and competitive medical benefits package&lt;/li&gt;\n&lt;li&gt;Retirement savings match&lt;/li&gt;\n&lt;li&gt;Pet adoption and insurance program&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;Benefits and Growth listed above may vary based on the country of your employment and the nature of your employment with Datadog.&lt;/em&gt;&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;hr&gt;\n&lt;p&gt;&lt;strong&gt;About Datadog:&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Datadog is the leading observability and security platform for the AI era, providing businesses with unified visibility across the technology stack to manage complexity at scale. It brings applications, infrastructure, data, models, and security into one place, using AI to detect and resolve issues before they impact customers. Trusted globally by Fortune 500 companies and high-growth AI leaders, Datadog enables businesses to move faster with clarity and confidence. Learn more about #DatadogLife on &lt;a href=&quot;https://www.instagram.com/datadoghq/?hl=en&quot; target=&quot;_blank&quot;&gt;Instagram&lt;/a&gt;, &lt;a href=&quot;https://www.linkedin.com/company/datadog&quot; target=&quot;_blank&quot;&gt;LinkedIn,&lt;/a&gt; and &lt;a href=&quot;https://learn.datadoghq.com/&quot; target=&quot;_blank&quot;&gt;Datadog Learning Center. &lt;/a&gt;&lt;/p&gt;\n&lt;hr&gt;\n&lt;p data-renderer-start-pos=&quot;215&quot;&gt;&lt;strong data-renderer-mark=&quot;true&quot;&gt;Equal Opportunity at Datadog:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Datadog is proud to offer &lt;a href=&quot;https://www.eeoc.gov/sites/default/files/2023-06/22-088_EEOC_KnowYourRights6.12ScreenRdr.pdf&quot; target=&quot;_blank&quot;&gt;equal employment opportunity&lt;/a&gt; to everyone regardless of race, color, ancestry, religion, sex, national origin, sexual orientation, age, citizenship, marital status, disability, gender identity, veteran status, and other characteristics protected by law. We also consider qualified applicants regardless of criminal histories, consistent with legal requirements. Here are our &lt;a href=&quot;https://www.datadoghq.com/legal/candidate-legal-notices/&quot; target=&quot;_blank&quot;&gt;Candidate Legal Notices&lt;/a&gt; for your reference.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;Datadog endeavors to make our Careers Page accessible to all users. If you would like to contact us regarding the accessibility of our website or need assistance completing the application process, please complete &lt;a href=&quot;https://docs.google.com/forms/d/e/1FAIpQLSeoJeduEZ2NdZF_65uZmWUrCM-zee7yADXX1s6Xr9zAGq8iKA/viewform&quot; target=&quot;_blank&quot;&gt;this form&lt;/a&gt;. This form is for accommodation requests only and cannot be used to inquire about the status of applications.&amp;nbsp;&lt;/p&gt;\n&lt;p data-renderer-start-pos=&quot;662&quot;&gt;&lt;strong data-renderer-mark=&quot;true&quot;&gt;Privacy and AI Guidelines:&lt;/strong&gt;&lt;/p&gt;\n&lt;p data-renderer-start-pos=&quot;662&quot;&gt;Any information you submit to Datadog as part of your application will be processed in accordance with Datadog’s&amp;nbsp;&lt;a class=&quot;c-link&quot; href=&quot;https://www.datadoghq.com/legal/applicant-candidate-privacy/&quot; target=&quot;_blank&quot; data-stringify-link=&quot;https://www.datadoghq.com/legal/applicant-candidate-privacy/&quot; data-sk=&quot;tooltip_parent&quot;&gt;Applicant and Candidate Privacy Notice&lt;/a&gt;. For information on our AI policy, please visit &lt;a href=&quot;https://www.datadoghq.com/legal/interviewing-at-datadog-ai-guidelines/&quot; target=&quot;_blank&quot;&gt;Interviewing at Datadog AI Guidelines&lt;/a&gt;.&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 72277,
+          "name": "Enterprise Sales",
+          "child_ids": [],
+          "parent_id": 9021
+        }
+      ],
+      "offices": [
+        {
+          "id": 200237,
+          "name": "Remote - Saudi Arabia",
+          "location": null,
+          "child_ids": [],
+          "parent_id": 58321
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://careers.datadoghq.com/detail/7993638/?gh_jid=7993638",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3467585,
+      "location": {
+        "name": "New York, New York, USA"
+      },
+      "metadata": [
+        {
+          "id": 33310,
+          "name": "Time Type",
+          "value": "Full time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 166208,
+          "name": "Area - Engineering",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 498252,
+          "name": "Cost Center",
+          "value": "General and Administrative - Deal Desk",
+          "value_type": "single_select"
+        },
+        {
+          "id": 516515,
+          "name": "Geography",
+          "value": "North America",
+          "value_type": "single_select"
+        },
+        {
+          "id": 9593635,
+          "name": "Early Career Time Type",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 29446322,
+          "name": "Pay Transparency Range",
+          "value": {
+            "unit": "USD",
+            "max_value": "91000.0",
+            "min_value": "68000.0"
+          },
+          "value_type": "currency_range"
+        },
+        {
+          "id": 31273219,
+          "name": "Does this role require access to ITAR-controlled data?",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 58619948,
+          "name": "IC or MG",
+          "value": "IC",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 7993638,
+      "updated_at": "2026-07-28T05:41:06-04:00",
+      "requisition_id": "R19441",
+      "title": "Deal Desk Analyst - NYC",
+      "company_name": "Datadog",
+      "first_published": "2026-06-16T11:08:05-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;G&amp;amp;A at Datadog rapidly scales the physical space, hiring, onboarding, and financial and legal systems to keep our business running in top form.&lt;/p&gt;\n&lt;p&gt;As a Deal Desk Analyst, you will work cross-functionally with our Sales Operations, Billing, Contracts and Legal teams to provide quoting and deal structuring support to the Global Sales Team. This will be a growth position as Datadog’s business continues to expand.&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;At Datadog, we place value in our office culture - the relationships and collaboration it builds and the creativity it brings to the table. We operate as a hybrid workplace to ensure our Datadogs can create a work-life harmony that best fits them.&lt;/em&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;What You’ll Do:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Develop in-depth knowledge of Datadog’s licensing and pricing models to provide deal structuring and quoting support to our global sales teams&amp;nbsp;&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Be a creative problem solver who finds a way to meet customers’ needs while adhering to Datadog’s selling policies&lt;/li&gt;\n&lt;li&gt;Solve customer satisfaction issues following execution of the deal&lt;/li&gt;\n&lt;li&gt;Actively negotiate deals directly with the customer as needed&lt;/li&gt;\n&lt;li&gt;Work cross functionally across various stakeholder groups including legal, contracts, sales operations, order management, revenue, finance and product management&lt;/li&gt;\n&lt;li&gt;Function as point of contact and subject matter expert for Sales on deal pricing matters&lt;/li&gt;\n&lt;li&gt;Drive adherence to internal controls, protocols and business rules&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Who You Are:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;At least 4 years of overall experience including related processes such as sales operations, finance, sales strategy, and sales enablement&lt;/li&gt;\n&lt;li&gt;At least 2 years of experience with deal structuring/quoting complex SaaS transactions for a fast-growing multi-national company&amp;nbsp;&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Working knowledge of revenue recognition principles&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Must be comfortable representing the company to customers in negotiations and resolving customer satisfaction issues&amp;nbsp;&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Strong attention to detail&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Ability to multi-task&lt;/li&gt;\n&lt;li&gt;Strong communication skills&lt;/li&gt;\n&lt;li&gt;Ability to work in fast paced, high pressure environment&lt;/li&gt;\n&lt;li&gt;Strong quantitative skills&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Strong MS Word, Excel and PowerPoint skills&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Bonus Points:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Experience with Salesforce and CPQ&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;em&gt;Datadog values people from all walks of life. We understand not everyone will meet all the above qualifications on day one. That&#39;s okay. If you’re passionate about technology and want to grow your skills, we encourage you to apply.&lt;/em&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Benefits and Growth:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Generous and competitive benefits package&lt;/li&gt;\n&lt;li&gt;New hire stock equity (RSUs) and employee stock purchase plan&lt;/li&gt;\n&lt;li&gt;Continuous career development and pathing opportunities&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Product training to develop an in-depth understanding of our product and space&lt;/li&gt;\n&lt;li&gt;Best in breed onboarding&lt;/li&gt;\n&lt;li&gt;Internal mentor and buddy program cross-departmentally&lt;/li&gt;\n&lt;li&gt;Friendly and inclusive workplace culture&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;em&gt;Benefits and Growth listed above may vary based on the country of your employment and the nature of your employment with Datadog.&lt;/em&gt;&amp;nbsp;&lt;/p&gt;&lt;div class=&quot;content-pay-transparency&quot;&gt;&lt;div class=&quot;pay-input&quot;&gt;&lt;div class=&quot;description&quot;&gt;&lt;p&gt;Datadog offers a competitive salary and equity package, and may include variable compensation. Actual compensation is based on factors such as the candidate&#39;s skills, qualifications, and experience. In addition, Datadog offers a wide range of best in class, comprehensive and inclusive employee benefits for this role including healthcare, dental, parental planning, and mental health benefits, a 401(k) plan and match, paid time off, fitness reimbursements, and a discounted employee stock purchase plan.&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;title&quot;&gt;The reasonably estimated yearly salary for this role at Datadog is:&lt;/div&gt;&lt;div class=&quot;pay-range&quot;&gt;&lt;span&gt;$68,000&lt;/span&gt;&lt;span class=&quot;divider&quot;&gt;&amp;mdash;&lt;/span&gt;&lt;span&gt;$91,000 USD&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;hr&gt;\n&lt;p&gt;&lt;strong&gt;About Datadog:&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Datadog is the leading observability and security platform for the AI era, providing businesses with unified visibility across the technology stack to manage complexity at scale. It brings applications, infrastructure, data, models, and security into one place, using AI to detect and resolve issues before they impact customers. Trusted globally by Fortune 500 companies and high-growth AI leaders, Datadog enables businesses to move faster with clarity and confidence. Learn more about #DatadogLife on &lt;a href=&quot;https://www.instagram.com/datadoghq/?hl=en&quot; target=&quot;_blank&quot;&gt;Instagram&lt;/a&gt;, &lt;a href=&quot;https://www.linkedin.com/company/datadog&quot; target=&quot;_blank&quot;&gt;LinkedIn,&lt;/a&gt; and &lt;a href=&quot;https://learn.datadoghq.com/&quot; target=&quot;_blank&quot;&gt;Datadog Learning Center. &lt;/a&gt;&lt;/p&gt;\n&lt;hr&gt;\n&lt;p data-renderer-start-pos=&quot;215&quot;&gt;&lt;strong data-renderer-mark=&quot;true&quot;&gt;Equal Opportunity at Datadog:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Datadog is proud to offer &lt;a href=&quot;https://www.eeoc.gov/sites/default/files/2023-06/22-088_EEOC_KnowYourRights6.12ScreenRdr.pdf&quot; target=&quot;_blank&quot;&gt;equal employment opportunity&lt;/a&gt; to everyone regardless of race, color, ancestry, religion, sex, national origin, sexual orientation, age, citizenship, marital status, disability, gender identity, veteran status, and other characteristics protected by law. We also consider qualified applicants regardless of criminal histories, consistent with legal requirements. Here are our &lt;a href=&quot;https://www.datadoghq.com/legal/candidate-legal-notices/&quot; target=&quot;_blank&quot;&gt;Candidate Legal Notices&lt;/a&gt; for your reference.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;Datadog endeavors to make our Careers Page accessible to all users. If you would like to contact us regarding the accessibility of our website or need assistance completing the application process, please complete &lt;a href=&quot;https://docs.google.com/forms/d/e/1FAIpQLSeoJeduEZ2NdZF_65uZmWUrCM-zee7yADXX1s6Xr9zAGq8iKA/viewform&quot; target=&quot;_blank&quot;&gt;this form&lt;/a&gt;. This form is for accommodation requests only and cannot be used to inquire about the status of applications.&amp;nbsp;&lt;/p&gt;\n&lt;p data-renderer-start-pos=&quot;662&quot;&gt;&lt;strong data-renderer-mark=&quot;true&quot;&gt;Privacy and AI Guidelines:&lt;/strong&gt;&lt;/p&gt;\n&lt;p data-renderer-start-pos=&quot;662&quot;&gt;Any information you submit to Datadog as part of your application will be processed in accordance with Datadog’s&amp;nbsp;&lt;a class=&quot;c-link&quot; href=&quot;https://www.datadoghq.com/legal/applicant-candidate-privacy/&quot; target=&quot;_blank&quot; data-stringify-link=&quot;https://www.datadoghq.com/legal/applicant-candidate-privacy/&quot; data-sk=&quot;tooltip_parent&quot;&gt;Applicant and Candidate Privacy Notice&lt;/a&gt;. For information on our AI policy, please visit &lt;a href=&quot;https://www.datadoghq.com/legal/interviewing-at-datadog-ai-guidelines/&quot; target=&quot;_blank&quot;&gt;Interviewing at Datadog AI Guidelines&lt;/a&gt;.&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 304733,
+          "name": "Deal Desk",
+          "child_ids": [],
+          "parent_id": 9025
+        }
+      ],
+      "offices": [
+        {
+          "id": 5664,
+          "name": "New York",
+          "location": "New York, NY, United States",
+          "child_ids": [
+            81327,
+            76746
+          ],
+          "parent_id": 73429
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://careers.datadoghq.com/detail/8026520/?gh_jid=8026520",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3477777,
+      "location": {
+        "name": "New York, New York, USA"
+      },
+      "metadata": [
+        {
+          "id": 33310,
+          "name": "Time Type",
+          "value": "Full time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 166208,
+          "name": "Area - Engineering",
+          "value": "Data Engineering",
+          "value_type": "single_select"
+        },
+        {
+          "id": 498252,
+          "name": "Cost Center",
+          "value": "Engineering - Dev Eng",
+          "value_type": "single_select"
+        },
+        {
+          "id": 516515,
+          "name": "Geography",
+          "value": "North America",
+          "value_type": "single_select"
+        },
+        {
+          "id": 9593635,
+          "name": "Early Career Time Type",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 29446322,
+          "name": "Pay Transparency Range",
+          "value": {
+            "unit": "USD",
+            "max_value": "350000.0",
+            "min_value": "280000.0"
+          },
+          "value_type": "currency_range"
+        },
+        {
+          "id": 31273219,
+          "name": "Does this role require access to ITAR-controlled data?",
+          "value": "I’m not sure",
+          "value_type": "single_select"
+        },
+        {
+          "id": 58619948,
+          "name": "IC or MG",
+          "value": "MG",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 8026520,
+      "updated_at": "2026-07-28T05:41:06-04:00",
+      "requisition_id": "1048",
+      "title": "Director, Engineering - Detection Platform ",
+      "company_name": "Datadog",
+      "first_published": "2026-06-24T16:08:29-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;The Detection Platform organization is responsible for helping customers identify, understand, and act on issues across their environments through alerting, event intelligence, and autonomous detection capabilities. As Director, Detection Platform, you will lead a group of engineering managers and teams responsible for foundational alerting infrastructure, event management, monitor creation experiences, and AI-powered detection systems. This role sits at the center of Datadog’s efforts to evolve how customers detect, investigate, and respond to operational issues at massive scale. You will partner closely with Product Management, Applied Science, Design, and Engineering leaders to shape the future of detection and observability experiences for Datadog customers while leading a growing organization of engineers.&amp;nbsp;&lt;br&gt;&lt;br&gt;&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;At Datadog, we place value in our office culture - the relationships and collaboration it builds and the creativity it brings to the table. We operate as a hybrid workplace to ensure our Datadogs can create a work-life harmony that best fits them.&lt;/em&gt;&lt;br&gt;&lt;br&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;What You&#39;ll Do:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Lead a multi-team engineering organization responsible for alerting, event management, monitor creation experiences, and autonomous detection capabilities.&lt;/li&gt;\n&lt;li&gt;Define and execute the technical and organizational strategy for the Detection Platform while aligning stakeholders across Engineering, Product, Design, and Applied Science.&lt;/li&gt;\n&lt;li&gt;Drive innovation in AI-powered detection, anomaly identification, and signal generation that helps customers proactively identify and resolve issues.&lt;/li&gt;\n&lt;li&gt;Scale highly available platform systems that process hundreds of millions of evaluations while maintaining reliability, performance, and operational excellence.&lt;/li&gt;\n&lt;li&gt;Develop and mentor engineering managers and technical leaders, fostering a culture of execution, collaboration, and technical rigor.&lt;/li&gt;\n&lt;li&gt;Champion customer-centric product thinking by balancing platform investments with intuitive user experiences and measurable customer outcomes.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;&lt;br&gt;Who You Are:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;You have significant experience leading engineering organizations that build large-scale platforms, infrastructure, observability, monitoring, or developer-facing products.&lt;/li&gt;\n&lt;li&gt;You combine deep technical expertise with strong product instincts and can make architectural decisions while understanding customer needs and business impact.&lt;/li&gt;\n&lt;li&gt;You have experience leading leaders and managing engineering managers across multiple teams and domains.&lt;/li&gt;\n&lt;li&gt;You have a track record of defining long-term technical vision, building organizational alignment, and delivering complex initiatives through execution.&lt;/li&gt;\n&lt;li&gt;You have experience working with machine learning, AI-enabled products, intelligent automation, or large-scale detection systems, either directly or through close partnership with specialized teams.&lt;/li&gt;\n&lt;li&gt;You are an effective communicator who can inspire teams, influence senior stakeholders, and navigate ambiguity while driving measurable outcomes.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;em&gt;&lt;br&gt;Datadog values people from all walks of life. We understand not everyone will meet all the above qualifications on day one. That&#39;s okay. If you’re passionate about technology and want to grow your skills, we encourage you to apply. &lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;/em&gt;&lt;strong&gt;Benefits and Growth:&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;New hire stock equity (RSUs) and employee stock purchase plan (ESPP)&lt;/li&gt;\n&lt;li&gt;Continuous professional development, product training, and career pathing&lt;/li&gt;\n&lt;li&gt;Intradepartmental mentor and buddy program for in-house networking&lt;/li&gt;\n&lt;li&gt;An inclusive company culture, ability to join our Community Guilds (Datadog employee resource groups)&lt;/li&gt;\n&lt;li&gt;Access to Inclusion Talks, our Internal panel discussions&lt;/li&gt;\n&lt;li&gt;Free, global mental health benefits for employees and dependents age 6+&lt;/li&gt;\n&lt;li&gt;Competitive global benefits&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;br&gt;&lt;em&gt;Benefits and Growth listed above may vary based on the country of your employment and the nature of your employment with Datadog.&lt;br&gt;&lt;br&gt;&lt;/em&gt;&lt;/p&gt;\n&lt;p style=&quot;color: white;&quot;&gt;#LI-Hybrid&lt;/p&gt;&lt;div class=&quot;content-pay-transparency&quot;&gt;&lt;div class=&quot;pay-input&quot;&gt;&lt;div class=&quot;description&quot;&gt;&lt;p&gt;Datadog offers a competitive salary and equity package, and may include variable compensation. Actual compensation is based on factors such as the candidate&#39;s skills, qualifications, and experience. In addition, Datadog offers a wide range of best in class, comprehensive and inclusive employee benefits for this role including healthcare, dental, parental planning, and mental health benefits, a 401(k) plan and match, paid time off, fitness reimbursements, and a discounted employee stock purchase plan.&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;title&quot;&gt;The reasonably estimated yearly salary for this role at Datadog is:&lt;/div&gt;&lt;div class=&quot;pay-range&quot;&gt;&lt;span&gt;$280,000&lt;/span&gt;&lt;span class=&quot;divider&quot;&gt;&amp;mdash;&lt;/span&gt;&lt;span&gt;$350,000 USD&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;hr&gt;\n&lt;p&gt;&lt;strong&gt;About Datadog:&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Datadog is the leading observability and security platform for the AI era, providing businesses with unified visibility across the technology stack to manage complexity at scale. It brings applications, infrastructure, data, models, and security into one place, using AI to detect and resolve issues before they impact customers. Trusted globally by Fortune 500 companies and high-growth AI leaders, Datadog enables businesses to move faster with clarity and confidence. Learn more about #DatadogLife on &lt;a href=&quot;https://www.instagram.com/datadoghq/?hl=en&quot; target=&quot;_blank&quot;&gt;Instagram&lt;/a&gt;, &lt;a href=&quot;https://www.linkedin.com/company/datadog&quot; target=&quot;_blank&quot;&gt;LinkedIn,&lt;/a&gt; and &lt;a href=&quot;https://learn.datadoghq.com/&quot; target=&quot;_blank&quot;&gt;Datadog Learning Center. &lt;/a&gt;&lt;/p&gt;\n&lt;hr&gt;\n&lt;p data-renderer-start-pos=&quot;215&quot;&gt;&lt;strong data-renderer-mark=&quot;true&quot;&gt;Equal Opportunity at Datadog:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Datadog is proud to offer &lt;a href=&quot;https://www.eeoc.gov/sites/default/files/2023-06/22-088_EEOC_KnowYourRights6.12ScreenRdr.pdf&quot; target=&quot;_blank&quot;&gt;equal employment opportunity&lt;/a&gt; to everyone regardless of race, color, ancestry, religion, sex, national origin, sexual orientation, age, citizenship, marital status, disability, gender identity, veteran status, and other characteristics protected by law. We also consider qualified applicants regardless of criminal histories, consistent with legal requirements. Here are our &lt;a href=&quot;https://www.datadoghq.com/legal/candidate-legal-notices/&quot; target=&quot;_blank&quot;&gt;Candidate Legal Notices&lt;/a&gt; for your reference.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;Datadog endeavors to make our Careers Page accessible to all users. If you would like to contact us regarding the accessibility of our website or need assistance completing the application process, please complete &lt;a href=&quot;https://docs.google.com/forms/d/e/1FAIpQLSeoJeduEZ2NdZF_65uZmWUrCM-zee7yADXX1s6Xr9zAGq8iKA/viewform&quot; target=&quot;_blank&quot;&gt;this form&lt;/a&gt;. This form is for accommodation requests only and cannot be used to inquire about the status of applications.&amp;nbsp;&lt;/p&gt;\n&lt;p data-renderer-start-pos=&quot;662&quot;&gt;&lt;strong data-renderer-mark=&quot;true&quot;&gt;Privacy and AI Guidelines:&lt;/strong&gt;&lt;/p&gt;\n&lt;p data-renderer-start-pos=&quot;662&quot;&gt;Any information you submit to Datadog as part of your application will be processed in accordance with Datadog’s&amp;nbsp;&lt;a class=&quot;c-link&quot; href=&quot;https://www.datadoghq.com/legal/applicant-candidate-privacy/&quot; target=&quot;_blank&quot; data-stringify-link=&quot;https://www.datadoghq.com/legal/applicant-candidate-privacy/&quot; data-sk=&quot;tooltip_parent&quot;&gt;Applicant and Candidate Privacy Notice&lt;/a&gt;. For information on our AI policy, please visit &lt;a href=&quot;https://www.datadoghq.com/legal/interviewing-at-datadog-ai-guidelines/&quot; target=&quot;_blank&quot;&gt;Interviewing at Datadog AI Guidelines&lt;/a&gt;.&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 77061,
+          "name": "Leadership",
+          "child_ids": [],
+          "parent_id": 9022
+        }
+      ],
+      "offices": [
+        {
+          "id": 5664,
+          "name": "New York",
+          "location": "New York, NY, United States",
+          "child_ids": [
+            81327,
+            76746
+          ],
+          "parent_id": 73429
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://careers.datadoghq.com/detail/7798672/?gh_jid=7798672",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3356489,
+      "location": {
+        "name": "New York, New York, USA"
+      },
+      "metadata": [
+        {
+          "id": 33310,
+          "name": "Time Type",
+          "value": "Full time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 166208,
+          "name": "Area - Engineering",
+          "value": "Product Management",
+          "value_type": "single_select"
+        },
+        {
+          "id": 498252,
+          "name": "Cost Center",
+          "value": "Engineering - Product Management",
+          "value_type": "single_select"
+        },
+        {
+          "id": 516515,
+          "name": "Geography",
+          "value": "North America",
+          "value_type": "single_select"
+        },
+        {
+          "id": 9593635,
+          "name": "Early Career Time Type",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 29446322,
+          "name": "Pay Transparency Range",
+          "value": {
+            "unit": "USD",
+            "max_value": "350000.0",
+            "min_value": "280000.0"
+          },
+          "value_type": "currency_range"
+        },
+        {
+          "id": 31273219,
+          "name": "Does this role require access to ITAR-controlled data?",
+          "value": "No",
+          "value_type": "single_select"
+        },
+        {
+          "id": 58619948,
+          "name": "IC or MG",
+          "value": "MG",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 7798672,
+      "updated_at": "2026-07-28T05:41:06-04:00",
+      "requisition_id": "992",
+      "title": "Director, Product Management - AI Observability",
+      "company_name": "Datadog",
+      "first_published": "2026-04-09T11:37:22-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;Datadog is seeking a Director of Product Management to lead our AI Observability portfolio and shape how organizations build, monitor, and scale AI systems in production. This role leads LLM Observability and helps define the next wave of innovation across GPU Monitoring, Distributed AI Monitoring, and emerging research-oriented tooling such as Model Lab.&lt;br&gt;&lt;br&gt;&lt;/p&gt;\n&lt;p&gt;You will set the vision and strategy for this rapidly growing area, expanding established products while incubating new capabilities that deliver deep visibility into AI infrastructure, model performance, and distributed AI environments. As AI becomes core to modern applications, this team plays a critical role in ensuring customers can deploy and scale AI with confidence.&lt;br&gt;&lt;br&gt;&lt;/p&gt;\n&lt;p&gt;We’re looking for a builder-minded product leader with strong technical depth and hands-on curiosity - someone who has built or worked closely with AI-powered products and understands the realities of production AI. You will lead a team of product managers and partner closely with engineering and design to advance Datadog’s leadership in AI observability.&lt;br&gt;&lt;br&gt;&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;At Datadog, we place value in our office culture - the relationships and collaboration it builds and the creativity it brings to the table. We operate as a hybrid workplace to ensure our Datadogs can create a work-life harmony that best fits them.&lt;br&gt;&lt;br&gt;&lt;/em&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;What You’ll Do:&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;strong&gt;Own the vision and strategy&lt;/strong&gt; for AI-driven products, ensuring alignment with overall company goals and customer needs. This will include managing our embed program to enhance the capabilities of existing products as well as developing dedicated and independent AI products.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Lead and mentor a team&lt;/strong&gt; of product managers, helping them grow and advance their careers while ensuring the delivery of high-quality, AI-powered features.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Collaborate with cross-functional teams&lt;/strong&gt; including engineering, data science, marketing, and sales to deliver AI product solutions that meet customer needs and business objectives.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Identify new opportunities&lt;/strong&gt; for AI product innovation and drive them from concept to execution, ensuring they have a measurable impact on our customers and the business.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Work closely with customers and stakeholders&lt;/strong&gt; to deeply understand their pain points, ensuring that AI solutions are delivering tangible value and solving real-world problems.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Define AI product roadmaps&lt;/strong&gt; and manage the prioritization of features and initiatives to ensure the team’s efforts are aligned with business goals.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Drive a culture of data-driven decision-making&lt;/strong&gt; by working closely with data science and analytics teams to inform product strategy and validate assumptions.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Promote a product-first mindset&lt;/strong&gt; across the organization, ensuring that the user experience and business value are central to every product decision.&lt;/li&gt;\n&lt;li&gt;&lt;strong&gt;Foster a culture of innovation and excellence&lt;/strong&gt; in AI product development, ensuring that Datadog remains a leader in AI-powered observability and security solutions.&lt;br&gt;&lt;br&gt;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Who You Are:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;You have proven experience in AI product management, with a track record of successfully leading the development and delivery of AI-driven products and solutions.&lt;/li&gt;\n&lt;li&gt;You have deep technical knowledge of AI technologies and a strong understanding of machine learning, data science, and related fields, with the ability to translate these capabilities into compelling product experiences.&lt;/li&gt;\n&lt;li&gt;You have successfully led product teams, including mentoring and developing product managers, while balancing the need for leadership and hands-on execution.&lt;/li&gt;\n&lt;li&gt;You are skilled at prioritizing and delivering complex product roadmaps, balancing short-term needs with long-term strategic goals.&lt;/li&gt;\n&lt;li&gt;You are experienced in collaborating with cross-functional teams, including engineering, design, data science, and business stakeholders, to deliver high-impact AI products.&lt;/li&gt;\n&lt;li&gt;You have a customer-first mindset, always striving to understand and solve customer pain points through innovative AI-driven solutions.&lt;/li&gt;\n&lt;li&gt;You are a strong communicator and influencer, capable of building relationships with senior leadership, engineering teams, and external stakeholders to drive alignment and move initiatives forward.&lt;/li&gt;\n&lt;li&gt;You have a proven ability to manage large-scale AI product initiatives, balancing technical feasibility, user experience, and business impact.&lt;/li&gt;\n&lt;li&gt;&lt;strong data-renderer-mark=&quot;true&quot;&gt;Requirement&lt;/strong&gt; - Demonstrated ability to use AI coding tools in day-to-day workflows and validate, critique, and refine AI-generated output.&lt;/li&gt;\n&lt;li&gt;&lt;strong data-renderer-mark=&quot;true&quot;&gt;Bonus/Plus - &lt;/strong&gt;You’re motivated to push the boundaries of how AI can improve software engineering best practices and contribute to building AI-enabled products.&lt;br&gt;&lt;br&gt;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;If you’re passionate about shaping the future of AI products and driving innovation at scale, we’d love to hear from you!&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;&lt;br&gt;Datadog values people from all walks of life. We know not everyone will meet all the above qualifications on day one. That’s okay. If you’re passionate about technology and want to grow your experience, we encourage you to apply.&amp;nbsp;&lt;br&gt;&lt;br&gt;&lt;/em&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Benefits &amp;amp; Growth:&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;New hire stock equity (RSUs) and employee stock purchase plan (ESPP)&lt;/li&gt;\n&lt;li&gt;Continuous professional development, product training, and career pathing&lt;/li&gt;\n&lt;li&gt;Intra-departmental mentor and buddy program for in-house networking&lt;/li&gt;\n&lt;li&gt;An inclusive company culture, ability to join our Community Guilds&lt;/li&gt;\n&lt;li&gt;Access to Inclusion Talks, our Internal panel discussions&lt;/li&gt;\n&lt;li&gt;Free, global Spring Health benefits for employees and dependents age 6+&lt;/li&gt;\n&lt;li&gt;Competitive global benefits&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;em&gt;Benefits and Growth listed above may vary based on the country of your employment and the nature of your employment with Datadog.&lt;/em&gt;&lt;/p&gt;\n&lt;p style=&quot;color: white;&quot;&gt;#LI-Hybrid&lt;/p&gt;&lt;div class=&quot;content-pay-transparency&quot;&gt;&lt;div class=&quot;pay-input&quot;&gt;&lt;div class=&quot;description&quot;&gt;&lt;p&gt;Datadog offers a competitive salary and equity package, and may include variable compensation. Actual compensation is based on factors such as the candidate&#39;s skills, qualifications, and experience. In addition, Datadog offers a wide range of best in class, comprehensive and inclusive employee benefits for this role including healthcare, dental, parental planning, and mental health benefits, a 401(k) plan and match, paid time off, fitness reimbursements, and a discounted employee stock purchase plan.&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;title&quot;&gt;The reasonably estimated yearly salary for this role at Datadog is:&lt;/div&gt;&lt;div class=&quot;pay-range&quot;&gt;&lt;span&gt;$280,000&lt;/span&gt;&lt;span class=&quot;divider&quot;&gt;&amp;mdash;&lt;/span&gt;&lt;span&gt;$350,000 USD&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;hr&gt;\n&lt;p&gt;&lt;strong&gt;About Datadog:&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Datadog is the leading observability and security platform for the AI era, providing businesses with unified visibility across the technology stack to manage complexity at scale. It brings applications, infrastructure, data, models, and security into one place, using AI to detect and resolve issues before they impact customers. Trusted globally by Fortune 500 companies and high-growth AI leaders, Datadog enables businesses to move faster with clarity and confidence. Learn more about #DatadogLife on &lt;a href=&quot;https://www.instagram.com/datadoghq/?hl=en&quot; target=&quot;_blank&quot;&gt;Instagram&lt;/a&gt;, &lt;a href=&quot;https://www.linkedin.com/company/datadog&quot; target=&quot;_blank&quot;&gt;LinkedIn,&lt;/a&gt; and &lt;a href=&quot;https://learn.datadoghq.com/&quot; target=&quot;_blank&quot;&gt;Datadog Learning Center. &lt;/a&gt;&lt;/p&gt;\n&lt;hr&gt;\n&lt;p data-renderer-start-pos=&quot;215&quot;&gt;&lt;strong data-renderer-mark=&quot;true&quot;&gt;Equal Opportunity at Datadog:&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Datadog is proud to offer &lt;a href=&quot;https://www.eeoc.gov/sites/default/files/2023-06/22-088_EEOC_KnowYourRights6.12ScreenRdr.pdf&quot; target=&quot;_blank&quot;&gt;equal employment opportunity&lt;/a&gt; to everyone regardless of race, color, ancestry, religion, sex, national origin, sexual orientation, age, citizenship, marital status, disability, gender identity, veteran status, and other characteristics protected by law. We also consider qualified applicants regardless of criminal histories, consistent with legal requirements. Here are our &lt;a href=&quot;https://www.datadoghq.com/legal/candidate-legal-notices/&quot; target=&quot;_blank&quot;&gt;Candidate Legal Notices&lt;/a&gt; for your reference.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;Datadog endeavors to make our Careers Page accessible to all users. If you would like to contact us regarding the accessibility of our website or need assistance completing the application process, please complete &lt;a href=&quot;https://docs.google.com/forms/d/e/1FAIpQLSeoJeduEZ2NdZF_65uZmWUrCM-zee7yADXX1s6Xr9zAGq8iKA/viewform&quot; target=&quot;_blank&quot;&gt;this form&lt;/a&gt;. This form is for accommodation requests only and cannot be used to inquire about the status of applications.&amp;nbsp;&lt;/p&gt;\n&lt;p data-renderer-start-pos=&quot;662&quot;&gt;&lt;strong data-renderer-mark=&quot;true&quot;&gt;Privacy and AI Guidelines:&lt;/strong&gt;&lt;/p&gt;\n&lt;p data-renderer-start-pos=&quot;662&quot;&gt;Any information you submit to Datadog as part of your application will be processed in accordance with Datadog’s&amp;nbsp;&lt;a class=&quot;c-link&quot; href=&quot;https://www.datadoghq.com/legal/applicant-candidate-privacy/&quot; target=&quot;_blank&quot; data-stringify-link=&quot;https://www.datadoghq.com/legal/applicant-candidate-privacy/&quot; data-sk=&quot;tooltip_parent&quot;&gt;Applicant and Candidate Privacy Notice&lt;/a&gt;. For information on our AI policy, please visit &lt;a href=&quot;https://www.datadoghq.com/legal/interviewing-at-datadog-ai-guidelines/&quot; target=&quot;_blank&quot;&gt;Interviewing at Datadog AI Guidelines&lt;/a&gt;.&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 72255,
+          "name": "Product Management",
+          "child_ids": [],
+          "parent_id": 9022
+        }
+      ],
+      "offices": [
+        {
+          "id": 5664,
+          "name": "New York",
+          "location": "New York, NY, United States",
+          "child_ids": [
+            81327,
+            76746
+          ],
+          "parent_id": 73429
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    }
+  ],
+  "meta": {
+    "total": 10
+  }
+}

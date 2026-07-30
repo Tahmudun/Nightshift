@@ -1,0 +1,25 @@
+{
+  "provenance": {
+    "endpoint": "https://boards-api.greenhouse.io/v1/boards/datadog/jobs?content=true",
+    "recorded_at": "2026-07-30T02:01:28+00:00",
+    "board_token": "datadog",
+    "full_response_job_count": 426,
+    "note": "Each job object is byte-identical to the live response. Only the set of jobs was reduced (426 -> 10); nothing inside a job was edited, redacted, or synthesised."
+  },
+  "why_each_job_is_here": {
+    "6572669": "single NYC location, pay range published (NYC transparency law)",
+    "7762722": "three physical offices incl. NYC",
+    "7582679": "one office plus many remote states \u2014 the A2 case",
+    "7194969": "non-US single location",
+    "7773320": "remote-only, single segment",
+    "7950433": "contract role in the title",
+    "7338847": "no requisition id",
+    "7993638": "additional NYC roles",
+    "8026520": "additional NYC roles",
+    "7798672": "additional NYC roles"
+  },
+  "coverage_not_available_on_this_board": [
+    "single NYC location, no pay range",
+    "internship in the title"
+  ]
+}
