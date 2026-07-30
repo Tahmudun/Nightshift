@@ -21,6 +21,7 @@ from datetime import datetime
 
 import structlog
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nightshift.adapters.base import (
@@ -90,27 +91,41 @@ class IngestionStats:
 async def get_or_create_source(
     session: AsyncSession, *, name: str, source_type: object, base_url: str | None = None
 ) -> Source:
-    existing = (
-        await session.execute(select(Source).where(Source.name == name))
-    ).scalar_one_or_none()
-    if existing is not None:
-        return existing
-    source = Source(name=name, source_type=source_type, base_url=base_url)
-    session.add(source)
-    await session.flush()
+    """Insert-or-fetch, atomically.
+
+    Check-then-insert races the moment worker concurrency exceeds one, which
+    ADR 0007's queue-driven polling makes routine. `ON CONFLICT DO NOTHING`
+    followed by a read is one statement plus one read rather than a
+    read-then-write window, and it never raises on the loser of the race.
+    """
+    stmt = (
+        pg_insert(Source)
+        .values(name=name, source_type=source_type, base_url=base_url)
+        .on_conflict_do_nothing(index_elements=[Source.name])
+    )
+    await session.execute(stmt)
+    source = (await session.execute(select(Source).where(Source.name == name))).scalar_one()
     return source
 
 
 async def get_or_create_company(session: AsyncSession, display_name: str) -> Company:
+    """Insert-or-fetch, atomically, keyed on the normalized name.
+
+    `normalized_name` is the identity column and it is unique, so the conflict
+    target is the thing that actually decides whether two strings are the same
+    employer. `canonical_name` is display text and is deliberately not part of
+    the key: "Moody's" and "Moodys" are one company (see test_companies.py).
+    """
     normalized = normalize_company_name(display_name)
-    existing = (
+    stmt = (
+        pg_insert(Company)
+        .values(canonical_name=display_name.strip(), normalized_name=normalized)
+        .on_conflict_do_nothing(index_elements=[Company.normalized_name])
+    )
+    await session.execute(stmt)
+    company = (
         await session.execute(select(Company).where(Company.normalized_name == normalized))
-    ).scalar_one_or_none()
-    if existing is not None:
-        return existing
-    company = Company(canonical_name=display_name.strip(), normalized_name=normalized)
-    session.add(company)
-    await session.flush()
+    ).scalar_one()
     return company
 
 
