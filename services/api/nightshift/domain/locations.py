@@ -432,8 +432,13 @@ def _strip_tail_tokens(segment: str) -> _Tail:
     # purpose: "New York, USA, Remote" also has one part left at this point
     # (country already consumed "USA"), but that "New York" names the state a
     # remote role is restricted to, not a specific city — `statewide_remote`
-    # is the fixture that pins city=None, state="New York" for it. Only a
-    # segment that was one comma part from the start is a bare token.
+    # is the fixture that pins city=None, state="New York" for it.
+    #
+    # `raw_part_count` is captured post-`Remote`-stripping (see `_Tail`), so
+    # "New York, Remote" counts as *one* part here, not two — the comma before
+    # `Remote` does not keep it out of this branch. That is deliberate but
+    # easy to misread: it is what makes "New York, Remote" resolve a city
+    # while "New York, USA, Remote" does not (ADR 0008 Consequences).
     if tail.parts and not (
         tail.raw_part_count == 1 and tail.parts[-1].casefold() in _DECIDED_BARE_PLACES
     ):

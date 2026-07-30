@@ -422,6 +422,34 @@ cases:
         confidence: city_only
         is_primary: true
 
+  # Pins the known asymmetry noted in ADR 0008 Consequences: `raw_part_count`
+  # is measured after "Remote" is stripped, so a decided name followed by
+  # "Remote" still counts as one bare part and resolves a city — unlike
+  # `statewide_remote` above, where the explicit "USA" makes it two parts and
+  # the same "New York" resolves only a state. Adding a country to the string
+  # removes its city; this case documents that on purpose, not by accident.
+  - name: decided_bare_place_plus_remote_resolves_city
+    synthetic: true
+    raw: "New York, Remote"
+    expect:
+      - raw_text: "New York, Remote"
+        city: "New York"
+        state: "New York"
+        country: null
+        confidence: remote
+        is_primary: true
+
+  - name: decided_bare_borough_plus_remote_resolves_city
+    synthetic: true
+    raw: "Brooklyn, Remote"
+    expect:
+      - raw_text: "Brooklyn, Remote"
+        city: "Brooklyn"
+        state: "New York"
+        country: null
+        confidence: remote
+        is_primary: true
+
   # The list is explicit and short by design. A place not on it is not
   # promoted, and this case is what proves the list is a list rather than a
   # general "any capitalised word is a city" rule.

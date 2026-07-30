@@ -68,6 +68,23 @@ Three properties distinguish it from a general gazetteer:
   gazetteer, a provenance field on the resolution, and its own ADR. Extending
   this list to get there would be the slow version of the thing this ADR
   refuses.
+- **A decided name plus `Remote` resolves the city; the same name plus an
+  explicit country does not.** `"New York, Remote"` yields city "New York";
+  `"New York, USA, Remote"` yields state "New York" and no city
+  (`statewide_remote`). The difference is that `raw_part_count` is counted
+  after `Remote` is stripped, so `"New York, Remote"` is one bare part and
+  takes the decided-place path, while adding `"USA"` makes it two parts and
+  the state-corroboration path wins instead — adding a country to the string
+  removes its city. This asymmetry was noticed during review, not designed,
+  and is accepted rather than fixed: no coordinate is produced either way,
+  confidence stays `remote` in both cases, `infer_remote_policy` keys off
+  confidence rather than city, and the string genuinely does name New York —
+  nothing is invented that the source did not write. It has a live
+  consequence worth naming plainly: `ParsedLocation.is_nyc` returns `True` for
+  `"New York, Remote"` and `"Brooklyn, Remote"`, which feeds the `hot`-tier
+  decision in ADR 0007. `decided_bare_place_plus_remote_resolves_city` and
+  `decided_bare_borough_plus_remote_resolves_city` pin the behaviour so a
+  future refactor cannot silently flip it in either direction.
 - **This does not close the corroboration gap already tracked as `TODO(M1)`
   in `locations.py`.** A second, unresolved comma part still corroborates the
   first into a city — `"Global, XX"` still produces city `"Global"`. That
