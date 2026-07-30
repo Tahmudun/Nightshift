@@ -19,8 +19,8 @@ depends on it: the discovery design derives NYC-ness from parsed locations, and
 **Read before writing any M1 code**, in this order:
 
 1. `docs/architecture/board-discovery.md` — the approved design for the registry
-   and polling. **This is the M1 registry deliverable.** Nothing in this session's
-   design lives anywhere else.
+   and polling. **This is the M1 registry deliverable**, and it is the only place
+   the design exists in full.
 2. ADRs **0005** (batch approval, overrides A1's per-entry review), **0006**
    (Common Crawl discovery, and why it cannot see Lever), **0007** (two-phase
    conditional polling).
@@ -52,13 +52,18 @@ registry from a curated file into a discovery pipeline.
 Two open questions remain in `docs/QUESTIONS.md` (Q1 Gmail, Q2 deployment cost),
 neither blocking. Q3 is answered there in full.
 
-`make acceptance` is the single-command acceptance run. Last run at `4c1643f`
-on 2026-07-30, preceded by `make reset-db` so the migration path ran against an
-empty schema rather than one already at head:
+`make acceptance` is the single-command acceptance run. Last run at `19dc760`
+(the rename) on 2026-07-30, against a cluster initialised from an empty volume
+under the new database name — so the migration path ran on an empty schema
+rather than one already at head:
 
 ```
 18 verify checks + 6 seeded browser tests, all green
 ```
+
+CI: last verified green run is `6f88d9a`, five jobs, longest 129s. Commits after
+it are documentation only — check the Actions tab for the current head rather
+than trusting this line.
 
 ---
 
