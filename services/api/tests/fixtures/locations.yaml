@@ -1,0 +1,274 @@
+# Location-string fixtures. Written BEFORE the parser, per AMENDMENTS A2.
+#
+# Every `raw` value below is a real, unedited `location.name` string recorded
+# from a live Greenhouse board on 2026-07-29 (Datadog, board token `datadog`),
+# except where marked `synthetic:` — those cover shapes the other providers
+# produce that this one board happens not to contain.
+#
+# The point of this file is that location parsing is where invariant I1 is won
+# or lost. Every expectation here asserts a `confidence`, and none of them
+# assert coordinates: M0 does not geocode, so every row must come out with
+# latitude and longitude null. M1 adds a geocoding stage and extends this file;
+# it does not get to relax these expectations.
+
+cases:
+  # -------------------------------------------------------------------------
+  # Single location, fully specified
+  # -------------------------------------------------------------------------
+  - name: nyc_city_state_country
+    raw: "New York, New York, USA"
+    expect:
+      - raw_text: "New York, New York, USA"
+        city: "New York"
+        state: "New York"
+        country: "USA"
+        confidence: city_only
+        is_primary: true
+
+  - name: international_city_country
+    raw: "Paris, France"
+    expect:
+      - raw_text: "Paris, France"
+        city: "Paris"
+        state: null
+        country: "France"
+        confidence: city_only
+        is_primary: true
+
+  - name: us_city_state_no_country
+    synthetic: true
+    raw: "Brooklyn, New York"
+    expect:
+      - raw_text: "Brooklyn, New York"
+        city: "Brooklyn"
+        state: "New York"
+        country: null
+        confidence: city_only
+        is_primary: true
+
+  # -------------------------------------------------------------------------
+  # Multi-location. The reason job_locations is its own table (A2): collapsing
+  # any of these to a single point would be the fabrication I1 forbids.
+  # -------------------------------------------------------------------------
+  - name: three_us_cities
+    raw: "Boston, Massachusetts, USA; New York, New York, USA; San Francisco, California, USA"
+    expect:
+      - raw_text: "Boston, Massachusetts, USA"
+        city: "Boston"
+        state: "Massachusetts"
+        country: "USA"
+        confidence: city_only
+        is_primary: true
+      - raw_text: "New York, New York, USA"
+        city: "New York"
+        state: "New York"
+        country: "USA"
+        confidence: city_only
+        is_primary: false
+      - raw_text: "San Francisco, California, USA"
+        city: "San Francisco"
+        state: "California"
+        country: "USA"
+        confidence: city_only
+        is_primary: false
+
+  # -------------------------------------------------------------------------
+  # Remote. A statewide-remote segment names a state but no city, and must not
+  # be given one.
+  # -------------------------------------------------------------------------
+  - name: statewide_remote
+    raw: "New York, USA, Remote"
+    expect:
+      - raw_text: "New York, USA, Remote"
+        city: null
+        state: "New York"
+        country: "USA"
+        confidence: remote
+        is_primary: true
+
+  - name: country_remote
+    raw: "Germany, Remote"
+    expect:
+      - raw_text: "Germany, Remote"
+        city: null
+        state: null
+        country: "Germany"
+        confidence: remote
+        is_primary: true
+
+  - name: bare_remote
+    synthetic: true
+    raw: "Remote"
+    expect:
+      - raw_text: "Remote"
+        city: null
+        state: null
+        country: null
+        confidence: remote
+        is_primary: true
+
+  # The hard real case: a hybrid posting listing one physical office alongside
+  # nine remote states. The office must stay physical and the states must stay
+  # remote. One row per segment, ten rows total.
+  - name: office_plus_nine_remote_states
+    raw: "Boston, Massachusetts, USA; Connecticut, USA, Remote; Delaware, USA, Remote; District of Columbia, USA, Remote; Maryland, USA, Remote; Massachusetts, USA, Remote; New Jersey, USA, Remote; New York, New York, USA; New York, USA, Remote; Rhode Island, USA, Remote"
+    expect:
+      - raw_text: "Boston, Massachusetts, USA"
+        city: "Boston"
+        state: "Massachusetts"
+        country: "USA"
+        confidence: city_only
+        is_primary: true
+      - raw_text: "Connecticut, USA, Remote"
+        city: null
+        state: "Connecticut"
+        country: "USA"
+        confidence: remote
+        is_primary: false
+      - raw_text: "Delaware, USA, Remote"
+        city: null
+        state: "Delaware"
+        country: "USA"
+        confidence: remote
+        is_primary: false
+      - raw_text: "District of Columbia, USA, Remote"
+        city: null
+        state: "District of Columbia"
+        country: "USA"
+        confidence: remote
+        is_primary: false
+      - raw_text: "Maryland, USA, Remote"
+        city: null
+        state: "Maryland"
+        country: "USA"
+        confidence: remote
+        is_primary: false
+      - raw_text: "Massachusetts, USA, Remote"
+        city: null
+        state: "Massachusetts"
+        country: "USA"
+        confidence: remote
+        is_primary: false
+      - raw_text: "New Jersey, USA, Remote"
+        city: null
+        state: "New Jersey"
+        country: "USA"
+        confidence: remote
+        is_primary: false
+      - raw_text: "New York, New York, USA"
+        city: "New York"
+        state: "New York"
+        country: "USA"
+        confidence: city_only
+        is_primary: false
+      - raw_text: "New York, USA, Remote"
+        city: null
+        state: "New York"
+        country: "USA"
+        confidence: remote
+        is_primary: false
+      - raw_text: "Rhode Island, USA, Remote"
+        city: null
+        state: "Rhode Island"
+        country: "USA"
+        confidence: remote
+        is_primary: false
+
+  # -------------------------------------------------------------------------
+  # Degenerate input. Every one of these must produce `unknown`, never a guess.
+  # -------------------------------------------------------------------------
+  - name: empty_string
+    synthetic: true
+    raw: ""
+    expect: []
+
+  - name: whitespace_only
+    synthetic: true
+    raw: "   "
+    expect: []
+
+  - name: unparseable_single_token
+    synthetic: true
+    raw: "Global"
+    expect:
+      - raw_text: "Global"
+        city: null
+        state: null
+        country: null
+        confidence: unknown
+        is_primary: true
+
+  - name: multiple_offices_or_flexible
+    synthetic: true
+    raw: "Multiple Locations"
+    expect:
+      - raw_text: "Multiple Locations"
+        city: null
+        state: null
+        country: null
+        confidence: unknown
+        is_primary: true
+
+  # Lever emits this shape. "Anywhere" is not a place.
+  - name: lever_anywhere
+    synthetic: true
+    raw: "Remote - Anywhere"
+    expect:
+      - raw_text: "Remote - Anywhere"
+        city: null
+        state: null
+        country: null
+        confidence: remote
+        is_primary: true
+
+  # -------------------------------------------------------------------------
+  # Normalisation of separator noise. Duplicate segments collapse; a trailing
+  # separator does not create an empty row.
+  # -------------------------------------------------------------------------
+  - name: trailing_separator
+    synthetic: true
+    raw: "New York, New York, USA;"
+    expect:
+      - raw_text: "New York, New York, USA"
+        city: "New York"
+        state: "New York"
+        country: "USA"
+        confidence: city_only
+        is_primary: true
+
+  - name: duplicate_segments_collapse
+    synthetic: true
+    raw: "New York, New York, USA; New York, New York, USA"
+    expect:
+      - raw_text: "New York, New York, USA"
+        city: "New York"
+        state: "New York"
+        country: "USA"
+        confidence: city_only
+        is_primary: true
+
+  # A US state abbreviation is as valid a signal as the spelled-out name.
+  - name: abbreviated_state
+    synthetic: true
+    raw: "New York, NY"
+    expect:
+      - raw_text: "New York, NY"
+        city: "New York"
+        state: "New York"
+        country: null
+        confidence: city_only
+        is_primary: true
+
+  # An address-shaped string. M0 does not geocode, so a street address that
+  # could resolve to a building still comes out city_only with no coordinates.
+  # M1 is what promotes this to `verified`.
+  - name: street_address_not_geocoded_in_m0
+    synthetic: true
+    raw: "620 8th Ave, New York, NY"
+    expect:
+      - raw_text: "620 8th Ave, New York, NY"
+        city: "New York"
+        state: "New York"
+        country: null
+        confidence: city_only
+        is_primary: true
