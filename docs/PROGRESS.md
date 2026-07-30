@@ -11,25 +11,60 @@
 
 ## Next exact action
 
-**Start M1, beginning with item 1 of "Before M1 starts" below** — Lever and Ashby
-location fixtures, then parser breadth. It is first because everything else
-depends on it: the discovery design derives NYC-ness from parsed locations, and
-`"New York"` alone currently returns `unknown`.
+**Execute `docs/plans/2026-07-30-m1a-provider-breadth.md`, starting at Task 1.**
+It is a written, ordered, TDD task list with real code in every step. Nothing in
+it has been implemented yet.
+
+M1 was split into four plans, because `CLAUDE.md` §6 lists four independent
+subsystems under one milestone and a single plan for all of them would not
+produce working software until the end:
+
+| Plan | Contents | Status |
+|---|---|---|
+| **M1a — provider breadth** | Lever + Ashby adapters, location fixtures and parser breadth, upserts, ingestion + route tests | **Written, not started** |
+| M1b — canonical spine | Dedupe, freshness, closure state machine, admin job table, source health page | Not written |
+| M1c — board discovery | `nightshift/discovery/`, Common Crawl, validation, batch approval, coverage page | Not written |
+| M1d — polling | Two-phase conditional polling, hot/warm tiers, queue-driven ARQ | Not written |
+
+M1a is first because `board-discovery.md` §14 names its first two items as hard
+prerequisites of the discovery design, and §8 makes NYC-ness — which drives tier
+membership in M1d — a function of the parser M1a widens.
 
 **Read before writing any M1 code**, in this order:
 
-1. `docs/architecture/board-discovery.md` — the approved design for the registry
+1. The plan above.
+2. `docs/architecture/board-discovery.md` — the approved design for the registry
    and polling. **This is the M1 registry deliverable**, and it is the only place
    the design exists in full.
-2. ADRs **0005** (batch approval, overrides A1's per-entry review), **0006**
+3. ADRs **0005** (batch approval, overrides A1's per-entry review), **0006**
    (Common Crawl discovery, and why it cannot see Lever), **0007** (two-phase
    conditional polling).
-3. `docs/spec/AMENDMENTS.md` — skim, per CLAUDE.md §5. A1 still governs the
+4. `docs/spec/AMENDMENTS.md` — skim, per CLAUDE.md §5. A1 still governs the
    registry except where ADR 0005 says otherwise.
 
-**No implementation plan has been written yet.** The design is approved; turning
-it into an ordered, testable task list is the first thing to do if picking this up
-cold. `superpowers:writing-plans` is the intended route.
+### Findings from writing the plan — read these before M1d
+
+Live boards were probed while planning, so these are measured, not assumed. All
+three change work that is already designed.
+
+1. **Neither Lever nor Ashby publishes an updated-at field.** Lever has
+   `createdAt` only; Ashby has `publishedAt` only. **ADR 0007's phase-2 diff is
+   specified as "new or changed `updated_at`" and has no timestamp to compare on
+   two of the three providers.** M1d must fall back to the description hash
+   there. This is the most consequential of the three.
+2. **Two parser bugs, both fabricating a city, both present in real payloads.**
+   `"Vancouver, BC"` parses to a city called `"BC"` and `"New York, NY (HQ)"` to
+   one called `"NY (HQ)"` — I1 failures in the module whose docstring claims to
+   enforce I1. The first appears 3× on the recorded Lever board, the second 95×
+   on the Ashby board. M1a Tasks 3–4 fix them.
+3. **Ten Lever tokens guessed, two live** (`alloy` populated, `plaid` empty,
+   the rest 404). Direct support for ADR 0006: Lever boards genuinely have to be
+   found by careers-page probing, not guessed and not harvested.
+
+Also recorded, less urgent: Ashby's `address.postalAddress` is structured
+(`{addressLocality, addressRegion, addressCountry}`) and is better input for
+geocoding than its location string; Ashby's `isRemote` is `true` on 33 postings
+sitting at the New York office, so it does **not** mean the job is remote.
 
 ### What was decided this session, in one place
 
@@ -135,6 +170,11 @@ the `e2e` job guards acceptance row 5 from regressing.
 
 Carried from `docs/reviews/milestone-0-review.md` so a new session does not have to
 open it. Do these in order; items 1 and 2 are the ones that get expensive later.
+
+**Items 1, 2 and 3 are Tasks 3–5, 8 and 9 of the M1a plan.** They are listed
+here as well because this file is what a cold session reads first; the plan is
+where the ordered steps live. Items 4 and 5 are not in M1a — 4 waits for
+geocoding, and 5 is a one-line cleanup with no milestone attached.
 
 The board-discovery design (`docs/architecture/board-discovery.md` §14) depends on
 the first three and does not replace them. Item 1 is a hard prerequisite: NYC-ness
