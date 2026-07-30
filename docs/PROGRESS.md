@@ -112,6 +112,22 @@ plan — and CI has not run against any of them this session. Do not read this
 line as M1a being CI-verified; it is not. Check the Actions tab for the
 current head before trusting anything past `6f88d9a`.
 
+**Pre-merge review finding, fixed 2026-07-30: the `python` CI job had no
+`postgres` service.** Only `migrations` and `e2e` did. `tests/conftest.py`
+skips every database-backed test when it cannot reach a database, so on CI
+the `python` job was running 323 tests and silently skipping the other 13 —
+including the only tests of the ingestion pipeline and the API routes
+against a real database — while still reporting green. Fixed by giving the
+`python` job the same `postgres` service, env, and migration steps the
+`migrations` job already uses (copied verbatim rather than retyped, per the
+image-tag history in that job's comment). Verified locally: with the
+database unreachable, `323 passed, 13 skipped`; with a freshly-migrated
+CI-equivalent Postgres (same image, same recipe, no seed step) reachable,
+`336 passed, 0 skipped`. **The workflow change itself is unverified — CI has
+never run against this branch, on this fix or anything before it.** Do not
+read "336 passed" anywhere in this file as a CI-verified number until an
+actual Actions run says so.
+
 ---
 
 ## Blockers
@@ -232,7 +248,7 @@ These ran on this machine and passed:
 | Python format | `ruff format --check services/api` | 45 files already formatted |
 | Python lint | `ruff check services/api` | All checks passed |
 | Python types | `mypy nightshift` | Success: no issues found in 31 source files (strict) |
-| Python tests | `pytest -q` | **336 passed** in 5.6s |
+| Python tests | `pytest -q` | **350 passed** in ~7s (laptop, DB reachable at `localhost:5433`) |
 | Web types | `tsc --noEmit` | clean, `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes` |
 | Web lint | `eslint . --max-warnings 0` | clean |
 | Web tests | `vitest run` | **35 passed** (4 files) |
@@ -245,9 +261,15 @@ These ran on this machine and passed:
 | Whole-stack acceptance | `make acceptance` | **18 checks + 6 browser tests**, seeded corpus now 31 jobs / 3 companies / 62 locations across greenhouse + lever + ashby |
 | Live source reachable | `GET /v1/boards/datadog/jobs` | HTTP 200, 426 postings |
 
-**Total: 382 automated tests passing** (336 Python, 35 web unit, 5 degraded e2e,
+**Total: 396 automated tests passing** (350 Python, 35 web unit, 5 degraded e2e,
 6 seeded e2e), plus the 18 assertions in `scripts/verify.py`, which are not
-pytest tests but do gate `make acceptance` with an exit code.
+pytest tests but do gate `make acceptance` with an exit code. Of the 350
+Python tests, 13 are database-backed (`requires_db`/`pytest.mark.integration`
+in `tests/conftest.py`) and were, until this review, database-backed *only on
+a laptop with Postgres running* — the `python` CI job had no `postgres`
+service, so they silently skipped there and CI never actually ran them. See
+the CI paragraph above: the workflow now has a `postgres` service, but that
+fix itself has not yet been proven by a real CI run.
 
 Re-run in the M1a session on 2026-07-30 (Task 10, closing M1a): Python format,
 lint, types, tests (via `make check`); web types, lint, unit tests (also
@@ -266,10 +288,11 @@ last verified values stand at `f0cb5a6` / `14abb68`.
 
 The counts are only meaningful if the tests can fail. The invariant-bearing ones:
 
-- **I1 (no fabricated locations)** — 145 location-parser assertions (measured
-  2026-07-30: `pytest tests/test_locations.py --collect-only -q`), up from 98
-  at M0, driven by `tests/fixtures/locations.yaml`, whose cases are real
-  unedited `location.name` strings from the three recorded boards
+- **I1 (no fabricated locations)** — 159 location-parser assertions (measured
+  2026-07-30: `pytest tests/test_locations.py --collect-only -q`, up from 145
+  earlier the same day), up from 98 at M0, driven by
+  `tests/fixtures/locations.yaml`, whose cases are real unedited
+  `location.name` strings from the three recorded boards
   (Greenhouse/Datadog, Lever/Alloy, Ashby/Ramp) plus labelled synthetic edge
   cases. Includes the ten-location posting that mixes one physical office with
   nine remote states. Plus: `test_never_produces_coordinates` asserts
@@ -277,6 +300,21 @@ The counts are only meaningful if the tests can fail. The invariant-bearing ones
   `test_country_only_does_not_round_up_to_city_only`;
   `test_unrecognised_country_is_unknown_not_guessed`. On the web side, six Zod
   tests reject a point whose confidence does not justify it, in both directions.
+  **Pre-merge review, fixed 2026-07-30: two latent fabricated-city/on-site
+  bugs, same class as the Vancouver/BC and NY(HQ) fixes above, neither yet
+  seen in a recorded payload.** `parse_location_list` — the entry point
+  Lever's `categories.allLocations` and Ashby's `secondaryLocations` actually
+  call — never applied the `;`/`|` segment split its own module docstring
+  says both providers use; `"New York, NY; Boston, MA"` as one array element
+  parsed as a single segment with city `"NY; Boston"`. Separately, a
+  trailing parenthetical Remote (`"Austin, TX (Remote)"`) was lifted out
+  before Remote detection ran and then never re-checked, resolving
+  `city_only`/`on_site` instead of `remote`. Both fixed in
+  `nightshift/domain/locations.py`; both pinned with `synthetic: true`
+  fixture cases, the first also exercised through `parse_location_list`
+  directly (`test_list_entry_point_matches_field_entry_point`) rather than
+  only through `parse_location_field`, since that was the entry point the
+  bug actually lived in.
 - **I3 (no silent closure)** — `TestInvariantI3`, six cases: 404, connect
   timeout, 503, malformed JSON, and a 200 with the wrong shape all produce
   `ok=False`; a genuine empty board produces `ok=True` and
@@ -437,10 +475,76 @@ presented to a user as working.
 | Ashby's `address.postalAddress` | Structured (`addressLocality`/`addressRegion`/`addressCountry`), recorded verbatim in every raw payload, and better geocoding input than the free-text `location`/`secondaryLocations` strings — but deliberately unread by `AshbyAdapter.normalize`. Feeding a second location source into `job_locations` before geocoding has its own fixtures would mean two code paths writing the same table | M1, at the geocoding stage |
 | 3D city, map, MapLibre, Three.js | Not started, not scaffolded, no dependency added. Explore is a list and says so | M4 |
 | Auth | None. Single seeded `dev_user`, id in config (A3). Every user-owned table will still carry a real `user_id` FK from its first migration | M5 |
+| Live polling of Lever/Ashby | `data/board-registry.yaml` marks `lever:alloy` and `ashby:ramp` `status: active`, and the registry test pins them into the pollable set — but `workers/tasks.py:33` and `cli.py:251` both hard-filter `pollable(ats="greenhouse")`. **Nothing polls the Lever or Ashby boards.** Their jobs enter the corpus only via `make seed`'s committed fixtures. An operator reading `active` in the registry would reasonably assume otherwise; it means "eligible once M1d ships a poller for this ATS," not "currently polled" | M1d |
 
 ---
 
 ## Session log
+
+### 2026-07-30 — M1a final pre-merge review: fix wave
+
+A final pre-merge review of the M1a branch flagged five findings, all fixed
+in this session, no second wave planned.
+
+1. **CI silently skipped every database test.** The `python` CI job had no
+   `postgres` service — only `migrations` and `e2e` did — so `tests/conftest.py`'s
+   database-unreachable skip fired on every CI run, and the 13 tests covering
+   the ingestion pipeline and the API routes against a real database never
+   executed there, while the job still reported green. Fixed by adding the
+   `migrations` job's `postgres` service, env, and migration steps to the
+   `python` job verbatim (same image, same pinned tag — see that job's own
+   comment for why retyping it from memory has cost CI runs before). Verified
+   locally the way the reviewer did: `POSTGRES_PORT=5999 pytest -q` →
+   `323 passed, 13 skipped`; a freshly-migrated CI-equivalent Postgres
+   (`imresamu/postgis:16-3.4-bundle0`, same recipe, no seed step) reachable →
+   `336 passed, 0 skipped`. **The workflow file change itself is unverified —
+   CI has never run against this branch.**
+2. **Latent fabricated-city bug in `parse_location_list`.** The function
+   Lever's `categories.allLocations` and Ashby's `secondaryLocations` arrays
+   actually call never applied the `;`/`|` segment split that
+   `parse_location_field` does and that the module's own docstring says both
+   providers need. `["New York, NY; Boston, MA"]` (one array element) parsed
+   as a single segment with city `"NY; Boston"` — a fabricated place at
+   `city_only` confidence, same failure class as the Vancouver/BC and
+   NY(HQ) bugs M1a already fixed twice. Not yet seen in a recorded fixture,
+   which is exactly how the first two got in. Fixed: every element passed to
+   `parse_location_list` is now run through the same split before parsing.
+   De-duplication and primary-first ordering preserved. Pinned with two
+   `synthetic: true` fixture cases, one exercised directly through
+   `parse_location_list` via a new `raw_list` field and a new
+   `test_list_entry_point_matches_field_entry_point` test.
+3. **Latent remote-misclassification bug, same defect class.** Parenthetical
+   annotations are lifted out of a segment before Remote detection runs, and
+   Remote detection never looked at the lifted annotations — only at comma
+   parts. `"Austin, TX (Remote)"` therefore resolved `city_only`/`on_site`
+   instead of `remote`. Leading Remote (`"Remote (US)"`) already worked,
+   which is what made the trailing case easy to miss. Fixed in the same pass
+   as item 2; pinned with a `synthetic: true` fixture case.
+4. **Two false docstrings.** `lever.py`'s `fetch_board` said "Never raises"
+   directly above a `raise RuntimeError` for a null client — reworded to say
+   the no-raise guarantee covers source failures, not caller bugs. (`ashby.py`
+   has the identical phrasing and the identical null-client raise, but was
+   not named in the review; left untouched rather than guessing it should be
+   in scope.) `locations.py`'s module docstring said `"Global, Remote"` stays
+   `unknown` "same as a lone `Global`" — true for `city` (`None` both ways),
+   false for `confidence` (`remote` vs. `unknown`); corrected.
+5. **Registry/poller mismatch undocumented.** `data/board-registry.yaml`
+   marks `lever:alloy` and `ashby:ramp` `status: active`, and the registry
+   test pins them into the pollable set, but `workers/tasks.py` and `cli.py`
+   both hard-filter `pollable(ats="greenhouse")` — nothing polls Lever or
+   Ashby boards; their jobs enter the corpus only via `make seed`'s
+   fixtures. Recorded in "Not real yet" so an operator reading the registry
+   does not conclude otherwise.
+
+Net effect on the numbers elsewhere in this file: Python tests 336 → 350 (14
+new: 2 new fixture cases × the field-entry-point checks, plus a
+list-entry-point check on 2 cases); location-parser assertions 145 → 159;
+total automated tests 382 → 396. Row counts on the seeded dev database
+(`jobs=31, companies=3, sources=3, source_job_records=31, job_locations=62,
+job_source_links=31, ingestion_runs=4, users=1`) were checked before and
+after this session and are unchanged — the new database-backed test
+coverage referenced above is exercised entirely inside rolled-back
+transactions (see `tests/conftest.py`).
 
 ### 2026-07-30 — M1a closed: provider breadth (Lever + Ashby)
 
