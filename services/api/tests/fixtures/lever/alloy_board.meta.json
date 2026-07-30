@@ -1,0 +1,25 @@
+{
+  "provenance": {
+    "endpoint": "https://api.lever.co/v0/postings/alloy?mode=json",
+    "recorded_at": "2026-07-30T16:46:54+00:00",
+    "board_token": "alloy",
+    "http_status": 200,
+    "full_response_job_count": 9,
+    "note": "Each job object is byte-identical to the live response. Only the set of jobs was reduced (9 -> 9); nothing inside a job was edited, redacted, or synthesised."
+  },
+  "why_each_job_is_here": {
+    "25f50bcf-1130-421a-9c98-ce2c087b7e43": "location 'Washington, DC', workplaceType 'hybrid'",
+    "5548fd3a-ab1b-4e13-9a0a-4e6453252078": "location 'Denver, CO', workplaceType 'hybrid'",
+    "da9ffa0c-c4b1-4bd3-93ff-b58e38b16d3a": "location 'Vancouver, BC', workplaceType 'hybrid'",
+    "6f359313-0233-47c9-a030-ef57b3bc3a68": "location 'Remote - United States', workplaceType 'remote'",
+    "dfd5d78b-4ef4-47eb-a663-0f7e27ba2d07": "additional posting on the same board",
+    "9377b334-45ef-4fda-a515-29c350056a03": "additional posting on the same board",
+    "badfc095-dbb4-4a1c-8a8c-819754307eb8": "additional posting on the same board",
+    "d3b9916c-d75f-4423-bbae-de9c3603637d": "additional posting on the same board",
+    "3e3fe5c7-af9c-4aee-a3d2-bfe8b2905437": "additional posting on the same board"
+  },
+  "coverage_not_available_on_this_board": [
+    "internship commitment",
+    "NYC location"
+  ]
+}
