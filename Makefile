@@ -26,7 +26,7 @@ LOADENV := set -a && source .env && set +a
 
 .PHONY: help setup up down migrate migrate-down seed dev demo test test-py test-web \
         test-e2e check fmt lint typecheck reset-db ingest logs ps clean doctor \
-        verify acceptance
+        verify acceptance test-e2e-seeded browsers
 
 help: ## Show available targets
 	@echo "CitySignal — make targets"
@@ -118,11 +118,15 @@ verify: setup ## Assert the stack actually works, and exit with a status code
 # `demo` ends in a foreground dev server, which is right for a human and
 # impossible to check the exit code of. `acceptance` is the scriptable path:
 # it brings the stack up, seeds it, proves it, and exits.
-acceptance: ## up && migrate && seed && verify — the M0 acceptance run
+#
+# `verify` covers the API and the database; `test-e2e-seeded` covers the one
+# criterion neither can reach — that the jobs actually render in a browser.
+acceptance: ## up && migrate && seed && verify && seeded e2e — the M0 acceptance run
 	@$(MAKE) up
 	@$(MAKE) migrate
 	@$(MAKE) seed
 	@$(MAKE) verify
+	@$(MAKE) test-e2e-seeded
 
 # ---------------------------------------------------------------------------
 # Quality
@@ -150,8 +154,20 @@ test-py: setup ## Python unit tests
 test-web: setup ## Web unit tests
 	@cd $(WEB_DIR) && npm run --silent test
 
-test-e2e: setup ## Playwright
+# Playwright ships its browser separately from its npm package, and bumps the
+# required build on minor upgrades. Left to `make setup` it would put a ~100MB
+# download in front of every first run, so it lives here: the e2e targets
+# provision it, and `npm exec playwright install` is a no-op once satisfied.
+browsers: $(WEB_DIR)/node_modules/.installed
+	@cd $(WEB_DIR) && npm exec --silent -- playwright install chromium
+
+test-e2e: setup browsers ## Playwright, with no API behind it (the degraded path)
 	@cd $(WEB_DIR) && npm run --silent test:e2e
+
+# Needs a seeded stack. Separate from `test-e2e` because it has real
+# prerequisites; run it via `make acceptance`, which guarantees them.
+test-e2e-seeded: setup browsers ## Playwright against a seeded stack (acceptance row 5)
+	@$(LOADENV) && cd $(WEB_DIR) && npm run --silent test:e2e:seeded
 
 check: lint typecheck test ## format + lint + typecheck + test. Run before every commit.
 	@echo "==> check passed"
