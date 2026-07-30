@@ -449,3 +449,31 @@ cases:
         country: null
         confidence: city_only
         is_primary: true
+
+  # -------------------------------------------------------------------------
+  # Regression coverage: `Remote` must never corroborate the part next to it
+  # into a city. Greenhouse emits the literal string "Multiple Locations",
+  # and a trailing ", Remote" part is the exact shape `statewide_remote`
+  # documents elsewhere in this file — this pairs the two.
+  # -------------------------------------------------------------------------
+  - name: remote_does_not_corroborate_multiple_locations
+    synthetic: true
+    raw: "Multiple Locations, Remote"
+    expect:
+      - raw_text: "Multiple Locations, Remote"
+        city: null
+        state: null
+        country: null
+        confidence: remote
+        is_primary: true
+
+  - name: remote_does_not_corroborate_global
+    synthetic: true
+    raw: "Global, Remote"
+    expect:
+      - raw_text: "Global, Remote"
+        city: null
+        state: null
+        country: null
+        confidence: remote
+        is_primary: true

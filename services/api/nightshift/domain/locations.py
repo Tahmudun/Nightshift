@@ -12,9 +12,11 @@ comma count and completely different shapes; only the tail disambiguates them.
 Two rules do most of the work of keeping the output honest:
 
 * A place name is only accepted as a city when something corroborates it — a
-  recognised state or country in the same segment, or a preceding comma part.
-  A lone token like ``"Global"`` is therefore ``unknown``, not a city called
-  Global.
+  recognised state or country in the same segment, or a second comma part
+  present at all, resolved or not (``"Bengaluru, KA"`` keeps its city even
+  though ``KA`` names no known subdivision). ``Remote`` never corroborates:
+  it is the token asserting there is *no* place, so ``"Global, Remote"``
+  stays ``unknown`` same as a lone ``"Global"`` would.
 * Coarser-than-city information never rounds up. ``"Germany"`` on its own
   resolves a country and no city, so its confidence is ``unknown``: we know
   something, but not enough to place it, and ``city_only`` would overstate it.
@@ -333,10 +335,14 @@ class _Tail:
     remote: bool = False
     dropped: list[str] = field(default_factory=list)
     annotations: list[str] = field(default_factory=list)
-    # Comma-part count before anything is consumed or dropped. "Bengaluru, KA"
+    # Comma-part count after ``Remote`` is stripped but before country/
+    # subdivision consumption or the bare-code drop. "Bengaluru, KA"
     # corroborates "Bengaluru" as a city even though "KA" resolves to no known
-    # subdivision and is discarded below — the docstring's "preceding comma
-    # part" rule cares that a second part was named, not that it was decoded.
+    # subdivision: a second part was named, and naming one is what counts,
+    # not whether it decoded to anything. Captured post-``Remote`` on purpose:
+    # ``Remote`` itself asserts the *absence* of a place, so counting it here
+    # would let "Global, Remote" corroborate "Global" as a city — the opposite
+    # of what the token means.
     raw_part_count: int = 0
 
 
@@ -365,7 +371,7 @@ def _strip_tail_tokens(segment: str) -> _Tail:
         if part:
             parts.append(part)
 
-    tail = _Tail(parts=parts, annotations=annotations, raw_part_count=len(parts))
+    tail = _Tail(parts=parts, annotations=annotations)
 
     # 2. Remote, wherever it appears. Anything trailing the token on the same
     #    part survives as a part of its own: "Remote - United States" must not
@@ -381,6 +387,12 @@ def _strip_tail_tokens(segment: str) -> _Tail:
         else:
             remaining.append(part)
     tail.parts = remaining
+
+    # `raw_part_count` is measured here, after Remote is gone but before
+    # country/subdivision consumption or the bare-code drop. Measuring before
+    # this step would count "Remote" itself as a corroborating comma part,
+    # which is backwards: "Remote" is the token that says there is no place.
+    tail.raw_part_count = len(tail.parts)
 
     # 3. Country, then subdivision — in that order, because "New York, USA"
     #    puts the country last and the state immediately before it.
@@ -422,9 +434,15 @@ def parse_location_segment(segment: str, *, is_primary: bool) -> ParsedLocation:
     """Parse one already-split segment."""
     tail = _strip_tail_tokens(segment)
     # Corroboration comes from a resolved state/country, or from a second
-    # comma part having been named at all — even one that decoded to nothing,
-    # like "KA" in "Bengaluru, KA". A dropped-but-present part is still
-    # evidence the first part was offered as a place, not a lone guess.
+    # (non-Remote) comma part having been named at all — even one that decoded
+    # to nothing, like "KA" in "Bengaluru, KA". The corroborating part trails
+    # the city there, not precedes it, so this is broader than "a preceding
+    # comma part": any second geographic-shaped part is enough, resolved or not.
+    #
+    # TODO(M1): this still lets pure junk corroborate junk — "Global, XX" comes
+    # out with city "Global". Not a new failure mode (the pre-fix parser did
+    # the same, just naming the city "XX" instead) and not fixable without a
+    # gazetteer of real city names, which is Task 5 / ADR-0008 territory.
     corroborated = tail.state is not None or tail.country is not None or tail.raw_part_count > 1
 
     city: str | None = None
