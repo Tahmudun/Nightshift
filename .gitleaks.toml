@@ -1,0 +1,29 @@
+# gitleaks configuration.
+#
+# The repo is zero-key by design through M4 (AMENDMENTS A9), so the scan's job
+# is to keep it that way rather than to manage exceptions. The only allowlisted
+# values are the local development Postgres password, which appears in
+# .env.example and docker-compose.yml on purpose and grants access to nothing.
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "citysignal-dev-password-outside-example"
+description = "Development Postgres password used outside the files allowed to contain it"
+regex = '''citysignal_dev_only'''
+path = '''^(?!\.env\.example$|infra/docker-compose\.yml$|services/api/citysignal/config\.py$|README\.md$).*'''
+
+[allowlist]
+description = "Local development defaults — not credentials to anything reachable"
+paths = [
+  '''^\.env\.example$''',
+  '''^infra/docker-compose\.yml$''',
+  '''^\.github/workflows/ci\.yml$''',
+  # Recorded ATS payloads. Public, unauthenticated board responses; they contain
+  # no tokens, but they are large and full of URLs that trip entropy heuristics.
+  '''^services/api/tests/fixtures/''',
+]
+regexes = [
+  '''citysignal_ci''',
+]

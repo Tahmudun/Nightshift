@@ -1,0 +1,190 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A second push to a PR cancels the first run. Waiting on a stale run is how a
+# five-minute CI becomes a fifteen-minute one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: '3.12'
+  NODE_VERSION: '22'
+
+# AMENDMENTS A14 sets the scope: format, lint, typecheck, unit tests both
+# languages, migration up/down, build, secret scan. Target under five minutes.
+# Visual regression (M5), 3D perf gates (M5), load tests (M8), and coverage
+# thresholds (M3) are deliberately absent — a slow CI is a CI you start skipping.
+
+jobs:
+  python:
+    name: python — lint, types, tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: services/api/pyproject.toml
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e "services/api[dev]"
+
+      - name: Format check
+        run: ruff format --check services/api
+
+      - name: Lint
+        run: ruff check services/api
+
+      - name: Typecheck
+        run: mypy citysignal
+        working-directory: services/api
+
+      - name: Unit tests
+        # Coverage is measured and reported from M0 but does not gate until M3.
+        run: pytest -q --cov=citysignal --cov-report=term-missing
+        working-directory: services/api
+
+  web:
+    name: web — lint, types, tests, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install
+        run: npm ci
+        working-directory: apps/web
+
+      - name: Format check
+        run: npm run fmt:check
+        working-directory: apps/web
+
+      - name: Lint
+        run: npm run lint
+        working-directory: apps/web
+
+      - name: Typecheck
+        run: npm run typecheck
+        working-directory: apps/web
+
+      - name: Unit tests
+        run: npm run test
+        working-directory: apps/web
+
+      - name: Build
+        run: npm run build
+        working-directory: apps/web
+
+  migrations:
+    name: migrations — up, down, up, and no drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        # The same extension pair as infra/docker-compose.yml. Built here from
+        # the committed Dockerfile would cost a minute per run, so CI uses a
+        # prebuilt image with both extensions and the migration asserts they
+        # exist rather than assuming it.
+        image: ghcr.io/imresamu/postgis:16-3.4-bundle
+        env:
+          POSTGRES_USER: citysignal
+          POSTGRES_PASSWORD: citysignal_ci
+          POSTGRES_DB: citysignal
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U citysignal"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      POSTGRES_USER: citysignal
+      POSTGRES_PASSWORD: citysignal_ci
+      POSTGRES_DB: citysignal
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      CITYSIGNAL_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: services/api/pyproject.toml
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e "services/api[dev]"
+
+      - name: Create extensions
+        # Mirrors infra/postgres/init/001-extensions.sql. CREATE EXTENSION needs
+        # superuser, so it is not the migration's job in any environment.
+        run: |
+          PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U citysignal -d citysignal \
+            -f infra/postgres/init/001-extensions.sql
+
+      - name: Upgrade to head
+        run: alembic upgrade head
+        working-directory: services/api
+
+      - name: Downgrade to base
+        # CLAUDE.md §7: every migration reversible and tested both directions.
+        run: alembic downgrade base
+        working-directory: services/api
+
+      - name: Upgrade again
+        # The test that catches a downgrade which forgot to drop an enum type —
+        # this step fails with "type already exists" if it did.
+        run: alembic upgrade head
+        working-directory: services/api
+
+      - name: No model/migration drift
+        # Autogenerate must produce an empty diff. If it does not, a model was
+        # changed without a migration.
+        run: |
+          alembic revision --autogenerate -m drift_probe --rev-id drift_probe
+          if grep -qE '^\s+op\.(create|drop|alter|add)' migrations/versions/*drift_probe.py; then
+            echo "::error::models have drifted from migrations — generate a migration"
+            cat migrations/versions/*drift_probe.py
+            exit 1
+          fi
+          rm -f migrations/versions/*drift_probe.py
+        working-directory: services/api
+
+      - name: Seed loads
+        env:
+          OUTBOUND_HTTP_ENABLED: 'false'
+        # Proves the offline demo path works from a clean database, and that
+        # `make demo` is not going to fail on someone's first clone.
+        run: python -m citysignal.cli seed
+        working-directory: services/api
+
+  secrets:
+    name: secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
