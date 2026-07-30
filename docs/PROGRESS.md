@@ -4,55 +4,90 @@
 > file claims, fix this file before writing code.
 
 **Current milestone: M0 — Foundation with a heartbeat**
-**Status: NOT COMPLETE. Blocked on one host prerequisite.**
-**Last updated: 2026-07-29**
+**Status: 5 of 6 acceptance criteria VERIFIED. Row 2 (CI green) needs a git remote.**
+**Last updated: 2026-07-30**
 
 ---
 
 ## Next exact action
 
-**A human must run one command:**
+**Two things need a human, and both are host problems rather than code.**
+
+1. **Restart Docker Desktop from the GUI.** It died when the disk filled and now
+   shows an error dialog instead of starting (B3). Then run `make acceptance` to
+   re-confirm the 6 seeded browser tests, which are the only checks not re-run
+   after the last commit.
+2. **Create a git remote** so CI can run — acceptance row 2, below.
+
+Row 2 cannot be verified locally at all: CI green means a real run on real
+infrastructure.
 
 ```bash
-sudo mkdir -p /usr/local/cli-plugins && sudo chown "$(whoami)" /usr/local/cli-plugins
+# Create an empty repo (no README, no .gitignore), then:
+git remote add origin git@github.com:<you>/citysignal.git
+git push -u origin main
 ```
 
-Then, in order:
+Then check the Actions tab. Five jobs must pass: `python`, `web`, `migrations`,
+`e2e`, `secrets`. Record the run URL in row 2 below and mark M0 complete.
 
-```bash
-brew install --cask docker-desktop   # was rolled back mid-install; see Blockers
-open -a Docker                       # accept the privileged-helper prompt once
-make demo
+`make acceptance` is the single-command acceptance run. At commit `bb46732` it
+passed from a wiped Docker volume with nothing pre-started:
+
 ```
-
-`make demo` is the M0 acceptance run. Everything it exercises is written and
-unit-tested; none of it has been executed against a live Postgres or Redis,
-because this machine has no container runtime. Details in **Blockers** below.
-
-After `make demo` succeeds, walk the acceptance table below, replace every
-`BLOCKED` with real recorded output, and only then mark M0 complete.
+18 verify checks + 6 seeded browser tests, all green
+```
 
 ---
 
 ## Blockers
 
-### B1 — No container runtime on this machine (blocks M0 acceptance)
+### B1 — No container runtime — RESOLVED 2026-07-30
 
-Docker Desktop had been uninstalled previously, leaving five dangling symlinks in
-`/usr/local/bin` pointing into a deleted `/Applications/Docker.app`. Those were
-removed (they were broken; nothing was lost). `brew install --cask
-docker-desktop` then got as far as installing the app and rolled itself back on:
+Docker Desktop was installed by the human after `brew install --cask
+docker-desktop` had rolled itself back on an interactive-sudo step
+(`mkdir -p /usr/local/cli-plugins`; `/usr/local` is `root:wheel`).
 
+Everything B1 had been blocking is now verified with recorded output. Kept here
+because the acceptance table's history refers to it.
+
+### B3 — Docker Desktop is down and needs GUI attention
+
+Caused by B2. The daemon died mid-session with `no space left on device` (in
+`~/Library/Containers/com.docker.docker/Data/log/host/com.docker.backend.log`),
+then came back showing an Electron error dialog rather than starting. Quitting it
+cleanly and relaunching with `open -a Docker` did not bring it back; it needs
+someone to look at the dialog.
+
+Disk pressure is relieved (7.5 GB free after deleting `apps/web/.next` and
+Playwright artefacts), so a restart should now succeed.
+
+**What this does and does not invalidate.** Every acceptance row was verified at
+commit `bb46732`, before this happened. One commit landed afterwards, `f0cb5a6`,
+which is CSS tokens plus class renames plus a new unit test. It cannot touch
+migrations, `/health`, the constraint probes, the API, or the seed path, so rows
+1, 3, 4 and 6 are unaffected. Re-run after that commit: `make check` (215 unit
+tests) and `make test-e2e` (5 tests, which render all three routes in a real
+browser with the new palette). **Not re-run: the 6 seeded browser tests behind
+row 5.** Their assertions are text and ARIA based rather than colour based, so
+there is no specific reason to expect breakage — but they have not been run, and
+that is the honest state of it. First thing to do once Docker is back:
+
+```bash
+make acceptance
 ```
-Error: Failure while executing; `/usr/bin/sudo -E -- mkdir -p -- /usr/local/cli-plugins` exited with 1.
-sudo: a terminal is required to read the password
-```
 
-`/usr/local` is `root:wheel`, so creating that one directory needs an interactive
-sudo. That is the whole blocker. The command is in **Next exact action**.
+### B2 — Host disk is full (degrades verification, blocks nothing)
 
-Consequence: everything requiring a live database or Redis is written, typechecked,
-and unit-tested, but **unverified**. Nothing in this repo claims otherwise.
+`/System/Volumes/Data`: 210 GB used of 233 GB, **1.2 GB free**. A fresh clone of
+this repo needs ~730 MB of `node_modules` plus venv, which would leave the
+machine under 500 MB. The final clean-clone run was therefore skipped rather than
+risk destabilising the host; the earlier clean-clone run at `0830589` stands, and
+row 1 says precisely what that does and does not cover.
+
+Docker's own reclaimable space was already pruned (build cache and dangling
+images, ~477 MB). The remaining large image, `hg-engine:latest` (2.06 GB), is not
+part of this project and was left alone.
 
 ---
 
@@ -63,14 +98,19 @@ with recorded output or explicitly marked blocked.
 
 | # | Criterion | Status | Evidence |
 |---|---|---|---|
-| 1 | Clean clone → `make setup && make demo` works, documented, no hidden steps | **BLOCKED (B1)** | `make setup` verified: venv built, 183 py tests + 19 web tests run from a fresh install. `make demo` needs `docker compose up --wait` |
-| 2 | CI green | **UNVERIFIED** | `.github/workflows/ci.yml` written with four jobs (python, web, migrations, secrets). No git remote exists, so it has never executed. Every step it runs was run locally and passes — see rows 3–6 |
-| 3 | Migrations apply and roll back | **PARTIAL** | `alembic upgrade head --sql` renders complete, correct DDL for all 8 tables and 8 enum types (offline mode, no connection). Apply/rollback/re-apply against a live cluster is BLOCKED (B1). CI job `migrations` runs up → down → up → drift-probe |
-| 4 | `/health` reports DB + Redis honestly, including when they are down | **PARTIAL** | Down path verified end to end: Playwright `a missing API is reported, not hidden` passes — the UI renders "api unreachable" and "Could not load roles" rather than an empty state. Healthy path (real PG + Redis, 200 + latencies) is BLOCKED (B1) |
-| 5 | One real Greenhouse board's jobs appear in the browser | **PARTIAL** | Real board fetched live 2026-07-29: `boards-api.greenhouse.io/v1/boards/datadog/jobs?content=true` → HTTP 200, 5,309,493 bytes, 426 postings, 134 naming New York. 10 recorded verbatim into a committed fixture; all 10 normalize, and `test_normalization_is_deterministic` passes twice over. Rendering from Postgres is BLOCKED (B1) |
-| 6 | No secrets committed | **VERIFIED** | No key-shaped strings anywhere in the tree (scanned for `sk-*`, `AKIA*`, `ghp_*`, PEM private keys). `.env` is gitignored (`.gitignore:2`), confirmed via `git check-ignore`. Only credential-shaped value in the repo is `citysignal_dev_only`, the local compose password, allowlisted in `.gitleaks.toml` for the three files entitled to contain it |
+| 1 | Clean clone → `make setup && make demo` works, documented, no hidden steps | **VERIFIED** | Genuine `git clone` into a scratch directory at commit `0830589`, no `.env`, no Docker volumes: `make setup` built the venv and installed JS deps in **47.8s**, then `make setup && make acceptance` passed **18/18** checks. Postgres initialised from an empty volume, so the extension init script ran for real. Three commits landed after that run (`b4e515a`, `0c230f1`, `bb46732`); they were verified in place, not by re-cloning, because the host disk is full (B2). Of those, only the Makefile `browsers` target touches the setup path, and it was exercised — including its ~100 MB first-run download |
+| 2 | CI green | **UNVERIFIED — needs a git remote** | `.github/workflows/ci.yml`, five jobs: `python`, `web`, `migrations`, `e2e`, `secrets`. `git remote -v` is empty and `gh` is not installed, so it has never run. Every command it issues was run locally and passes (see the table below), and the YAML parses — but "the same commands pass on my laptop" is **not** the criterion, and this row stays UNVERIFIED until a real run exists |
+| 3 | Migrations apply and roll back | **VERIFIED** | Against live PostGIS 16 + pgvector. Before: 12 tables, 8 enum types. `make migrate-down` → the 8 project tables and **all 8 enum types** dropped, leaving only `alembic_version` and PostGIS's own `geography_columns` / `geometry_columns` / `spatial_ref_sys`. A downgrade that forgets `DROP TYPE` leaves enums behind and this is how you see it. `make migrate` → 12 tables and 8 enums restored; re-seeding produced a byte-identical corpus (10 jobs, 21 locations, same confidence split) |
+| 4 | `/health` reports DB + Redis honestly, including when they are down | **VERIFIED** | Real containers stopped, not mocked. Both up → `200 {"status":"ok",…"database":{"ok":true,"detail":"postgis + pgvector present","latency_ms":4.27},"redis":{"ok":true,"detail":"PONG","latency_ms":3.2}}`. Postgres stopped → `503 "degraded"`, `database.ok:false`, `detail:"ConnectionRefusedError: [Errno 61] Connection refused"`, **redis still `ok:true`** — the two are reported independently. Redis stopped too → both false, with distinguishable details. `/health/live` stayed `204` throughout, as a liveness probe should. Both restarted → `200`, and `/stats` still reported all 10 jobs open: an outage closed nothing (I3) |
+| 5 | One real Greenhouse board's jobs appear in the browser | **VERIFIED** | Board fetched live 2026-07-29: `boards-api.greenhouse.io/v1/boards/datadog/jobs?content=true` → HTTP 200, 5,309,493 bytes, 426 postings, 134 naming New York. 10 recorded verbatim into a committed fixture. Now rendered in a real Chromium via `apps/web/e2e-seeded/` — **6 tests, all passing** — which reads the expected titles from the API at run time and finds them in the DOM. Also asserts the A2 multi-location rows, the I7 "committed fixture" badge, and that no job ladder claims verified/approximate placement |
+| 6 | No secrets committed | **VERIFIED** | No key-shaped strings anywhere in the tree (scanned for `sk-*`, `AKIA*`, `ghp_*`, PEM private keys). `.env` is gitignored (`.gitignore:2`), confirmed via `git check-ignore`. Only credential-shaped value in the repo is `citysignal_dev_only`, the local compose password, allowlisted in `.gitleaks.toml` for the three files entitled to contain it. `tests/test_env_example.py` now asserts this rather than trusting it |
 
-**M0 is not complete.** Rows 1–5 are not satisfied.
+**M0 is not complete.** Row 2 is unsatisfied and it needs a human to create a
+remote. Rows 1 and 3–6 are verified with the recorded output above.
+
+Row 2 is not a formality: CI is the only thing that runs the `migrations` up →
+down → up sequence and the drift probe on every change, and it is where the
+`e2e` job guards acceptance row 5 from regressing.
 
 ---
 
@@ -83,16 +123,25 @@ These ran on this machine and passed:
 | Python format | `ruff format --check services/api` | 35 files already formatted |
 | Python lint | `ruff check services/api` | All checks passed |
 | Python types | `mypy citysignal` | Success: no issues found in 28 source files (strict) |
-| Python tests | `pytest -q` | **183 passed** in 3.82s |
+| Python tests | `pytest -q` | **196 passed** in 2.26s |
 | Web types | `tsc --noEmit` | clean, `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes` |
 | Web lint | `eslint . --max-warnings 0` | clean |
-| Web tests | `vitest run` | **19 passed** (3 files) |
+| Web tests | `vitest run` | **35 passed** (4 files) |
+| Colour contrast | `vitest run colour-contrast` | 16 assertions on measured WCAG 2.1 ratios |
 | Web build | `next build` | compiled, 7 static routes, 102 kB shared JS |
-| E2E | `playwright test` | **5 passed** in 35.2s |
+| E2E — degraded (no API) | `make test-e2e` | **5 passed** in 15.0s |
+| E2E — seeded corpus | `make test-e2e-seeded` | **6 passed** in 18.7s |
 | Migration renders | `alembic upgrade head --sql` | full DDL emitted, 8 tables, 8 enums |
+| Migration round trip | `make migrate-down && make migrate` | 8 tables + 8 enum types dropped and restored, live cluster |
+| Whole-stack acceptance | `make acceptance` | **18 checks + 6 browser tests**, from an empty volume, nothing pre-started |
 | Live source reachable | `GET /v1/boards/datadog/jobs` | HTTP 200, 426 postings |
 
-**Total: 207 automated tests passing** (183 Python, 19 web unit, 5 e2e).
+**Total: 242 automated tests passing** (196 Python, 35 web unit, 5 degraded e2e,
+6 seeded e2e), plus the 18 assertions in `scripts/verify.py`, which are not
+pytest tests but do gate `make acceptance` with an exit code.
+
+Caveat per B3: the 6 seeded e2e tests last ran at commit `bb46732`, one commit
+back. Everything else in this table was run at `f0cb5a6`.
 
 ### What those tests actually cover
 
@@ -252,6 +301,92 @@ presented to a user as working.
 ---
 
 ## Session log
+
+### 2026-07-30 — M0 acceptance
+
+Docker Desktop installed by the human, clearing B1. Ran the acceptance criteria
+against live infrastructure for the first time. Four bugs, every one of them found
+by running the thing rather than by reading it.
+
+**1. `make demo` failed on a clean clone.** The reported symptom:
+
+```
+.env: line 53: syntax error near unexpected token `('
+.env: line 53: `HTTP_USER_AGENT=CitySignal/0.1 (+https://github.com/tahmudun/citysignal)'
+make[1]: *** [migrate] Error 1
+```
+
+The Makefile loads config with `set -a && source .env`, because Alembic and the
+seed CLI read the process environment rather than pydantic-settings. An unquoted
+`(` is a bash syntax error. Three parsers read this file — bash, `docker compose
+--env-file`, python-dotenv — with three different quoting rules, and only
+python-dotenv had ever been exercised. `tests/test_env_example.py` now sources the
+file exactly as the Makefile does and requires bash and python-dotenv to agree on
+every value.
+
+This is the M0 acceptance criterion that matters most and it was broken by one
+missing pair of quotes. Worth remembering that the failure had nothing to do with
+the interesting parts of the system.
+
+**2. Acceptance row 5 had no automated coverage at all.** The existing Playwright
+suite runs with *no API* on purpose — it proves the app reports "api unreachable"
+instead of rendering an empty list, which is the right thing to test. But it meant
+nothing asserted that real rows from Postgres ever reach a screen. Added
+`apps/web/e2e-seeded/`, and an `e2e` job to CI so the criterion cannot regress
+silently.
+
+While writing it: the first version of the I1 test failed, and the app was right
+and the test was wrong. `ConfidenceLegend` renders the same ladder component for
+all five levels to document the visual language, so an unscoped
+`getByRole('img')` was asserting against the legend rather than against job data.
+Scoped to `role="article"`. Then added the assertion that the rejected label *does*
+appear in the legend — otherwise over-narrow scoping would make the test pass by
+matching nothing, which is the failure mode CLAUDE.md §7 means by "a test that
+cannot fail is not a test."
+
+**3. `make setup` never installed Playwright's browser.** It ships separately from
+the npm package and the required build changes on minor upgrades, so
+`make test-e2e` could not work from a clean clone. The e2e targets provision it
+now; keeping it out of `make setup` avoids putting a 100 MB download in front of
+every first run.
+
+**4. `make acceptance` had a hidden step — mine.** I added the seeded suite to the
+target, but `verify.py` starts its own uvicorn and tears it down on exit, so the
+suite that ran after it had nothing to talk to. Six tests failed on
+`ECONNREFUSED`. It had passed when I first ran it only because I had started
+uvicorn by hand — precisely the class of thing acceptance criterion 1 exists to
+forbid, committed by me while verifying that criterion. `playwright.seeded.config.ts`
+now declares both servers, gated on `/health`, and the duplicate CI step is gone.
+
+**5. The palette failed WCAG AA, and worse than the review guessed.** Review action
+6 was "measure contrast on `paper-faint`/`ink-500`; lighten if below 4.5:1".
+Measured: `paper-faint` 3.89:1, a genuine fail for the 9-11px labels it carries.
+But `ink-500` — a *surface* shade — was being used as a text colour in fourteen
+places at **1.69:1**, which is close to invisible. The palette had three named
+text weights and a fourth unnamed one that nobody had decided on. Fixed by
+lightening `paper-faint` to 5.43:1 and moving every `text-ink-500` onto it, so
+there are now exactly three text steps and all three are readable.
+
+`colour-contrast.test.ts` computes the ratios from the real tokens rather than
+trusting a comment. Confirmed non-vacuous by restoring the old value: three tests
+fail. It also pins `ink-500` *below* 3:1, so lightening it to reuse as text trips
+a failure that points at the explanation.
+
+**Verified against live infrastructure:** migration down/up dropping and restoring
+all 8 enum types; `/health` degrading per-dependency with real containers stopped;
+all four `job_locations` check constraints refusing their violations. The review's
+line — *"a constraint nobody has seen reject anything is a comment with extra
+syntax"* — is now settled: each one raised `IntegrityError`.
+
+**Not verified:** CI (no remote exists, B-none — it needs an account decision), the
+final clean-clone re-run (host disk, B2), and the 6 seeded browser tests after the
+last commit (Docker died, B3). Each of those three has its own entry saying exactly
+what it covers and what it leaves open.
+
+The disk filling up was self-inflicted in part: I made two full clones of the repo
+to test the clean-clone path, ~730 MB each in `node_modules` and venvs, on a
+machine that had ~2 GB free to begin with. Both are deleted. Testing the
+clean-clone path is right; doing it twice without checking `df` first was not.
 
 ### 2026-07-29 — M0 build
 

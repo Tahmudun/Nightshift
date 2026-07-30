@@ -1,8 +1,14 @@
 # Milestone 0 — adversarial review
 
-**Date:** 2026-07-29
+**Date:** 2026-07-29, with an addendum 2026-07-30 after everything was executed
 **Reviewer:** the engineer who wrote it, which is the weakness of this document
-**Verdict: M0 is not complete.** Three findings must be fixed before it can be.
+**Verdict: M0 is not complete.** F2 (CI has never run) is still open.
+
+> The body below was written before any of this code had touched a live database,
+> and it says so throughout. Reading it back after running everything: F1 and F3
+> are closed, and the addendum records three defects — F4, F5, F6 — that this
+> review did not predict and could not have. Where the two disagree, the addendum
+> is what actually happened.
 
 CLAUDE.md §5 asks this review to actively look for: hallucinated certainty,
 silent data loss, wrong merges, race conditions, retry storms, GPU leaks,
@@ -256,12 +262,12 @@ point at if asked which test is closest to asserting nothing.
 
 | # | Action | From |
 |---|---|---|
-| 1 | Install a container runtime; run `make demo`; record real output for acceptance rows 1, 3, 4, 5 | F1 |
-| 2 | Manually attempt all four `job_locations` constraint violations and confirm the database refuses each | F1 |
+| ~~1~~ | ~~Install a container runtime; record real output for rows 1, 3, 4, 5~~ — **done 2026-07-30.** All four verified; see the PROGRESS acceptance table | F1 |
+| ~~2~~ | ~~Attempt all four `job_locations` constraint violations~~ — **done.** Each raised `IntegrityError`; automated in `scripts/verify.py` so it stays proven | F1 |
 | 3 | Push to a remote; get one green CI run | F2 |
-| ~~4~~ | ~~Add `make verify`~~ — **written** (`scripts/verify.py`, `make verify` / `make acceptance`). Itself unrun, per F1 | F3 |
+| ~~4~~ | ~~Add `make verify`~~ — **written and now run.** 18 checks, gating `make acceptance` | F3 |
 | ~~5~~ | ~~Add tests for `domain/registry.py`~~ — **done**, 29 assertions; also added 30 for `domain/companies.py` | W2 |
-| 6 | Measure contrast on `paper-faint`/`ink-500` against the background; lighten if below 4.5:1 | a11y |
+| ~~6~~ | ~~Measure contrast on `paper-faint`/`ink-500`~~ — **done, and both failed.** See the addendum below | a11y |
 
 ## Actions before M1 can start
 
@@ -271,3 +277,82 @@ point at if asked which test is closest to asserting nothing.
 | 8 | Write Lever and Ashby location fixtures **before** touching the parser | W1, A2 |
 | 9 | Re-read `_replace_locations` when geocoding lands — it must not discard resolved coordinates | data loss |
 | 10 | Delete the redundant ordering in `_existing_location_signature` | W4 |
+
+---
+
+## Addendum — 2026-07-30, after running everything
+
+F1 and the four constraint probes are closed. F2 is not: CI still has never run.
+
+### F4 — Acceptance criterion 5 had no automated coverage (found while closing F1)
+
+The Playwright suite ran with no API behind it, deliberately, to prove the app
+reports "api unreachable" instead of rendering an empty list. Good test. But it
+meant nothing in the repo asserted that real rows from Postgres ever reach a
+screen — the single most load-bearing claim M0 makes. The gap was invisible
+because "5 e2e tests passing" reads like coverage of the UI.
+
+Closed by `apps/web/e2e-seeded/` and a CI `e2e` job. Two things worth recording
+about writing it:
+
+- The first version of the I1 test failed and **the app was right, the test was
+  wrong**. `ConfidenceLegend` renders the same ladder for all five levels to
+  document the visual language, so an unscoped `getByRole('img')` was asserting
+  against the legend rather than against job data. The instinct to treat a red
+  test as a product bug is exactly the instinct this review exists to distrust.
+- Scoping the fix to `role="article"` created the opposite risk — a selector so
+  narrow it matches nothing and passes forever. Added an assertion that the
+  rejected label *does* appear in the legend, which makes the test's ability to
+  fail part of the test.
+
+### F5 — `make acceptance` had a hidden step, and I added it
+
+Wiring the seeded suite into `make acceptance` produced a target that could not
+work: `verify.py` starts its own uvicorn and tears it down on exit, so the suite
+after it had nothing to talk to. It passed the first time I ran it only because I
+had started uvicorn by hand in the same shell.
+
+This is worth more than a changelog line. Acceptance criterion 1 exists to catch
+"works on the author's machine, fails on a clean clone", and I introduced exactly
+that defect *while verifying that criterion*, and briefly recorded a pass for it.
+What caught it was running the target from a clean state instead of from the shell
+I had been working in. Warm-shell verification is not verification.
+
+### F6 — The palette failed WCAG AA in two places, one worse than predicted
+
+Action 6 asked me to check `paper-faint` and `ink-500`. Both failed:
+
+| Token | Was | On ink-950 | Used for |
+|---|---|---|---|
+| `paper-faint` | `#5d6e88` | **3.89:1** | 9-11px labels — needs 4.5:1 |
+| `ink-500` | `#2b374d` | **1.69:1** | body text in 14 components |
+
+The `paper-faint` miss was predicted. The `ink-500` one was not, and it is the
+more interesting failure: `ink-500` is a *surface and border* shade, and it had
+been used as a text colour in fourteen places. The palette declared three text
+weights and quietly grew a fourth that nobody had made a decision about. Each
+individual use looked plausible in isolation; the problem was only visible by
+computing every foreground against every background at once.
+
+Fixed: `paper-faint` → `#7286a3` (5.43:1 on ink-950, 5.04:1 on the ink-800 hover
+state), every `text-ink-500` moved onto it, and `ink-400` added at 3.15:1 for the
+one legitimate non-text use. `colour-contrast.test.ts` pins all of it, including
+an assertion that `ink-500` stays *below* 3:1 so that lightening it to reuse as
+text fails loudly.
+
+**Still open on accessibility:** no test asserts focus-visible styling on the
+interactive elements, and the ladder's meaning is carried by tick count plus a
+text label but has never been checked with a real screen reader. Neither is an M0
+criterion; both belong in M4's accessibility pass, when there is a map to make
+accessible and the gaps get much more expensive.
+
+### What running everything actually changed
+
+Four defects, all of them found by execution rather than reading: an unquoted
+`.env` value that broke `make demo` on any clean clone, the missing row-5
+coverage, an uninstalled Playwright browser, and my own hidden step in
+`make acceptance`. The review written before any of it ran did not predict a
+single one, and it was not for want of looking — F1 said plainly that nothing had
+been executed. The lesson is narrower and less comfortable than "test your code":
+a review of unexecuted code is worth much less than it feels like it is worth
+while writing it.
