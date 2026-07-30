@@ -146,17 +146,60 @@ async def test_a_failed_board_closes_nothing(db_session: AsyncSession) -> None:
     assert open_after == open_before
 
 
+def _synthetic_multi_location_raw_job() -> RawJob:
+    """A fabricated posting, not a recording — labelled unmistakably as such.
+
+    Every real posting in ``alloy_board.json`` happens to name exactly one
+    location (verified by inspection: each entry's ``categories.allLocations``
+    has length 1). Without a posting that names two, the "multi-location
+    postings produce multiple job_locations rows" acceptance criterion is
+    unfalsifiable: `max(count) >= 1` and `count(JobLocation) >= 9` hold even
+    if the pipeline could never write more than one location row per job.
+    This job is invented here, in the test, for exactly that gap — it borrows
+    one real posting's shape only to stay schema-valid, and its id and title
+    say plainly that it is not a real Alloy opening.
+    """
+    template = json.loads((FIXTURES / "lever" / "alloy_board.json").read_text())[0]
+    payload = {
+        **template,
+        "id": "SYNTHETIC-TEST-FIXTURE-not-a-real-alloy-posting",
+        "text": "SYNTHETIC TEST POSTING (multi-location coverage) — not a real Alloy job",
+        "categories": {
+            **template["categories"],
+            "location": "New York, NY",
+            "allLocations": ["New York, NY", "Boston, MA"],
+        },
+    }
+    return RawJob(
+        source_job_id=str(payload["id"]),
+        source_company_key="alloy",
+        canonical_url=None,
+        payload=payload,
+    )
+
+
 async def test_multi_location_posting_yields_multiple_rows(db_session: AsyncSession) -> None:
-    """A2 and an M1 acceptance criterion, end to end into the table."""
-    await _ingest(db_session, _lever_outcome())
+    """A2 and an M1 acceptance criterion, end to end into the table.
+
+    The real fixture has no multi-location posting to exercise this with, so
+    one fabricated (and clearly labelled) posting is added to the batch. Its
+    two `allLocations` entries must land as two distinct `job_locations` rows
+    for that one job — a single collapsed row would still leave the other
+    assertions in this suite green, which is exactly the gap this closes.
+    """
+    outcome = _lever_outcome()
+    outcome = outcome.model_copy(
+        update={"jobs": (*outcome.jobs, _synthetic_multi_location_raw_job())}
+    )
+    await _ingest(db_session, outcome)
     per_job = (
         await db_session.execute(
             select(JobLocation.job_id, func.count()).group_by(JobLocation.job_id)
         )
     ).all()
     assert per_job
-    assert max(count for _, count in per_job) >= 1
-    assert await _count(db_session, JobLocation) >= 9
+    assert max(count for _, count in per_job) >= 2, "no job has more than one location row"
+    assert await _count(db_session, JobLocation) == 11  # 9 real (1 each) + synthetic (2)
 
 
 async def test_no_location_row_has_a_coordinate(db_session: AsyncSession) -> None:
@@ -189,14 +232,25 @@ async def test_repeated_company_creation_does_not_duplicate(db_session: AsyncSes
 async def test_a_posting_that_fails_to_persist_does_not_abort_the_board(
     db_session: AsyncSession,
 ) -> None:
-    """The savepoint in _persist_outcome, proven by making one posting fail.
+    """The savepoint in _persist_outcome, proven by making one posting fail
+    a real database statement — not the normalize() step before it.
 
-    Without the savepoint the failed statement poisons the transaction and
-    every posting after it in the board fails too — so this asserts the
+    An empty title raises ValueError inside LeverAdapter.normalize(), which
+    is caught by the `try/except` around normalize() in _persist_outcome
+    (ingestion.py) *before* any session.execute() runs — so it never reaches
+    `session.begin_nested()` and proves nothing about the savepoint. Setting
+    the title past the `jobs.title` column's `String(500)` limit instead
+    passes normalize() cleanly and fails at flush time, inside the savepoint,
+    which is what `_persist_outcome`'s nested transaction exists to contain.
+
+    Without the savepoint, that failed INSERT poisons the shared transaction
+    and every posting after it in the board fails too — so this asserts the
     survivors, not just the failure count.
     """
     outcome = _lever_outcome()
-    broken = outcome.jobs[0].model_copy(update={"payload": {**outcome.jobs[0].payload, "text": ""}})
+    broken = outcome.jobs[0].model_copy(
+        update={"payload": {**outcome.jobs[0].payload, "text": "A" * 600}}
+    )
     outcome = outcome.model_copy(update={"jobs": (broken, *outcome.jobs[1:])})
 
     _, stats = await _ingest(db_session, outcome)

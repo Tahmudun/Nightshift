@@ -148,6 +148,11 @@ async def db_session(db_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
         transaction = await connection.begin()
         maker = async_sessionmaker(bind=connection, expire_on_commit=False)
         async with maker() as session:
-            await session.execute(text(f"TRUNCATE TABLE {', '.join(_INGESTION_TABLES)} CASCADE"))
+            # No CASCADE: all seven FKs among these tables live inside this
+            # list today, so it is a no-op — but a later milestone adds
+            # tables with a foreign key to `jobs`, and CASCADE would silently
+            # pull those into a destructive statement too. Without it,
+            # TRUNCATE errors loudly and whoever hits it re-reads this list.
+            await session.execute(text(f"TRUNCATE TABLE {', '.join(_INGESTION_TABLES)}"))
             yield session
         await transaction.rollback()
