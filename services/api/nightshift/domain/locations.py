@@ -23,6 +23,7 @@ Two rules do most of the work of keeping the output honest:
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from nightshift.db.base import LocationConfidence, ResolutionMethod
@@ -237,6 +238,56 @@ _COUNTRIES: dict[str, str] = {
     "new zealand": "New Zealand",
 }
 
+# Canadian provinces. Added because Lever and Ashby boards name Vancouver and
+# Toronto, and without this table `parts[-1]` — the subdivision code — was
+# being taken as the city, producing a place called "BC". No code here
+# collides with a US postal abbreviation, so lookup order does not matter.
+_CA_PROVINCES: dict[str, str] = {
+    "alberta": "Alberta",
+    "ab": "Alberta",
+    "british columbia": "British Columbia",
+    "bc": "British Columbia",
+    "manitoba": "Manitoba",
+    "mb": "Manitoba",
+    "new brunswick": "New Brunswick",
+    "nb": "New Brunswick",
+    "newfoundland and labrador": "Newfoundland and Labrador",
+    "nl": "Newfoundland and Labrador",
+    "nova scotia": "Nova Scotia",
+    "ns": "Nova Scotia",
+    "ontario": "Ontario",
+    "on": "Ontario",
+    "prince edward island": "Prince Edward Island",
+    "pe": "Prince Edward Island",
+    "quebec": "Quebec",
+    "québec": "Quebec",
+    "qc": "Quebec",
+    "saskatchewan": "Saskatchewan",
+    "sk": "Saskatchewan",
+}
+
+# A bare two-letter token that resolved to no subdivision is not a city.
+# Fixing "BC" by adding it to a table would leave every unlisted code broken,
+# so the guard is on the shape of the token rather than on its value.
+_BARE_SUBDIVISION_CODE = re.compile(r"^[A-Za-z]{2}$")
+
+# A trailing parenthetical annotation: "New York, NY (HQ)", "Remote (US)".
+# Sometimes noise, sometimes the only geographic signal present, so it is
+# lifted out and re-interpreted rather than dropped.
+_PAREN_SUFFIX = re.compile(r"\s*\(([^)]*)\)\s*$")
+
+# "Remote - United States", "Remote — US", "Remote: EMEA".
+_REMOTE_PREFIX = re.compile(
+    r"^(?:fully\s+|100%\s+)?remote\b[\s\-–—:,]*",  # noqa: RUF001
+    re.IGNORECASE,
+)
+
+
+def _lookup_subdivision(token: str) -> str | None:
+    """Resolve a US state or Canadian province name or code."""
+    key = token.casefold()
+    return _US_STATES.get(key) or _CA_PROVINCES.get(key)
+
 
 @dataclass(frozen=True, slots=True)
 class ParsedLocation:
@@ -281,45 +332,58 @@ class _Tail:
     country: str | None = None
     remote: bool = False
     dropped: list[str] = field(default_factory=list)
-
-
-def _split_segments(raw: str) -> list[str]:
-    """Split the source field into per-location segments, preserving order."""
-    segments: list[str] = []
-    seen: set[str] = set()
-    for chunk in _SEGMENT_SPLIT.split(raw or ""):
-        text = " ".join(chunk.split())
-        if not text:
-            continue
-        # Collapse exact duplicates. A board that lists the same office twice
-        # should not produce two rows that later look like two offices.
-        key = text.casefold()
-        if key in seen:
-            continue
-        seen.add(key)
-        segments.append(text)
-    return segments
+    annotations: list[str] = field(default_factory=list)
+    # Comma-part count before anything is consumed or dropped. "Bengaluru, KA"
+    # corroborates "Bengaluru" as a city even though "KA" resolves to no known
+    # subdivision and is discarded below — the docstring's "preceding comma
+    # part" rule cares that a second part was named, not that it was decoded.
+    raw_part_count: int = 0
 
 
 def _strip_tail_tokens(segment: str) -> _Tail:
-    """Consume ``Remote``, then a country, then a US state, from the right."""
-    parts = [" ".join(p.split()) for p in segment.split(",")]
-    parts = [p for p in parts if p]
-    tail = _Tail(parts=parts)
+    """Consume annotations, ``Remote``, a country, then a US/CA subdivision.
 
-    # 1. Remote can appear as its own trailing part ("New York, USA, Remote")
-    #    or lead the whole segment ("Remote - Anywhere").
+    Right-to-left, because the informative tokens are on the right. The order
+    within this function is deliberate and each step depends on the one above:
+    annotations must come off before a code like ``NY (HQ)`` can be recognised
+    as a state, and ``Remote`` must come off before ``Remote - United States``
+    can yield a country.
+    """
+    raw_parts = [" ".join(p.split()) for p in segment.split(",")]
+    raw_parts = [p for p in raw_parts if p]
+
+    # 1. Lift trailing parentheticals out of each part.
+    parts: list[str] = []
+    annotations: list[str] = []
+    for part in raw_parts:
+        match = _PAREN_SUFFIX.search(part)
+        if match is not None:
+            inner = match.group(1).strip()
+            if inner:
+                annotations.append(inner)
+            part = part[: match.start()].strip()
+        if part:
+            parts.append(part)
+
+    tail = _Tail(parts=parts, annotations=annotations, raw_part_count=len(parts))
+
+    # 2. Remote, wherever it appears. Anything trailing the token on the same
+    #    part survives as a part of its own: "Remote - United States" must not
+    #    throw away "United States".
     remaining: list[str] = []
-    for part in parts:
+    for part in tail.parts:
         if _REMOTE_TOKEN.match(part):
             tail.remote = True
             tail.dropped.append(part)
+            residue = _REMOTE_PREFIX.sub("", part).strip()
+            if residue:
+                remaining.append(residue)
         else:
             remaining.append(part)
     tail.parts = remaining
 
-    # 2. Country, then state — in that order, because "New York, USA" puts the
-    #    country last and the state immediately before it.
+    # 3. Country, then subdivision — in that order, because "New York, USA"
+    #    puts the country last and the state immediately before it.
     if tail.parts:
         country = _COUNTRIES.get(tail.parts[-1].casefold())
         if country is not None:
@@ -327,10 +391,29 @@ def _strip_tail_tokens(segment: str) -> _Tail:
             tail.parts.pop()
 
     if tail.parts:
-        state = _US_STATES.get(tail.parts[-1].casefold())
+        state = _lookup_subdivision(tail.parts[-1])
         if state is not None:
             tail.state = state
             tail.parts.pop()
+
+    # 4. An annotation can carry the country or the subdivision. Only consulted
+    #    where the segment itself said nothing, so an explicit value always
+    #    wins over a parenthesised one.
+    for annotation in tail.annotations:
+        if tail.country is None:
+            country = _COUNTRIES.get(annotation.casefold())
+            if country is not None:
+                tail.country = country
+                continue
+        if tail.state is None:
+            state = _lookup_subdivision(annotation)
+            if state is not None:
+                tail.state = state
+
+    # 5. A leftover bare two-letter code is an unrecognised subdivision, not a
+    #    city. Drop it rather than promote it.
+    if tail.parts and _BARE_SUBDIVISION_CODE.match(tail.parts[-1]):
+        tail.dropped.append(tail.parts.pop())
 
     return tail
 
@@ -338,7 +421,11 @@ def _strip_tail_tokens(segment: str) -> _Tail:
 def parse_location_segment(segment: str, *, is_primary: bool) -> ParsedLocation:
     """Parse one already-split segment."""
     tail = _strip_tail_tokens(segment)
-    corroborated = tail.state is not None or tail.country is not None
+    # Corroboration comes from a resolved state/country, or from a second
+    # comma part having been named at all — even one that decoded to nothing,
+    # like "KA" in "Bengaluru, KA". A dropped-but-present part is still
+    # evidence the first part was offered as a place, not a lone guess.
+    corroborated = tail.state is not None or tail.country is not None or tail.raw_part_count > 1
 
     city: str | None = None
     if tail.parts:
@@ -369,8 +456,37 @@ def parse_location_segment(segment: str, *, is_primary: bool) -> ParsedLocation:
     )
 
 
+def parse_location_list(segments: Sequence[str]) -> list[ParsedLocation]:
+    """Parse an already-separated list of location strings.
+
+    Lever's ``categories.allLocations`` and Ashby's ``secondaryLocations`` are
+    JSON arrays. Joining them into a delimited string so that
+    :func:`parse_location_field` can split them again would discard structure
+    the provider handed us — and would break on any location containing the
+    delimiter. Both entry points share every downstream rule.
+    """
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for chunk in segments:
+        text = " ".join((chunk or "").split())
+        if not text:
+            continue
+        # Collapse exact duplicates. A board that lists the same office twice
+        # should not produce two rows that later look like two offices.
+        key = text.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        cleaned.append(text)
+
+    return [
+        parse_location_segment(segment, is_primary=(index == 0))
+        for index, segment in enumerate(cleaned)
+    ]
+
+
 def parse_location_field(raw: str | None) -> list[ParsedLocation]:
-    """Parse a source's location field into one :class:`ParsedLocation` per place.
+    """Parse a source's delimited location field into one location per place.
 
     Returns an empty list for empty input: a posting with no location text gets
     no location rows, rather than one row claiming to be somewhere.
@@ -380,11 +496,7 @@ def parse_location_field(raw: str | None) -> list[ParsedLocation]:
     real location the posting names, so ordering affects sorting and never
     correctness.
     """
-    segments = _split_segments(raw or "")
-    return [
-        parse_location_segment(segment, is_primary=(index == 0))
-        for index, segment in enumerate(segments)
-    ]
+    return parse_location_list(_SEGMENT_SPLIT.split(raw or ""))
 
 
 def infer_remote_policy(locations: list[ParsedLocation]) -> str:
