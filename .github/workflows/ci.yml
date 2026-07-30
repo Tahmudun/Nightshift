@@ -105,7 +105,13 @@ jobs:
         # the committed Dockerfile would cost a minute per run, so CI uses a
         # prebuilt image with both extensions and the migration asserts they
         # exist rather than assuming it.
-        image: ghcr.io/imresamu/postgis:16-3.4-bundle
+        #
+        # Two things about this reference are load-bearing and were both wrong
+        # until the first CI run proved it: the tag is `-bundle0`, not
+        # `-bundle`, and it is pulled from Docker Hub, because ghcr.io denies
+        # anonymous pulls of this package. Verified to provide postgis 3.4.3,
+        # vector 0.7.4, pg_trgm and pgcrypto on PostgreSQL 16.4.
+        image: imresamu/postgis:16-3.4-bundle0
         env:
           POSTGRES_USER: citysignal
           POSTGRES_PASSWORD: citysignal_ci
@@ -192,7 +198,8 @@ jobs:
     # A14's five-minute target.
     services:
       postgres:
-        image: ghcr.io/imresamu/postgis:16-3.4-bundle
+        # Kept identical to the migrations job above — see the note there.
+        image: imresamu/postgis:16-3.4-bundle0
         env:
           POSTGRES_USER: citysignal
           POSTGRES_PASSWORD: citysignal_ci

@@ -83,7 +83,7 @@ with recorded output or explicitly marked blocked.
 | 3 | Migrations apply and roll back | **VERIFIED** | Against live PostGIS 16 + pgvector. Before: 12 tables, 8 enum types. `make migrate-down` → the 8 project tables and **all 8 enum types** dropped, leaving only `alembic_version` and PostGIS's own `geography_columns` / `geometry_columns` / `spatial_ref_sys`. A downgrade that forgets `DROP TYPE` leaves enums behind and this is how you see it. `make migrate` → 12 tables and 8 enums restored; re-seeding produced a byte-identical corpus (10 jobs, 21 locations, same confidence split) |
 | 4 | `/health` reports DB + Redis honestly, including when they are down | **VERIFIED** | Real containers stopped, not mocked. Both up → `200 {"status":"ok",…"database":{"ok":true,"detail":"postgis + pgvector present","latency_ms":4.27},"redis":{"ok":true,"detail":"PONG","latency_ms":3.2}}`. Postgres stopped → `503 "degraded"`, `database.ok:false`, `detail:"ConnectionRefusedError: [Errno 61] Connection refused"`, **redis still `ok:true`** — the two are reported independently. Redis stopped too → both false, with distinguishable details. `/health/live` stayed `204` throughout, as a liveness probe should. Both restarted → `200`, and `/stats` still reported all 10 jobs open: an outage closed nothing (I3) |
 | 5 | One real Greenhouse board's jobs appear in the browser | **VERIFIED** | Board fetched live 2026-07-29: `boards-api.greenhouse.io/v1/boards/datadog/jobs?content=true` → HTTP 200, 5,309,493 bytes, 426 postings, 134 naming New York. 10 recorded verbatim into a committed fixture. Now rendered in a real Chromium via `apps/web/e2e-seeded/` — **6 tests, all passing** — which reads the expected titles from the API at run time and finds them in the DOM. Also asserts the A2 multi-location rows, the I7 "committed fixture" badge, and that no job ladder claims verified/approximate placement |
-| 6 | No secrets committed | **VERIFIED** | No key-shaped strings anywhere in the tree (scanned for `sk-*`, `AKIA*`, `ghp_*`, PEM private keys). `.env` is gitignored (`.gitignore:2`), confirmed via `git check-ignore`. Only credential-shaped value in the repo is `citysignal_dev_only`, the local compose password, allowlisted in `.gitleaks.toml` for the three files entitled to contain it. `tests/test_env_example.py` now asserts this rather than trusting it |
+| 6 | No secrets committed | **VERIFIED** | No key-shaped strings anywhere in the tree (scanned for `sk-*`, `AKIA*`, `ghp_*`, PEM private keys). `.env` is gitignored (`.gitignore:2`), confirmed via `git check-ignore`. Only credential-shaped value in the repo is `citysignal_dev_only`, the local compose password, confined to the files entitled to contain it. `tests/test_env_example.py` asserts this rather than trusting it. **gitleaks itself had never executed until 2026-07-30** — its config used a negative lookahead, which Go's RE2 cannot compile, so it panicked at config load on every invocation (see the session log). Now: `gitleaks detect` over full history exits 0 on gitleaks **8.24.3**, the version the action pins, and a planted `citysignal_dev_only` in a non-allowlisted file exits 2 — so the rule is proven able to fail |
 
 **M0 is not complete.** Row 2 is unsatisfied and it needs a human to create a
 remote. Rows 1 and 3–6 are verified with the recorded output above.
@@ -322,6 +322,71 @@ presented to a user as working.
 ---
 
 ## Session log
+
+### 2026-07-30 — first CI run on real infrastructure
+
+Remote created (`github.com/Tahmudun/Nightshift`, public) and `main` pushed. The
+push was made over HTTPS, not SSH: there are no SSH keys on this machine, so
+`git@github.com:` was refused, and there was already a working GitHub credential
+in the macOS keychain.
+
+Run 1: `python` and `web` green, `migrations`, `e2e` and `secrets` red. Both
+failures were in CI configuration that had never been executed, which is the
+entire argument for acceptance row 2 not being a formality.
+
+**1. The secret scan had never run — not once.** It did not fail to find
+anything; it crashed before scanning a single file:
+
+```
+panic: regexp: Compile(`^(?!\.env\.example$|...).*`):
+       error parsing regexp: bad perl operator: `(?!`
+```
+
+`.gitleaks.toml` expressed "flag this password anywhere except these four files"
+as a negative lookahead in `path`. gitleaks compiles rule patterns with Go's
+`regexp`, which is RE2: no backtracking, therefore no lookahead, and
+`MustCompile` panics. Reproduced locally, byte-identical.
+
+The failure mode is worth naming. A crash and a strict scan both leave CI red,
+so nothing about the job's colour distinguishes "this scanned everything and
+objected" from "this has never scanned anything." The evidence for acceptance
+row 6 had been written as though the tool ran.
+
+Rewritten as a rule-level `[rules.allowlist]`, which is the supported way to say
+"except these paths". Scanning then surfaced two files that legitimately name the
+password and were never in the original list — `tests/test_env_example.py`, which
+asserts the confinement, and `docs/PROGRESS.md`, which quotes it as evidence —
+plus `.gitleaks.toml` itself, whose regex is a literal copy of the string. All
+three added.
+
+Verified against gitleaks **8.24.3**, the version `gitleaks-action@v2` pins,
+rather than the newer build Homebrew installs: full history exits 0, and a
+planted `citysignal_dev_only` in a non-allowlisted file exits 2. Per CLAUDE.md
+§7, an allowlist that silences everything is not a scan.
+
+**2. The CI Postgres image does not exist.** `Initialize containers` failed in
+both `migrations` and `e2e`, before checkout:
+
+```
+docker pull ghcr.io/imresamu/postgis:16-3.4-bundle
+Error response from daemon: manifest unknown
+```
+
+Two independent errors in one reference. The tag is `16-3.4-bundle0`, with a
+trailing zero, and ghcr.io denies anonymous pulls of that package at all — the
+runner authenticated to ghcr as the repo owner and still could not fetch it.
+Docker Hub serves it unauthenticated.
+
+Confirmed by running the image and executing the committed
+`infra/postgres/init/001-extensions.sql` against it rather than trusting the tag
+name: postgis 3.4.3, vector 0.7.4, pg_trgm 1.6, pgcrypto 1.3 on PostgreSQL 16.4,
+all four `CREATE EXTENSION` statements succeeding.
+
+**Worth carrying forward:** CI runs a third-party prebuilt image while local dev
+and `make demo` build `infra/postgres/Dockerfile`. That divergence is why a
+non-existent tag sat in the repo unnoticed — no local command ever pulls it.
+Acceptable now that CI actually exercises it every push; revisit if the two
+builds drift in a way that matters.
 
 ### 2026-07-30 — M0 acceptance
 

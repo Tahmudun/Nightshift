@@ -12,7 +12,27 @@ useDefault = true
 id = "citysignal-dev-password-outside-example"
 description = "Development Postgres password used outside the files allowed to contain it"
 regex = '''citysignal_dev_only'''
-path = '''^(?!\.env\.example$|infra/docker-compose\.yml$|services/api/citysignal/config\.py$|README\.md$).*'''
+
+  # "Everywhere except these four files" is expressed as a rule-level allowlist,
+  # NOT as a negative lookahead in `path`. gitleaks compiles these with Go's
+  # regexp, which is RE2 — it has no `(?!...)` and panics on one at config load,
+  # before scanning a single file. That is a scan which always exits non-zero
+  # and never inspects anything, so it cannot be distinguished from a strict
+  # scan by looking at whether CI is red.
+  [rules.allowlist]
+  description = "The files entitled to contain the local development password"
+  paths = [
+    '''^\.env\.example$''',
+    '''^infra/docker-compose\.yml$''',
+    '''^services/api/citysignal/config\.py$''',
+    '''^README\.md$''',
+    # Asserts the password is confined to the files above, so it must name it.
+    '''^services/api/tests/test_env_example\.py$''',
+    # The acceptance evidence for "no secrets committed" quotes the value.
+    '''^docs/PROGRESS\.md$''',
+    # This file: the rule's own regex is a literal copy of the string.
+    '''^\.gitleaks\.toml$''',
+  ]
 
 [allowlist]
 description = "Local development defaults — not credentials to anything reachable"
