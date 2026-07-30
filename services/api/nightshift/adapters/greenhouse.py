@@ -213,12 +213,17 @@ class GreenhouseAdapter:
         self._client = client
 
     async def fetch_board(self, board: BoardRef) -> FetchOutcome:
-        """Poll one board. Never raises — I3 lives or dies on this method.
+        """Poll one board. Never raises — unconditionally, not just for a
+        source failure: unlike Lever and Ashby, this adapter's ``client`` is
+        required at construction, not optional, so there is no caller-bug
+        raise path to carve out here either.
 
-        A failure returns ``ok=False``, which tells the caller it learned
-        *nothing* about these jobs. That is categorically different from
-        ``ok=True`` with an empty list, which means the board really is empty.
-        Collapsing the two is how a source outage closes a thousand live jobs.
+        I3 lives or dies on this method: a failure returns ``ok=False`` on
+        the returned :class:`FetchOutcome`, which tells the caller it
+        learned *nothing* about these jobs. That is categorically different
+        from ``ok=True`` with an empty list, which means the board really is
+        empty. Collapsing the two is how a source outage closes a thousand
+        live jobs.
         """
         url = BOARD_URL.format(token=board.token)
         try:
