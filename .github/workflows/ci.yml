@@ -29,6 +29,35 @@ jobs:
     name: python — lint, types, tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # A postgres service, so the database-backed tests (`requires_db` /
+    # `pytest.mark.integration` in services/api/tests/conftest.py) actually run
+    # here instead of silently skipping. Without this, `conftest.py`'s
+    # `db_engine` fixture cannot reach a database, skips, and CI stays green
+    # while 13 tests — including the only coverage of the ingestion pipeline
+    # and the API routes against a real database — never execute. Identical to
+    # the `migrations` job's service below on purpose: that recipe is already
+    # proven in CI, so this copies it rather than retyping the image tag from
+    # memory (see that job's comment for why the tag is load-bearing).
+    services:
+      postgres:
+        image: imresamu/postgis:16-3.4-bundle0
+        env:
+          POSTGRES_USER: nightshift
+          POSTGRES_PASSWORD: nightshift_ci
+          POSTGRES_DB: nightshift
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U nightshift"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      POSTGRES_USER: nightshift
+      POSTGRES_PASSWORD: nightshift_ci
+      POSTGRES_DB: nightshift
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      NIGHTSHIFT_ENV: test
     steps:
       - uses: actions/checkout@v4
 
@@ -53,8 +82,21 @@ jobs:
         run: mypy nightshift
         working-directory: services/api
 
+      - name: Create extensions
+        # Mirrors infra/postgres/init/001-extensions.sql. CREATE EXTENSION needs
+        # superuser, so it is not the migration's job in any environment.
+        run: |
+          PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U nightshift -d nightshift \
+            -f infra/postgres/init/001-extensions.sql
+
+      - name: Migrate
+        run: alembic upgrade head
+        working-directory: services/api
+
       - name: Unit tests
         # Coverage is measured and reported from M0 but does not gate until M3.
+        # The database-backed tests truncate-and-rollback their own tables (see
+        # conftest.py), so no seed step is needed here — only a migrated schema.
         run: pytest -q --cov=nightshift --cov-report=term-missing
         working-directory: services/api
 
