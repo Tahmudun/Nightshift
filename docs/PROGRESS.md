@@ -89,18 +89,28 @@ registry from a curated file into a discovery pipeline.
 Two open questions remain in `docs/QUESTIONS.md` (Q1 Gmail, Q2 deployment cost),
 neither blocking. Q3 is answered there in full.
 
-`make acceptance` is the single-command acceptance run. Last run at `19dc760`
-(the rename) on 2026-07-30, against a cluster initialised from an empty volume
-under the new database name — so the migration path ran on an empty schema
-rather than one already at head:
+`make acceptance` is the single-command acceptance run. Most recently run at
+`bb80680` (M1a's closing commit) on 2026-07-30, against the containers already
+running from earlier in the session (not a clean/empty volume — see the
+"Verified locally" table below for that caveat):
 
 ```
-18 verify checks + 6 seeded browser tests, all green
+18 verify checks + 6 seeded browser tests, all green, corpus 31 jobs / 3
+companies / 3 sources / 62 locations (greenhouse + lever + ashby)
 ```
 
-CI: last verified green run is `6f88d9a`, five jobs, longest 129s. Commits after
-it are documentation only — check the Actions tab for the current head rather
-than trusting this line.
+The earlier run this line used to cite, `19dc760` (the rename, against an
+empty volume), still stands as the last *clean-volume* run — it predates
+M1a and is superseded here only for "what does `make acceptance` currently
+report," not for "was it ever run from empty."
+
+CI: last verified green run is `6f88d9a`, five jobs, longest 129s. **That
+predates all of M1a.** Twenty-one commits landed between `6f88d9a` and the
+M1a-closing commit — the Lever and Ashby adapters, the widened location
+parser, the upserts, the ingestion and route test suites, everything in this
+plan — and CI has not run against any of them this session. Do not read this
+line as M1a being CI-verified; it is not. Check the Actions tab for the
+current head before trusting anything past `6f88d9a`.
 
 ---
 
@@ -173,10 +183,12 @@ the `e2e` job guards acceptance row 5 from regressing.
 Carried from `docs/reviews/milestone-0-review.md` so a new session does not have to
 open it. Do these in order; items 1 and 2 are the ones that get expensive later.
 
-**Items 1, 2 and 3 are Tasks 3–5, 8 and 9 of the M1a plan.** They are listed
-here as well because this file is what a cold session reads first; the plan is
-where the ordered steps live. Items 4 and 5 are not in M1a — 4 waits for
-geocoding, and 5 is a one-line cleanup with no milestone attached.
+**Items 1, 2 and 3 were Tasks 3–5, 8 and 9 of the M1a plan — all three are now
+done**, marked below with the commits that closed them. They stayed listed
+here as well because this file is what a cold session reads first; the plan
+was where the ordered steps lived. Items 4 and 5 were not in M1a and remain
+open — 4 waits for geocoding, and 5 is a one-line cleanup with no milestone
+attached.
 
 The board-discovery design (`docs/architecture/board-discovery.md` §14) depends on
 the first three and does not replace them. Item 1 is a hard prerequisite: NYC-ness
@@ -187,8 +199,9 @@ queue-driven (ADR 0007) — concurrency above 1 is the point of that design.
 1. **DONE — Write Lever and Ashby location fixtures before touching the parser.**
    Fixtures added at `43dd80a`; the parser was then widened and two real
    fabricated-city bugs fixed at `96a4e16`, `12da0ce`, `d81b03c` (ADR 0008
-   accepted at `031a6b9`). `parse_location_field` now has 98+ assertions
-   across three providers' shapes rather than one. (W1)
+   accepted at `031a6b9`). `tests/test_locations.py` now has 145 assertions
+   (measured 2026-07-30; 98 at M0) across three providers' shapes rather than
+   one. (W1)
 2. **DONE — Make `get_or_create_source` / `get_or_create_company` upserts.**
    Fixed at `1b37ed9` (`ON CONFLICT DO NOTHING` + read, not check-then-insert).
    No longer a landmine for the moment worker concurrency goes above 1.
@@ -253,9 +266,11 @@ last verified values stand at `f0cb5a6` / `14abb68`.
 
 The counts are only meaningful if the tests can fail. The invariant-bearing ones:
 
-- **I1 (no fabricated locations)** — 98 location-parser assertions driven by
-  `tests/fixtures/locations.yaml`, whose cases are real unedited
-  `location.name` strings from the live board plus labelled synthetic edge
+- **I1 (no fabricated locations)** — 145 location-parser assertions (measured
+  2026-07-30: `pytest tests/test_locations.py --collect-only -q`), up from 98
+  at M0, driven by `tests/fixtures/locations.yaml`, whose cases are real
+  unedited `location.name` strings from the three recorded boards
+  (Greenhouse/Datadog, Lever/Alloy, Ashby/Ramp) plus labelled synthetic edge
   cases. Includes the ten-location posting that mixes one physical office with
   nine remote states. Plus: `test_never_produces_coordinates` asserts
   structurally that `ParsedLocation` has no latitude/longitude field at all;
@@ -277,15 +292,18 @@ The counts are only meaningful if the tests can fail. The invariant-bearing ones
 - **Determinism** — `test_normalization_is_deterministic` and
   `test_parse_is_deterministic`, both asserted from M0 so M1's "byte-identical
   output twice" criterion cannot quietly become false first.
-- **Company identity** — 30 assertions organised around the two ways
-  `normalize_company_name` can fail: splitting one employer in two, or merging
-  two real ones. Includes the false merges a fuzzy matcher would make
-  (Meta/Metabase, Ramp/Rampart) and the suffixes that must *not* be stripped
-  (Palantir vs Palantir Technologies). **This suite found a real bug** — see the
-  session log.
-- **Board registry** — 29 assertions on the file that decides which boards get
-  polled, where a typo means silently never seeing a company's jobs. Includes
-  path-traversal rejection on the token, since it is interpolated into a URL.
+- **Company identity** — 27 assertions (measured 2026-07-30) organised around
+  the two ways `normalize_company_name` can fail: splitting one employer in
+  two, or merging two real ones. Includes the false merges a fuzzy matcher
+  would make (Meta/Metabase, Ramp/Rampart) and the suffixes that must *not*
+  be stripped (Palantir vs Palantir Technologies). **This suite found a real
+  bug** — see the session log.
+- **Board registry** — 35 assertions (measured 2026-07-30, up from 29 at M0)
+  on the file that decides which boards get polled, where a typo means
+  silently never seeing a company's jobs. Includes path-traversal rejection
+  on the token, since it is interpolated into a URL, and the closed-set test
+  pinning the pollable set to exactly `{greenhouse:datadog, lever:alloy,
+  ashby:ramp}`.
 
 ---
 
@@ -302,6 +320,8 @@ nightshift/
     base.py              JobSourceAdapter Protocol, FetchOutcome, RawJob
     http.py              PoliteClient — the ONLY module importing httpx
     greenhouse.py        real adapter, field shapes read off a live response
+    lever.py             real adapter; no updated_at, no company name (M1a)
+    ashby.py             real adapter; no updated_at, no company name (M1a)
   domain/
     locations.py         location parsing; I1 lives here
     companies.py         conservative company-name normalization
@@ -321,7 +341,7 @@ nightshift/
     main.py              ARQ WorkerSettings, hourly cron at :17
     tasks.py             ingest_greenhouse — one real task, not a no-op
 migrations/              alembic, async env, one reversible migration
-tests/                   124 tests; fixtures/ committed
+tests/                   336 tests (pytest -q, measured 2026-07-30); fixtures/ committed
 ```
 
 **Schema (8 tables):** `users`, `companies`, `sources`, `source_job_records`,
@@ -387,10 +407,14 @@ information available only through hover).
 
 ### Documentation
 
-- 4 ADRs: 0001 Postgres image, 0002 I1 in the schema, 0003 `FetchOutcome` and I3,
-  0004 fixture seeding labelled in the data.
+- 8 ADRs: 0001 Postgres image, 0002 I1 in the schema, 0003 `FetchOutcome` and I3,
+  0004 fixture seeding labelled in the data, 0005 batch approval of discovered
+  boards, 0006 Common Crawl as a discovery source, 0007 two-phase conditional
+  polling, 0008 decided bare place names (M1a).
 - `docs/architecture/costs.md` — required from M0 by A9. **$0/month, 0 API keys.**
-- `docs/QUESTIONS.md` — 3 open questions, none blocking.
+- `docs/QUESTIONS.md` — **2** open questions (Q1 Gmail, Q2 deployment cost),
+  none blocking. Q3 (registry scope) was answered 2026-07-30 — see the M1
+  design session log entry below.
 
 ---
 
