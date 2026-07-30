@@ -10,7 +10,7 @@ import { Providers } from '@/components/Providers';
  * §4.1: keep the product name isolated so it can be changed later, and do not
  * hardcode branding across dozens of files. It is defined once, here.
  */
-const PRODUCT_NAME = 'CitySignal';
+const PRODUCT_NAME = 'Nightshift';
 const PRODUCT_TAGLINE = 'Live career intelligence for New York tech';
 
 export const metadata: Metadata = {

@@ -42,7 +42,7 @@ from sqlalchemy.dialects.postgresql import JSONB, NUMERIC
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from citysignal.db.base import (
+from nightshift.db.base import (
     Base,
     EmploymentType,
     IngestionRunStatus,
@@ -56,7 +56,7 @@ from citysignal.db.base import (
     UUIDPrimaryKeyMixin,
     pg_enum_values,
 )
-from citysignal.db.types import UTCDateTime
+from nightshift.db.types import UTCDateTime
 
 
 def _enum(enum_cls: type, name: str) -> SAEnum:

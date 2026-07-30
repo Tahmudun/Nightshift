@@ -19,7 +19,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from citysignal.db.base import (
+from nightshift.db.base import (
     EmploymentType,
     IngestionRunStatus,
     JobStatus,

@@ -30,13 +30,13 @@ class Settings(BaseSettings):
         str_strip_whitespace=True,
     )
 
-    citysignal_env: Environment = "development"
+    nightshift_env: Environment = "development"
     log_level: Literal["debug", "info", "warning", "error"] = "info"
 
     # -- Postgres ----------------------------------------------------------
-    postgres_user: str = "citysignal"
-    postgres_password: str = "citysignal_dev_only"
-    postgres_db: str = "citysignal"
+    postgres_user: str = "nightshift"
+    postgres_password: str = "nightshift_dev_only"
+    postgres_db: str = "nightshift"
     postgres_host: str = "localhost"
     postgres_port: int = Field(default=5433, ge=1, le=65535)
     database_url: PostgresDsn | None = None
@@ -56,13 +56,13 @@ class Settings(BaseSettings):
 
     # -- Single-user mode (AMENDMENTS A3) ----------------------------------
     dev_user_id: UUID = UUID("00000000-0000-4000-8000-000000000001")
-    dev_user_email: str = "dev@citysignal.local"
+    dev_user_email: str = "dev@nightshift.local"
 
     # -- Outbound HTTP -----------------------------------------------------
     # Default false so a clean clone cannot make a network request by accident
     # and `make demo` is offline by construction rather than by convention.
     outbound_http_enabled: bool = False
-    http_user_agent: str = "CitySignal/0.1 (+https://github.com/tahmudun/citysignal)"
+    http_user_agent: str = "Nightshift/0.1 (+https://github.com/Tahmudun/Nightshift)"
     http_timeout_seconds: float = Field(default=20.0, gt=0, le=300)
     http_max_retries: int = Field(default=3, ge=0, le=10)
     source_requests_per_second: float = Field(default=2.0, gt=0, le=20)
@@ -87,16 +87,16 @@ class Settings(BaseSettings):
         A blank or generic user agent is how you get a source to block you, and
         it is dishonest to a maintainer reading their access logs.
         """
-        if len(value) < 10 or "citysignal" not in value.lower():
+        if len(value) < 10 or "nightshift" not in value.lower():
             raise ValueError(
                 "HTTP_USER_AGENT must identify this project — "
-                "include 'CitySignal' and a contact URL"
+                "include 'Nightshift' and a contact URL"
             )
         return value
 
     @model_validator(mode="after")
     def _forbid_dev_password_in_production(self) -> Settings:
-        if self.citysignal_env == "production" and self.postgres_password.endswith("_dev_only"):
+        if self.nightshift_env == "production" and self.postgres_password.endswith("_dev_only"):
             raise ValueError(
                 "refusing to start: POSTGRES_PASSWORD is still the development default"
             )
@@ -131,7 +131,7 @@ class Settings(BaseSettings):
     def redacted(self) -> dict[str, object]:
         """Config safe to log or expose. Never includes the password."""
         return {
-            "env": self.citysignal_env,
+            "env": self.nightshift_env,
             "postgres": f"{self.postgres_host}:{self.postgres_port}/{self.postgres_db}",
             "redis": f"{self.redis_host}:{self.redis_port}/{self.redis_db}",
             "outbound_http_enabled": self.outbound_http_enabled,

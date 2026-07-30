@@ -13,8 +13,8 @@ from typing import Any
 import pytest
 import yaml
 
-from citysignal.db.base import LocationConfidence, ResolutionMethod
-from citysignal.domain.locations import (
+from nightshift.db.base import LocationConfidence, ResolutionMethod
+from nightshift.domain.locations import (
     ParsedLocation,
     infer_remote_policy,
     parse_location_field,

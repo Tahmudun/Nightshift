@@ -17,9 +17,9 @@ from typing import Literal
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from citysignal.adapters.base import BoardRef
+from nightshift.adapters.base import BoardRef
 
-# services/api/citysignal/domain/registry.py -> repo root
+# services/api/nightshift/domain/registry.py -> repo root
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 DEFAULT_REGISTRY_PATH = _REPO_ROOT / "data" / "board-registry.yaml"
 

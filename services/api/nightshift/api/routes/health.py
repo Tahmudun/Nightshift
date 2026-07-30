@@ -20,10 +20,10 @@ from redis.asyncio import Redis
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from citysignal.api.schemas import HealthComponent, HealthResponse
-from citysignal.config import Settings, get_settings
-from citysignal.db.session import get_db_session
-from citysignal.db.types import utcnow
+from nightshift.api.schemas import HealthComponent, HealthResponse
+from nightshift.config import Settings, get_settings
+from nightshift.db.session import get_db_session
+from nightshift.db.types import utcnow
 
 router = APIRouter(tags=["health"])
 log = structlog.get_logger(__name__)
@@ -103,7 +103,7 @@ async def health(
     return HealthResponse(
         status="ok" if healthy else "degraded",
         version=VERSION,
-        environment=settings.citysignal_env,
+        environment=settings.nightshift_env,
         database=database,
         redis=redis,
         checked_at=utcnow(),

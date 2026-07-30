@@ -16,10 +16,10 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from citysignal.config import get_settings
-from citysignal.db import models  # noqa: F401 - import registers the models on Base.metadata
-from citysignal.db.autogenerate import build_include_object, reflect_extension_owned
-from citysignal.db.base import Base
+from nightshift.config import get_settings
+from nightshift.db import models  # noqa: F401 - import registers the models on Base.metadata
+from nightshift.db.autogenerate import build_include_object, reflect_extension_owned
+from nightshift.db.base import Base
 
 config = context.config
 if config.config_file_name is not None:

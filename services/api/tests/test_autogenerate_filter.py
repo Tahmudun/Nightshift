@@ -14,9 +14,9 @@ The second is why the "never exclude a table in the models" case below exists.
 
 from __future__ import annotations
 
-from citysignal.db import models  # noqa: F401 - registers the models on Base.metadata
-from citysignal.db.autogenerate import POSTGIS_BOOKKEEPING, build_include_object
-from citysignal.db.base import Base
+from nightshift.db import models  # noqa: F401 - registers the models on Base.metadata
+from nightshift.db.autogenerate import POSTGIS_BOOKKEEPING, build_include_object
+from nightshift.db.base import Base
 
 # Real tables the CI image's postgis_tiger_geocoder and postgis_topology bring
 # with them. These exact names appeared as "Detected removed table" in the first

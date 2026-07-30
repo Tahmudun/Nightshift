@@ -25,7 +25,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from citysignal.db.base import LocationConfidence, ResolutionMethod
+from nightshift.db.base import LocationConfidence, ResolutionMethod
 
 # ATS providers delimit multiple locations with ';' (Greenhouse, Ashby) or
 # occasionally '|' (some Lever boards).

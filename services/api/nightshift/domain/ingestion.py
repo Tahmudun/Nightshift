@@ -23,21 +23,21 @@ import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from citysignal.adapters.base import (
+from nightshift.adapters.base import (
     BoardRef,
     FetchOutcome,
     JobSourceAdapter,
     NormalizedSourceJob,
     RawJob,
 )
-from citysignal.db.base import (
+from nightshift.db.base import (
     EmploymentType,
     IngestionRunStatus,
     JobStatus,
     RemotePolicy,
     SourceStatus,
 )
-from citysignal.db.models import (
+from nightshift.db.models import (
     Company,
     IngestionRun,
     Job,
@@ -46,8 +46,8 @@ from citysignal.db.models import (
     Source,
     SourceJobRecord,
 )
-from citysignal.db.types import utcnow
-from citysignal.domain.companies import normalize_company_name
+from nightshift.db.types import utcnow
+from nightshift.domain.companies import normalize_company_name
 
 log = structlog.get_logger(__name__)
 

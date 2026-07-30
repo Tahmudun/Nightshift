@@ -32,7 +32,7 @@ def version_of(argv: list[str]) -> str:
 
 
 def main() -> int:
-    print("\ncitysignal doctor\n")
+    print("\nnightshift doctor\n")
     failures = 0
 
     if sys.version_info[:2] >= MIN_PYTHON:

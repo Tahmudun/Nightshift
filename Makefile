@@ -1,4 +1,4 @@
-# CitySignal — single entry point across the Python and TypeScript toolchains.
+# Nightshift — single entry point across the Python and TypeScript toolchains.
 #
 # A developer should never need to know which directory a thing lives in.
 # Every target here is runnable from the repo root and nowhere else.
@@ -29,7 +29,7 @@ LOADENV := set -a && source .env && set +a
         verify acceptance test-e2e-seeded browsers
 
 help: ## Show available targets
-	@echo "CitySignal — make targets"
+	@echo "Nightshift — make targets"
 	@echo
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) \
 	  | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}'
@@ -90,7 +90,7 @@ migrate-down: setup ## Alembic downgrade one revision
 	@$(LOADENV) && cd $(API_DIR) && ../../$(ALEMBIC) downgrade -1
 
 seed: setup ## Load fixture data (dev user, sources, companies, jobs)
-	@$(LOADENV) && $(PY) -m citysignal.cli seed
+	@$(LOADENV) && $(PY) -m nightshift.cli seed
 
 reset-db: ## Drop, recreate, migrate, seed
 	@$(COMPOSE) down -v
@@ -110,7 +110,7 @@ demo: ## up && migrate && seed && dev — fully offline, no network
 	@$(MAKE) dev
 
 ingest: setup ## Run one live ingestion pass (requires OUTBOUND_HTTP_ENABLED=true)
-	@$(LOADENV) && $(PY) -m citysignal.cli ingest
+	@$(LOADENV) && $(PY) -m nightshift.cli ingest
 
 verify: setup ## Assert the stack actually works, and exit with a status code
 	@$(LOADENV) && $(PY) scripts/verify.py
@@ -143,7 +143,7 @@ lint: setup ## Lint both languages
 	@cd $(WEB_DIR) && npm run --silent lint
 
 typecheck: setup ## mypy + tsc
-	@cd $(API_DIR) && ../../$(MYPY) citysignal
+	@cd $(API_DIR) && ../../$(MYPY) nightshift
 	@cd $(WEB_DIR) && npm run --silent typecheck
 
 test: test-py test-web ## Unit tests, both languages

@@ -36,7 +36,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 # name -> labels. Order is irrelevant to Postgres but kept aligned with the
-# Python enums in citysignal.db.base so a mismatch is easy to spot in review.
+# Python enums in nightshift.db.base so a mismatch is easy to spot in review.
 ENUMS: dict[str, tuple[str, ...]] = {
     "location_confidence": ("verified", "approximate", "city_only", "remote", "unknown"),
     "resolution_method": (

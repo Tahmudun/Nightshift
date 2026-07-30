@@ -22,8 +22,8 @@ from typing import Any, Self
 import httpx
 import structlog
 
-from citysignal.adapters.base import SourceUnavailableError
-from citysignal.config import Settings, get_settings
+from nightshift.adapters.base import SourceUnavailableError
+from nightshift.config import Settings, get_settings
 
 log = structlog.get_logger(__name__)
 

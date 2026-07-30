@@ -25,16 +25,16 @@ from pathlib import Path
 
 from sqlalchemy import func, select
 
-from citysignal.adapters.base import BoardRef, FetchOutcome, RawJob
-from citysignal.adapters.greenhouse import GreenhouseAdapter
-from citysignal.adapters.http import PoliteClient
-from citysignal.config import get_settings
-from citysignal.db.base import JobStatus, LocationConfidence, SourceType
-from citysignal.db.models import Company, Job, JobLocation, Source, SourceJobRecord, User
-from citysignal.db.session import dispose_engine, session_scope
-from citysignal.domain.ingestion import get_or_create_source, ingest_boards
-from citysignal.domain.registry import get_registry
-from citysignal.logging import configure_logging
+from nightshift.adapters.base import BoardRef, FetchOutcome, RawJob
+from nightshift.adapters.greenhouse import GreenhouseAdapter
+from nightshift.adapters.http import PoliteClient
+from nightshift.config import get_settings
+from nightshift.db.base import JobStatus, LocationConfidence, SourceType
+from nightshift.db.models import Company, Job, JobLocation, Source, SourceJobRecord, User
+from nightshift.db.session import dispose_engine, session_scope
+from nightshift.domain.ingestion import get_or_create_source, ingest_boards
+from nightshift.domain.registry import get_registry
+from nightshift.logging import configure_logging
 
 FIXTURE_DIR = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "greenhouse"
 FIXTURE_SOURCE_NAME = "greenhouse_fixture"
@@ -171,7 +171,7 @@ async def cmd_enqueue(args: argparse.Namespace) -> int:
     """Push the ingestion task onto the ARQ queue instead of running it inline."""
     from arq import create_pool
 
-    from citysignal.workers.main import _redis_settings
+    from nightshift.workers.main import _redis_settings
 
     pool = await create_pool(_redis_settings())
     job = await pool.enqueue_job("ingest_greenhouse")
@@ -243,7 +243,7 @@ COMMANDS = {
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="citysignal", description=__doc__)
+    parser = argparse.ArgumentParser(prog="nightshift", description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("seed", help="load dev user + committed fixture board (offline)")
     subparsers.add_parser("ingest", help="poll live boards from the registry")

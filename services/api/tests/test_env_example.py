@@ -129,8 +129,8 @@ def test_env_example_contains_no_plausible_secret() -> None:
         )
     # The one password present is the docker-compose local default. It is named
     # so that it cannot be mistaken for a real one, and config.py refuses to boot
-    # with it when CITYSIGNAL_ENV=production.
-    assert values.get("POSTGRES_PASSWORD") == "citysignal_dev_only"
+    # with it when NIGHTSHIFT_ENV=production.
+    assert values.get("POSTGRES_PASSWORD") == "nightshift_dev_only"
     assert values.get("OUTBOUND_HTTP_ENABLED") == "false", (
         "a clean clone must not be able to reach the network until asked"
     )

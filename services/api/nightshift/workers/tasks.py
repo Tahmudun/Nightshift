@@ -12,12 +12,12 @@ from typing import Any
 
 import structlog
 
-from citysignal.adapters.greenhouse import GreenhouseAdapter
-from citysignal.adapters.http import PoliteClient
-from citysignal.db.base import SourceType
-from citysignal.db.session import session_scope
-from citysignal.domain.ingestion import get_or_create_source, ingest_boards
-from citysignal.domain.registry import get_registry
+from nightshift.adapters.greenhouse import GreenhouseAdapter
+from nightshift.adapters.http import PoliteClient
+from nightshift.db.base import SourceType
+from nightshift.db.session import session_scope
+from nightshift.domain.ingestion import get_or_create_source, ingest_boards
+from nightshift.domain.registry import get_registry
 
 log = structlog.get_logger(__name__)
 

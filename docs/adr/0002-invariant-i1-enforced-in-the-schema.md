@@ -43,7 +43,7 @@ that tries either gets a constraint violation.
 `location_confidence` is a PostgreSQL enum, so a sixth value cannot be invented
 without a migration.
 
-**2. The parser's type.** `ParsedLocation` in `citysignal/domain/locations.py`
+**2. The parser's type.** `ParsedLocation` in `nightshift/domain/locations.py`
 has no `latitude` or `longitude` field at all. A parser that *could* return a
 coordinate is a parser that eventually will, so the type makes it impossible.
 Geocoding (M1) is a separate stage that produces its own type and writes its own

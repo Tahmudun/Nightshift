@@ -1,4 +1,4 @@
-# CLAUDE.md — CitySignal
+# CLAUDE.md — Nightshift
 
 > Live career intelligence for New York tech.
 
@@ -119,7 +119,7 @@ is a downgrade, not an upgrade.
 ```
 apps/web/                Next.js frontend
 services/api/            FastAPI + ARQ workers
-  citysignal/
+  nightshift/
     adapters/            One module per job source
     domain/              Normalization, dedupe, matching, geocoding
     api/                 Routes, schemas

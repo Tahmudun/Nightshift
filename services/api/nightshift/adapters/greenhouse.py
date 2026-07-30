@@ -29,16 +29,16 @@ from typing import Any, Final
 
 import structlog
 
-from citysignal.adapters.base import (
+from nightshift.adapters.base import (
     BoardRef,
     FetchOutcome,
     NormalizedSourceJob,
     RawJob,
     SourceUnavailableError,
 )
-from citysignal.adapters.http import PoliteClient
-from citysignal.db.base import EmploymentType, SourceType
-from citysignal.domain.locations import infer_remote_policy, parse_location_field
+from nightshift.adapters.http import PoliteClient
+from nightshift.db.base import EmploymentType, SourceType
+from nightshift.domain.locations import infer_remote_policy, parse_location_field
 
 log = structlog.get_logger(__name__)
 
@@ -204,7 +204,7 @@ def _extract_employment_type(title: str, metadata: dict[str, dict[str, Any]]) ->
 
 
 class GreenhouseAdapter:
-    """Implements :class:`~citysignal.adapters.base.JobSourceAdapter`."""
+    """Implements :class:`~nightshift.adapters.base.JobSourceAdapter`."""
 
     source_name = "greenhouse"
     source_type = SourceType.ATS_GREENHOUSE

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from citysignal.domain.companies import normalize_company_name
+from nightshift.domain.companies import normalize_company_name
 
 
 class TestMergesWhatShouldMerge:

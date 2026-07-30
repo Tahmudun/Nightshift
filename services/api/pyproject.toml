@@ -3,9 +3,9 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "citysignal"
+name = "nightshift"
 version = "0.1.0"
-description = "CitySignal API, ingestion adapters, and background workers"
+description = "Nightshift API, ingestion adapters, and background workers"
 requires-python = ">=3.12"
 
 dependencies = [
@@ -39,10 +39,10 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["citysignal*"]
+include = ["nightshift*"]
 
 [tool.setuptools.package-data]
-citysignal = ["py.typed"]
+nightshift = ["py.typed"]
 
 # ---------------------------------------------------------------------------
 # ruff
@@ -78,7 +78,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["T20"]
-"citysignal/cli.py" = ["T20"]          # a CLI prints; that is its job
+"nightshift/cli.py" = ["T20"]          # a CLI prints; that is its job
 
 # ---------------------------------------------------------------------------
 # mypy
@@ -105,8 +105,8 @@ addopts = "--strict-markers --strict-config"
 markers = [
   "integration: requires a live postgres and redis (skipped when unavailable)",
 ]
-filterwarnings = ["error::DeprecationWarning:citysignal.*"]
+filterwarnings = ["error::DeprecationWarning:nightshift.*"]
 
 [tool.coverage.run]
-source = ["citysignal"]
+source = ["nightshift"]
 omit = ["*/migrations/*"]

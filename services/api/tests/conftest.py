@@ -13,7 +13,7 @@ from typing import Any
 
 import pytest
 
-from citysignal.config import Settings, get_settings
+from nightshift.config import Settings, get_settings
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
 
@@ -21,9 +21,9 @@ FIXTURE_DIR = Path(__file__).parent / "fixtures"
 def make_settings(**overrides: Any) -> Settings:
     """Hermetic settings for tests. Ignores ``.env`` entirely."""
     defaults: dict[str, Any] = {
-        "citysignal_env": "test",
+        "nightshift_env": "test",
         "outbound_http_enabled": False,
-        "http_user_agent": "CitySignal/0.1-test (+https://github.com/tahmudun/citysignal)",
+        "http_user_agent": "Nightshift/0.1-test (+https://github.com/Tahmudun/Nightshift)",
         # The configured ceiling, so the limiter spaces requests 50ms apart and
         # the suite stays fast. Not higher: the ceiling is a real politeness
         # guardrail (§7.3) and tests do not get to relax product constraints.

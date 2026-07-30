@@ -50,12 +50,12 @@ jobs:
         run: ruff check services/api
 
       - name: Typecheck
-        run: mypy citysignal
+        run: mypy nightshift
         working-directory: services/api
 
       - name: Unit tests
         # Coverage is measured and reported from M0 but does not gate until M3.
-        run: pytest -q --cov=citysignal --cov-report=term-missing
+        run: pytest -q --cov=nightshift --cov-report=term-missing
         working-directory: services/api
 
   web:
@@ -113,22 +113,22 @@ jobs:
         # vector 0.7.4, pg_trgm and pgcrypto on PostgreSQL 16.4.
         image: imresamu/postgis:16-3.4-bundle0
         env:
-          POSTGRES_USER: citysignal
-          POSTGRES_PASSWORD: citysignal_ci
-          POSTGRES_DB: citysignal
+          POSTGRES_USER: nightshift
+          POSTGRES_PASSWORD: nightshift_ci
+          POSTGRES_DB: nightshift
         ports: ['5432:5432']
         options: >-
-          --health-cmd "pg_isready -U citysignal"
+          --health-cmd "pg_isready -U nightshift"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
     env:
-      POSTGRES_USER: citysignal
-      POSTGRES_PASSWORD: citysignal_ci
-      POSTGRES_DB: citysignal
+      POSTGRES_USER: nightshift
+      POSTGRES_PASSWORD: nightshift_ci
+      POSTGRES_DB: nightshift
       POSTGRES_HOST: localhost
       POSTGRES_PORT: 5432
-      CITYSIGNAL_ENV: test
+      NIGHTSHIFT_ENV: test
     steps:
       - uses: actions/checkout@v4
 
@@ -147,7 +147,7 @@ jobs:
         # Mirrors infra/postgres/init/001-extensions.sql. CREATE EXTENSION needs
         # superuser, so it is not the migration's job in any environment.
         run: |
-          PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U citysignal -d citysignal \
+          PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U nightshift -d nightshift \
             -f infra/postgres/init/001-extensions.sql
 
       - name: Upgrade to head
@@ -197,7 +197,7 @@ jobs:
           OUTBOUND_HTTP_ENABLED: 'false'
         # Proves the offline demo path works from a clean database, and that
         # `make demo` is not going to fail on someone's first clone.
-        run: python -m citysignal.cli seed
+        run: python -m nightshift.cli seed
         working-directory: services/api
 
   e2e:
@@ -215,12 +215,12 @@ jobs:
         # Kept identical to the migrations job above — see the note there.
         image: imresamu/postgis:16-3.4-bundle0
         env:
-          POSTGRES_USER: citysignal
-          POSTGRES_PASSWORD: citysignal_ci
-          POSTGRES_DB: citysignal
+          POSTGRES_USER: nightshift
+          POSTGRES_PASSWORD: nightshift_ci
+          POSTGRES_DB: nightshift
         ports: ['5432:5432']
         options: >-
-          --health-cmd "pg_isready -U citysignal"
+          --health-cmd "pg_isready -U nightshift"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -233,16 +233,16 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      POSTGRES_USER: citysignal
-      POSTGRES_PASSWORD: citysignal_ci
-      POSTGRES_DB: citysignal
+      POSTGRES_USER: nightshift
+      POSTGRES_PASSWORD: nightshift_ci
+      POSTGRES_DB: nightshift
       POSTGRES_HOST: localhost
       POSTGRES_PORT: 5432
       REDIS_HOST: localhost
       REDIS_PORT: 6379
-      CITYSIGNAL_ENV: test
+      NIGHTSHIFT_ENV: test
       OUTBOUND_HTTP_ENABLED: 'false'
-      HTTP_USER_AGENT: 'CitySignal/0.1-ci (+https://github.com/tahmudun/citysignal)'
+      HTTP_USER_AGENT: 'Nightshift/0.1-ci (+https://github.com/Tahmudun/Nightshift)'
       NEXT_PUBLIC_API_BASE_URL: 'http://127.0.0.1:8000'
     steps:
       - uses: actions/checkout@v4
@@ -274,7 +274,7 @@ jobs:
 
       - name: Create extensions
         run: |
-          PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U citysignal -d citysignal \
+          PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U nightshift -d nightshift \
             -f infra/postgres/init/001-extensions.sql
 
       - name: Migrate
@@ -282,7 +282,7 @@ jobs:
         working-directory: services/api
 
       - name: Seed
-        run: python -m citysignal.cli seed
+        run: python -m nightshift.cli seed
         working-directory: services/api
 
       - name: Degraded shell e2e

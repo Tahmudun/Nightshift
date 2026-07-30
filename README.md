@@ -1,4 +1,4 @@
-# CitySignal
+# Nightshift
 
 > Live career intelligence for New York tech.
 

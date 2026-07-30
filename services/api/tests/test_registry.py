@@ -16,7 +16,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from citysignal.domain.registry import (
+from nightshift.domain.registry import (
     DEFAULT_REGISTRY_PATH,
     BoardEntry,
     BoardRegistry,

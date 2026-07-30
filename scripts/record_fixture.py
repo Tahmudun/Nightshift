@@ -28,8 +28,8 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "services" / "api"))
 
-from citysignal.adapters.http import PoliteClient  # noqa: E402
-from citysignal.config import Settings  # noqa: E402
+from nightshift.adapters.http import PoliteClient  # noqa: E402
+from nightshift.config import Settings  # noqa: E402
 
 FIXTURE_ROOT = ROOT / "services" / "api" / "tests" / "fixtures"
 

@@ -38,7 +38,7 @@ export default defineConfig({
       // command in both places instead of two that can drift apart.
       command:
         'if [ -x .venv/bin/uvicorn ]; then UV=.venv/bin/uvicorn; else UV=uvicorn; fi; ' +
-        'exec "$UV" citysignal.api.main:app --host 127.0.0.1 --port 8000 --no-access-log',
+        'exec "$UV" nightshift.api.main:app --host 127.0.0.1 --port 8000 --no-access-log',
       cwd: '../../services/api',
       // /health is 200 only when Postgres and Redis both answer, so this doubles
       // as the check that the stack really is seeded and reachable.

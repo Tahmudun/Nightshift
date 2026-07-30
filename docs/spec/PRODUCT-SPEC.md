@@ -2,7 +2,7 @@
 
 ## Project Codename
 
-**CitySignal**
+**Nightshift**
 
 Working tagline:
 
@@ -221,7 +221,7 @@ The architecture should support additional users later, but optimize first for o
 
 ## 4.1 Working name
 
-Use **CitySignal** as the working product name.
+Use **Nightshift** as the working product name.
 
 Keep name usage isolated enough that it can be changed later.
 
@@ -2395,7 +2395,7 @@ apps/worker
 
 The web app must display a simple development shell with:
 
-- CitySignal branding.
+- Nightshift branding.
 - Explore / Operate / Analyze navigation.
 - Backend health status.
 - Database health status.

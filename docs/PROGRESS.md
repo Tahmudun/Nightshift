@@ -86,7 +86,7 @@ with recorded output or explicitly marked blocked.
 | 3 | Migrations apply and roll back | **VERIFIED** | Against live PostGIS 16 + pgvector. Before: 12 tables, 8 enum types. `make migrate-down` → the 8 project tables and **all 8 enum types** dropped, leaving only `alembic_version` and PostGIS's own `geography_columns` / `geometry_columns` / `spatial_ref_sys`. A downgrade that forgets `DROP TYPE` leaves enums behind and this is how you see it. `make migrate` → 12 tables and 8 enums restored; re-seeding produced a byte-identical corpus (10 jobs, 21 locations, same confidence split) |
 | 4 | `/health` reports DB + Redis honestly, including when they are down | **VERIFIED** | Real containers stopped, not mocked. Both up → `200 {"status":"ok",…"database":{"ok":true,"detail":"postgis + pgvector present","latency_ms":4.27},"redis":{"ok":true,"detail":"PONG","latency_ms":3.2}}`. Postgres stopped → `503 "degraded"`, `database.ok:false`, `detail:"ConnectionRefusedError: [Errno 61] Connection refused"`, **redis still `ok:true`** — the two are reported independently. Redis stopped too → both false, with distinguishable details. `/health/live` stayed `204` throughout, as a liveness probe should. Both restarted → `200`, and `/stats` still reported all 10 jobs open: an outage closed nothing (I3) |
 | 5 | One real Greenhouse board's jobs appear in the browser | **VERIFIED** | Board fetched live 2026-07-29: `boards-api.greenhouse.io/v1/boards/datadog/jobs?content=true` → HTTP 200, 5,309,493 bytes, 426 postings, 134 naming New York. 10 recorded verbatim into a committed fixture. Now rendered in a real Chromium via `apps/web/e2e-seeded/` — **6 tests, all passing** — which reads the expected titles from the API at run time and finds them in the DOM. Also asserts the A2 multi-location rows, the I7 "committed fixture" badge, and that no job ladder claims verified/approximate placement |
-| 6 | No secrets committed | **VERIFIED** | No key-shaped strings anywhere in the tree (scanned for `sk-*`, `AKIA*`, `ghp_*`, PEM private keys). `.env` is gitignored (`.gitignore:2`), confirmed via `git check-ignore`. Only credential-shaped value in the repo is `citysignal_dev_only`, the local compose password, confined to the files entitled to contain it. `tests/test_env_example.py` asserts this rather than trusting it. **gitleaks itself had never executed until 2026-07-30** — its config used a negative lookahead, which Go's RE2 cannot compile, so it panicked at config load on every invocation (see the session log). Now: `gitleaks detect` over full history exits 0 on gitleaks **8.24.3**, the version the action pins, and a planted `citysignal_dev_only` in a non-allowlisted file exits 2 — so the rule is proven able to fail |
+| 6 | No secrets committed | **VERIFIED** | No key-shaped strings anywhere in the tree (scanned for `sk-*`, `AKIA*`, `ghp_*`, PEM private keys). `.env` is gitignored (`.gitignore:2`), confirmed via `git check-ignore`. Only credential-shaped value in the repo is `nightshift_dev_only`, the local compose password, confined to the files entitled to contain it. `tests/test_env_example.py` asserts this rather than trusting it. **gitleaks itself had never executed until 2026-07-30** — its config used a negative lookahead, which Go's RE2 cannot compile, so it panicked at config load on every invocation (see the session log). Now: `gitleaks detect` over full history exits 0 on gitleaks **8.24.3**, the version the action pins, and a planted `nightshift_dev_only` in a non-allowlisted file exits 2 — so the rule is proven able to fail |
 
 **M0 is complete.** All six rows are verified with recorded output above.
 
@@ -136,7 +136,7 @@ These ran on this machine and passed:
 |---|---|---|
 | Python format | `ruff format --check services/api` | 35 files already formatted |
 | Python lint | `ruff check services/api` | All checks passed |
-| Python types | `mypy citysignal` | Success: no issues found in 28 source files (strict) |
+| Python types | `mypy nightshift` | Success: no issues found in 28 source files (strict) |
 | Python tests | `pytest -q` | **204 passed** in 3.01s |
 | Web types | `tsc --noEmit` | clean, `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes` |
 | Web lint | `eslint . --max-warnings 0` | clean |
@@ -202,7 +202,7 @@ The counts are only meaningful if the tests can fail. The invariant-bearing ones
 ### `services/api` — FastAPI + ARQ (one deployable, A11)
 
 ```
-citysignal/
+nightshift/
   config.py              pydantic-settings; refuses to start on a bad value
   logging.py             structlog, console locally / JSON in production
   cli.py                 seed | ingest | enqueue | stats
@@ -327,6 +327,46 @@ presented to a user as working.
 
 ## Session log
 
+### 2026-07-30 — renamed CitySignal → Nightshift
+
+Product decision by the human. Done before M1 rather than after, because the
+discovery subsystem would have roughly doubled the number of references.
+
+193 occurrences across 47 files, in three case forms (`citysignal`,
+`CitySignal`, `CITYSIGNAL`) — which collapse to three substitutions, since the
+lowercase form is a prefix of `citysignal_dev_only`, `citysignal_ci` and
+`citysignal_env`. The Python package directory was moved with `git mv` so history
+follows it. Recorded ATS fixtures were checked first and contain the string
+nowhere, so no committed payload was edited.
+
+Three things the text substitution could not reach, all found by running it:
+
+1. **The Docker Compose project name changed too.** `docker compose down -v`
+   addressed the *new* project and left `citysignal-postgres-1` running on port
+   5433, so the new stack could not bind. Removed the orphaned containers,
+   volume and network by name.
+2. **A container created during that failed attempt was reused.** It reported
+   `running (healthy)` with no host port mapping at all, because it had been
+   created while the port was taken. `up -d` left it alone since the config hash
+   matched. Fixed with `--force-recreate`; worth remembering that "healthy" and
+   "reachable" are different claims.
+3. **The database role, database name and password are all in the name.** The
+   existing cluster was initialised as `citysignal`, and initdb only runs on an
+   empty volume, so the volume had to be destroyed rather than migrated. Fine
+   here — the corpus is fixture data — but it is the reason the rename is cheap
+   now and would not have been later.
+
+Two judgement calls in the diff. The self-identifying `HTTP_USER_AGENT` URL was
+corrected to the real repository casing, `Tahmudun/Nightshift`, since its purpose
+is to let a site owner look us up. And the quoted `.env` syntax error in the
+2026-07-30 acceptance entry below was **restored to `CitySignal`**: it is
+presented as recorded output, and rewriting a product name inside a verbatim
+error message would make the record tidier and untrue.
+
+Verified: `make check` (204 Python, 35 web), `gitleaks` clean, and
+`make acceptance` — 18 checks and 6 browser tests — against a cluster
+initialised from empty under the new name.
+
 ### 2026-07-30 — first CI run on real infrastructure
 
 Remote created (`github.com/Tahmudun/Nightshift`, public) and `main` pushed. The
@@ -365,7 +405,7 @@ three added.
 
 Verified against gitleaks **8.24.3**, the version `gitleaks-action@v2` pins,
 rather than the newer build Homebrew installs: full history exits 0, and a
-planted `citysignal_dev_only` in a non-allowlisted file exits 2. Per CLAUDE.md
+planted `nightshift_dev_only` in a non-allowlisted file exits 2. Per CLAUDE.md
 §7, an allowlist that silences everything is not a scan.
 
 **2. The CI Postgres image does not exist.** `Initialize containers` failed in
@@ -415,7 +455,7 @@ installed instead of a hand-kept list. The filter refuses to exclude any table
 present in the models, whatever pg_depend says: an extension shipping a table
 named like one of ours would otherwise switch off drift detection for that
 table — the filter hiding the change it exists to surface. Moved to
-`citysignal/db/autogenerate.py`, because `migrations/env.py` runs migrations as
+`nightshift/db/autogenerate.py`, because `migrations/env.py` runs migrations as
 an import side effect and cannot be imported by a test. Eight tests, checked
 non-vacuous by mutation: removing the models guard fails one, disabling the
 table filter fails two.
@@ -471,6 +511,10 @@ by running the thing rather than by reading it.
 .env: line 53: `HTTP_USER_AGENT=CitySignal/0.1 (+https://github.com/tahmudun/citysignal)'
 make[1]: *** [migrate] Error 1
 ```
+
+(Recorded before the project was renamed to Nightshift, and left as it was
+actually emitted. Rewriting the product name inside a quoted error message would
+make the record tidier and untrue.)
 
 The Makefile loads config with `set -a && source .env`, because Alembic and the
 seed CLI read the process environment rather than pydantic-settings. An unquoted

@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from citysignal.config import get_settings
+from nightshift.config import get_settings
 
 
 @lru_cache(maxsize=1)

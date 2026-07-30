@@ -20,8 +20,8 @@ import httpx
 import pytest
 import respx
 
-from citysignal.adapters.base import BoardRef, JobSourceAdapter, RawJob
-from citysignal.adapters.greenhouse import (
+from nightshift.adapters.base import BoardRef, JobSourceAdapter, RawJob
+from nightshift.adapters.greenhouse import (
     BOARD_URL,
     GreenhouseAdapter,
     _extract_employment_type,
@@ -29,9 +29,9 @@ from citysignal.adapters.greenhouse import (
     html_to_text,
     normalize_title,
 )
-from citysignal.adapters.http import OutboundHTTPDisabledError, PoliteClient
-from citysignal.config import Settings
-from citysignal.db.base import EmploymentType, LocationConfidence, SourceType
+from nightshift.adapters.http import OutboundHTTPDisabledError, PoliteClient
+from nightshift.config import Settings
+from nightshift.db.base import EmploymentType, LocationConfidence, SourceType
 from tests.conftest import make_settings
 
 BOARD = BoardRef(company="Datadog", ats="greenhouse", token="datadog", nyc_presence=True)
@@ -79,7 +79,7 @@ async def test_fetch_sends_an_identifying_user_agent() -> None:
         await adapter.fetch_board(BOARD)
 
     user_agent = route.calls[0].request.headers["user-agent"]
-    assert "CitySignal" in user_agent
+    assert "Nightshift" in user_agent
     assert "github.com" in user_agent
 
 

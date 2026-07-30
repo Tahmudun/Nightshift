@@ -3,7 +3,7 @@
 Routes validate and delegate (CLAUDE.md §3). The mapping from ORM rows to
 response models lives in ``_to_summary`` / ``_to_detail`` here because it is
 serialisation, not domain logic; anything that makes a *decision* about a job
-belongs in ``citysignal.domain``.
+belongs in ``nightshift.domain``.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from citysignal.api.schemas import (
+from nightshift.api.schemas import (
     CompanyOut,
     JobDetailOut,
     JobListOut,
@@ -25,9 +25,9 @@ from citysignal.api.schemas import (
     JobSummaryOut,
     SalaryOut,
 )
-from citysignal.db.base import JobStatus, LocationConfidence
-from citysignal.db.models import Company, Job, JobLocation, JobSourceLink, SourceJobRecord
-from citysignal.db.session import get_db_session
+from nightshift.db.base import JobStatus, LocationConfidence
+from nightshift.db.models import Company, Job, JobLocation, JobSourceLink, SourceJobRecord
+from nightshift.db.session import get_db_session
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 

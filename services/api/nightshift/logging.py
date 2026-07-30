@@ -12,7 +12,7 @@ import sys
 
 import structlog
 
-from citysignal.config import get_settings
+from nightshift.config import get_settings
 
 _configured = False
 
@@ -36,7 +36,7 @@ def configure_logging() -> None:
         structlog.processors.format_exc_info,
     ]
     # Human-readable locally, JSON in production where something parses it.
-    if settings.citysignal_env == "production":
+    if settings.nightshift_env == "production":
         processors.append(structlog.processors.JSONRenderer())
     else:
         processors.append(structlog.dev.ConsoleRenderer(colors=sys.stdout.isatty()))

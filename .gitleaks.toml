@@ -9,9 +9,9 @@
 useDefault = true
 
 [[rules]]
-id = "citysignal-dev-password-outside-example"
+id = "nightshift-dev-password-outside-example"
 description = "Development Postgres password used outside the files allowed to contain it"
-regex = '''citysignal_dev_only'''
+regex = '''nightshift_dev_only'''
 
   # "Everywhere except these four files" is expressed as a rule-level allowlist,
   # NOT as a negative lookahead in `path`. gitleaks compiles these with Go's
@@ -24,7 +24,7 @@ regex = '''citysignal_dev_only'''
   paths = [
     '''^\.env\.example$''',
     '''^infra/docker-compose\.yml$''',
-    '''^services/api/citysignal/config\.py$''',
+    '''^services/api/nightshift/config\.py$''',
     '''^README\.md$''',
     # Asserts the password is confined to the files above, so it must name it.
     '''^services/api/tests/test_env_example\.py$''',
@@ -45,5 +45,5 @@ paths = [
   '''^services/api/tests/fixtures/''',
 ]
 regexes = [
-  '''citysignal_ci''',
+  '''nightshift_ci''',
 ]

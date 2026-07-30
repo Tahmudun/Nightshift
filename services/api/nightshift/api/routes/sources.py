@@ -15,14 +15,14 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from citysignal.api.schemas import (
+from nightshift.api.schemas import (
     IngestionRunOut,
     LocationConfidenceBreakdown,
     SourceHealthOut,
     StatsOut,
 )
-from citysignal.db.base import JobStatus, LocationConfidence
-from citysignal.db.models import (
+from nightshift.db.base import JobStatus, LocationConfidence
+from nightshift.db.models import (
     Company,
     IngestionRun,
     Job,
@@ -31,8 +31,8 @@ from citysignal.db.models import (
     Source,
     SourceJobRecord,
 )
-from citysignal.db.session import get_db_session
-from citysignal.domain.registry import BoardStatus, get_registry
+from nightshift.db.session import get_db_session
+from nightshift.domain.registry import BoardStatus, get_registry
 
 router = APIRouter(tags=["sources"])
 

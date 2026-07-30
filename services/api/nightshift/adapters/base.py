@@ -17,8 +17,8 @@ from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from citysignal.db.base import EmploymentType, SourceType
-from citysignal.domain.locations import ParsedLocation
+from nightshift.db.base import EmploymentType, SourceType
+from nightshift.domain.locations import ParsedLocation
 
 
 class BoardRef(BaseModel):

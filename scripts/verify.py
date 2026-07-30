@@ -170,7 +170,7 @@ async def verify_constraints() -> None:
     sys.path.insert(0, str(API_DIR))
     from sqlalchemy import text as sql  # noqa: PLC0415
 
-    from citysignal.db.session import dispose_engine, get_engine  # noqa: PLC0415
+    from nightshift.db.session import dispose_engine, get_engine  # noqa: PLC0415
 
     engine = get_engine()
 
@@ -235,7 +235,7 @@ def main() -> int:
     api = subprocess.Popen(
         [
             str(VENV_BIN / "uvicorn"),
-            "citysignal.api.main:app",
+            "nightshift.api.main:app",
             "--host",
             HOST,
             "--port",

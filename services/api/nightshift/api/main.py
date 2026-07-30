@@ -9,10 +9,10 @@ import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from citysignal.api.routes import health, jobs, sources
-from citysignal.config import get_settings
-from citysignal.db.session import dispose_engine
-from citysignal.logging import configure_logging
+from nightshift.api.routes import health, jobs, sources
+from nightshift.config import get_settings
+from nightshift.db.session import dispose_engine
+from nightshift.logging import configure_logging
 
 log = structlog.get_logger(__name__)
 
@@ -32,7 +32,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
-        title="CitySignal API",
+        title="Nightshift API",
         description="Live career intelligence for New York tech.",
         version="0.1.0",
         lifespan=lifespan,

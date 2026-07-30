@@ -1,4 +1,4 @@
-name: citysignal
+name: nightshift
 
 # Two services, both with real healthchecks. `make up` waits for both to report
 # healthy before returning, so `make migrate` never races the database.
@@ -11,12 +11,12 @@ services:
   postgres:
     build:
       context: ./postgres
-    image: citysignal/postgres:16-postgis-pgvector
+    image: nightshift/postgres:16-postgis-pgvector
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-citysignal}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-citysignal_dev_only}
-      POSTGRES_DB: ${POSTGRES_DB:-citysignal}
+      POSTGRES_USER: ${POSTGRES_USER:-nightshift}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nightshift_dev_only}
+      POSTGRES_DB: ${POSTGRES_DB:-nightshift}
       # Deterministic collation so ORDER BY is stable across machines.
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
     ports:
@@ -31,8 +31,8 @@ services:
       test:
         - CMD-SHELL
         - >-
-          pg_isready -U "${POSTGRES_USER:-citysignal}" -d "${POSTGRES_DB:-citysignal}" -q &&
-          psql -U "${POSTGRES_USER:-citysignal}" -d "${POSTGRES_DB:-citysignal}" -tAc
+          pg_isready -U "${POSTGRES_USER:-nightshift}" -d "${POSTGRES_DB:-nightshift}" -q &&
+          psql -U "${POSTGRES_USER:-nightshift}" -d "${POSTGRES_DB:-nightshift}" -tAc
           "select count(*) from pg_extension where extname in ('postgis','vector')" | grep -q '^2$$'
       interval: 3s
       timeout: 10s
