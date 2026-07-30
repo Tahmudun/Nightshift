@@ -1,0 +1,63 @@
+name: citysignal
+
+# Two services, both with real healthchecks. `make up` waits for both to report
+# healthy before returning, so `make migrate` never races the database.
+#
+# Ports are deliberately non-default (5433, 6380) so a developer with a system
+# Postgres or Redis already running does not get a silent port collision and
+# then spend an hour debugging a connection that went to the wrong server.
+
+services:
+  postgres:
+    build:
+      context: ./postgres
+    image: citysignal/postgres:16-postgis-pgvector
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-citysignal}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-citysignal_dev_only}
+      POSTGRES_DB: ${POSTGRES_DB:-citysignal}
+      # Deterministic collation so ORDER BY is stable across machines.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # pg_isready alone returns true during initdb, before the init scripts
+      # have run. Probing for the extensions we actually require means "healthy"
+      # means "usable".
+      test:
+        - CMD-SHELL
+        - >-
+          pg_isready -U "${POSTGRES_USER:-citysignal}" -d "${POSTGRES_DB:-citysignal}" -q &&
+          psql -U "${POSTGRES_USER:-citysignal}" -d "${POSTGRES_DB:-citysignal}" -tAc
+          "select count(*) from pg_extension where extname in ('postgis','vector')" | grep -q '^2$$'
+      interval: 3s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # No persistence: Redis holds the ARQ queue and a regenerable cache. Losing
+    # it costs a re-poll, not data. appendonly stays off on purpose.
+    command: >-
+      redis-server
+      --save ""
+      --appendonly no
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+volumes:
+  postgres_data:

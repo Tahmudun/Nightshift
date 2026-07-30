@@ -1,0 +1,43 @@
+# Environment — never commit real values
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Node
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+.turbo/
+coverage/
+playwright-report/
+test-results/
+.playwright/
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Local data — large geo extracts and model caches are downloaded, never committed
+data/cache/
+data/nyc/
+.fastembed_cache/
+
+# Build/scratch
+dist/
+*.log
