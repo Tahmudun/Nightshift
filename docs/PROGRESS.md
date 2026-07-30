@@ -4,23 +4,17 @@
 > file claims, fix this file before writing code.
 
 **Current milestone: M0 — Foundation with a heartbeat**
-**Status: 5 of 6 acceptance criteria VERIFIED. Row 2 (CI green) needs a git remote.**
+**Status: 5 of 6 acceptance criteria VERIFIED at HEAD. Row 2 (CI green) needs a git remote.**
 **Last updated: 2026-07-30**
 
 ---
 
 ## Next exact action
 
-**Two things need a human, and both are host problems rather than code.**
-
-1. **Restart Docker Desktop from the GUI.** It died when the disk filled and now
-   shows an error dialog instead of starting (B3). Then run `make acceptance` to
-   re-confirm the 6 seeded browser tests, which are the only checks not re-run
-   after the last commit.
-2. **Create a git remote** so CI can run — acceptance row 2, below.
-
-Row 2 cannot be verified locally at all: CI green means a real run on real
-infrastructure.
+**Create a git remote** so CI can run. It is the only thing left in M0, and it
+needs a human. Row 2 cannot be verified locally at all: CI green means a real run
+on real infrastructure, and no amount of passing the same commands on this
+machine substitutes for it.
 
 ```bash
 # Create an empty repo (no README, no .gitignore), then:
@@ -31,8 +25,8 @@ git push -u origin main
 Then check the Actions tab. Five jobs must pass: `python`, `web`, `migrations`,
 `e2e`, `secrets`. Record the run URL in row 2 below and mark M0 complete.
 
-`make acceptance` is the single-command acceptance run. At commit `bb46732` it
-passed from a wiped Docker volume with nothing pre-started:
+`make acceptance` is the single-command acceptance run. Last run at `14abb68`
+on 2026-07-30, from a clean shell with nothing pre-started:
 
 ```
 18 verify checks + 6 seeded browser tests, all green
@@ -51,43 +45,29 @@ docker-desktop` had rolled itself back on an interactive-sudo step
 Everything B1 had been blocking is now verified with recorded output. Kept here
 because the acceptance table's history refers to it.
 
-### B3 — Docker Desktop is down and needs GUI attention
+### B3 — Acceptance re-run outstanding — RESOLVED 2026-07-30
 
-Caused by B2. The daemon died mid-session with `no space left on device` (in
-`~/Library/Containers/com.docker.docker/Data/log/host/com.docker.backend.log`),
-then came back showing an Electron error dialog rather than starting. Quitting it
-cleanly and relaunching with `open -a Docker` did not bring it back; it needs
-someone to look at the dialog.
+Caused by B2. The Docker daemon died mid-session with `no space left on device`,
+came back showing an Electron error dialog, and then recovered once disk pressure
+was relieved. The re-run it was blocking has now happened.
 
-Disk pressure is relieved (7.5 GB free after deleting `apps/web/.next` and
-Playwright artefacts), so a restart should now succeed.
+`make acceptance` ran to completion at commit `14abb68` from a clean shell with
+nothing pre-started: **18 verify checks and 6 seeded browser tests, all green.**
+That closes the one gap this entry described — the 6 seeded browser tests had
+last run one commit earlier, at `bb46732`. Every acceptance row is now verified at
+current HEAD.
 
-**What this does and does not invalidate.** Every acceptance row was verified at
-commit `bb46732`, before this happened. One commit landed afterwards, `f0cb5a6`,
-which is CSS tokens plus class renames plus a new unit test. It cannot touch
-migrations, `/health`, the constraint probes, the API, or the seed path, so rows
-1, 3, 4 and 6 are unaffected. Re-run after that commit: `make check` (215 unit
-tests) and `make test-e2e` (5 tests, which render all three routes in a real
-browser with the new palette). **Not re-run: the 6 seeded browser tests behind
-row 5.** Their assertions are text and ARIA based rather than colour based, so
-there is no specific reason to expect breakage — but they have not been run, and
-that is the honest state of it. First thing to do once Docker is back:
+### B2 — Host disk was full — RESOLVED 2026-07-30
 
-```bash
-make acceptance
-```
+`/System/Volumes/Data` was down to **1.2 GB free** of 233 GB, which is why the
+final clean-clone re-run was skipped rather than risk destabilising the host. Now
+**14 GB free**. The earlier clean-clone run at `0830589` stands and row 1 says
+precisely what it covers; a fresh clean-clone run is no longer blocked, but it is
+also no longer load-bearing, since `make acceptance` passes at HEAD.
 
-### B2 — Host disk is full (degrades verification, blocks nothing)
-
-`/System/Volumes/Data`: 210 GB used of 233 GB, **1.2 GB free**. A fresh clone of
-this repo needs ~730 MB of `node_modules` plus venv, which would leave the
-machine under 500 MB. The final clean-clone run was therefore skipped rather than
-risk destabilising the host; the earlier clean-clone run at `0830589` stands, and
-row 1 says precisely what that does and does not cover.
-
-Docker's own reclaimable space was already pruned (build cache and dangling
-images, ~477 MB). The remaining large image, `hg-engine:latest` (2.06 GB), is not
-part of this project and was left alone.
+Docker's own reclaimable space was pruned (build cache and dangling images,
+~477 MB). The remaining large image, `hg-engine:latest` (2.06 GB), is not part of
+this project and was left alone.
 
 ---
 
@@ -98,7 +78,7 @@ with recorded output or explicitly marked blocked.
 
 | # | Criterion | Status | Evidence |
 |---|---|---|---|
-| 1 | Clean clone → `make setup && make demo` works, documented, no hidden steps | **VERIFIED** | Genuine `git clone` into a scratch directory at commit `0830589`, no `.env`, no Docker volumes: `make setup` built the venv and installed JS deps in **47.8s**, then `make setup && make acceptance` passed **18/18** checks. Postgres initialised from an empty volume, so the extension init script ran for real. Three commits landed after that run (`b4e515a`, `0c230f1`, `bb46732`); they were verified in place, not by re-cloning, because the host disk is full (B2). Of those, only the Makefile `browsers` target touches the setup path, and it was exercised — including its ~100 MB first-run download |
+| 1 | Clean clone → `make setup && make demo` works, documented, no hidden steps | **VERIFIED** | Genuine `git clone` into a scratch directory at commit `0830589`, no `.env`, no Docker volumes: `make setup` built the venv and installed JS deps in **47.8s**, then `make setup && make acceptance` passed **18/18** checks. Postgres initialised from an empty volume, so the extension init script ran for real. `make acceptance` was re-run to completion at `bb46732` from a wiped volume with nothing pre-started, which is the same chain minus the `git clone`. Commits after that (`f0cb5a6` palette, `14abb68` docs) were verified in place rather than by re-cloning, because the host disk filled (B2). Of everything post-clone, only the Makefile `browsers` target touches the setup path, and it was exercised including its ~100 MB first-run download |
 | 2 | CI green | **UNVERIFIED — needs a git remote** | `.github/workflows/ci.yml`, five jobs: `python`, `web`, `migrations`, `e2e`, `secrets`. `git remote -v` is empty and `gh` is not installed, so it has never run. Every command it issues was run locally and passes (see the table below), and the YAML parses — but "the same commands pass on my laptop" is **not** the criterion, and this row stays UNVERIFIED until a real run exists |
 | 3 | Migrations apply and roll back | **VERIFIED** | Against live PostGIS 16 + pgvector. Before: 12 tables, 8 enum types. `make migrate-down` → the 8 project tables and **all 8 enum types** dropped, leaving only `alembic_version` and PostGIS's own `geography_columns` / `geometry_columns` / `spatial_ref_sys`. A downgrade that forgets `DROP TYPE` leaves enums behind and this is how you see it. `make migrate` → 12 tables and 8 enums restored; re-seeding produced a byte-identical corpus (10 jobs, 21 locations, same confidence split) |
 | 4 | `/health` reports DB + Redis honestly, including when they are down | **VERIFIED** | Real containers stopped, not mocked. Both up → `200 {"status":"ok",…"database":{"ok":true,"detail":"postgis + pgvector present","latency_ms":4.27},"redis":{"ok":true,"detail":"PONG","latency_ms":3.2}}`. Postgres stopped → `503 "degraded"`, `database.ok:false`, `detail:"ConnectionRefusedError: [Errno 61] Connection refused"`, **redis still `ok:true`** — the two are reported independently. Redis stopped too → both false, with distinguishable details. `/health/live` stayed `204` throughout, as a liveness probe should. Both restarted → `200`, and `/stats` still reported all 10 jobs open: an outage closed nothing (I3) |
@@ -111,6 +91,36 @@ remote. Rows 1 and 3–6 are verified with the recorded output above.
 Row 2 is not a formality: CI is the only thing that runs the `migrations` up →
 down → up sequence and the drift probe on every change, and it is where the
 `e2e` job guards acceptance row 5 from regressing.
+
+---
+
+## Before M1 starts
+
+Carried from `docs/reviews/milestone-0-review.md` so a new session does not have to
+open it. Do these in order; items 1 and 2 are the ones that get expensive later.
+
+1. **Write Lever and Ashby location fixtures before touching the parser.** A2
+   requires the fixture file to grow first. `parse_location_field` has 98 passing
+   assertions and is still a *first-provider* parser: its right-to-left tail
+   stripping was tuned to one convention, and `"New York"` alone currently yields
+   `unknown`. Adding providers to the parser before adding them to the fixtures
+   would encode Greenhouse's conventions as if they were general. (W1)
+2. **Make `get_or_create_source` / `get_or_create_company` upserts.** They are
+   check-then-insert and will race the moment worker concurrency goes above 1.
+   Unreachable today at `max_jobs=1`; a silent duplicate-company bug the day it
+   changes.
+3. **`domain/ingestion.py` and the API routes still have no tests.** Both needed a
+   database, which is why they were skipped. The database now exists, so that
+   excuse is gone. This is the largest genuine coverage gap in the repo.
+4. **Re-read `_replace_locations` when geocoding lands.** It deletes and reinserts
+   location rows; once coordinates are resolved it must not discard them. Today
+   there is nothing to lose, which is the only reason it is safe.
+5. **Delete the redundant ordering in `_existing_location_signature`** — the caller
+   wraps it in `set()`. (W4)
+
+Not blocking M1, deferred deliberately to M4's accessibility pass: no test asserts
+focus-visible styling, and the confidence ladder has never been checked with a real
+screen reader.
 
 ---
 
@@ -140,8 +150,8 @@ These ran on this machine and passed:
 6 seeded e2e), plus the 18 assertions in `scripts/verify.py`, which are not
 pytest tests but do gate `make acceptance` with an exit code.
 
-Caveat per B3: the 6 seeded e2e tests last ran at commit `bb46732`, one commit
-back. Everything else in this table was run at `f0cb5a6`.
+The whole-stack row was re-run at `14abb68` on 2026-07-30, clearing B3. The rest
+of the table was run at `f0cb5a6`.
 
 ### What those tests actually cover
 
@@ -246,7 +256,18 @@ src/
     schemas.ts           Zod at every network boundary; I1 re-checked here
     api.ts               single API client
     confidence.ts        the five-value scale + user-facing meanings
+  app/colour-contrast.test.ts   WCAG ratios computed from the real tokens
+e2e/                     Playwright with NO API — the degraded path
+e2e-seeded/              Playwright against a seeded stack — acceptance row 5
+playwright.config.ts     starts the web server only
+playwright.seeded.config.ts    starts web + API, gated on /health
 ```
+
+Two Playwright configs on purpose. `e2e/` proves the app says "api unreachable"
+rather than rendering an empty list, so it must run with the API *absent* —
+starting one would make it pass for the wrong reason. `e2e-seeded/` proves real
+rows reach a browser. Neither substitutes for the other, and CI runs both in that
+order.
 
 **The confidence ladder** is the product's signature UI element: five ticks of
 increasing height, lit to the precision actually achieved, with a text label and
@@ -378,10 +399,11 @@ all four `job_locations` check constraints refusing their violations. The review
 line — *"a constraint nobody has seen reject anything is a comment with extra
 syntax"* — is now settled: each one raised `IntegrityError`.
 
-**Not verified:** CI (no remote exists, B-none — it needs an account decision), the
-final clean-clone re-run (host disk, B2), and the 6 seeded browser tests after the
-last commit (Docker died, B3). Each of those three has its own entry saying exactly
-what it covers and what it leaves open.
+**Not verified at the time:** CI (no remote exists — it needs an account
+decision), the final clean-clone re-run (host disk, B2), and the 6 seeded browser
+tests after the last commit (Docker died, B3). B2 and B3 were both cleared later
+the same day — `make acceptance` passed at `14abb68`, 18 checks plus 6 browser
+tests. CI remains the one open item, and it is the one that needs a human.
 
 The disk filling up was self-inflicted in part: I made two full clones of the repo
 to test the clean-clone path, ~730 MB each in `node_modules` and venvs, on a

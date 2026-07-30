@@ -154,20 +154,34 @@ Everything runs from the repo root through `make`. A developer should never need
 know which directory a thing lives in.
 
 ```
-make setup        Install JS + Python deps, create .env from example
-make up           docker compose up -d (postgres, redis), wait for healthy
-make migrate      Alembic upgrade head
-make seed         Load fixture data: dev user, resume, companies, jobs, applications
-make dev          Web + API + worker, concurrently
-make demo         make up && migrate && seed && dev — fully offline, no network
-make test         Unit tests, both languages
-make test-e2e     Playwright
-make check        format + lint + typecheck + test. Run before every commit.
-make reset-db     Drop, recreate, migrate, seed
+make setup             Install JS + Python deps, create .env from example
+make up                docker compose up -d (postgres, redis), wait for healthy
+make migrate           Alembic upgrade head
+make seed              Load fixture data: dev user, resume, companies, jobs, applications
+make dev               Web + API + worker, concurrently
+make demo              make up && migrate && seed && dev — fully offline, no network
+make test              Unit tests, both languages
+make test-e2e          Playwright, with no API behind it (the degraded path)
+make test-e2e-seeded   Playwright against a seeded stack (needs make up/migrate/seed)
+make verify            Assert the running stack works; exits 0 or 1
+make acceptance        up && migrate && seed && verify && test-e2e-seeded
+make check             format + lint + typecheck + test. Run before every commit.
+make reset-db          Drop, recreate, migrate, seed
 ```
 
 `make demo` working offline from a clean clone is a hard requirement from M0 onward.
 If it breaks, fixing it is the highest-priority task in the repo.
+
+**`make demo` ends in a foreground dev server, so it has no exit code to check.
+`make acceptance` is the scriptable counterpart** — same stack, then assertions,
+then it exits. Use it to verify a milestone; use `demo` to look at one.
+
+Two rules learned the hard way (see `docs/reviews/milestone-0-review.md` F5):
+
+- **Verify from a clean shell, not the one you were working in.** A server you
+  started by hand an hour ago will make a broken target look like a passing one.
+- **A target's prerequisites belong in the target,** not in the reader's head. If
+  a test suite needs a server, the suite's config starts it.
 
 ---
 
@@ -316,6 +330,17 @@ Enums as PG enums or check constraints, never bare strings. `created_at`/`update
 on every table. Append-only tables enforced by trigger.
 
 **Time** — UTC in the database, always. `TIMESTAMPTZ`. Convert at the edge only.
+
+**Config** — `.env` is read by three parsers with three quoting rules: bash (the
+Makefile sources it), `docker compose --env-file`, and python-dotenv. Any value
+containing a shell metacharacter must be quoted, and `tests/test_env_example.py`
+requires all three to agree on every value. Never add a setting whose default is
+"reach the network."
+
+**Colour** — `paper*` tokens are text; `ink*` tokens are surfaces and borders and
+never carry text. Every text and accent token clears WCAG AA 4.5:1 on every
+surface it appears on, computed from the real tokens in `colour-contrast.test.ts`.
+Add a token, add its assertion.
 
 **Naming** — the domain language is the code language: `canonical_job`, `source_job_record`,
 `location_confidence`, `match_result`. Do not invent synonyms.
