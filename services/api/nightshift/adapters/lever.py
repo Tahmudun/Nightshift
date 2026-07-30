@@ -163,7 +163,16 @@ class LeverAdapter:
         self._client = client
 
     async def fetch_board(self, board: BoardRef) -> FetchOutcome:
-        """Poll one board. Never raises — I3 lives or dies on this method."""
+        """Poll one board. Never raises for a source failure.
+
+        I3 lives or dies on this method: a bad response, timeout, or
+        malformed payload becomes ``ok=False`` on the returned
+        :class:`FetchOutcome`, never an exception, because a caller that has
+        to catch an exception here is one refactor away from treating "the
+        source errored" as "the board is empty" and closing jobs that are
+        still open. That guarantee covers source failures only — a missing
+        client is a caller bug, not a source failure, and still raises.
+        """
         if self._client is None:
             raise RuntimeError("LeverAdapter needs a client to fetch")
         url = BOARD_URL.format(token=board.token)
