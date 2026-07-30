@@ -154,6 +154,20 @@ jobs:
         run: alembic upgrade head
         working-directory: services/api
 
+      - name: Upgrade actually persisted
+        # `alembic upgrade head` prints "Running upgrade", emits every CREATE
+        # TABLE, and exits 0 even when its transaction is rolled back — the exit
+        # code says nothing about whether the database moved. Ask the database.
+        run: |
+          head_rev=$(alembic heads | awk '{print $1}')
+          test -n "$head_rev" || { echo "::error::no head revision"; exit 1; }
+          if ! alembic current | grep -q "$head_rev"; then
+            echo "::error::alembic exited 0 but the database is not at $head_rev — the migration did not commit"
+            alembic current
+            exit 1
+          fi
+        working-directory: services/api
+
       - name: Downgrade to base
         # CLAUDE.md §7: every migration reversible and tested both directions.
         run: alembic downgrade base

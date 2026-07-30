@@ -388,6 +388,62 @@ non-existent tag sat in the repo unnoticed — no local command ever pulls it.
 Acceptable now that CI actually exercises it every push; revisit if the two
 builds drift in a way that matters.
 
+Run 2: `python`, `web`, `secrets` and `e2e` green. `migrations` still red, now
+on the drift probe, which had also never run anywhere.
+
+**3. The post-write hook could never have worked.** `alembic revision` died with
+`Could not find entrypoint console_scripts.ruff`, on CI and on this machine
+alike. `alembic.ini` declared the hook as `type = console_scripts`, and the ruff
+distribution publishes **no console_scripts entry points at all** — it ships a
+compiled binary as a plain script. Changed to `type = module`, which runs
+`sys.executable -m ruff`: the interpreter already running alembic, so it needs
+ruff on neither PATH nor an entry point.
+
+**4. The drift probe compared our models against the whole server.** With the
+hook fixed, autogenerate proposed dropping about forty tables — `addrfeat`,
+`faces`, `featnames`, `topology`, `layer` and the rest of postgis_tiger_geocoder
+and postgis_topology, which CI's bundle image installs and puts on the search
+path. `include_object` excluded exactly three PostGIS names by hand, so
+everything else looked like drift.
+
+Now filtered by ownership read from `pg_depend`, which follows whatever is
+installed instead of a hand-kept list. The filter refuses to exclude any table
+present in the models, whatever pg_depend says: an extension shipping a table
+named like one of ours would otherwise switch off drift detection for that
+table — the filter hiding the change it exists to surface. Moved to
+`citysignal/db/autogenerate.py`, because `migrations/env.py` runs migrations as
+an import side effect and cannot be imported by a test. Eight tests, checked
+non-vacuous by mutation: removing the models guard fails one, disabling the
+table filter fails two.
+
+**5. And then I introduced silent data loss, and nearly shipped it.** Reading
+`pg_depend` inside `do_run_migrations` autobegins a SQLAlchemy transaction.
+Alembic only commits a transaction it opened itself; finding one already open,
+it treated it as externally managed, and the enclosing `connect()` block rolled
+the whole migration back on close. Every `CREATE TABLE` ran, the
+`alembic_version` row was inserted, then `ROLLBACK` — and `alembic upgrade head`
+printed "Running upgrade" and **exited 0** with an empty database.
+
+Found only by checking the database after a run that claimed success, against a
+local container built to match CI's image. Reproduced, then isolated by removing
+the one added line: `COMMIT` and the tables came back. Fixed by ending the read
+before configuring alembic, so alembic owns its transaction again.
+
+The exit code cannot see this, so a CI step now asks the database instead:
+**Upgrade actually persisted** fails if `alembic current` is not at head after a
+successful upgrade. Verified in both directions — it passes at head and fails
+after a downgrade.
+
+Worth stating plainly: the mistake was mine, made while fixing something else,
+and the only reason it did not land is that verification looked at the database
+rather than at the exit code. A green `alembic upgrade head` was, for one commit,
+completely compatible with an empty schema.
+
+**Verified after the fix** — `make check` (204 Python, 35 web), `make reset-db`
+(version row present, 10 tables), `make acceptance` (18 checks + 6 browser
+tests), and CI's full migrations sequence replayed against a local replica of
+the CI image: up, down, up, drift probe clean, seed loads.
+
 ### 2026-07-30 — M0 acceptance
 
 Docker Desktop installed by the human, clearing B1. Ran the acceptance criteria
