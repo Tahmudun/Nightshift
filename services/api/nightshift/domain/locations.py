@@ -268,6 +268,25 @@ _CA_PROVINCES: dict[str, str] = {
     "sk": "Saskatchewan",
 }
 
+# ADR 0008. A bare place name normally resolves to `unknown`, because a lone
+# token with nothing corroborating it is not evidence of a city. These are the
+# documented exceptions: NYC and its boroughs, which M1d's hot tier depends on
+# and which providers routinely write without a state.
+#
+# Enumerated on purpose. The value is (city, state, country), and the result is
+# `city_only` — never a coordinate, so I1 is untouched.
+_DECIDED_BARE_PLACES: dict[str, tuple[str, str | None, str | None]] = {
+    "new york": ("New York", "New York", None),
+    "new york city": ("New York", "New York", None),
+    "nyc": ("New York", "New York", None),
+    "manhattan": ("Manhattan", "New York", None),
+    "brooklyn": ("Brooklyn", "New York", None),
+    "queens": ("Queens", "New York", None),
+    "the bronx": ("The Bronx", "New York", None),
+    "bronx": ("The Bronx", "New York", None),
+    "staten island": ("Staten Island", "New York", None),
+}
+
 # A bare two-letter token that resolved to no subdivision is not a city.
 # Fixing "BC" by adding it to a table would leave every unlisted code broken,
 # so the guard is on the shape of the token rather than on its value.
@@ -402,7 +421,22 @@ def _strip_tail_tokens(segment: str) -> _Tail:
             tail.country = country
             tail.parts.pop()
 
-    if tail.parts:
+    # A genuinely bare segment (no comma at all, aside from Remote) that is on
+    # the decided-place table (ADR 0008) skips subdivision consumption here.
+    # Needed for exactly one collision: "New York" is both a state name and a
+    # decided city name, so without this guard the lookup below would consume
+    # the lone token as a state, leaving nothing in `tail.parts` for the
+    # decided-place check in `parse_location_segment` to ever see.
+    #
+    # Gated on `raw_part_count == 1`, not on `len(tail.parts) == 1` here, on
+    # purpose: "New York, USA, Remote" also has one part left at this point
+    # (country already consumed "USA"), but that "New York" names the state a
+    # remote role is restricted to, not a specific city — `statewide_remote`
+    # is the fixture that pins city=None, state="New York" for it. Only a
+    # segment that was one comma part from the start is a bare token.
+    if tail.parts and not (
+        tail.raw_part_count == 1 and tail.parts[-1].casefold() in _DECIDED_BARE_PLACES
+    ):
         state = _lookup_subdivision(tail.parts[-1])
         if state is not None:
             tail.state = state
@@ -446,14 +480,28 @@ def parse_location_segment(segment: str, *, is_primary: bool) -> ParsedLocation:
     corroborated = tail.state is not None or tail.country is not None or tail.raw_part_count > 1
 
     city: str | None = None
+    state = tail.state
+    country = tail.country
     if tail.parts:
         # With a street address the city is the *last* unconsumed part:
         # "620 8th Ave, New York" -> "New York".
         candidate = tail.parts[-1]
-        # A bare token with nothing corroborating it is not a city. This is what
-        # keeps "Global" and "Multiple Locations" out of the city column.
         if corroborated or len(tail.parts) > 1:
             city = candidate
+        else:
+            # A bare token with nothing corroborating it is not a city. This is
+            # what keeps "Global" and "Multiple Locations" out of the city
+            # column. The one exception is an enumerated, reviewed list
+            # (ADR 0008): NYC and its boroughs, which M1d's hot-tier
+            # assignment depends on and which providers routinely write
+            # without a state.
+            decided = _DECIDED_BARE_PLACES.get(candidate.casefold())
+            if decided is not None:
+                city, state, country = (
+                    decided[0],
+                    state or decided[1],
+                    country or decided[2],
+                )
 
     if tail.remote:
         confidence = LocationConfidence.REMOTE
@@ -467,8 +515,8 @@ def parse_location_segment(segment: str, *, is_primary: bool) -> ParsedLocation:
     return ParsedLocation(
         raw_text=segment,
         city=city,
-        state=tail.state,
-        country=tail.country,
+        state=state,
+        country=country,
         confidence=confidence,
         is_primary=is_primary,
     )
