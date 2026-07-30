@@ -1238,6 +1238,84 @@ implementer does not go looking:
 - `pyproject.toml` sets `asyncio_mode = "auto"`, so async tests need no
   `@pytest.mark.asyncio` marker. The test code below omits it.
 
+- [ ] **Step 1b: Widen the Protocol so `normalize` receives the board**
+
+Found in the pre-flight scan of this plan, before any code was written. It is a
+correctness fix, not a refactor, and it must land before the Lever adapter.
+
+`JobSourceAdapter.normalize(raw_job)` takes no board. Greenhouse gets away with
+that because its payload carries `company_name`. **Neither Lever nor Ashby
+publishes a company name at all**, so the only fallback available inside
+`normalize` is `raw_job.source_company_key` — the board token. And
+`_persist_outcome` (`domain/ingestion.py:414`) calls exactly that method, so in
+the real ingestion path every Lever and Ashby employer would be named by its
+slug: `alloy`, `ramp`.
+
+That is precisely the fabrication I2 forbids and that `board-discovery.md` §3
+names in its own words — *"the token is not the name"*, `0g` is "0g Labs". A
+separate `normalize_with_board()` that only the tests remember to call would
+leave the production path broken while the suite stayed green, which is worse
+than no fix.
+
+So the board becomes part of the contract.
+
+In `nightshift/adapters/base.py`, change the Protocol method:
+
+```python
+    def normalize(self, raw_job: RawJob, board: BoardRef) -> NormalizedSourceJob:
+        """Map one raw posting onto the domain model.
+
+        Takes the board because two of the three providers publish no employer
+        name. The registry entry is a human-approved fact; the board token is a
+        slug, and deriving a company from it is the I2 failure that ADR 0005's
+        `live_unnamed` verdict exists to catch.
+
+        Synchronous and pure: same input, same output, no I/O. That is what
+        makes M1's "same fixture in, byte-identical output, twice" criterion
+        testable.
+        """
+        ...
+```
+
+In `nightshift/adapters/greenhouse.py`, change the signature and prefer the
+payload's own name, falling back to the reviewed registry entry rather than to
+the token:
+
+```python
+    def normalize(self, raw_job: RawJob, board: BoardRef) -> NormalizedSourceJob:
+```
+
+and replace the company-name line:
+
+```python
+        company_name = str(payload.get("company_name") or "").strip()
+        # Greenhouse does publish a name. When it is blank, fall back to the
+        # reviewed registry entry — never to the token.
+        resolved_company = company_name or board.company
+```
+
+using `resolved_company` in the returned model.
+
+In `nightshift/domain/ingestion.py`, `_persist_outcome` already holds the
+board on the outcome. Change the call:
+
+```python
+            normalized = adapter.normalize(raw_job, outcome.board)
+```
+
+- [ ] **Step 1c: Confirm the existing suite still passes**
+
+Run: `cd services/api && ./.venv/bin/pytest -q`
+
+Expected: 204 passed. The Greenhouse adapter tests construct `normalize` calls
+directly and will need the board argument added — that is the intended blast
+radius, and it is small. Use
+`BoardRef(company="Datadog", ats="greenhouse", token="datadog", nyc_presence=True)`.
+
+Because of this step there is **one** normalize method, not two. Every code
+block below already reflects that: adapters define
+`normalize(self, raw_job, board)` and callers pass the `BoardRef`.
+
 - [ ] **Step 2: Write the failing tests**
 
 ```python
@@ -1291,7 +1369,7 @@ def adapter() -> LeverAdapter:
 
 def test_normalizes_every_recorded_posting(adapter: LeverAdapter) -> None:
     for raw in _raw_jobs():
-        normalized = adapter.normalize(raw)
+        normalized = adapter.normalize(raw, BOARD)
         assert normalized.title
         assert normalized.company_name
         assert normalized.description_hash
@@ -1307,7 +1385,7 @@ def test_company_name_comes_from_the_registry_not_the_payload(adapter: LeverAdap
     payload = _board_payload()[0]
     assert "company" not in payload
     assert "companyName" not in payload
-    normalized = adapter.normalize_with_board(_raw_jobs()[0], BOARD)
+    normalized = adapter.normalize(_raw_jobs()[0], BOARD)
     assert normalized.company_name == "Alloy"
 
 
@@ -1315,14 +1393,14 @@ def test_all_locations_array_yields_one_row_each(adapter: LeverAdapter) -> None:
     """A2: Lever hands us an array and every element becomes a location row."""
     for raw in _raw_jobs():
         expected = raw.payload["categories"].get("allLocations") or []
-        normalized = adapter.normalize(raw)
+        normalized = adapter.normalize(raw, BOARD)
         assert len(normalized.locations) == len(set(expected)), raw.source_job_id
 
 
 def test_no_location_carries_a_coordinate(adapter: LeverAdapter) -> None:
     """I1, structurally: ParsedLocation has no coordinate field to populate."""
     for raw in _raw_jobs():
-        for location in adapter.normalize(raw).locations:
+        for location in adapter.normalize(raw, BOARD).locations:
             assert not hasattr(location, "latitude")
             assert not hasattr(location, "longitude")
 
@@ -1332,7 +1410,7 @@ def test_canadian_province_is_not_read_as_a_city(adapter: LeverAdapter) -> None:
     cities = {
         loc.city
         for raw in _raw_jobs()
-        for loc in adapter.normalize(raw).locations
+        for loc in adapter.normalize(raw, BOARD).locations
     }
     assert "BC" not in cities
     assert "Vancouver" in cities
@@ -1341,7 +1419,7 @@ def test_canadian_province_is_not_read_as_a_city(adapter: LeverAdapter) -> None:
 def test_salary_range_is_read_from_the_structured_field(adapter: LeverAdapter) -> None:
     """Unlike Greenhouse, Lever states the interval, so salary_period is set."""
     priced = [
-        adapter.normalize(raw)
+        adapter.normalize(raw, BOARD)
         for raw in _raw_jobs()
         if raw.payload.get("salaryRange")
     ]
@@ -1358,7 +1436,7 @@ def test_created_at_is_epoch_milliseconds_not_seconds(adapter: LeverAdapter) -> 
     Every freshness calculation downstream reads this field, so getting the
     unit wrong is silent and total.
     """
-    normalized = adapter.normalize(_raw_jobs()[0])
+    normalized = adapter.normalize(_raw_jobs()[0], BOARD)
     assert normalized.source_published_at is not None
     assert 2000 < normalized.source_published_at.year < 2100
 
@@ -1373,13 +1451,13 @@ def test_source_updated_at_is_none_because_lever_has_no_such_field(
     """
     payload = _board_payload()[0]
     assert not [k for k in payload if "update" in k.lower() or "modif" in k.lower()]
-    assert adapter.normalize(_raw_jobs()[0]).source_updated_at is None
+    assert adapter.normalize(_raw_jobs()[0], BOARD).source_updated_at is None
 
 
 def test_normalization_is_deterministic(adapter: LeverAdapter) -> None:
     """M1 acceptance: same fixture in, byte-identical output, twice."""
-    first = [adapter.normalize(raw).model_dump_json() for raw in _raw_jobs()]
-    second = [adapter.normalize(raw).model_dump_json() for raw in _raw_jobs()]
+    first = [adapter.normalize(raw, BOARD).model_dump_json() for raw in _raw_jobs()]
+    second = [adapter.normalize(raw, BOARD).model_dump_json() for raw in _raw_jobs()]
     assert first == second
 
 
@@ -1654,13 +1732,7 @@ class LeverAdapter:
         log.info("lever_board_fetched", board=board.token, jobs=len(jobs))
         return FetchOutcome(board=board, ok=True, jobs=tuple(jobs), http_status=200)
 
-    def normalize(self, raw_job: RawJob) -> NormalizedSourceJob:
-        """Pure mapping from raw payload to domain model. No I/O, no clock."""
-        return self.normalize_with_board(raw_job, board=None)
-
-    def normalize_with_board(
-        self, raw_job: RawJob, board: BoardRef | None = None
-    ) -> NormalizedSourceJob:
+    def normalize(self, raw_job: RawJob, board: BoardRef) -> NormalizedSourceJob:
         """Normalize, taking the employer name from the approved registry entry.
 
         Lever publishes no company name. `normalize()` satisfies the Protocol
@@ -1688,7 +1760,7 @@ class LeverAdapter:
         return NormalizedSourceJob(
             source_job_id=raw_job.source_job_id,
             source_company_key=raw_job.source_company_key,
-            company_name=(board.company if board is not None else raw_job.source_company_key),
+            company_name=board.company,
             canonical_url=raw_job.canonical_url,
             title=title,
             normalized_title=normalize_title(title),
@@ -1775,7 +1847,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Consumes: the same base types as Task 6, plus `parse_location_list`.
 - Produces: `AshbyAdapter` with `source_name = "ashby"`,
   `source_type = SourceType.ATS_ASHBY`, and the same
-  `normalize_with_board(raw_job, board)` overload as `LeverAdapter`.
+  `normalize(raw_job, board)` signature as `LeverAdapter`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1828,7 +1900,7 @@ def adapter() -> AshbyAdapter:
 
 def test_normalizes_every_recorded_posting(adapter: AshbyAdapter) -> None:
     for raw in _raw_jobs():
-        normalized = adapter.normalize(raw)
+        normalized = adapter.normalize(raw, BOARD)
         assert normalized.title
         assert normalized.description_hash
 
@@ -1845,7 +1917,7 @@ def test_the_payload_contains_no_company_name(adapter: AshbyAdapter) -> None:
 
 
 def test_company_name_comes_from_the_registry(adapter: AshbyAdapter) -> None:
-    normalized = adapter.normalize_with_board(_raw_jobs()[0], BOARD)
+    normalized = adapter.normalize(_raw_jobs()[0], BOARD)
     assert normalized.company_name == "Ramp"
 
 
@@ -1864,7 +1936,7 @@ def test_is_remote_does_not_mean_remote(adapter: AshbyAdapter) -> None:
     assert office_with_remote_flag, "fixture lost the case — re-record per Task 2 step 3"
 
     for raw in office_with_remote_flag:
-        normalized = adapter.normalize(raw)
+        normalized = adapter.normalize(raw, BOARD)
         assert normalized.remote_policy != "remote"
         primary = normalized.locations[0]
         assert primary.city == "New York"
@@ -1872,7 +1944,7 @@ def test_is_remote_does_not_mean_remote(adapter: AshbyAdapter) -> None:
 
 
 def test_hq_annotation_does_not_become_the_city(adapter: AshbyAdapter) -> None:
-    cities = {loc.city for raw in _raw_jobs() for loc in adapter.normalize(raw).locations}
+    cities = {loc.city for raw in _raw_jobs() for loc in adapter.normalize(raw, BOARD).locations}
     assert "NY (HQ)" not in cities
     assert "New York" in cities
 
@@ -1882,7 +1954,7 @@ def test_secondary_locations_each_get_a_row(adapter: AshbyAdapter) -> None:
     multi = [raw for raw in _raw_jobs() if raw.payload.get("secondaryLocations")]
     assert multi, "fixture has no multi-location posting — re-record"
     for raw in multi:
-        normalized = adapter.normalize(raw)
+        normalized = adapter.normalize(raw, BOARD)
         expected = {raw.payload["location"]} | {
             s["location"] for s in raw.payload["secondaryLocations"]
         }
@@ -1897,7 +1969,7 @@ def test_internship_employment_type_from_real_data(adapter: AshbyAdapter) -> Non
     only by synthetic unit tests. This board has real ones.
     """
     interns = [
-        adapter.normalize(raw)
+        adapter.normalize(raw, BOARD)
         for raw in _raw_jobs()
         if raw.payload.get("employmentType") == "Intern"
     ]
@@ -1914,7 +1986,7 @@ def test_salary_period_is_set_because_ashby_states_the_interval(
     A10's rule is 'store what the source gives you' — which cuts both ways.
     """
     priced = [
-        adapter.normalize(raw)
+        adapter.normalize(raw, BOARD)
         for raw in _raw_jobs()
         if raw.payload.get("compensation", {}).get("compensationTiers")
     ]
@@ -1933,7 +2005,7 @@ def test_equity_component_is_not_read_as_salary(adapter: AshbyAdapter) -> None:
     salary would publish a pay range the employer never stated.
     """
     for raw in _raw_jobs():
-        normalized = adapter.normalize(raw)
+        normalized = adapter.normalize(raw, BOARD)
         if normalized.salary_min is not None:
             assert normalized.salary_min > 1000
 
@@ -1943,12 +2015,12 @@ def test_source_updated_at_is_none_because_ashby_has_no_such_field(
 ) -> None:
     for job in _board_payload()["jobs"]:
         assert not [k for k in job if "update" in k.lower() or "modif" in k.lower()]
-    assert adapter.normalize(_raw_jobs()[0]).source_updated_at is None
+    assert adapter.normalize(_raw_jobs()[0], BOARD).source_updated_at is None
 
 
 def test_normalization_is_deterministic(adapter: AshbyAdapter) -> None:
-    first = [adapter.normalize(raw).model_dump_json() for raw in _raw_jobs()]
-    second = [adapter.normalize(raw).model_dump_json() for raw in _raw_jobs()]
+    first = [adapter.normalize(raw, BOARD).model_dump_json() for raw in _raw_jobs()]
+    second = [adapter.normalize(raw, BOARD).model_dump_json() for raw in _raw_jobs()]
     assert first == second
 
 
@@ -2211,12 +2283,7 @@ class AshbyAdapter:
         log.info("ashby_board_fetched", board=board.token, jobs=len(jobs))
         return FetchOutcome(board=board, ok=True, jobs=tuple(jobs), http_status=200)
 
-    def normalize(self, raw_job: RawJob) -> NormalizedSourceJob:
-        return self.normalize_with_board(raw_job, board=None)
-
-    def normalize_with_board(
-        self, raw_job: RawJob, board: BoardRef | None = None
-    ) -> NormalizedSourceJob:
+    def normalize(self, raw_job: RawJob, board: BoardRef) -> NormalizedSourceJob:
         """Normalize, taking the employer name from the approved registry entry.
 
         Ashby publishes no company name anywhere in its API. The board page
@@ -2254,7 +2321,7 @@ class AshbyAdapter:
         return NormalizedSourceJob(
             source_job_id=raw_job.source_job_id,
             source_company_key=raw_job.source_company_key,
-            company_name=(board.company if board is not None else raw_job.source_company_key),
+            company_name=board.company,
             canonical_url=raw_job.canonical_url,
             title=title,
             normalized_title=normalize_title(title),
@@ -2548,8 +2615,8 @@ class _StubAdapter:
     async def fetch_board(self, board: BoardRef) -> FetchOutcome:
         return self._outcome
 
-    def normalize(self, raw_job: RawJob) -> Any:
-        return self._inner.normalize_with_board(raw_job, LEVER_BOARD)
+    def normalize(self, raw_job: RawJob, board: BoardRef) -> Any:
+        return self._inner.normalize(raw_job, board)
 
 
 def _lever_outcome(ok: bool = True) -> FetchOutcome:
@@ -2799,8 +2866,7 @@ class FixtureLeverAdapter(LeverAdapter):
         )
         return FetchOutcome(board=board, ok=True, jobs=jobs, http_status=200)
 
-    def normalize(self, raw_job: RawJob) -> NormalizedSourceJob:
-        return self.normalize_with_board(raw_job, self._board)
+
 
 
 class FixtureAshbyAdapter(AshbyAdapter):
@@ -2827,13 +2893,13 @@ class FixtureAshbyAdapter(AshbyAdapter):
         )
         return FetchOutcome(board=board, ok=True, jobs=jobs, http_status=200)
 
-    def normalize(self, raw_job: RawJob) -> NormalizedSourceJob:
-        return self.normalize_with_board(raw_job, self._board)
+
 ```
 
-Both need the `BoardRef` they were seeded for so `normalize` can supply the
-company name. Store it in `__init__` as `self._board` — take it as a second
-constructor argument and pass the registry entry from the seed command.
+Neither needs to store a `BoardRef`. After Task 6 step 1b the board is an
+argument to `normalize`, and `_persist_outcome` already passes `outcome.board`
+— so these subclasses override `fetch_board` and nothing else, which is exactly
+the shape `FixtureGreenhouseAdapter` already has.
 
 - [ ] **Step 3: Extend `make seed` to load all three boards**
 
@@ -3002,8 +3068,9 @@ existing convention, not deferred work.
 
 **Type consistency.** `parse_location_list(Sequence[str]) -> list[ParsedLocation]`
 is defined in Task 4 and consumed under that exact name in Tasks 6 and 7.
-`normalize_with_board(raw_job, board)` is introduced in Task 6 and used with the
-same signature in Tasks 7, 9 and 10. `_StubClient.get_json(url)` matches the
+`normalize(raw_job, board)` is widened in Task 6 step 1b — on the Protocol, on
+the Greenhouse adapter, and at its one call site in `_persist_outcome` — and is
+used with that same signature in Tasks 7, 9 and 10. `_StubClient.get_json(url)` matches the
 `_JsonClient` Protocol both adapters declare. `requires_db` and `db_session` are
 defined in Task 9 step 1 and imported in Tasks 9 and 10.
 
