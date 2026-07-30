@@ -74,3 +74,17 @@ boards:
       Kept anyway because it is the Lever board that was actually reachable,
       and because "Vancouver, BC" is the case that exposed the parser
       fabricating a city from a subdivision code.
+
+  - company: Ramp
+    ats: ashby
+    token: ramp
+    added: 2026-07-30
+    verified_at: 2026-07-30
+    status: active
+    nyc_presence: true
+    notes: >-
+      First Ashby board in the registry. Verified live on 2026-07-30: HTTP 200,
+      123 postings, 95 of them at the New York headquarters. Company name is
+      NOT in the API response — it comes from this entry, per ADR 0005 and
+      board-discovery.md §3. Also the source of the project's first real
+      internship postings; the Datadog board had none.

@@ -48,7 +48,7 @@ class TestTheCommittedRegistry:
         registry = load_registry()
         assert len(registry.boards) >= 1
 
-    def test_the_pollable_set_is_exactly_these_two_boards(self) -> None:
+    def test_the_pollable_set_is_exactly_these_three_boards(self) -> None:
         """Closed-set check: nothing may become pollable except by editing this line.
 
         Replaces the old M0-era `len(pollable) == 1` (that count was the milestone
@@ -58,7 +58,7 @@ class TestTheCommittedRegistry:
         machine; if this test does not catch it turning `active`, nothing else in
         this file will (`TestPollability` only exercises synthetic registries).
         """
-        expected = {("greenhouse", "datadog"), ("lever", "alloy")}
+        expected = {("greenhouse", "datadog"), ("lever", "alloy"), ("ashby", "ramp")}
         actual = {(entry.ats, entry.token) for entry in load_registry().pollable()}
         assert actual == expected, (
             f"pollable set changed: gained {actual - expected}, "
@@ -75,6 +75,11 @@ class TestTheCommittedRegistry:
         """M1a: Lever is the second provider behind the adapter Protocol."""
         tokens = {(entry.ats, entry.token) for entry in load_registry().pollable()}
         assert ("lever", "alloy") in tokens
+
+    def test_the_first_ashby_board_added_in_m1a_is_pollable(self) -> None:
+        """M1a: Ashby is the third and, for now, last provider behind the adapter Protocol."""
+        tokens = {(entry.ats, entry.token) for entry in load_registry().pollable()}
+        assert ("ashby", "ramp") in tokens
 
     def test_every_entry_records_when_a_human_verified_it(self) -> None:
         for board in load_registry().boards:
