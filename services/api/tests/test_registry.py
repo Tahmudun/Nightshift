@@ -48,12 +48,15 @@ class TestTheCommittedRegistry:
         registry = load_registry()
         assert len(registry.boards) >= 1
 
-    def test_contains_exactly_one_pollable_board_in_m0(self) -> None:
-        """A6: M0 polls one board, end to end, before any breadth."""
-        pollable = load_registry().pollable()
-        assert len(pollable) == 1
-        assert pollable[0].token == "datadog"
-        assert pollable[0].ats == "greenhouse"
+    def test_datadogs_m0_board_is_still_pollable(self) -> None:
+        """A6: M0's one board must keep resolving as M1 adds breadth around it."""
+        tokens = {(entry.ats, entry.token) for entry in load_registry().pollable()}
+        assert ("greenhouse", "datadog") in tokens
+
+    def test_the_first_lever_board_added_in_m1a_is_pollable(self) -> None:
+        """M1a: Lever is the second provider behind the adapter Protocol."""
+        tokens = {(entry.ats, entry.token) for entry in load_registry().pollable()}
+        assert ("lever", "alloy") in tokens
 
     def test_every_entry_records_when_a_human_verified_it(self) -> None:
         for board in load_registry().boards:

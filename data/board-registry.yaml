@@ -57,3 +57,20 @@ boards:
     notes: >-
       Endpoint returns HTTP 200 with postings (confirmed 2026-07-29). Disabled
       until M1: enable once the freshness and closure state machine lands.
+
+  - company: Alloy
+    ats: lever
+    token: alloy
+    added: 2026-07-30
+    verified_at: 2026-07-30
+    status: active
+    nyc_presence: false
+    notes: >-
+      First Lever board in the registry. Verified live on 2026-07-30: HTTP 200,
+      9 postings. Recorded as a fixture at
+      tests/fixtures/lever/alloy_board.json. `nyc_presence: false` because the
+      recording's own provenance notes list "NYC location" under coverage not
+      available on this board — its postings are DC, Denver and Vancouver.
+      Kept anyway because it is the Lever board that was actually reachable,
+      and because "Vancouver, BC" is the case that exposed the parser
+      fabricating a city from a subdivision code.
