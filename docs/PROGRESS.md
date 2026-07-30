@@ -11,9 +11,11 @@
 
 ## Next exact action
 
-**Execute `docs/plans/2026-07-30-m1a-provider-breadth.md`, starting at Task 1.**
-It is a written, ordered, TDD task list with real code in every step. Nothing in
-it has been implemented yet.
+**M1a is complete. Write and execute the M1b plan (canonical spine) next**:
+dedupe, freshness, the closure state machine, the admin job table, and the
+source health page. No M1b plan file exists yet — write one (per
+`superpowers:writing-plans`) before touching code, the same way M1a's plan was
+written before Task 1 started.
 
 M1 was split into four plans, because `CLAUDE.md` §6 lists four independent
 subsystems under one milestone and a single plan for all of them would not
@@ -21,8 +23,8 @@ produce working software until the end:
 
 | Plan | Contents | Status |
 |---|---|---|
-| **M1a — provider breadth** | Lever + Ashby adapters, location fixtures and parser breadth, upserts, ingestion + route tests | **Written, not started** |
-| M1b — canonical spine | Dedupe, freshness, closure state machine, admin job table, source health page | Not written |
+| **M1a — provider breadth** | Lever + Ashby adapters, location fixtures and parser breadth, upserts, ingestion + route tests | **COMPLETE — all 10 tasks done** |
+| M1b — canonical spine | Dedupe, freshness, closure state machine, admin job table, source health page | Not written — **next** |
 | M1c — board discovery | `nightshift/discovery/`, Common Crawl, validation, batch approval, coverage page | Not written |
 | M1d — polling | Two-phase conditional polling, hot/warm tiers, queue-driven ARQ | Not written |
 
@@ -182,19 +184,20 @@ is derived from parsed locations, so a first-provider parser caps the accuracy o
 everything downstream. Item 2 stops being theoretical the moment polling becomes
 queue-driven (ADR 0007) — concurrency above 1 is the point of that design.
 
-1. **Write Lever and Ashby location fixtures before touching the parser.** A2
-   requires the fixture file to grow first. `parse_location_field` has 98 passing
-   assertions and is still a *first-provider* parser: its right-to-left tail
-   stripping was tuned to one convention, and `"New York"` alone currently yields
-   `unknown`. Adding providers to the parser before adding them to the fixtures
-   would encode Greenhouse's conventions as if they were general. (W1)
-2. **Make `get_or_create_source` / `get_or_create_company` upserts.** They are
-   check-then-insert and will race the moment worker concurrency goes above 1.
-   Unreachable today at `max_jobs=1`; a silent duplicate-company bug the day it
-   changes.
-3. **`domain/ingestion.py` and the API routes still have no tests.** Both needed a
-   database, which is why they were skipped. The database now exists, so that
-   excuse is gone. This is the largest genuine coverage gap in the repo.
+1. **DONE — Write Lever and Ashby location fixtures before touching the parser.**
+   Fixtures added at `43dd80a`; the parser was then widened and two real
+   fabricated-city bugs fixed at `96a4e16`, `12da0ce`, `d81b03c` (ADR 0008
+   accepted at `031a6b9`). `parse_location_field` now has 98+ assertions
+   across three providers' shapes rather than one. (W1)
+2. **DONE — Make `get_or_create_source` / `get_or_create_company` upserts.**
+   Fixed at `1b37ed9` (`ON CONFLICT DO NOTHING` + read, not check-then-insert).
+   No longer a landmine for the moment worker concurrency goes above 1.
+3. **DONE — `domain/ingestion.py` and the API routes now have tests.**
+   `domain/ingestion.py` covered against a real database at `5573231`
+   (vacuous-assertion fixes at `c677822`); the API routes covered in this
+   session's commit (`services/api/tests/test_routes.py`, M1a Task 10) —
+   `/health`, `/health/live`, `/jobs`, `/jobs/{id}` against the app's own
+   dependency-injected session, not a mock.
 4. **Re-read `_replace_locations` when geocoding lands.** It deletes and reinserts
    location rows; once coordinates are resolved it must not discard them. Today
    there is nothing to lose, which is the only reason it is safe.
@@ -213,28 +216,38 @@ These ran on this machine and passed:
 
 | Check | Command | Result |
 |---|---|---|
-| Python format | `ruff format --check services/api` | 35 files already formatted |
+| Python format | `ruff format --check services/api` | 45 files already formatted |
 | Python lint | `ruff check services/api` | All checks passed |
-| Python types | `mypy nightshift` | Success: no issues found in 28 source files (strict) |
-| Python tests | `pytest -q` | **204 passed** in 3.01s |
+| Python types | `mypy nightshift` | Success: no issues found in 31 source files (strict) |
+| Python tests | `pytest -q` | **336 passed** in 5.6s |
 | Web types | `tsc --noEmit` | clean, `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes` |
 | Web lint | `eslint . --max-warnings 0` | clean |
 | Web tests | `vitest run` | **35 passed** (4 files) |
 | Colour contrast | `vitest run colour-contrast` | 16 assertions on measured WCAG 2.1 ratios |
 | Web build | `next build` | compiled, 7 static routes, 102 kB shared JS |
 | E2E — degraded (no API) | `make test-e2e` | **5 passed** in 15.0s |
-| E2E — seeded corpus | `make test-e2e-seeded` | **6 passed** in 18.7s |
+| E2E — seeded corpus | `make test-e2e-seeded` | **6 passed**, 32.3s, against the now-3-provider seed |
 | Migration renders | `alembic upgrade head --sql` | full DDL emitted, 8 tables, 8 enums |
 | Migration round trip | `make migrate-down && make migrate` | 8 tables + 8 enum types dropped and restored, live cluster |
-| Whole-stack acceptance | `make acceptance` | **18 checks + 6 browser tests**, from an empty volume, nothing pre-started |
+| Whole-stack acceptance | `make acceptance` | **18 checks + 6 browser tests**, seeded corpus now 31 jobs / 3 companies / 62 locations across greenhouse + lever + ashby |
 | Live source reachable | `GET /v1/boards/datadog/jobs` | HTTP 200, 426 postings |
 
-**Total: 250 automated tests passing** (204 Python, 35 web unit, 5 degraded e2e,
+**Total: 382 automated tests passing** (336 Python, 35 web unit, 5 degraded e2e,
 6 seeded e2e), plus the 18 assertions in `scripts/verify.py`, which are not
 pytest tests but do gate `make acceptance` with an exit code.
 
-The whole-stack row was re-run at `14abb68` on 2026-07-30, clearing B3. The rest
-of the table was run at `f0cb5a6`.
+Re-run in the M1a session on 2026-07-30 (Task 10, closing M1a): Python format,
+lint, types, tests (via `make check`); web types, lint, unit tests (also
+`make check`, unchanged at 35 — no web code changed this plan); and the whole
+stack via `make acceptance`, including the seeded e2e suite. Python went from
+204 to 336 tests (Lever, Ashby, the widened location parser,
+ingestion-against-a-real-database, and the new API route tests all landed in
+this plan), and `make acceptance`'s seeded corpus grew from 10 jobs/1 source
+to 31 jobs/3 sources because `make seed` now loads all three fixture boards
+(M1a Task 10 step 3) — a deliberate, permanent change to the dev database, not
+drift. Migration round-trip, colour contrast as a standalone command, web
+build, and the live-source-reachable check were not re-run this session; their
+last verified values stand at `f0cb5a6` / `14abb68`.
 
 ### What those tests actually cover
 
@@ -393,18 +406,125 @@ presented to a user as working.
 | Closure state machine | `records_closed` is hardcoded to 0. `jobs.status` only ever holds `open`. Nothing can close a listing, which is the safe direction under I3 | M1 |
 | Dedupe | None. One canonical job per source record, linked with `match_confidence=1.0` and `link_reason='sole_source_record'` — a claim about provenance, not about identity | M1 |
 | `job_locations.geom` | Column and GiST index exist; always NULL | M1 |
-| Internship employment-type fixtures | The recorded Datadog board contains **zero** internship postings (recorded in `datadog_board.meta.json` → `coverage_not_available_on_this_board`). That branch is covered by clearly-labelled synthetic unit tests against the function, not by a fabricated "recorded" payload | M1, when a board with internships is added |
 | `normalize_title` | Whitespace and dash folding only. Deliberately does **not** attempt role-family normalization — asserted by `test_does_not_attempt_role_family_normalisation` | M3 |
 | `jobs.role_family`, `jobs.seniority` | Columns exist, always NULL. NULL means "not classified", never a guessed default | M3 |
-| Location parser breadth | Handles the shapes Greenhouse produces. Lever and Ashby will add shapes; A2 requires the fixture file to grow before the parser does | M1 |
 | Stripe board registry entry | Verified live (HTTP 200) but `status: disabled`. Polling more boards before the closure machine exists would mean ingesting jobs the system cannot honestly age out | M1 |
-| `/registry` route | Read-only view of the YAML. The token *resolution* pipeline (probe a careers page, emit a candidate for review) does not exist | M1 |
+| `/registry` route | Still true after M1a: read-only view of the YAML. The token *resolution* pipeline (probe a careers page, emit a candidate for review) does not exist | M1c |
+| Ashby's `address.postalAddress` | Structured (`addressLocality`/`addressRegion`/`addressCountry`), recorded verbatim in every raw payload, and better geocoding input than the free-text `location`/`secondaryLocations` strings — but deliberately unread by `AshbyAdapter.normalize`. Feeding a second location source into `job_locations` before geocoding has its own fixtures would mean two code paths writing the same table | M1, at the geocoding stage |
 | 3D city, map, MapLibre, Three.js | Not started, not scaffolded, no dependency added. Explore is a list and says so | M4 |
 | Auth | None. Single seeded `dev_user`, id in config (A3). Every user-owned table will still carry a real `user_id` FK from its first migration | M5 |
 
 ---
 
 ## Session log
+
+### 2026-07-30 — M1a closed: provider breadth (Lever + Ashby)
+
+All 10 tasks of `docs/plans/2026-07-30-m1a-provider-breadth.md` executed this
+session. Greenhouse, Lever, and Ashby now sit behind one `JobSourceAdapter`
+Protocol; the location parser handles all three providers' shapes; the two
+upserts that would have raced under concurrency are fixed;
+`domain/ingestion.py` and the API routes are both tested against a real
+database for the first time; and `make seed` / `make demo` load all three
+fixture boards.
+
+**The most consequential finding: neither Lever nor Ashby publishes an
+updated-at field.** Lever has `createdAt` only (a creation timestamp, not a
+freshness signal); Ashby has `publishedAt` only. ADR 0007 specifies M1d's
+phase-2 conditional polling as a diff on "new or changed `updated_at`" — and
+on two of the three providers there is no such field to diff. Both adapters
+set `source_updated_at=None` and the test suite asserts this as a recorded
+fact (`test_lever_publishes_no_updated_at`-shaped assertions), not an
+oversight. **M1d must fall back to the description content hash on these two
+providers** — the hash already exists (`content_hash`, reused from the
+Greenhouse adapter) and `persist_source_job` already compares it
+(`content_changed`), so the fallback is not new machinery, but ADR 0007's text
+describes a diff that two-thirds of the registry cannot perform as written.
+
+**Ten Lever board tokens were guessed from company names; two were live**
+(`alloy` populated, `plaid` empty with `200 []`, the other eight 404). Direct,
+measured support for the existing ADR 0006 conclusion: Lever boards must be
+found by probing a company's own careers page, not guessed and not harvested
+from Common Crawl (`jobs.lever.co/robots.txt` disallows `CCBot`). Recorded as
+fixtures — `alloy_board.json`, `plaid_empty_board.json`,
+`ramp_unknown_board.json` (Lever's 404 shape) — so I3's empty-vs-unavailable
+distinction has real Lever payloads behind it, not just Greenhouse's.
+
+**Two fabricated-city bugs, both found by running the parser against real
+recorded payloads rather than by reading it.** `"Vancouver, BC"` (3× on the
+Alloy board) parsed to a city literally named `"BC"` — the subdivision code
+was being read as if it were the city. `"New York, NY (HQ)"` (95 of 123
+postings on the recorded Ashby/Ramp board) parsed to a city named
+`"NY (HQ)"` — the parenthetical annotation was never stripped before the tail
+token became the city. Both are I1 failures in the module whose own docstring
+claims to enforce I1, on the two provider fixtures this plan added. Fixed
+(`96a4e16`, `12da0ce`); both are now regression fixtures, not just a bug
+report.
+
+**ADR 0008, and what it deliberately does not fix.** Fixing the two bugs
+above surfaced a separate, older gap: `"New York"` alone (no state, no
+country, no corroboration) resolved to `unknown` — the parser's
+corroboration rule is right for junk like `"Global"` but wrong for the one
+city this whole product exists to find. ADR 0008 adds a short, enumerated,
+committed list of NYC place names (the five boroughs and their common
+spellings) that resolve to `city_only` without corroboration, and nothing
+else. The cost is stated in the ADR and repeated here on purpose: **`"London"`
+stays `unknown`**, and so does every other bare city name not on the list —
+the enumeration is deliberately narrow rather than a general gazetteer, which
+would be the guessing I1 forbids. A second, smaller residual gap is marked
+`TODO(M1)` in `locations.py:481`: a corroborated-but-unresolved second part
+still lets junk corroborate junk — `"Global, XX"` comes out with city
+`"Global"`. Not a new failure mode (the pre-ADR-0008 parser did the same, just
+naming the city `"XX"` instead) and not fixable without a real gazetteer.
+
+**Also found and recorded, less urgent:** `ParsedLocation.is_nyc` tests
+`city` only (`locations.py:331`). A location parsed as `state="New York"`,
+`city=None` — the real shape of `"New York, USA, Remote"`, a recorded
+Greenhouse string — is therefore `is_nyc == False`. ADR 0007 assigns a board
+to the hourly `hot` tier on producing an NYC posting, so a board whose
+postings only ever say statewide-remote New York would poll daily instead of
+hourly: the product's stated goal (same-day knowledge of an NYC opening)
+failing in the direction that loses coverage, not the direction that
+fabricates one. Not fixed this session — flagged for whoever builds M1d's
+tiering, since fixing it means deciding whether a state-level "New York" claim
+is strong enough evidence of NYC-ness to actually place, which is a product
+call, not a parser bug.
+
+**Task 10 (this task, closing the plan): API route tests.** The database
+fixture from Task 9 (`db_session`) truncates and rolls back inside its own
+transaction; letting the FastAPI app open its *own* session in a route test
+would make the app blind to that transaction's uncommitted rows, block on the
+`TRUNCATE`'s lock, and commit for real against this developer's database.
+Avoided by overriding `get_db_session` via
+`app.dependency_overrides` with a stand-in that yields the fixture's own
+session — every route in `tests/test_routes.py` now reads and writes inside
+the same transaction the test controls, and nothing it does survives the
+test's rollback. Confirmed empirically, not just by reasoning about it: dev
+database row counts were queried before writing any route test and again
+after the full 336-test suite ran — `jobs=10, companies=1,
+source_job_records=10, job_locations=21, job_source_links=10,
+ingestion_runs=1, sources=1, users=1` both times, identical.
+
+The route response shapes in the task's own draft test code were wrong in one
+place, caught by reading the real schemas before writing assertions (per this
+task's own instruction that the route is the contract): `HealthResponse` has
+no `checks` wrapper — `database` and `redis` are top-level keys — so the
+draft's `body["checks"]` assertion was rewritten to match
+`nightshift/api/schemas.py` rather than the other way around.
+
+`make seed` was extended to load all three fixture boards (Task 10 step 3),
+attributed to `greenhouse_fixture` / `lever_fixture` / `ashby_fixture`
+respectively, following `FixtureGreenhouseAdapter`'s exact shape (client-less
+subclass, overrides only `fetch_board`). Verified safely before running it
+for real: a throwaway, uncommitted pytest file exercised
+`FixtureLeverAdapter` / `FixtureAshbyAdapter` through the same
+truncate-then-rollback `db_session` fixture, confirming 9 and 12 jobs created
+respectively with zero failures, then deleted. Only after that did `make seed`
+run for real via `make acceptance` — a deliberate, permanent change to the
+dev database (not the hazard above): the corpus grew from 10 jobs / 1 source
+to **31 jobs / 3 companies / 3 sources / 62 locations**, and `make acceptance`
+passed in full — 18 verify checks plus 6 seeded browser tests, all green,
+against the new three-provider corpus.
 
 ### 2026-07-30 — M1 design: board discovery
 
