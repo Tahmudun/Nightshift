@@ -1,0 +1,112 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "citysignal"
+version = "0.1.0"
+description = "CitySignal API, ingestion adapters, and background workers"
+requires-python = ">=3.12"
+
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.32",
+  "pydantic>=2.9",
+  "pydantic-settings>=2.6",
+  "sqlalchemy[asyncio]>=2.0.36",
+  "asyncpg>=0.30",
+  "alembic>=1.14",
+  "geoalchemy2>=0.15",
+  "arq>=0.26",
+  "redis>=5.2",
+  "httpx>=0.28",
+  "pyyaml>=6.0",
+  "structlog>=24.4",
+]
+
+# Deliberately absent until the milestone that needs them, per CLAUDE.md §8:
+#   fastembed / pgvector  -> M1 dedupe + M3 matching (AMENDMENTS A5)
+#   beautifulsoup / lxml  -> only if regex HTML-to-text proves insufficient
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3",
+  "pytest-asyncio>=0.24",
+  "pytest-cov>=6.0",
+  "respx>=0.22",
+  "ruff>=0.8",
+  "mypy>=1.13",
+  "types-PyYAML>=6.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["citysignal*"]
+
+[tool.setuptools.package-data]
+citysignal = ["py.typed"]
+
+# ---------------------------------------------------------------------------
+# ruff
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["migrations/versions"]
+
+[tool.ruff.lint]
+select = [
+  "E", "F", "W",      # pycodestyle + pyflakes
+  "I",                # import sorting
+  "N",                # pep8-naming
+  "UP",               # pyupgrade
+  "B",                # bugbear
+  "C4",               # comprehensions
+  "ASYNC",            # async correctness
+  "DTZ",              # naive-datetime bans — see CLAUDE.md §7 "Time"
+  "T20",              # no print() in library code
+  "RUF",
+  "TD",               # TODO must carry context
+  "FIX",
+]
+ignore = [
+  "B008",             # FastAPI Depends() in defaults is the framework idiom
+  "TD003",            # we require a milestone tag, not an issue link
+  "FIX002",           # ...and a tagged TODO is allowed to exist
+]
+# CLAUDE.md §7: a bare TODO is a lint failure. TD002 (missing-todo-author) is
+# what enforces it — it requires the parenthesised slot, which we use for the
+# milestone: `TODO(M3): extend the eligibility ruleset`.
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["T20"]
+"citysignal/cli.py" = ["T20"]          # a CLI prints; that is its job
+
+# ---------------------------------------------------------------------------
+# mypy
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+plugins = ["pydantic.mypy"]
+exclude = ["^migrations/versions/"]
+
+[[tool.mypy.overrides]]
+module = ["geoalchemy2.*", "arq.*"]
+ignore_missing_imports = true
+
+# ---------------------------------------------------------------------------
+# pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "--strict-markers --strict-config"
+markers = [
+  "integration: requires a live postgres and redis (skipped when unavailable)",
+]
+filterwarnings = ["error::DeprecationWarning:citysignal.*"]
+
+[tool.coverage.run]
+source = ["citysignal"]
+omit = ["*/migrations/*"]
