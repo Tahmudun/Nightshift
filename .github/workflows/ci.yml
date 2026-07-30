@@ -19,6 +19,10 @@ env:
 # languages, migration up/down, build, secret scan. Target under five minutes.
 # Visual regression (M5), 3D perf gates (M5), load tests (M8), and coverage
 # thresholds (M3) are deliberately absent — a slow CI is a CI you start skipping.
+#
+# The `e2e` job is one addition to that list, argued for in the job's own comment:
+# it is the only automated check that a real board's jobs reach a browser, which
+# is an M0 acceptance criterion. Jobs run in parallel, so the target holds.
 
 jobs:
   python:
@@ -175,6 +179,122 @@ jobs:
         # `make demo` is not going to fail on someone's first clone.
         run: python -m citysignal.cli seed
         working-directory: services/api
+
+  e2e:
+    name: e2e — degraded shell and seeded corpus
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # A14's scope list does not mention e2e, and it was deliberately deferred.
+    # It comes back in because the seeded suite is now the only automated proof
+    # of M0 acceptance criterion 5 — that a real board's jobs reach a browser.
+    # An acceptance criterion with no CI coverage is one that regresses quietly.
+    # This job runs in parallel with the others, so wall-clock CI stays inside
+    # A14's five-minute target.
+    services:
+      postgres:
+        image: ghcr.io/imresamu/postgis:16-3.4-bundle
+        env:
+          POSTGRES_USER: citysignal
+          POSTGRES_PASSWORD: citysignal_ci
+          POSTGRES_DB: citysignal
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U citysignal"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      POSTGRES_USER: citysignal
+      POSTGRES_PASSWORD: citysignal_ci
+      POSTGRES_DB: citysignal
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
+      CITYSIGNAL_ENV: test
+      OUTBOUND_HTTP_ENABLED: 'false'
+      HTTP_USER_AGENT: 'CitySignal/0.1-ci (+https://github.com/tahmudun/citysignal)'
+      NEXT_PUBLIC_API_BASE_URL: 'http://127.0.0.1:8000'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: services/api/pyproject.toml
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e "services/api[dev]"
+
+      - name: Install js deps
+        run: npm ci
+        working-directory: apps/web
+
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+
+      - name: Create extensions
+        run: |
+          PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U citysignal -d citysignal \
+            -f infra/postgres/init/001-extensions.sql
+
+      - name: Migrate
+        run: alembic upgrade head
+        working-directory: services/api
+
+      - name: Seed
+        run: python -m citysignal.cli seed
+        working-directory: services/api
+
+      - name: Degraded shell e2e
+        # Must run before the API starts: this suite asserts the app says
+        # "api unreachable" rather than showing an ambiguous empty state, so a
+        # running API would make it pass for the wrong reason.
+        run: npm run test:e2e
+        working-directory: apps/web
+
+      - name: Start API
+        run: |
+          uvicorn citysignal.api.main:app --host 127.0.0.1 --port 8000 --no-access-log &
+          for _ in $(seq 1 60); do
+            curl -sf --max-time 2 -o /dev/null http://127.0.0.1:8000/health && exit 0
+            sleep 1
+          done
+          echo "::error::API did not become healthy within 60s"
+          exit 1
+        working-directory: services/api
+
+      - name: Seeded corpus e2e
+        run: npm run test:e2e:seeded
+        working-directory: apps/web
+
+      - name: Upload traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: |
+            apps/web/test-results/
+            apps/web/playwright-report/
+          retention-days: 7
 
   secrets:
     name: secret scan
