@@ -149,8 +149,45 @@ def _reduce_lever(payload: Any, limit: int) -> tuple[Any, dict[str, str], list[s
     return kept, reasons, gaps
 
 
-#: Providers with a reducer wired up below. Ashby's arrives with its adapter.
-_SUPPORTED_PROVIDERS = frozenset({"greenhouse", "lever"})
+def _reduce_ashby(payload: Any, limit: int) -> tuple[Any, dict[str, str], list[str]]:
+    """Pick a reviewable subset of an Ashby board, preserving each job verbatim.
+
+    Deliberately keeps one job per (location, employmentType) pair. The Ramp
+    board is 123 postings and 95 of them share one location string; sampling
+    the first N would produce a fixture that proves the adapter handles one
+    shape twelve times.
+    """
+    if not isinstance(payload, dict) or not isinstance(payload.get("jobs"), list):
+        raise SystemExit("ashby board did not return {'jobs': [...]}")
+
+    kept: list[Any] = []
+    reasons: dict[str, str] = {}
+    seen: set[tuple[str, str]] = set()
+
+    for job in payload["jobs"]:
+        secondary = tuple(sorted(s.get("location", "") for s in job.get("secondaryLocations", [])))
+        key = (f"{job.get('location')}|{secondary}", str(job.get("employmentType")))
+        if key in seen or len(kept) >= limit:
+            continue
+        seen.add(key)
+        reasons[str(job["id"])] = (
+            f"location {job.get('location')!r}, "
+            f"{len(secondary)} secondary, "
+            f"employmentType {job.get('employmentType')!r}, "
+            f"isRemote {job.get('isRemote')!r}"
+        )
+        kept.append(job)
+
+    gaps: list[str] = []
+    if not any(j.get("employmentType") == "Intern" for j in payload["jobs"]):
+        gaps.append("internship employmentType")
+    if not any(j.get("compensation", {}).get("compensationTiers") for j in payload["jobs"]):
+        gaps.append("published compensation")
+    return {"apiVersion": payload.get("apiVersion"), "jobs": kept}, reasons, gaps
+
+
+#: Providers with a reducer wired up below.
+_SUPPORTED_PROVIDERS = frozenset({"greenhouse", "lever", "ashby"})
 
 
 def main() -> int:
@@ -162,7 +199,7 @@ def main() -> int:
         "--limit",
         type=int,
         default=12,
-        help="max postings kept per distinct shape (lever only)",
+        help="max postings kept per distinct shape (lever, ashby)",
     )
     args = parser.parse_args()
 
@@ -188,7 +225,7 @@ def main() -> int:
         missing = [why for why, _, _ in GREENHOUSE_SELECTORS if why not in reasons.values()]
         full_count = payload.get("meta", {}).get("total", len(jobs))
         fixture_body = {"jobs": picked, "meta": {"total": len(picked)}}
-    else:  # lever
+    elif args.provider == "lever":
         if not payload:
             print(
                 "board returned no postings — refusing to write an empty fixture "
@@ -199,6 +236,14 @@ def main() -> int:
         picked, reasons, missing = _reduce_lever(payload, args.limit)
         full_count = len(payload)
         fixture_body = picked
+    else:  # ashby
+        jobs = payload.get("jobs") if isinstance(payload, dict) else None
+        if not jobs:
+            print("board returned no jobs — refusing to write an empty fixture", file=sys.stderr)
+            return 1
+        fixture_body, reasons, missing = _reduce_ashby(payload, args.limit)
+        full_count = len(jobs)
+        picked = fixture_body["jobs"]
 
     basename = args.name or f"{args.token}_board"
     out_dir = FIXTURE_ROOT / args.provider
