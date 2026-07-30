@@ -22,7 +22,7 @@ export function JobList() {
 
   if (isPending) {
     return (
-      <p className="px-5 py-8 font-mono text-[11px] uppercase tracking-[0.14em] text-ink-500">
+      <p className="px-5 py-8 font-mono text-[11px] uppercase tracking-[0.14em] text-paper-faint">
         Loading roles…
       </p>
     );
@@ -67,7 +67,7 @@ export function JobList() {
         <h2 className="font-mono text-[10px] uppercase tracking-[0.16em] text-paper-faint">
           Roles
         </h2>
-        <p className="font-mono text-[10px] tracking-wide text-ink-500 tnum">
+        <p className="font-mono text-[10px] tracking-wide text-paper-faint tnum">
           showing {data.items.length} of {data.total}
         </p>
       </div>

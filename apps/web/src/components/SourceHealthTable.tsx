@@ -16,7 +16,7 @@ import type { SourceHealth } from '@/lib/schemas';
 
 function RunStatus({ status }: { readonly status: SourceHealth['last_run_status'] }) {
   if (status === null) {
-    return <span className="font-mono text-[10px] text-ink-500">never run</span>;
+    return <span className="font-mono text-[10px] text-paper-faint">never run</span>;
   }
   const tone =
     status === 'succeeded'
@@ -49,7 +49,7 @@ export function SourceHealthTable() {
 
   if (isPending) {
     return (
-      <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink-500">
+      <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-paper-faint">
         Loading sources…
       </p>
     );
@@ -92,7 +92,7 @@ export function SourceHealthTable() {
                 <th
                   key={heading}
                   scope="col"
-                  className="px-4 py-2 font-mono text-[9px] font-normal uppercase tracking-[0.16em] text-ink-500"
+                  className="px-4 py-2 font-mono text-[9px] font-normal uppercase tracking-[0.16em] text-paper-faint"
                 >
                   {heading}
                 </th>
@@ -131,7 +131,9 @@ export function SourceHealthTable() {
               </td>
               <td className="px-4 py-3 font-mono text-[11px] tnum">
                 <span
-                  className={source.last_failure_at !== null ? 'text-alert-400' : 'text-ink-500'}
+                  className={
+                    source.last_failure_at !== null ? 'text-alert-400' : 'text-paper-faint'
+                  }
                 >
                   {formatWhen(source.last_failure_at)}
                 </span>

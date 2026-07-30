@@ -25,7 +25,7 @@ function Dot({ state }: { readonly state: DotState }) {
       ? 'bg-signal-400 signal-breath shadow-[0_0_6px_var(--color-signal-500)]'
       : state === 'down'
         ? 'bg-alert-500'
-        : 'bg-ink-500';
+        : 'bg-ink-400';
   return <span aria-hidden="true" className={`size-[6px] rounded-full ${className}`} />;
 }
 
@@ -49,7 +49,11 @@ function Reading({
       <span
         className={[
           'font-mono text-[10px] tracking-wide',
-          state === 'ok' ? 'text-signal-400' : state === 'down' ? 'text-alert-400' : 'text-ink-500',
+          state === 'ok'
+            ? 'text-signal-400'
+            : state === 'down'
+              ? 'text-alert-400'
+              : 'text-paper-faint',
         ].join(' ')}
       >
         {state === 'down' ? 'down' : value}
@@ -91,11 +95,11 @@ export function HealthTelemetry() {
       <Reading name="db" component={data?.database} />
       <Reading name="redis" component={data?.redis} />
       {data !== undefined ? (
-        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-500">
+        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-paper-faint">
           {data.environment}
         </span>
       ) : isLoading ? (
-        <span className="font-mono text-[10px] tracking-wide text-ink-500">checking…</span>
+        <span className="font-mono text-[10px] tracking-wide text-paper-faint">checking…</span>
       ) : null}
     </div>
   );

@@ -28,6 +28,12 @@
   --color-ink-600: #1d2739;
   --color-ink-500: #2b374d;
 
+  /* Surfaces and borders only — 1.69:1 on ink-950, so it must never carry text
+     or be the sole indicator of a state. ink-400 is the dimmest shade of this
+     family that clears 3:1 and may therefore be used for a non-text indicator
+     such as a status dot. Text stops at paper-faint. See colour-contrast.test.ts. */
+  --color-ink-400: #4d5f83;
+
   /* Cyan / electric blue: the signal. */
   --color-signal-400: #5ce8ff;
   --color-signal-500: #29d3f5;
@@ -42,10 +48,15 @@
   /* Sparse gold — urgency only. Unused in M0; nothing is urgent yet. */
   --color-gold-400: #ffcf5c;
 
-  /* Thin white highlights. */
+  /* Thin white highlights. Exactly three text weights, and every one of them is
+     readable: 17.7:1, 8.1:1, 5.4:1 against ink-950. paper-faint was #5d6e88
+     (3.89:1) and failed WCAG AA for the 9-11px labels it is used on, so it was
+     lightened. There is deliberately no fourth, dimmer text step — the previous
+     one was ink-500 at 1.69:1, which was not a design choice but an oversight.
+     colour-contrast.test.ts holds these ratios in place. */
   --color-paper: #eaf1fa;
   --color-paper-dim: #94a6c0;
-  --color-paper-faint: #5d6e88;
+  --color-paper-faint: #7286a3;
 
   --font-sans:
     ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, Helvetica, Arial, sans-serif;

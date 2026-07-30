@@ -60,7 +60,7 @@ export default function RootLayout({ children }: { readonly children: React.Reac
           </main>
 
           <footer className="mx-auto max-w-6xl border-t border-ink-800 px-5 py-6">
-            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-ink-500">
+            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-paper-faint">
               Milestone 0 · ingestion spine · no map yet
             </p>
           </footer>

@@ -43,7 +43,7 @@ export function ModeNav() {
                 ].join(' ')}
               >
                 <span className="block text-[13px] font-medium tracking-tight">{mode.label}</span>
-                <span className="block font-mono text-[9px] uppercase tracking-[0.14em] text-ink-500">
+                <span className="block font-mono text-[9px] uppercase tracking-[0.14em] text-paper-faint">
                   {mode.purpose}
                 </span>
                 {/* A hairline rule marks the active mode — a thin white

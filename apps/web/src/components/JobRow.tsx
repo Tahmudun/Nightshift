@@ -63,7 +63,7 @@ function Field({
 }) {
   return (
     <div>
-      <dt className="font-mono text-[9px] uppercase tracking-[0.16em] text-ink-500">{label}</dt>
+      <dt className="font-mono text-[9px] uppercase tracking-[0.16em] text-paper-faint">{label}</dt>
       <dd className="mt-0.5 text-[12px] text-paper-dim tnum">{children}</dd>
     </div>
   );
@@ -118,7 +118,7 @@ export function JobRow({ job }: { readonly job: JobSummary }) {
               <ConfidenceLadder confidence={location.location_confidence} />
               <span className="text-[12px] text-paper-dim">{location.raw_text}</span>
               {location.is_primary && job.locations.length > 1 ? (
-                <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-ink-500">
+                <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-paper-faint">
                   primary
                 </span>
               ) : null}

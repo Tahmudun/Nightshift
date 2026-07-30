@@ -25,7 +25,7 @@ function Readout({
 }) {
   return (
     <div className="border-l border-ink-700 px-4 py-1 first:border-l-0 first:pl-0">
-      <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-ink-500">{label}</p>
+      <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-paper-faint">{label}</p>
       <p className="mt-1 text-[20px] font-medium tracking-tight text-paper tnum">{value}</p>
       {note !== undefined ? (
         <p className="mt-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-paper-faint">
