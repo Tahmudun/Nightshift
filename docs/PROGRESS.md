@@ -3,19 +3,54 @@
 > Read this first, every session. If the repo state does not match what this
 > file claims, fix this file before writing code.
 
-**Current milestone: M1 — Employment data spine (board discovery)**
+**Current milestone: M1 — Employment data spine. M1a done (unmerged), M1b next.**
 **M0: COMPLETE — 6 of 6 acceptance criteria verified at commit `4c1643f`.**
+**M1a: code complete on branch `m1a-provider-breadth`, laptop-verified, NOT merged, NOT CI-verified.**
 **Last updated: 2026-07-30**
 
 ---
 
 ## Next exact action
 
-**M1a is complete. Write and execute the M1b plan (canonical spine) next**:
-dedupe, freshness, the closure state machine, the admin job table, and the
+### ⚠️ First: M1a is written but NOT MERGED, and NOT CI-verified
+
+**Do not start M1b on `main` — `main` does not contain M1a.** All 23 commits
+live on branch `m1a-provider-breadth`, pushed to origin on 2026-07-30 and
+awaiting a pull request.
+
+State as of the last session:
+
+| Thing | State |
+|---|---|
+| Branch `m1a-provider-breadth` | 23 commits, pushed to origin, **not merged** |
+| `main` | still at `3e3dee1` — contains none of M1a |
+| Pull request | **not opened yet** — https://github.com/Tahmudun/Nightshift/pull/new/m1a-provider-breadth |
+| CI | **never run against this branch.** The workflow triggers on `pull_request`, not on branch pushes, so opening the PR is what starts it |
+| Worktree | preserved at `.claude/worktrees/m1a-provider-breadth` for PR feedback |
+
+**These need the human, in order:**
+
+1. Open the PR at the URL above. That is what triggers CI.
+2. Watch the five jobs. Expect `python` to report **350 passed, 0 skipped** — if
+   it reports 337 passed / 13 skipped, the new `postgres` service is not
+   working and the database tests are silently not running, which is the exact
+   defect that fix exists to close.
+3. Fix whatever CI finds. Treat a red run as expected rather than alarming:
+   M0's three CI runs found five defects, every one of them in a file no local
+   command executes. This branch changes CI configuration, which is precisely
+   that category.
+4. Merge. Then `git worktree remove .claude/worktrees/m1a-provider-breadth`.
+
+If you are an agent picking this up cold and the PR is already merged, delete
+this whole block and carry on below.
+
+### Then: write and execute the M1b plan (canonical spine)
+
+Dedupe, freshness, the closure state machine, the admin job table, and the
 source health page. No M1b plan file exists yet — write one (per
 `superpowers:writing-plans`) before touching code, the same way M1a's plan was
-written before Task 1 started.
+written before Task 1 started. Do this **from the merged `main`**, not from the
+M1a worktree.
 
 M1 was split into four plans, because `CLAUDE.md` §6 lists four independent
 subsystems under one milestone and a single plan for all of them would not
@@ -54,11 +89,15 @@ three change work that is already designed.
    specified as "new or changed `updated_at`" and has no timestamp to compare on
    two of the three providers.** M1d must fall back to the description hash
    there. This is the most consequential of the three.
-2. **Two parser bugs, both fabricating a city, both present in real payloads.**
-   `"Vancouver, BC"` parses to a city called `"BC"` and `"New York, NY (HQ)"` to
+2. **Parser bugs fabricating a city, present in real payloads.**
+   `"Vancouver, BC"` parsed to a city called `"BC"` and `"New York, NY (HQ)"` to
    one called `"NY (HQ)"` — I1 failures in the module whose docstring claims to
    enforce I1. The first appears 3× on the recorded Lever board, the second 95×
-   on the Ashby board. M1a Tasks 3–4 fix them.
+   on the Ashby board. M1a Tasks 3–4 fix them. **Two more of the same class were
+   found later and are recorded below** — a latent `;`-splitting gap found by the
+   pre-merge review, and one introduced during M1a itself and caught in task
+   review. Four in total; the count is the point, because every one of them
+   turned a string the source really wrote into a place that does not exist.
 3. **Ten Lever tokens guessed, two live** (`alloy` populated, `plaid` empty,
    the rest 404). Direct support for ADR 0006: Lever boards genuinely have to be
    found by careers-page probing, not guessed and not harvested.
@@ -480,6 +519,37 @@ presented to a user as working.
 ---
 
 ## Session log
+
+### 2026-07-30 — M1a pushed, PR pending
+
+Branch `m1a-provider-breadth` pushed to origin: 23 commits from merge base
+`3e3dee1`. **Not merged, and CI has never seen it.**
+
+The PR was not opened by the agent — `gh` is not installed on this machine, so
+there is no way to create one from the CLI. The push output printed the
+creation URL and it is recorded in "Next exact action" above. `brew install gh`
+and `gh auth login` would let a future session open PRs directly; that is the
+only thing standing between this repo and a fully automated finish.
+
+Worth being precise about what "done" means here, because the file says
+COMPLETE in several places: **every M1a acceptance claim in this file was
+verified on a laptop.** `make check` (350 Python, 35 web), `make acceptance`
+(18 checks + 6 browser tests), mypy strict, ruff, and a live-Postgres run of
+the 13 database tests. None of it has been verified by CI, and the branch
+changes CI configuration — including adding the `postgres` service without
+which those 13 tests silently skip. Per I6 that gap is named rather than
+glossed: laptop-green is evidence, but it is not the evidence M0 learned to
+demand, and M0's own record is that every defect CI found lived in a file no
+local command executes.
+
+One process note for whoever runs the next plan. A subagent doing mutation
+testing was killed mid-run by a usage limit, between "confirmed the test
+fails" and "restore the code" — leaving the deliberate bug (`company_name =
+board.token.title()`, the exact I2 fabrication) live in the working tree and
+uncommitted. It was caught by checking `git status` before trusting the
+agent's report. Mutation testing is worth doing and found three tests that
+could not fail, but it writes real bugs to disk on purpose, so an interrupted
+run is a hazard: check the tree, not the summary.
 
 ### 2026-07-30 — M1a final pre-merge review: fix wave
 
