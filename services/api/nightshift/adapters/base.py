@@ -138,10 +138,16 @@ class JobSourceAdapter(Protocol):
         """
         ...
 
-    def normalize(self, raw_job: RawJob) -> NormalizedSourceJob:
+    def normalize(self, raw_job: RawJob, board: BoardRef) -> NormalizedSourceJob:
         """Map one raw posting onto the domain model.
 
-        Synchronous and pure: same input, same output, no I/O. That is what makes
-        M1's "same fixture in, byte-identical output, twice" criterion testable.
+        Takes the board because two of the three providers publish no employer
+        name. The registry entry is a human-approved fact; the board token is a
+        slug, and deriving a company from it is the I2 failure that ADR 0005's
+        `live_unnamed` verdict exists to catch.
+
+        Synchronous and pure: same input, same output, no I/O. That is what
+        makes M1's "same fixture in, byte-identical output, twice" criterion
+        testable.
         """
         ...

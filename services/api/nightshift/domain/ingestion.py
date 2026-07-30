@@ -411,7 +411,7 @@ async def _persist_outcome(
     for raw_job in outcome.jobs:
         stats.fetched += 1
         try:
-            normalized = adapter.normalize(raw_job)
+            normalized = adapter.normalize(raw_job, outcome.board)
         except Exception as exc:
             stats.failed += 1
             stats.errors.append(f"normalize {raw_job.source_job_id}: {exc}")
