@@ -272,3 +272,180 @@ cases:
         country: null
         confidence: city_only
         is_primary: true
+
+  # -------------------------------------------------------------------------
+  # Lever. Recorded from board `alloy` on 2026-07-30. Lever expresses multiple
+  # locations as a JSON array (`categories.allLocations`), not as a delimited
+  # string, so these are the shapes of an individual array element.
+  # -------------------------------------------------------------------------
+
+  # A Canadian province. Before this case the parser produced city "BC",
+  # because BC is in neither the US-state nor the country table and the tail
+  # stripper therefore consumed nothing. A fabricated city is an I1 failure.
+  - name: lever_canadian_province
+    raw: "Vancouver, BC"
+    expect:
+      - raw_text: "Vancouver, BC"
+        city: "Vancouver"
+        state: "British Columbia"
+        country: null
+        confidence: city_only
+        is_primary: true
+
+  # US state abbreviation in Lever's style. Already worked; here so a
+  # regression in the subdivision table is caught on both countries at once.
+  - name: lever_us_state_abbreviation
+    raw: "Denver, CO"
+    expect:
+      - raw_text: "Denver, CO"
+        city: "Denver"
+        state: "Colorado"
+        country: null
+        confidence: city_only
+        is_primary: true
+
+  - name: lever_district_of_columbia
+    raw: "Washington, DC"
+    expect:
+      - raw_text: "Washington, DC"
+        city: "Washington"
+        state: "District of Columbia"
+        country: null
+        confidence: city_only
+        is_primary: true
+
+  # Remote with the region trailing the token rather than parenthesised. The
+  # country must survive: dropping the whole segment on a Remote match throws
+  # away "United States", which is real information the source gave us.
+  - name: lever_remote_with_trailing_country
+    raw: "Remote - United States"
+    expect:
+      - raw_text: "Remote - United States"
+        city: null
+        state: null
+        country: "USA"
+        confidence: remote
+        is_primary: true
+
+  # -------------------------------------------------------------------------
+  # Ashby. Recorded from board `ramp` on 2026-07-30. Ashby puts the primary in
+  # `location` and the rest in `secondaryLocations[].location`, and annotates
+  # office locations parenthetically. Two cases below (`ashby_canadian_city`,
+  # `ashby_bare_foreign_city_stays_unknown`) describe shapes Ashby is known to
+  # produce but that the 12-posting reduction of this board dropped, so they
+  # are marked `synthetic: true` rather than presented as recorded.
+  # -------------------------------------------------------------------------
+
+  # 95 of the 123 postings on the recorded board use this exact string. Before
+  # this case the parser produced city "NY (HQ)".
+  - name: ashby_hq_annotation
+    raw: "New York, NY (HQ)"
+    expect:
+      - raw_text: "New York, NY (HQ)"
+        city: "New York"
+        state: "New York"
+        country: null
+        confidence: city_only
+        is_primary: true
+
+  # The annotation is not always noise. Here it names the country, and
+  # discarding it would lose the only geographic signal in the string.
+  - name: ashby_remote_parenthetical_country
+    raw: "Remote (US)"
+    expect:
+      - raw_text: "Remote (US)"
+        city: null
+        state: null
+        country: "USA"
+        confidence: remote
+        is_primary: true
+
+  - name: ashby_remote_parenthetical_country_canada
+    raw: "Remote (Canada)"
+    expect:
+      - raw_text: "Remote (Canada)"
+        city: null
+        state: null
+        country: "Canada"
+        confidence: remote
+        is_primary: true
+
+  - name: ashby_canadian_city
+    synthetic: true
+    raw: "Toronto, ON"
+    expect:
+      - raw_text: "Toronto, ON"
+        city: "Toronto"
+        state: "Ontario"
+        country: null
+        confidence: city_only
+        is_primary: true
+
+  # A single foreign city with nothing corroborating it. Stays `unknown`
+  # deliberately: a world gazetteer is not in scope, and ADR 0008 limits the
+  # decided-name list to places NYC-ness depends on. The cost is real and is
+  # named on the coverage page rather than hidden.
+  - name: ashby_bare_foreign_city_stays_unknown
+    synthetic: true
+    raw: "London"
+    expect:
+      - raw_text: "London"
+        city: null
+        state: null
+        country: null
+        confidence: unknown
+        is_primary: true
+
+  # -------------------------------------------------------------------------
+  # Decided bare place names (ADR 0008). "New York" alone is the string that
+  # M1d's hot tier depends on and that the M0 parser returned `unknown` for.
+  # -------------------------------------------------------------------------
+  - name: bare_new_york_resolves
+    synthetic: true
+    raw: "New York"
+    expect:
+      - raw_text: "New York"
+        city: "New York"
+        state: "New York"
+        country: null
+        confidence: city_only
+        is_primary: true
+
+  - name: bare_brooklyn_resolves
+    synthetic: true
+    raw: "Brooklyn"
+    expect:
+      - raw_text: "Brooklyn"
+        city: "Brooklyn"
+        state: "New York"
+        country: null
+        confidence: city_only
+        is_primary: true
+
+  # The list is explicit and short by design. A place not on it is not
+  # promoted, and this case is what proves the list is a list rather than a
+  # general "any capitalised word is a city" rule.
+  - name: undecided_bare_name_stays_unknown
+    synthetic: true
+    raw: "Springfield"
+    expect:
+      - raw_text: "Springfield"
+        city: null
+        state: null
+        country: null
+        confidence: unknown
+        is_primary: true
+
+  # An unrecognised two-letter subdivision must not become a city either. This
+  # is the general form of the "BC" bug: fixing BC by adding it to a table
+  # leaves every unlisted code broken, so the guard is on the shape.
+  - name: unknown_two_letter_subdivision_is_not_a_city
+    synthetic: true
+    raw: "Bengaluru, KA"
+    expect:
+      - raw_text: "Bengaluru, KA"
+        city: "Bengaluru"
+        state: null
+        country: null
+        confidence: city_only
+        is_primary: true
