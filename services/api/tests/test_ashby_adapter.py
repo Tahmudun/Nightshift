@@ -14,7 +14,7 @@ from typing import Any
 
 import pytest
 
-from nightshift.adapters.ashby import AshbyAdapter, _map_employment_type
+from nightshift.adapters.ashby import AshbyAdapter, _extract_salary, _map_employment_type
 from nightshift.adapters.base import BoardRef, RawJob
 from nightshift.db.base import EmploymentType, LocationConfidence
 
@@ -240,15 +240,95 @@ def test_salary_currency_reflects_what_the_source_states_not_always_usd(
         assert normalized.salary_period == "year"
 
 
-def test_equity_component_is_not_read_as_salary(adapter: AshbyAdapter) -> None:
-    """compensationTiers carry Salary alongside EquityPercentage/EquityCashValue/
-    Commission components with null minValue. Reading one of those as pay
-    would publish a range the employer never stated.
+def test_salary_min_max_pin_to_the_specific_salary_component(adapter: AshbyAdapter) -> None:
+    """Real-data pin: salary_min/salary_max equal the *specific* Salary
+    component's figures for every priced posting, not merely "some value
+    over 1000". A bug that read the wrong Salary-typed component (e.g. the
+    wrong tier on `b9568fb8`, which carries two) would fail this.
+
+    This test alone cannot prove the compensationType=="Salary" filter
+    matters, because every non-Salary component on this board has
+    minValue: null — see test_extract_salary_skips_a_priced_equity_component
+    below for the case that actually exercises the filter.
     """
     for raw in _raw_jobs():
+        tiers = raw.payload.get("compensation", {}).get("compensationTiers") or []
+        expected: dict[str, Any] | None = None
+        for tier in tiers:
+            for component in tier.get("components", []):
+                if component.get("compensationType") == "Salary":
+                    expected = component
+                    break
+            if expected is not None:
+                break
+
         normalized = adapter.normalize(raw, BOARD)
-        if normalized.salary_min is not None:
-            assert normalized.salary_min > 1000
+        if expected is None:
+            assert normalized.salary_min is None
+            continue
+        assert normalized.salary_min == expected["minValue"]
+        assert normalized.salary_max == expected["maxValue"]
+
+
+def test_extract_salary_skips_a_priced_equity_component_before_the_salary_component() -> None:
+    """Synthetic, and labelled as such.
+
+    Every non-Salary component on the recorded board has minValue: null, so
+    real-data assertions cannot distinguish "the compensationType == 'Salary'
+    filter is doing the work" from "the null-value guard is doing the work" —
+    deleting the filter and rerunning the suite leaves all 26 original tests
+    green, because the loop just falls through the null equity component to
+    the Salary one regardless. This payload puts a *priced* EquityCashValue
+    ahead of the Salary component so the two guards can be told apart: with
+    the filter, this returns the Salary figures; without it, it returns the
+    equity figures instead.
+    """
+    payload = {
+        "compensation": {
+            "compensationTiers": [
+                {
+                    "components": [
+                        {
+                            "compensationType": "EquityCashValue",
+                            "interval": "1 YEAR",
+                            "currencyCode": "USD",
+                            "minValue": 999000,
+                            "maxValue": 999000,
+                        },
+                        {
+                            "compensationType": "Salary",
+                            "interval": "1 YEAR",
+                            "currencyCode": "USD",
+                            "minValue": 120000,
+                            "maxValue": 150000,
+                        },
+                    ]
+                }
+            ]
+        }
+    }
+    minimum, maximum, currency, period = _extract_salary(payload)
+    assert (minimum, maximum) == (120000, 150000)
+    assert currency == "USD"
+    assert period == "year"
+
+
+def test_company_name_cannot_be_derived_from_the_token(adapter: AshbyAdapter) -> None:
+    """A stronger company-name check than test_company_name_comes_from_the_registry.
+
+    That test uses BOARD.company == "Ramp" against BOARD.token == "ramp", so
+    a bug that derived the name from the token via `.title()` would pass it
+    undetected. This board's company name cannot be produced by transforming
+    its token, so only reading `board.company` can satisfy the assertion.
+    """
+    board = BoardRef(
+        company="Ramp Business Corporation",
+        ats="ashby",
+        token="ramp",
+        nyc_presence=True,
+    )
+    normalized = AshbyAdapter(client=None).normalize(_raw_jobs()[0], board)
+    assert normalized.company_name == "Ramp Business Corporation"
 
 
 def test_source_updated_at_is_none_because_ashby_has_no_such_field(

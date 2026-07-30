@@ -66,6 +66,24 @@ def test_company_name_comes_from_the_registry_not_the_payload(adapter: LeverAdap
     assert normalized.company_name == "Alloy"
 
 
+def test_company_name_cannot_be_derived_from_the_token(adapter: LeverAdapter) -> None:
+    """A stronger check than test_company_name_comes_from_the_registry_not_the_payload.
+
+    That test uses BOARD.company == "Alloy" against BOARD.token == "alloy", so
+    a bug that derived the name from the token via `.title()` would pass it
+    undetected. This board's company name cannot be produced by transforming
+    its token, so only reading `board.company` can satisfy the assertion.
+    """
+    board = BoardRef(
+        company="Alloy Labs Corporation",
+        ats="lever",
+        token="alloy",
+        nyc_presence=True,
+    )
+    normalized = LeverAdapter(client=None).normalize(_raw_jobs()[0], board)
+    assert normalized.company_name == "Alloy Labs Corporation"
+
+
 def test_all_locations_array_yields_one_row_each(adapter: LeverAdapter) -> None:
     """A2: Lever hands us an array and every element becomes a location row."""
     for raw in _raw_jobs():
