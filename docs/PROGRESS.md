@@ -28,8 +28,11 @@ live on branch `m1a-provider-breadth`, pushed to origin, PR open, CI green.
 **Remaining human actions:**
 
 1. Merge the PR.
-2. `git worktree remove .claude/worktrees/m1a-provider-breadth`
-3. Delete this block, then start M1b from the merged `main`.
+2. **Free disk space (B4).** The host is at 100% — 180 MB free — and Docker
+   cannot start, so nothing that needs postgres/redis can run locally. ~10 GB
+   is comfortable. `~/Downloads` alone is 87 GB.
+3. `git worktree remove .claude/worktrees/m1a-provider-breadth`
+4. Delete this block, then start M1b from the merged `main`.
 
 **CI evidence, and its one gap.** Run #9 passed first try — worth noting
 against M0, which needed three runs and whose two failures found five defects.
@@ -180,6 +183,27 @@ green. The fix did what it was written to do.
 ---
 
 ## Blockers
+
+### B4 — Host disk full again; Docker cannot start — OPEN 2026-07-31
+
+`/System/Volumes/Data` is at **100% — 180 MB free** of 233 GB. B2 recovered to
+5.8 GB free at the end of the CI session; it has since filled completely.
+Docker Desktop's engine now refuses to start (`Docker Desktop is unable to
+start`), so postgres and redis cannot run on this host. Blocked locally until
+space is freed: `make up`, `make migrate`, `make demo`, `make acceptance`, and
+the 13 database-backed tests (which skip, per `tests/conftest.py`, when the
+database is unreachable).
+
+Verified in this session despite the blocker: `make check` passes —
+`337 passed, 13 skipped` Python, 35 web. The skips are the documented
+database-unreachable condition, not a code regression, and CI run #9 at
+`430347a` remains the evidence that all 350 pass against a real database.
+
+Where the space is (measured only — **nothing was deleted**): `~/Downloads`
+87 GB, `~/Projects` 7.4 GB, Docker VM 7.7 GB actual (`Docker.raw` reports a
+sparse apparent size of 233 GB; ignore it), `~/Library/Caches` 1.5 GB. The
+rest is outside the places this project may look. Freeing space is a human
+action; ~10 GB is comfortable for the stack plus one CI-equivalent image pull.
 
 ### B1 — No container runtime — RESOLVED 2026-07-30
 
@@ -529,6 +553,30 @@ presented to a user as working.
 ---
 
 ## Session log
+
+### 2026-07-31 — Review session: state verified; host disk full again (B4)
+
+A review pass requested by the human, run deliberately lean on a metered
+budget. What was checked, and what it found:
+
+- **Repo state matches this file.** Clean tree, 24 commits on
+  `m1a-provider-breadth`, head `2c2594c` (docs-only commits past the
+  CI-verified `430347a`), branch up to date with origin, PR still open.
+- **`make check` green at head**: 337 Python + 35 web tests passed. The 13
+  database-backed tests skipped — investigated rather than waved through, and
+  the cause is environmental, not code: Docker cannot start because the disk
+  is at 100% (180 MB free). Recorded as blocker **B4**; Docker Desktop was
+  launched to run them, failed with `Docker Desktop is unable to start`, and
+  was quit again. Nothing was deleted; the space measurements are in B4.
+- **No code was changed.** The two known open cleanups ("Before M1 starts"
+  items 4–5) are deliberately deferred with reasons, and the branch head is
+  CI-verified green — pushing cosmetic changes would invalidate that evidence
+  for no functional gain. This was a judgement call, on the record.
+- Scope caveat, per I6: this session verified the branch's *claims* (state,
+  checks, CI record) and relied on M1a's existing review layers — per-task
+  review, mutation testing, the pre-merge fix wave, CI run #9 — rather than
+  re-reading all 24 commits line by line. A full independent re-review of an
+  already-multiply-reviewed green branch was judged not worth its cost.
 
 ### 2026-07-31 — M1a CI-green on the first run
 
