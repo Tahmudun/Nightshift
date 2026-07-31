@@ -3,46 +3,49 @@
 > Read this first, every session. If the repo state does not match what this
 > file claims, fix this file before writing code.
 
-**Current milestone: M1 — Employment data spine. M1a done (unmerged), M1b next.**
+**Current milestone: M1 — Employment data spine. M1a done + CI-green (unmerged), M1b next.**
 **M0: COMPLETE — 6 of 6 acceptance criteria verified at commit `4c1643f`.**
-**M1a: code complete on branch `m1a-provider-breadth`, laptop-verified, NOT merged, NOT CI-verified.**
-**Last updated: 2026-07-30**
+**M1a: complete and CI-verified green at `430347a`. PR open, NOT yet merged.**
+**Last updated: 2026-07-31**
 
 ---
 
 ## Next exact action
 
-### ⚠️ First: M1a is written but NOT MERGED, and NOT CI-verified
+### ⚠️ First: M1a is CI-green but NOT MERGED
 
-**Do not start M1b on `main` — `main` does not contain M1a.** All 23 commits
-live on branch `m1a-provider-breadth`, pushed to origin on 2026-07-30 and
-awaiting a pull request.
-
-State as of the last session:
+**Do not start M1b on `main` — `main` does not contain M1a.** All 24 commits
+live on branch `m1a-provider-breadth`, pushed to origin, PR open, CI green.
 
 | Thing | State |
 |---|---|
-| Branch `m1a-provider-breadth` | 23 commits, pushed to origin, **not merged** |
+| Branch `m1a-provider-breadth` | 24 commits, pushed, **not merged** |
 | `main` | still at `3e3dee1` — contains none of M1a |
-| Pull request | **not opened yet** — https://github.com/Tahmudun/Nightshift/pull/new/m1a-provider-breadth |
-| CI | **never run against this branch.** The workflow triggers on `pull_request`, not on branch pushes, so opening the PR is what starts it |
-| Worktree | preserved at `.claude/worktrees/m1a-provider-breadth` for PR feedback |
+| Pull request | **open** against `main` |
+| CI | **GREEN.** Run #9 at `430347a`, all five jobs: https://github.com/Tahmudun/Nightshift/actions/runs/30592177638 |
+| Worktree | preserved at `.claude/worktrees/m1a-provider-breadth` |
 
-**These need the human, in order:**
+**Remaining human actions:**
 
-1. Open the PR at the URL above. That is what triggers CI.
-2. Watch the five jobs. Expect `python` to report **350 passed, 0 skipped** — if
-   it reports 337 passed / 13 skipped, the new `postgres` service is not
-   working and the database tests are silently not running, which is the exact
-   defect that fix exists to close.
-3. Fix whatever CI finds. Treat a red run as expected rather than alarming:
-   M0's three CI runs found five defects, every one of them in a file no local
-   command executes. This branch changes CI configuration, which is precisely
-   that category.
-4. Merge. Then `git worktree remove .claude/worktrees/m1a-provider-breadth`.
+1. Merge the PR.
+2. `git worktree remove .claude/worktrees/m1a-provider-breadth`
+3. Delete this block, then start M1b from the merged `main`.
 
-If you are an agent picking this up cold and the PR is already merged, delete
-this whole block and carry on below.
+**CI evidence, and its one gap.** Run #9 passed first try — worth noting
+against M0, which needed three runs and whose two failures found five defects.
+The `python` job completed its steps in order: `Initialize containers` →
+`Create extensions` → `Migrate` → `Unit tests`, all success, 74s.
+
+That the 13 database tests *ran* rather than skipped is established by
+inference, not by a read count: `conftest.py` skips on exactly one condition —
+the database being unreachable — and `Create extensions` (psql) and `Migrate`
+(alembic) both connected to that service first, using the same job-level
+`POSTGRES_*` env that `Settings().async_database_url` reads. A skip is
+therefore not reachable. The printed `350 passed` line was not read directly,
+because downloading Actions logs needs admin rights the agent does not have.
+**If you want it closed properly, expand the "Unit tests" step in that run and
+confirm it says `350 passed`** — `337 passed, 13 skipped` would mean the
+service is not doing its job.
 
 ### Then: write and execute the M1b plan (canonical spine)
 
@@ -143,8 +146,15 @@ empty volume), still stands as the last *clean-volume* run — it predates
 M1a and is superseded here only for "what does `make acceptance` currently
 report," not for "was it ever run from empty."
 
-CI: last verified green run is `6f88d9a`, five jobs, longest 129s. **That
-predates all of M1a.** Twenty-one commits landed between `6f88d9a` and the
+CI: **M1a is green.** Run #9 at `430347a` — the branch head — passed all five
+jobs on the first attempt: https://github.com/Tahmudun/Nightshift/actions/runs/30592177638
+(`python` 74s, `e2e` 122s, inside A14's five-minute target). The `python` job's
+new `postgres` service worked: `Initialize containers`, `Create extensions`,
+`Migrate` and `Unit tests` all succeeded in order, so the database-backed tests
+were reachable rather than skipped. See "Next exact action" for the one caveat —
+the `350 passed` line itself was not read, only inferred.
+
+The previous green run was `6f88d9a`, which **predated all of M1a.** Twenty-one commits landed between `6f88d9a` and the
 M1a-closing commit — the Lever and Ashby adapters, the widened location
 parser, the upserts, the ingestion and route test suites, everything in this
 plan — and CI has not run against any of them this session. Do not read this
@@ -162,10 +172,10 @@ against a real database — while still reporting green. Fixed by giving the
 image-tag history in that job's comment). Verified locally: with the
 database unreachable, `323 passed, 13 skipped`; with a freshly-migrated
 CI-equivalent Postgres (same image, same recipe, no seed step) reachable,
-`336 passed, 0 skipped`. **The workflow change itself is unverified — CI has
-never run against this branch, on this fix or anything before it.** Do not
-read "336 passed" anywhere in this file as a CI-verified number until an
-actual Actions run says so.
+`336 passed, 0 skipped`. **The workflow change is now verified in
+production**: run #9 at `430347a` shows the `python` job initialising the
+postgres container, creating extensions, migrating, and running the suite, all
+green. The fix did what it was written to do.
 
 ---
 
@@ -520,10 +530,39 @@ presented to a user as working.
 
 ## Session log
 
+### 2026-07-31 — M1a CI-green on the first run
+
+PR opened; run #9 at `430347a` passed all five jobs — `python` 74s,
+`e2e` 122s, `migrations` 55s, `web` 52s, `secret scan` 5s.
+https://github.com/Tahmudun/Nightshift/actions/runs/30592177638
+
+Notable against M0, which took three runs and whose two failures found five
+defects — every one in a file no local command executes. The difference is
+probably that the pre-merge fix wave verified the new `postgres` service
+against a container matching CI's exact pinned image rather than trusting the
+YAML, which is the same lesson M0's `manifest unknown` failure taught.
+
+**The CI fix is confirmed working.** The `python` job ran
+`Initialize containers` → `Create extensions` → `Migrate` → `Unit tests`, in
+order, all green. Before this branch that job had no database at all and would
+have skipped 13 tests while reporting success.
+
+One honest gap: nobody read the `350 passed` line. Downloading Actions logs
+needs admin rights on the repository, which the agent does not have, so the
+claim "the database tests ran" rests on inference — the skip fires only when
+the database is unreachable, and two earlier steps connected to it. Sound, but
+it is inference. Expanding the "Unit tests" step in that run would settle it
+outright, and doing so costs one click.
+
 ### 2026-07-30 — M1a pushed, PR pending
 
 Branch `m1a-provider-breadth` pushed to origin: 23 commits from merge base
 `3e3dee1`. **Not merged, and CI has never seen it.**
+
+> Superseded 2026-07-31: the PR was opened and CI run #9 passed at `430347a`.
+> Left as written — this entry records what was true when the branch was
+> pushed, and editing a dated record to match later events makes it tidier and
+> untrue.
 
 The PR was not opened by the agent — `gh` is not installed on this machine, so
 there is no way to create one from the CLI. The push output printed the
@@ -568,7 +607,8 @@ in this session, no second wave planned.
    `323 passed, 13 skipped`; a freshly-migrated CI-equivalent Postgres
    (`imresamu/postgis:16-3.4-bundle0`, same recipe, no seed step) reachable →
    `336 passed, 0 skipped`. **The workflow file change itself is unverified —
-   CI has never run against this branch.**
+   CI has never run against this branch.** *(Superseded 2026-07-31: run #9
+   confirmed it works in production. Left as written, per the note above.)*
 2. **Latent fabricated-city bug in `parse_location_list`.** The function
    Lever's `categories.allLocations` and Ashby's `secondaryLocations` arrays
    actually call never applied the `;`/`|` segment split that
