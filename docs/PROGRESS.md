@@ -59,6 +59,26 @@ skipped**, 35 web, ruff and mypy clean on 34 source files. The migration was
 run down and up against the live cluster: both triggers, the trigger function
 and all three tables drop and are restored.
 
+**CI green, first try — run #10, all five jobs:**
+https://github.com/Tahmudun/Nightshift/actions/runs/30720960500 — pushed as
+**draft PR #2**, https://github.com/Tahmudun/Nightshift/pull/2.
+
+**And the count was read this time, not inferred.** `gh` is now installed and
+authenticated on this host, so `gh run view --log` works and the python job's
+line was read directly: **`467 passed, 2 warnings in 44.59s`** — the same
+number as local, with no skips. The `Fetch the embedding model` step ran
+(`embedding model ready at /home/runner/.cache/nightshift/fastembed`) and the
+cache saved 60 MB under key `fastembed-bge-small-en-v1.5-v1`, so the
+real-model tests and the similarity half of the dedupe suite genuinely
+executed rather than skipping. That closes the class of gap this file had to
+argue around for M1a.
+
+`gh` had been failing to install because of a dead Homebrew tap
+(`homebrew/cask-versions`, whose repository Homebrew deleted). Every
+`brew install` auto-updates first, that update errored, and the install died
+before starting — so it would have failed for any package. Untapped; `brew
+update` is clean now.
+
 **Every task's guard was mutation-checked, and the results are in the commit
 messages.** The ones worth knowing:
 
