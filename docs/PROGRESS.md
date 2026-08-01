@@ -33,7 +33,56 @@ them, but by inference from the job's step order rather than from reading the
 count. It has now been observed directly, locally, against a real PostGIS
 cluster. See B4.
 
-### Execute `docs/plans/2026-08-01-m1b-canonical-spine.md`, starting at Task 1
+### M1b is 8 of 10 tasks done, on branch `m1b-canonical-spine` (not pushed)
+
+**Resume at Task 9** of `docs/plans/2026-08-01-m1b-canonical-spine.md`. Tasks
+1–8 are complete, each committed separately with recorded evidence and a
+mutation check. What is left is the surface: Task 9 (admin job route, per-job
+status history, source-health detail) and Task 10 (the web UI, the acceptance
+table, the milestone review).
+
+| Task | State |
+|---|---|
+| 1 — three tables + append-only triggers | **done** `dc7bdc3` |
+| 2 — closure decision function (pure) | **done** `ad606c9` |
+| 3 — closure applied in the pipeline | **done** `e819d38` |
+| 4 — labelled dedupe fixture set (red) | **done** |
+| 5 — deterministic dedupe layers | **done** |
+| 6 — local embedder (A5) | **done** |
+| 7 — similarity layer, derived threshold | **done** `b8a2568` |
+| 8 — merging in the pipeline | **done** `5532abc` |
+| 9 — API surface | **not started** |
+| 10 — web UI, acceptance table, review | **not started** |
+
+**Verified at `5532abc`:** `make check` green — **467 Python tests, zero
+skipped**, 35 web, ruff and mypy clean on 34 source files. The migration was
+run down and up against the live cluster: both triggers, the trigger function
+and all three tables drop and are restored.
+
+**Every task's guard was mutation-checked, and the results are in the commit
+messages.** The ones worth knowing:
+
+- Making a failed board count as answered fails two closure tests — and
+  **not** the pre-existing `test_a_failed_board_closes_nothing`, because one
+  failed poll never reaches a threshold. That is why the new assertion is on
+  the miss counter rather than on the status.
+- Removing the title guard collapses the nine real postings on the recorded
+  Alloy board into fewer jobs. No synthetic pair caught that; the real board
+  did.
+- Dropping the append-only triggers by hand fails exactly the three tests that
+  exist for them.
+
+**The similarity threshold is 0.85, derived and not chosen.**
+`services/api/scripts/derive_dedupe_threshold.py` scored the labelled set under
+the real model: merges at 0.9693 and 0.9370, the distinct pair at 0.7640. Any
+value in (0.7640, 0.9370] separates the set; 0.85 is the midpoint.
+
+**One real bug was found while wiring dedupe in.** `content_hash(None)` returns
+the sha256 of the empty string — a genuine 64-character digest, equal on both
+sides — so two postings with no description compared equal and merged on
+"identical content" while having no content at all. Fixed and guarded.
+
+### The plan being executed
 
 Written this session, ten ordered TDD tasks with real code in every step.
 Design at `docs/architecture/canonical-spine.md`; the two decisions it turns on
@@ -58,8 +107,8 @@ produce working software until the end:
 
 | Plan | Contents | Status |
 |---|---|---|
-| **M1a — provider breadth** | Lever + Ashby adapters, location fixtures and parser breadth, upserts, ingestion + route tests | **COMPLETE — all 10 tasks done** |
-| M1b — canonical spine | Dedupe, freshness, closure state machine, admin job table, source health page | Not written — **next** |
+| **M1a — provider breadth** | Lever + Ashby adapters, location fixtures and parser breadth, upserts, ingestion + route tests | **COMPLETE — merged at `54ef35a`** |
+| M1b — canonical spine | Dedupe, freshness, closure state machine, admin job table, source health page | **In progress — 8 of 10 tasks** |
 | M1c — board discovery | `nightshift/discovery/`, Common Crawl, validation, batch approval, coverage page | Not written |
 | M1d — polling | Two-phase conditional polling, hot/warm tiers, queue-driven ARQ | Not written |
 
