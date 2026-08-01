@@ -150,6 +150,52 @@ export const statsSchema = z.object({
 });
 export type Stats = z.infer<typeof statsSchema>;
 
+/**
+ * The four closure states, and how many jobs are in each.
+ *
+ * Every field is required rather than optional. The API always sends all four,
+ * including the zeros, because "no closed jobs" and "the API did not mention
+ * closed jobs" are different claims and a UI that cannot tell them apart will
+ * eventually report the wrong one.
+ */
+export const jobStatusCountsSchema = z.object({
+  open: z.number().int().nonnegative(),
+  possibly_stale: z.number().int().nonnegative(),
+  unverified: z.number().int().nonnegative(),
+  closed: z.number().int().nonnegative(),
+});
+export type JobStatusCounts = z.infer<typeof jobStatusCountsSchema>;
+
+export const jobAdminRowSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string(),
+  company_name: z.string(),
+  status: jobStatusSchema,
+  first_seen_at: z.string(),
+  last_seen_at: z.string(),
+  closed_at: z.string().nullable(),
+  source_count: z.number().int().nonnegative(),
+  location_count: z.number().int().nonnegative(),
+  merge_count: z.number().int().nonnegative(),
+});
+export type JobAdminRow = z.infer<typeof jobAdminRowSchema>;
+
+export const jobAdminListSchema = z.object({
+  items: z.array(jobAdminRowSchema),
+  total: z.number().int().nonnegative(),
+  status_counts: jobStatusCountsSchema,
+});
+export type JobAdminList = z.infer<typeof jobAdminListSchema>;
+
+export const jobStatusEventSchema = z.object({
+  from_status: jobStatusSchema.nullable(),
+  to_status: jobStatusSchema,
+  reason: z.string(),
+  observed_misses: z.number().int().nullable(),
+  created_at: z.string(),
+});
+export type JobStatusEvent = z.infer<typeof jobStatusEventSchema>;
+
 export const sourceHealthSchema = z.object({
   name: z.string(),
   source_type: z.string(),
@@ -160,5 +206,6 @@ export const sourceHealthSchema = z.object({
   last_run_status: z.enum(['running', 'succeeded', 'partial', 'failed']).nullable(),
   last_run_started_at: z.string().nullable(),
   last_run_error: z.string().nullable(),
+  job_status_counts: jobStatusCountsSchema,
 });
 export type SourceHealth = z.infer<typeof sourceHealthSchema>;

@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 import { SourceHealthTable } from '@/components/SourceHealthTable';
 
 /**
@@ -15,11 +17,28 @@ export default function OperatePage() {
         <p className="mt-1 max-w-2xl text-[14px] leading-relaxed text-paper-dim">
           The state of every job source. A source that failed is shown as failed — an error or a
           timeout never closes a listing, so an outage here means the roles you can see are simply
-          older than they look.
+          older than they look. A board that answered and had nothing on it is a different fact
+          entirely, and it does count against the roles it stopped listing.
         </p>
       </section>
 
       <SourceHealthTable />
+
+      <section className="border border-ink-700 bg-ink-900/40 p-5">
+        <h2 className="font-mono text-[10px] uppercase tracking-[0.16em] text-paper-faint">
+          Job table
+        </h2>
+        <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-paper-dim">
+          Every canonical role, its closure state, and how many sources describe it — including
+          the roles that have closed.
+        </p>
+        <Link
+          href="/operate/jobs"
+          className="mt-3 inline-block border border-ink-700 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-signal-400 hover:border-signal-400"
+        >
+          Open the job table →
+        </Link>
+      </section>
 
       <section className="border border-ink-700 bg-ink-900/40 p-5">
         <h2 className="font-mono text-[10px] uppercase tracking-[0.16em] text-paper-faint">
