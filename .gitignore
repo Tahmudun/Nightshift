@@ -41,3 +41,9 @@ data/nyc/
 # Build/scratch
 dist/
 *.log
+
+# Agent scratch. Worktrees are checkouts of this same repo — committing one
+# would nest the whole tree inside itself. `.superpowers/` holds per-plan
+# execution ledgers and review packages, which are working notes, not history.
+.claude/worktrees/
+.superpowers/

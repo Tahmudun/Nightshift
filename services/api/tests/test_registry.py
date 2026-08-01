@@ -48,12 +48,38 @@ class TestTheCommittedRegistry:
         registry = load_registry()
         assert len(registry.boards) >= 1
 
-    def test_contains_exactly_one_pollable_board_in_m0(self) -> None:
-        """A6: M0 polls one board, end to end, before any breadth."""
-        pollable = load_registry().pollable()
-        assert len(pollable) == 1
-        assert pollable[0].token == "datadog"
-        assert pollable[0].ats == "greenhouse"
+    def test_the_pollable_set_is_exactly_these_three_boards(self) -> None:
+        """Closed-set check: nothing may become pollable except by editing this line.
+
+        Replaces the old M0-era `len(pollable) == 1` (that count was the milestone
+        constraint this task lifts), but keeps its real property — a board flipped
+        to `active` in the registry without a matching edit here must fail loudly.
+        Stripe in particular sits at `status: disabled` pending the closure state
+        machine; if this test does not catch it turning `active`, nothing else in
+        this file will (`TestPollability` only exercises synthetic registries).
+        """
+        expected = {("greenhouse", "datadog"), ("lever", "alloy"), ("ashby", "ramp")}
+        actual = {(entry.ats, entry.token) for entry in load_registry().pollable()}
+        assert actual == expected, (
+            f"pollable set changed: gained {actual - expected}, "
+            f"lost {expected - actual}. If this is intentional (a board was "
+            f"added/removed/re-enabled), update `expected` above to match."
+        )
+
+    def test_datadogs_m0_board_is_still_pollable(self) -> None:
+        """A6: M0's one board must keep resolving as M1 adds breadth around it."""
+        tokens = {(entry.ats, entry.token) for entry in load_registry().pollable()}
+        assert ("greenhouse", "datadog") in tokens
+
+    def test_the_first_lever_board_added_in_m1a_is_pollable(self) -> None:
+        """M1a: Lever is the second provider behind the adapter Protocol."""
+        tokens = {(entry.ats, entry.token) for entry in load_registry().pollable()}
+        assert ("lever", "alloy") in tokens
+
+    def test_the_first_ashby_board_added_in_m1a_is_pollable(self) -> None:
+        """M1a: Ashby is the third and, for now, last provider behind the adapter Protocol."""
+        tokens = {(entry.ats, entry.token) for entry in load_registry().pollable()}
+        assert ("ashby", "ramp") in tokens
 
     def test_every_entry_records_when_a_human_verified_it(self) -> None:
         for board in load_registry().boards:

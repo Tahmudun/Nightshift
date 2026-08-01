@@ -213,12 +213,17 @@ class GreenhouseAdapter:
         self._client = client
 
     async def fetch_board(self, board: BoardRef) -> FetchOutcome:
-        """Poll one board. Never raises — I3 lives or dies on this method.
+        """Poll one board. Never raises — unconditionally, not just for a
+        source failure: unlike Lever and Ashby, this adapter's ``client`` is
+        required at construction, not optional, so there is no caller-bug
+        raise path to carve out here either.
 
-        A failure returns ``ok=False``, which tells the caller it learned
-        *nothing* about these jobs. That is categorically different from
-        ``ok=True`` with an empty list, which means the board really is empty.
-        Collapsing the two is how a source outage closes a thousand live jobs.
+        I3 lives or dies on this method: a failure returns ``ok=False`` on
+        the returned :class:`FetchOutcome`, which tells the caller it
+        learned *nothing* about these jobs. That is categorically different
+        from ``ok=True`` with an empty list, which means the board really is
+        empty. Collapsing the two is how a source outage closes a thousand
+        live jobs.
         """
         url = BOARD_URL.format(token=board.token)
         try:
@@ -259,7 +264,7 @@ class GreenhouseAdapter:
         log.info("greenhouse_board_fetched", board=board.token, jobs=len(jobs))
         return FetchOutcome(board=board, ok=True, jobs=tuple(jobs), http_status=200)
 
-    def normalize(self, raw_job: RawJob) -> NormalizedSourceJob:
+    def normalize(self, raw_job: RawJob, board: BoardRef) -> NormalizedSourceJob:
         """Pure mapping from raw payload to domain model. No I/O, no clock."""
         payload = raw_job.payload
         metadata = _metadata_index(payload)
@@ -279,11 +284,14 @@ class GreenhouseAdapter:
         salary_min, salary_max, currency = _extract_compensation(metadata)
 
         company_name = str(payload.get("company_name") or "").strip()
+        # Greenhouse does publish a name. When it is blank, fall back to the
+        # reviewed registry entry — never to the token.
+        resolved_company = company_name or board.company
 
         return NormalizedSourceJob(
             source_job_id=raw_job.source_job_id,
             source_company_key=raw_job.source_company_key,
-            company_name=company_name or raw_job.source_company_key,
+            company_name=resolved_company,
             canonical_url=raw_job.canonical_url,
             title=title,
             normalized_title=normalize_title(title),

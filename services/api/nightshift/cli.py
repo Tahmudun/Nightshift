@@ -25,9 +25,11 @@ from pathlib import Path
 
 from sqlalchemy import func, select
 
+from nightshift.adapters.ashby import AshbyAdapter
 from nightshift.adapters.base import BoardRef, FetchOutcome, RawJob
 from nightshift.adapters.greenhouse import GreenhouseAdapter
 from nightshift.adapters.http import PoliteClient
+from nightshift.adapters.lever import LeverAdapter
 from nightshift.config import get_settings
 from nightshift.db.base import JobStatus, LocationConfidence, SourceType
 from nightshift.db.models import Company, Job, JobLocation, Source, SourceJobRecord, User
@@ -37,7 +39,11 @@ from nightshift.domain.registry import get_registry
 from nightshift.logging import configure_logging
 
 FIXTURE_DIR = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "greenhouse"
+LEVER_FIXTURE_DIR = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "lever"
+ASHBY_FIXTURE_DIR = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "ashby"
 FIXTURE_SOURCE_NAME = "greenhouse_fixture"
+LEVER_FIXTURE_SOURCE_NAME = "lever_fixture"
+ASHBY_FIXTURE_SOURCE_NAME = "ashby_fixture"
 
 
 class FixtureGreenhouseAdapter(GreenhouseAdapter):
@@ -78,13 +84,79 @@ class FixtureGreenhouseAdapter(GreenhouseAdapter):
         return FetchOutcome(board=board, ok=True, jobs=jobs)
 
 
+class FixtureLeverAdapter(LeverAdapter):
+    """Reads a committed recording instead of the network. ADR 0004.
+
+    Constructed with no client, so it cannot make a request even if the kill
+    switch were flipped. Attributed to source ``lever_fixture`` with
+    ``source_type='fixture'`` and badged "committed fixture" in the Operate
+    UI. Overrides exactly ``fetch_board`` — ``normalize`` is the production
+    code path, unmodified — following ``FixtureGreenhouseAdapter``'s shape.
+    """
+
+    source_name = "lever_fixture"
+    source_type = SourceType.FIXTURE
+
+    def __init__(self, fixture: Path) -> None:
+        super().__init__(client=None)
+        self._fixture = fixture
+
+    async def fetch_board(self, board: BoardRef) -> FetchOutcome:
+        payload = json.loads(self._fixture.read_text())
+        jobs = tuple(
+            RawJob(
+                source_job_id=str(job["id"]),
+                source_company_key=board.token,
+                canonical_url=job.get("hostedUrl"),
+                payload=job,
+            )
+            for job in payload
+            if isinstance(job, dict) and job.get("id") is not None
+        )
+        return FetchOutcome(board=board, ok=True, jobs=jobs, http_status=200)
+
+
+class FixtureAshbyAdapter(AshbyAdapter):
+    """Reads a committed recording instead of the network. ADR 0004."""
+
+    source_name = "ashby_fixture"
+    source_type = SourceType.FIXTURE
+
+    def __init__(self, fixture: Path) -> None:
+        super().__init__(client=None)
+        self._fixture = fixture
+
+    async def fetch_board(self, board: BoardRef) -> FetchOutcome:
+        payload = json.loads(self._fixture.read_text())
+        jobs = tuple(
+            RawJob(
+                source_job_id=str(job["id"]),
+                source_company_key=board.token,
+                canonical_url=job.get("jobUrl"),
+                payload=job,
+            )
+            for job in payload.get("jobs", [])
+            if isinstance(job, dict) and job.get("id") is not None
+        )
+        return FetchOutcome(board=board, ok=True, jobs=jobs, http_status=200)
+
+
 async def cmd_seed(args: argparse.Namespace) -> int:
-    """Load the dev user and the committed fixture board."""
+    """Load the dev user and the three committed fixture boards.
+
+    M1a widened this from one provider to three (Greenhouse, Lever, Ashby) so
+    the offline `make demo` path — and the Operate page it feeds — has more
+    than one source to show. Each fixture is attributed to its own
+    ``*_fixture`` source, per ADR 0004.
+    """
     settings = get_settings()
     fixture_path = FIXTURE_DIR / "datadog_board.json"
-    if not fixture_path.exists():
-        print(f"error: fixture missing at {fixture_path}", file=sys.stderr)
-        return 1
+    lever_fixture_path = LEVER_FIXTURE_DIR / "alloy_board.json"
+    ashby_fixture_path = ASHBY_FIXTURE_DIR / "ramp_board.json"
+    for path in (fixture_path, lever_fixture_path, ashby_fixture_path):
+        if not path.exists():
+            print(f"error: fixture missing at {path}", file=sys.stderr)
+            return 1
 
     async with session_scope() as session:
         # -- dev user (AMENDMENTS A3) ---------------------------------------
@@ -105,7 +177,7 @@ async def cmd_seed(args: argparse.Namespace) -> int:
         else:
             print(f"  dev user {settings.dev_user_email} already present")
 
-        # -- fixture board --------------------------------------------------
+        # -- Greenhouse fixture board ----------------------------------------
         adapter = FixtureGreenhouseAdapter(fixture_path)
         source = await get_or_create_source(
             session,
@@ -117,8 +189,46 @@ async def cmd_seed(args: argparse.Namespace) -> int:
         run, stats = await ingest_boards(session, adapter, [board], source=source)
 
         print(
-            f"  fixture ingest: {stats.created} created, {stats.updated} updated, "
+            f"  greenhouse fixture ingest: {stats.created} created, {stats.updated} updated, "
             f"{stats.unchanged} unchanged, {stats.failed} failed ({run.status.value})"
+        )
+
+        # -- Lever fixture board ----------------------------------------------
+        lever_adapter = FixtureLeverAdapter(lever_fixture_path)
+        lever_source = await get_or_create_source(
+            session,
+            name=LEVER_FIXTURE_SOURCE_NAME,
+            source_type=SourceType.FIXTURE,
+            base_url=f"file://{lever_fixture_path}",
+        )
+        # Company and nyc_presence match this board's data/board-registry.yaml
+        # entry — the fixture stands in for the network call only.
+        lever_board = BoardRef(company="Alloy", ats="lever", token="alloy", nyc_presence=False)
+        lever_run, lever_stats = await ingest_boards(
+            session, lever_adapter, [lever_board], source=lever_source
+        )
+        print(
+            f"  lever fixture ingest: {lever_stats.created} created, {lever_stats.updated} "
+            f"updated, {lever_stats.unchanged} unchanged, {lever_stats.failed} failed "
+            f"({lever_run.status.value})"
+        )
+
+        # -- Ashby fixture board ------------------------------------------------
+        ashby_adapter = FixtureAshbyAdapter(ashby_fixture_path)
+        ashby_source = await get_or_create_source(
+            session,
+            name=ASHBY_FIXTURE_SOURCE_NAME,
+            source_type=SourceType.FIXTURE,
+            base_url=f"file://{ashby_fixture_path}",
+        )
+        ashby_board = BoardRef(company="Ramp", ats="ashby", token="ramp", nyc_presence=True)
+        ashby_run, ashby_stats = await ingest_boards(
+            session, ashby_adapter, [ashby_board], source=ashby_source
+        )
+        print(
+            f"  ashby fixture ingest: {ashby_stats.created} created, {ashby_stats.updated} "
+            f"updated, {ashby_stats.unchanged} unchanged, {ashby_stats.failed} failed "
+            f"({ashby_run.status.value})"
         )
 
     await _print_summary()

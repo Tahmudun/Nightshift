@@ -235,7 +235,8 @@ def normalized_all(payload: dict[str, Any]) -> list[Any]:
                 source_company_key="datadog",
                 canonical_url=job.get("absolute_url"),
                 payload=job,
-            )
+            ),
+            BOARD,
         )
         for job in payload["jobs"]
     ]
@@ -449,7 +450,8 @@ def test_normalize_rejects_a_titleless_payload() -> None:
     adapter, _ = adapter_for(make_settings())
     with pytest.raises(ValueError, match="no title"):
         adapter.normalize(
-            RawJob(source_job_id="1", source_company_key="datadog", payload={"id": 1})
+            RawJob(source_job_id="1", source_company_key="datadog", payload={"id": 1}),
+            BOARD,
         )
 
 
@@ -466,7 +468,8 @@ def test_timestamp_parsing_handles_the_boards_offset_format() -> None:
                 "updated_at": "2026-07-28T05:41:06-04:00",
                 "first_published": "2025-08-27T10:34:20-04:00",
             },
-        )
+        ),
+        BOARD,
     )
     assert job.source_updated_at == datetime(2026, 7, 28, 9, 41, 6, tzinfo=UTC)
     assert job.source_published_at == datetime(2025, 8, 27, 14, 34, 20, tzinfo=UTC)
@@ -480,6 +483,7 @@ def test_unparseable_timestamp_becomes_none_not_now() -> None:
             source_job_id="1",
             source_company_key="datadog",
             payload={"id": 1, "title": "Engineer", "updated_at": "last tuesday"},
-        )
+        ),
+        BOARD,
     )
     assert job.source_updated_at is None

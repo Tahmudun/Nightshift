@@ -111,37 +111,147 @@ def curate(jobs: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, 
     return picked, reasons
 
 
+def _reduce_lever(payload: Any, limit: int) -> tuple[Any, dict[str, str], list[str]]:
+    """Pick a reviewable subset of a Lever board, preserving each job verbatim.
+
+    Selection is by *shape*, not by sampling: one job per distinct location
+    string, so the fixture covers every location convention the board uses
+    rather than whichever nine came back first.
+    """
+    if not isinstance(payload, list):
+        raise SystemExit(f"lever board did not return a JSON array: {type(payload).__name__}")
+
+    kept: list[Any] = []
+    reasons: dict[str, str] = {}
+    seen_shapes: set[str] = set()
+
+    for job in payload:
+        categories = job.get("categories") or {}
+        shape = f"{categories.get('location')}|{job.get('workplaceType')}"
+        if shape in seen_shapes and len(kept) >= limit:
+            continue
+        if shape not in seen_shapes:
+            reasons[str(job["id"])] = (
+                f"location {categories.get('location')!r}, "
+                f"workplaceType {job.get('workplaceType')!r}"
+            )
+            seen_shapes.add(shape)
+            kept.append(job)
+        elif len(kept) < limit:
+            reasons[str(job["id"])] = "additional posting on the same board"
+            kept.append(job)
+
+    gaps: list[str] = []
+    if not any((j.get("categories") or {}).get("commitment") == "Intern" for j in payload):
+        gaps.append("internship commitment")
+    if not any("New York" in str((j.get("categories") or {}).get("allLocations")) for j in payload):
+        gaps.append("NYC location")
+    return kept, reasons, gaps
+
+
+def _reduce_ashby(payload: Any, limit: int) -> tuple[Any, dict[str, str], list[str]]:
+    """Pick a reviewable subset of an Ashby board, preserving each job verbatim.
+
+    Deliberately keeps one job per (location, employmentType) pair. The Ramp
+    board is 123 postings and 95 of them share one location string; sampling
+    the first N would produce a fixture that proves the adapter handles one
+    shape twelve times.
+    """
+    if not isinstance(payload, dict) or not isinstance(payload.get("jobs"), list):
+        raise SystemExit("ashby board did not return {'jobs': [...]}")
+
+    kept: list[Any] = []
+    reasons: dict[str, str] = {}
+    seen: set[tuple[str, str]] = set()
+
+    for job in payload["jobs"]:
+        secondary = tuple(sorted(s.get("location", "") for s in job.get("secondaryLocations", [])))
+        key = (f"{job.get('location')}|{secondary}", str(job.get("employmentType")))
+        if key in seen or len(kept) >= limit:
+            continue
+        seen.add(key)
+        reasons[str(job["id"])] = (
+            f"location {job.get('location')!r}, "
+            f"{len(secondary)} secondary, "
+            f"employmentType {job.get('employmentType')!r}, "
+            f"isRemote {job.get('isRemote')!r}"
+        )
+        kept.append(job)
+
+    gaps: list[str] = []
+    if not any(j.get("employmentType") == "Intern" for j in payload["jobs"]):
+        gaps.append("internship employmentType")
+    if not any(j.get("compensation", {}).get("compensationTiers") for j in payload["jobs"]):
+        gaps.append("published compensation")
+    return {"apiVersion": payload.get("apiVersion"), "jobs": kept}, reasons, gaps
+
+
+#: Providers with a reducer wired up below.
+_SUPPORTED_PROVIDERS = frozenset({"greenhouse", "lever", "ashby"})
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("provider", choices=sorted(ENDPOINTS))
     parser.add_argument("token", help="board token, e.g. datadog")
     parser.add_argument("--name", help="fixture basename (default: <token>_board)")
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=12,
+        help="max postings kept per distinct shape (lever, ashby)",
+    )
     args = parser.parse_args()
 
-    if args.provider != "greenhouse":
+    if args.provider not in _SUPPORTED_PROVIDERS:
         print(f"curation selectors for {args.provider} arrive with its adapter (M1)", file=sys.stderr)
         return 2
 
     url = ENDPOINTS[args.provider].format(token=args.token)
     print(f"GET {url}")
     payload = asyncio.run(fetch(url))
-    jobs = payload.get("jobs") or []
-    if not jobs:
-        print("board returned no jobs — refusing to write an empty fixture", file=sys.stderr)
-        return 1
 
-    picked, reasons = curate(jobs)
+    fixture_body: Any
+    reasons: dict[str, str]
+    missing: list[str]
+    full_count: int
+
+    if args.provider == "greenhouse":
+        jobs = payload.get("jobs") or []
+        if not jobs:
+            print("board returned no jobs — refusing to write an empty fixture", file=sys.stderr)
+            return 1
+        picked, reasons = curate(jobs)
+        missing = [why for why, _, _ in GREENHOUSE_SELECTORS if why not in reasons.values()]
+        full_count = payload.get("meta", {}).get("total", len(jobs))
+        fixture_body = {"jobs": picked, "meta": {"total": len(picked)}}
+    elif args.provider == "lever":
+        if not payload:
+            print(
+                "board returned no postings — refusing to write an empty fixture "
+                "(this case is recorded by hand; see the task brief)",
+                file=sys.stderr,
+            )
+            return 1
+        picked, reasons, missing = _reduce_lever(payload, args.limit)
+        full_count = len(payload)
+        fixture_body = picked
+    else:  # ashby
+        jobs = payload.get("jobs") if isinstance(payload, dict) else None
+        if not jobs:
+            print("board returned no jobs — refusing to write an empty fixture", file=sys.stderr)
+            return 1
+        fixture_body, reasons, missing = _reduce_ashby(payload, args.limit)
+        full_count = len(jobs)
+        picked = fixture_body["jobs"]
+
     basename = args.name or f"{args.token}_board"
     out_dir = FIXTURE_ROOT / args.provider
     out_dir.mkdir(parents=True, exist_ok=True)
 
     fixture_path = out_dir / f"{basename}.json"
-    fixture_path.write_text(
-        json.dumps({"jobs": picked, "meta": {"total": len(picked)}}, indent=2, ensure_ascii=False)
-        + "\n"
-    )
+    fixture_path.write_text(json.dumps(fixture_body, indent=2, ensure_ascii=False) + "\n")
 
-    missing = [why for why, _, _ in GREENHOUSE_SELECTORS if why not in reasons.values()]
     meta_path = out_dir / f"{basename}.meta.json"
     meta_path.write_text(
         json.dumps(
@@ -150,10 +260,11 @@ def main() -> int:
                     "endpoint": url,
                     "recorded_at": datetime.now(UTC).replace(microsecond=0).isoformat(),
                     "board_token": args.token,
-                    "full_response_job_count": payload.get("meta", {}).get("total", len(jobs)),
+                    "http_status": 200,
+                    "full_response_job_count": full_count,
                     "note": (
                         f"Each job object is byte-identical to the live response. Only the set "
-                        f"of jobs was reduced ({len(jobs)} -> {len(picked)}); nothing inside a "
+                        f"of jobs was reduced ({full_count} -> {len(picked)}); nothing inside a "
                         f"job was edited, redacted, or synthesised."
                     ),
                 },
