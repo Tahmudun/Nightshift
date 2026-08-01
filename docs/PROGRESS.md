@@ -22,30 +22,16 @@ deleted; the remote branch still exists and is harmless.
 
 **Verified at `54ef35a` on this host, from a clean shell:** `make check` →
 `337 passed, 13 skipped` (Python), `35 passed` (web), ruff clean, mypy clean on
-31 source files, eslint clean.
+31 source files, eslint clean. Then, once B4 was cleared and Postgres was up,
+`make test-py` → **`350 passed`, zero skipped.**
 
-**The 13 skips are the database tests, and they are the one thing this host
-still cannot run** — see B4 below. `conftest.py` skips them when Postgres is
-unreachable, which is the honest behaviour, but it does mean the local run
-above is *not* evidence for anything in `test_ingestion.py` or
-`test_routes.py`. CI is. Which makes the CI gap below worth closing rather than
-leaving as an inference.
-
-**CI evidence, and its one gap.** Run #9 passed first try — worth noting
-against M0, which needed three runs and whose two failures found five defects.
-The `python` job completed its steps in order: `Initialize containers` →
-`Create extensions` → `Migrate` → `Unit tests`, all success, 74s.
-
-That the 13 database tests *ran* rather than skipped is established by
-inference, not by a read count: `conftest.py` skips on exactly one condition —
-the database being unreachable — and `Create extensions` (psql) and `Migrate`
-(alembic) both connected to that service first, using the same job-level
-`POSTGRES_*` env that `Settings().async_database_url` reads. A skip is
-therefore not reachable. The printed `350 passed` line was not read directly,
-because downloading Actions logs needs admin rights the agent does not have.
-**If you want it closed properly, expand the "Unit tests" step in that run and
-confirm it says `350 passed`** — `337 passed, 13 skipped` would mean the
-service is not doing its job.
+**That settles the question this file had been carrying.** The 13 skips are the
+database-backed tests, and until this session no local run had ever executed
+them — every green `make check` on this host was silent about
+`test_ingestion.py` and `test_routes.py`. CI run #9 was believed to have run
+them, but by inference from the job's step order rather than from reading the
+count. It has now been observed directly, locally, against a real PostGIS
+cluster. See B4.
 
 ### Then: write and execute the M1b plan (canonical spine)
 
@@ -180,39 +166,35 @@ green. The fix did what it was written to do.
 
 ## Blockers
 
-### B4 — Docker will not start — STILL OPEN 2026-08-01 (disk part resolved)
+### B4 — Host disk full; Docker would not start — RESOLVED 2026-08-01
 
-**The disk half is fixed and the Docker half is not.** These were one blocker
-on 2026-07-31 and they have come apart, so treat them separately.
+Both halves are now clear, and they were two problems rather than one.
 
-**Disk — resolved.** `/System/Volumes/Data` now reports **12 GB free** of
-233 GB, up from 180 MB. Freed by the human; nothing in this project was
-deleted by an agent. That clears the condition B4 was originally written about
-and puts the host above the ~10 GB working figure.
+**Disk.** `/System/Volumes/Data` was at **100% — 180 MB free** of 233 GB. Now
+**11 GB free**. Freed by the human; nothing in this project was deleted by an
+agent.
 
-**Docker — still down.** With 12 GB free, `open -a Docker` starts
-`com.docker.backend` (two processes, confirmed by `pgrep`) but **no socket is
-ever created**: `~/.docker/run/` stays empty and `docker info` fails with
-`dial unix /Users/tahmudun/.docker/run/docker.sock: connect: no such file or
-directory` after **180 s** of polling. So the engine failing to start was not
-only a symptom of the full disk, and freeing space did not fix it on its own.
+**Docker.** Freeing the disk was *not* sufficient. With 12 GB free,
+`open -a Docker` started `com.docker.backend` (two processes, confirmed by
+`pgrep`) but no socket was ever created — `~/.docker/run/` stayed empty and
+`docker info` failed with `connect: no such file or directory` after 180 s of
+polling. Fixed by the human at the GUI. Engine now reports **29.6.2**.
 
-The likely cause is the same one B3 records — after the disk filled, Docker
-Desktop came back showing an Electron error dialog, and a dialog waiting for a
-click cannot be answered from a shell. **This needs a human at the GUI:** open
-Docker Desktop, dismiss whatever it is showing, and if it still refuses, use
-its *Troubleshoot → Reset to factory defaults* (the VM is disposable — every
-container here is rebuilt by `make up`, and the only volume is fixture data
-that `make seed` recreates).
+**What that unblocked, verified the same session at `c52315e`:**
 
-Blocked locally until then: `make up`, `make migrate`, `make demo`,
-`make acceptance`, and the 13 database-backed tests, which **skip** rather than
-fail (`tests/conftest.py`) when the database is unreachable.
+```
+make up       postgres + redis healthy (postgres recreated from the compose file)
+make migrate  alembic upgrade head, clean
+make test-py  350 passed          <- 0 skipped
+```
 
-Verified at `54ef35a` despite the blocker: `make check` passes —
-`337 passed, 13 skipped` Python, 35 web. The skips are the documented
-database-unreachable condition, not a code regression, and CI run #9 at
-`430347a` remains the evidence that all 350 pass against a real database.
+**`350 passed` with zero skips closes the open question this file had been
+carrying.** The 13 database-backed tests in `test_ingestion.py` and
+`test_routes.py` skip when Postgres is unreachable, so every previous local run
+reported `337 passed, 13 skipped` and CI's `350` was established by inference
+rather than by a read count. It is now a direct local observation: the same 13
+tests run, against a real PostGIS cluster, and pass. No inference left in the
+chain.
 
 ### B1 — No container runtime — RESOLVED 2026-07-30
 
