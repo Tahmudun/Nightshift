@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -52,6 +53,11 @@ pytestmark = [requires_db, pytest.mark.asyncio(loop_scope="session")]
 FIXTURES = Path(__file__).parent / "fixtures"
 LEVER_BOARD = BoardRef(company="Alloy", ats="lever", token="alloy", nyc_presence=True)
 
+# A fixed clock for the seed. M1b's closure rules are a function of elapsed
+# time, so a test that wants three misses seven days apart needs a known
+# starting point rather than "whenever the suite happened to run".
+SEED_NOW = datetime(2026, 8, 1, tzinfo=UTC)
+
 
 class _StubAdapter:
     """A real adapter with its network call replaced by a recorded outcome.
@@ -75,30 +81,47 @@ class _StubAdapter:
         return self._inner.normalize(raw_job, board)
 
 
-async def _seed_alloy_board(session: AsyncSession) -> int:
-    """Ingest the committed Lever fixture into the test's transaction.
+async def _ingest_alloy(
+    session: AsyncSession, *, jobs: list[dict[str, Any]] | None = None, now: datetime = SEED_NOW
+) -> int:
+    """Poll the Alloy board at an explicit time, with an explicit payload.
 
-    Returns the number of jobs created, so tests can assert against it
-    instead of a magic number.
+    The clock is a parameter because M1b's closure rules are a function of it:
+    a test that wants three misses has to be able to say when they happened.
+    Passing ``jobs=[]`` is a live board with nothing on it — real evidence of
+    absence, and deliberately not the same as a failed fetch.
+
+    Returns the number of jobs created, so tests assert against it rather than
+    a magic number.
     """
-    payload = json.loads((FIXTURES / "lever" / "alloy_board.json").read_text())
-    jobs = tuple(
-        RawJob(
-            source_job_id=str(entry["id"]),
-            source_company_key="alloy",
-            canonical_url=entry.get("hostedUrl"),
-            payload=entry,
-        )
-        for entry in payload
+    if jobs is None:
+        jobs = json.loads((FIXTURES / "lever" / "alloy_board.json").read_text())
+    outcome = FetchOutcome(
+        board=LEVER_BOARD,
+        ok=True,
+        http_status=200,
+        jobs=tuple(
+            RawJob(
+                source_job_id=str(entry["id"]),
+                source_company_key="alloy",
+                canonical_url=entry.get("hostedUrl"),
+                payload=entry,
+            )
+            for entry in jobs
+        ),
     )
-    outcome = FetchOutcome(board=LEVER_BOARD, ok=True, jobs=jobs, http_status=200)
     source = await get_or_create_source(
         session, name="lever_test", source_type=SourceType.ATS_LEVER
     )
     adapter = _StubAdapter(LeverAdapter(client=None), outcome)
-    _, stats = await ingest_boards(session, adapter, [LEVER_BOARD], source=source)
+    _, stats = await ingest_boards(session, adapter, [LEVER_BOARD], source=source, now=now)
     await session.flush()
     return stats.created
+
+
+async def _seed_alloy_board(session: AsyncSession) -> int:
+    """Ingest the committed Lever fixture at ``SEED_NOW``."""
+    return await _ingest_alloy(session)
 
 
 @pytest_asyncio.fixture(loop_scope="session")
@@ -191,3 +214,155 @@ async def test_every_returned_location_has_a_confidence(seeded_client: AsyncClie
 async def test_unknown_job_id_is_404_not_500(client: AsyncClient) -> None:
     response = await client.get("/jobs/00000000-0000-0000-0000-000000000000")
     assert response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# M1b — the operational surface. Closure and dedupe are only useful if a human
+# can see what they did; §2.6 and M1's "failures visible in the UI, not just
+# logs" criterion both land here.
+# ---------------------------------------------------------------------------
+
+
+async def test_admin_route_is_not_read_as_a_job_id(seeded_client: AsyncClient) -> None:
+    """FastAPI matches routes in declaration order.
+
+    Declared after ``/{job_id}``, this path resolves as a job whose id is the
+    string "admin" and returns 422. The bug is invisible in the code and
+    obvious in the response, so the response is what gets asserted.
+    """
+    response = await seeded_client.get("/jobs/admin")
+    assert response.status_code == 200, response.text
+
+
+async def test_admin_route_reports_every_status_even_at_zero(
+    seeded_client: AsyncClient,
+) -> None:
+    """A missing key and a real zero are different claims.
+
+    The seeded board is entirely open, so three of the four counts are zero.
+    They must still be present — otherwise the UI cannot distinguish "no closed
+    jobs" from "the API forgot to tell me about closed jobs".
+    """
+    body = (await seeded_client.get("/jobs/admin")).json()
+    assert set(body["status_counts"]) == {"open", "possibly_stale", "unverified", "closed"}
+    assert body["status_counts"]["open"] == 9
+    assert body["status_counts"]["closed"] == 0
+    assert body["total"] == 9
+
+
+async def test_admin_rows_carry_provenance(seeded_client: AsyncClient) -> None:
+    """M1 acceptance: every canonical job traces to at least one raw record.
+
+    Asserted at the API boundary, which is where a human can actually see it.
+    """
+    body = (await seeded_client.get("/jobs/admin")).json()
+    assert body["items"]
+    for job in body["items"]:
+        assert job["source_count"] >= 1
+        assert job["location_count"] >= 1
+        assert job["merge_count"] == 0
+        assert job["status"] in {"open", "possibly_stale", "unverified", "closed"}
+        # I3 at the boundary: an open job has no closure timestamp, and the
+        # database constraint that pairs them is mirrored in what we serve.
+        assert (job["closed_at"] is not None) == (job["status"] == "closed")
+
+
+async def test_admin_route_filters_by_status(seeded_client: AsyncClient) -> None:
+    body = (await seeded_client.get("/jobs/admin", params={"status": "closed"})).json()
+    assert body["items"] == []
+    # The breakdown is over the whole table, not the filtered page — otherwise
+    # filtering to `closed` would report zero of everything and the operator
+    # would lose the only number that says what else exists.
+    assert body["status_counts"]["open"] == 9
+
+
+async def test_admin_route_rejects_an_unknown_status(seeded_client: AsyncClient) -> None:
+    """A typo'd filter must be an error, not a silent empty list — the latter
+    reads as "no such jobs" and is how an operator concludes nothing is wrong."""
+    response = await seeded_client.get("/jobs/admin", params={"status": "not_a_state"})
+    assert response.status_code == 422
+
+
+async def test_history_route_is_404_for_an_unknown_job(client: AsyncClient) -> None:
+    """ "No transitions" and "no such job" are different answers."""
+    response = await client.get("/jobs/00000000-0000-0000-0000-000000000000/history")
+    assert response.status_code == 404
+
+
+async def test_history_is_empty_for_a_job_that_never_transitioned(
+    seeded_client: AsyncClient,
+) -> None:
+    """A freshly ingested, still-listed job has no transitions — and an empty
+    list here is the honest answer, distinct from the 404 above."""
+    job_id = (await seeded_client.get("/jobs/admin")).json()["items"][0]["id"]
+    response = await seeded_client.get(f"/jobs/{job_id}/history")
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+async def test_history_returns_transitions_in_the_words_the_machine_used(
+    db_session: AsyncSession, seeded_client: AsyncClient
+) -> None:
+    """The reason string is the deliverable, not the status change.
+
+    "Why did this job disappear?" is answered by prose a human wrote into
+    freshness.py, and this is the route that carries it to them.
+    """
+    # Three polls of an empty-but-live board: real evidence of absence.
+    for day in (1, 2, 3):
+        await _ingest_alloy(db_session, jobs=[], now=SEED_NOW + timedelta(days=day))
+    await db_session.flush()
+
+    stale = (await seeded_client.get("/jobs/admin", params={"status": "possibly_stale"})).json()
+    assert stale["items"], "three misses did not make anything stale"
+
+    history = (await seeded_client.get(f"/jobs/{stale['items'][0]['id']}/history")).json()
+    assert len(history) == 1
+    event = history[0]
+    assert event["from_status"] == "open"
+    assert event["to_status"] == "possibly_stale"
+    assert "consecutive polls" in event["reason"]
+    assert event["observed_misses"] == 3
+
+
+async def test_source_health_distinguishes_an_outage_from_an_empty_board(
+    seeded_client: AsyncClient,
+) -> None:
+    """§2.6 and I3 at the API boundary.
+
+    If these two timestamps collapsed into one "last seen" field, the UI could
+    not tell a user which of the two happened — and those are the two facts the
+    whole closure design turns on.
+    """
+    body = (await seeded_client.get("/sources")).json()
+    assert body
+    for source in body:
+        assert "last_success_at" in source
+        assert "last_failure_at" in source
+
+
+async def test_source_health_breaks_its_jobs_down_by_status(
+    db_session: AsyncSession, seeded_client: AsyncClient
+) -> None:
+    """The count that `job_count` alone cannot give you.
+
+    A provenance link survives a closure, so `job_count` does not move when a
+    source's jobs go stale — a dead board and a healthy one report the same
+    total. Without this breakdown the source health page would say a source is
+    fine while every job it ever produced had aged out.
+    """
+    before = (await seeded_client.get("/sources")).json()
+    lever = next(s for s in before if s["name"] == "lever_test")
+    assert lever["job_status_counts"]["open"] == 9
+    assert lever["job_status_counts"]["possibly_stale"] == 0
+
+    for day in (1, 2, 3):
+        await _ingest_alloy(db_session, jobs=[], now=SEED_NOW + timedelta(days=day))
+    await db_session.flush()
+
+    after = (await seeded_client.get("/sources")).json()
+    lever = next(s for s in after if s["name"] == "lever_test")
+    assert lever["job_status_counts"]["open"] == 0
+    assert lever["job_status_counts"]["possibly_stale"] == 9
+    # The headline total is unchanged — which is exactly the point.
+    assert lever["job_count"] == 9

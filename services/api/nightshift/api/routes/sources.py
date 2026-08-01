@@ -17,6 +17,7 @@ from sqlalchemy.orm import selectinload
 
 from nightshift.api.schemas import (
     IngestionRunOut,
+    JobStatusCounts,
     LocationConfidenceBreakdown,
     SourceHealthOut,
     StatsOut,
@@ -60,6 +61,24 @@ async def list_source_health(
             )
         ).scalar_one()
 
+        # How this source's jobs are distributed across the closure machine.
+        # `job_count` above cannot show this: a provenance link survives a
+        # closure, so a source whose every job has gone stale reports exactly
+        # the same total as a healthy one.
+        counted = (
+            await session.execute(
+                select(Job.status, func.count(func.distinct(Job.id)))
+                .join(JobSourceLink, JobSourceLink.job_id == Job.id)
+                .join(
+                    SourceJobRecord,
+                    SourceJobRecord.id == JobSourceLink.source_job_record_id,
+                )
+                .where(SourceJobRecord.source_id == source.id)
+                .group_by(Job.status)
+            )
+        ).all()
+        status_counts = JobStatusCounts(**{state.value: count for state, count in counted})
+
         last_run = (
             (
                 await session.execute(
@@ -84,6 +103,7 @@ async def list_source_health(
                 last_run_status=last_run.status if last_run else None,
                 last_run_started_at=last_run.started_at if last_run else None,
                 last_run_error=last_run.error_summary if last_run else None,
+                job_status_counts=status_counts,
             )
         )
     return out
