@@ -33,12 +33,24 @@ them, but by inference from the job's step order rather than from reading the
 count. It has now been observed directly, locally, against a real PostGIS
 cluster. See B4.
 
-### Then: write and execute the M1b plan (canonical spine)
+### Execute `docs/plans/2026-08-01-m1b-canonical-spine.md`, starting at Task 1
 
-Dedupe, freshness, the closure state machine, the admin job table, and the
-source health page. No M1b plan file exists yet — write one (per
-`superpowers:writing-plans`) before touching code, the same way M1a's plan was
-written before Task 1 started.
+Written this session, ten ordered TDD tasks with real code in every step.
+Design at `docs/architecture/canonical-spine.md`; the two decisions it turns on
+are **ADR 0009** (closure thresholds) and **ADR 0010** (dedupe layers, and why
+similarity may never merge on its own). Read all three before Task 1.
+
+Two decisions in that design were the human's, not mine, and are recorded as
+theirs:
+
+- **Closure is cautious** — three consecutive misses *and* seven elapsed days.
+  Both required, because a miss count alone stops meaning anything once M1d
+  gives boards different poll rates.
+- **Dedupe includes embedding similarity.** I recommended deterministic rules
+  only; the human chose to include similarity. ADR 0010 records the
+  disagreement and the constraint that makes it safe — similarity is reachable
+  only after company, employment type, title and location already agree, so it
+  breaks ties and never matches on its own.
 
 M1 was split into four plans, because `CLAUDE.md` §6 lists four independent
 subsystems under one milestone and a single plan for all of them would not
