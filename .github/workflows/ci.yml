@@ -93,6 +93,21 @@ jobs:
         run: alembic upgrade head
         working-directory: services/api
 
+      - name: Cache the embedding model
+        # ~130 MB of ONNX weights (AMENDMENTS A5). Cached so CI does not pull
+        # them from the HF hub on every push, and — more importantly — so the
+        # real-model tests in tests/test_embeddings.py and the similarity half
+        # of the dedupe suite keep *running* here. They skip when the weights
+        # are absent, which would be a green suite that never checked the one
+        # component whose determinism the fixture set depends on.
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/nightshift/fastembed
+          key: fastembed-bge-small-en-v1.5-v1
+
+      - name: Fetch the embedding model
+        run: make model
+
       - name: Unit tests
         # Coverage is measured and reported from M0 but does not gate until M3.
         # The database-backed tests truncate-and-rollback their own tables (see

@@ -56,8 +56,17 @@ $(WEB_DIR)/node_modules/.installed: $(WEB_DIR)/package.json
 	@cd $(WEB_DIR) && npm install --silent --no-audit --no-fund
 	@touch $@
 
-setup: .env $(VENV)/.installed $(WEB_DIR)/node_modules/.installed ## Install JS + Python deps, create .env
+setup: .env $(VENV)/.installed $(WEB_DIR)/node_modules/.installed model ## Install JS + Python deps, fetch the embedding model, create .env
 	@echo "==> setup complete. next: make demo"
+
+# ~130 MB, downloaded once (AMENDMENTS A5). Kept inside `setup` rather than in
+# the test targets — unlike Playwright's browser, the product itself needs this,
+# and `make demo` must work offline afterwards.
+model: $(VENV)/.installed ## Download the local embedding model
+	@cd $(API_DIR) && ../../$(PY) -c "\
+	from nightshift.domain.embeddings import FastEmbedEmbedder, cache_dir, real_model_available; \
+	print('==> embedding model already present at', cache_dir()) if real_model_available() else \
+	(FastEmbedEmbedder().embed(['warm the cache']), print('==> embedding model ready at', cache_dir()))"
 
 doctor: ## Check that required tooling is present
 	@$(PYTHON) scripts/doctor.py
