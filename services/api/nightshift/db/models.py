@@ -25,6 +25,7 @@ from datetime import datetime
 from typing import Any
 
 from geoalchemy2 import Geometry
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     CheckConstraint,
     ForeignKey,
@@ -424,3 +425,103 @@ class IngestionRun(UUIDPrimaryKeyMixin, Base):
     )
 
     source: Mapped[Source] = relationship(lazy="raise")
+
+
+class JobStatusEvent(UUIDPrimaryKeyMixin, Base):
+    """Append-only record of every closure-machine transition (ADR 0009).
+
+    Exists because reopening is permitted. A reposted job returns to ``open``
+    with ``closed_at`` back to NULL, so without this table the fact that it ever
+    closed is gone — and I6's standard of evidence would have nothing to point
+    at. ``reason`` is the sentence the decision function produced at the time,
+    which is what a human reads when asking why a job disappeared.
+
+    Append-only is enforced by a trigger, per CLAUDE.md §7. A table that is
+    append-only by convention is a comment.
+    """
+
+    __tablename__ = "job_status_events"
+    __table_args__ = (Index("ix_job_status_events_job_id_created_at", "job_id", "created_at"),)
+
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False
+    )
+    # Null on the first event of a job's life: it transitioned from nothing, and
+    # writing `open -> open` would be a fabricated event.
+    from_status: Mapped[JobStatus | None] = mapped_column(_enum(JobStatus, "job_status"))
+    to_status: Mapped[JobStatus] = mapped_column(_enum(JobStatus, "job_status"), nullable=False)
+    reason: Mapped[str] = mapped_column(String(200), nullable=False)
+    # Which poll produced this. SET NULL rather than CASCADE: pruning old run
+    # rows must never delete the closure history they caused.
+    ingestion_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("ingestion_runs.id", ondelete="SET NULL")
+    )
+    observed_misses: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, nullable=False, server_default=text("now()")
+    )
+
+
+class JobEmbedding(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """One vector per canonical job description (AMENDMENTS A5).
+
+    ``model_name`` and ``dimension`` are stored on every row so that replacing
+    the model is a backfill rather than a mystery. ``source_hash`` is the
+    description hash the vector was computed from, which is what lets a re-poll
+    of an unchanged posting skip the model entirely.
+
+    No vector index, deliberately. At a few thousand jobs a sequential scan
+    within one company's candidates beats maintaining one, and an ivfflat index
+    built on a nearly-empty table returns wrong neighbours rather than slow
+    ones. Add an index with a measurement behind it, not in advance.
+    """
+
+    __tablename__ = "job_embeddings"
+    __table_args__ = (UniqueConstraint("job_id", name="uq_job_embeddings_job_id"),)
+
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False
+    )
+    model_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    dimension: Mapped[int] = mapped_column(Integer, nullable=False)
+    embedding: Mapped[list[float]] = mapped_column(Vector(384), nullable=False)
+    source_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
+class JobMergeEvent(UUIDPrimaryKeyMixin, Base):
+    """Append-only record of one dedupe merge, with the evidence behind it.
+
+    Invariant I4 in spirit, one milestone before I4's subsystem exists: a merge
+    stores its reason, its confidence and its ruleset version, not just its
+    verdict. ``loser_job_id`` deliberately carries no foreign key — the row it
+    names is deleted by the merge, and an FK would make the audit trail
+    unstorable at the exact moment it becomes useful.
+
+    Reversibility does not depend on ``loser_snapshot`` being complete: canonical
+    jobs are derived from ``source_job_records.raw_payload``, which is preserved
+    verbatim. The snapshot makes an un-merge cheap; the raw payloads make it
+    possible.
+    """
+
+    __tablename__ = "job_merge_events"
+    __table_args__ = (
+        Index("ix_job_merge_events_winner_job_id", "winner_job_id"),
+        CheckConstraint(
+            "match_confidence BETWEEN 0 AND 1", name="merge_confidence_is_a_probability"
+        ),
+        # A self-merge deletes the winner. Cheap insurance against a
+        # candidate-generation bug that stops excluding the job itself.
+        CheckConstraint("winner_job_id <> loser_job_id", name="merge_has_two_distinct_jobs"),
+    )
+
+    winner_job_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False
+    )
+    loser_job_id: Mapped[uuid.UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
+    loser_snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    reason: Mapped[str] = mapped_column(String(200), nullable=False)
+    match_confidence: Mapped[float] = mapped_column(NUMERIC(4, 3), nullable=False)
+    ruleset_version: Mapped[str] = mapped_column(String(20), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, nullable=False, server_default=text("now()")
+    )
