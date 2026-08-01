@@ -19,6 +19,7 @@ twice would produce different canonical jobs.
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -48,6 +49,11 @@ DEDUPE_RULESET_VERSION = "1"
 # Re-derive when the fixture set grows, and bump DEDUPE_RULESET_VERSION when
 # this changes.
 SIMILARITY_THRESHOLD = 0.85
+
+# `content_hash(None)` is the sha256 of the empty string, not a null. Two
+# postings with no description therefore carry identical, perfectly real
+# hashes, and layer 2 must refuse to read that as evidence.
+EMPTY_DESCRIPTION_HASH = hashlib.sha256(b"").hexdigest()
 
 # Tracking parameters carry no identity. Everything else in the query string is
 # kept: some boards identify the posting there, and stripping the whole query
@@ -186,7 +192,17 @@ def compare(a: DedupeCandidate, b: DedupeCandidate) -> DedupeVerdict:
         return DedupeVerdict(False, "no_shared_location")
 
     # Layer 2 — byte-identical descriptions, under an agreeing title and office.
-    if a.description_hash == b.description_hash:
+    #
+    # The empty hash is excluded explicitly. `content_hash(None)` returns a real
+    # sha256 — of the empty string — so without this guard two postings that
+    # both lack a description would compare equal and merge. That is a merge
+    # made on two absences rather than on evidence, and it is the same failure
+    # shape as two null URLs matching each other.
+    if (
+        a.description_hash
+        and a.description_hash != EMPTY_DESCRIPTION_HASH
+        and a.description_hash == b.description_hash
+    ):
         return DedupeVerdict(True, "identical_content", 0.99)
 
     # Layer 3 — ADR 0010. Reachable only once company, employment type, title

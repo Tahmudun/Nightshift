@@ -265,3 +265,52 @@ class TestLocationKey:
         """`str(None)` would make an unparsed location match another unparsed
         one, merging two jobs on the basis of two failures."""
         assert location_key(None, None, None) == "||"
+
+
+class TestAbsenceIsNotEvidence:
+    """Two things missing must never look like two things agreeing.
+
+    Both cases here are merges made from a pair of absences rather than from
+    any positive signal, and both were reachable before the guards that stop
+    them. They are grouped because they are one mistake in two places.
+    """
+
+    @staticmethod
+    def _candidate(**overrides: Any) -> DedupeCandidate:
+        base: dict[str, Any] = {
+            "company_key": "acme",
+            "canonical_url": "https://boards.greenhouse.io/acme/jobs/1",
+            "normalized_title": "software engineer",
+            "employment_type": EmploymentType.FULL_TIME,
+            "location_keys": frozenset({"new york|new york|"}),
+            "description_hash": "abc",
+        }
+        return DedupeCandidate(**{**base, **overrides})
+
+    def test_two_postings_with_no_description_do_not_merge(self) -> None:
+        """content_hash(None) is the sha256 of the empty string — a real hash,
+        equal on both sides. Without the guard these merge on "identical
+        content" while having no content at all."""
+        from nightshift.adapters.greenhouse import content_hash
+
+        empty = content_hash(None)
+        assert empty == content_hash("")
+        assert len(empty) == 64  # a genuine digest, not a sentinel
+
+        a = self._candidate(
+            canonical_url="https://boards.greenhouse.io/acme/jobs/1", description_hash=empty
+        )
+        b = self._candidate(
+            canonical_url="https://boards.greenhouse.io/acme/jobs/2", description_hash=empty
+        )
+        verdict = compare(a, b)
+        assert verdict.merge is False, "two descriptionless postings merged on their emptiness"
+
+    def test_a_real_shared_description_still_merges(self) -> None:
+        """The control: the guard must exclude the empty hash specifically, not
+        disable layer 2."""
+        a = self._candidate(canonical_url="https://boards.greenhouse.io/acme/jobs/1")
+        b = self._candidate(canonical_url="https://boards.greenhouse.io/acme/jobs/2")
+        verdict = compare(a, b)
+        assert verdict.merge is True
+        assert verdict.reason == "identical_content"
