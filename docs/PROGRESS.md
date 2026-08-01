@@ -3,36 +3,33 @@
 > Read this first, every session. If the repo state does not match what this
 > file claims, fix this file before writing code.
 
-**Current milestone: M1 — Employment data spine. M1a done + CI-green (unmerged), M1b next.**
+**Current milestone: M1 — Employment data spine. M1a merged into `main`, M1b next.**
 **M0: COMPLETE — 6 of 6 acceptance criteria verified at commit `4c1643f`.**
-**M1a: complete and CI-verified green at `430347a`. PR open, NOT yet merged.**
-**Last updated: 2026-07-31**
+**M1a: COMPLETE, CI-green at `430347a`, merged to `main` as PR #1 (`54ef35a`).**
+**Last updated: 2026-08-01**
 
 ---
 
 ## Next exact action
 
-### ⚠️ First: M1a is CI-green but NOT MERGED
+### M1a is merged. The branch and its worktree are gone.
 
-**Do not start M1b on `main` — `main` does not contain M1a.** All 24 commits
-live on branch `m1a-provider-breadth`, pushed to origin, PR open, CI green.
+PR #1 was merged by the human, so `main` is at `54ef35a` and contains all 24
+M1a commits. Verified this session by `git branch -r --contains
+origin/m1a-provider-breadth`, which lists `origin/main`. The worktree at
+`.claude/worktrees/m1a-provider-breadth` was removed and the local branch
+deleted; the remote branch still exists and is harmless.
 
-| Thing | State |
-|---|---|
-| Branch `m1a-provider-breadth` | 24 commits, pushed, **not merged** |
-| `main` | still at `3e3dee1` — contains none of M1a |
-| Pull request | **open** against `main` |
-| CI | **GREEN.** Run #9 at `430347a`, all five jobs: https://github.com/Tahmudun/Nightshift/actions/runs/30592177638 |
-| Worktree | preserved at `.claude/worktrees/m1a-provider-breadth` |
+**Verified at `54ef35a` on this host, from a clean shell:** `make check` →
+`337 passed, 13 skipped` (Python), `35 passed` (web), ruff clean, mypy clean on
+31 source files, eslint clean.
 
-**Remaining human actions:**
-
-1. Merge the PR.
-2. **Free disk space (B4).** The host is at 100% — 180 MB free — and Docker
-   cannot start, so nothing that needs postgres/redis can run locally. ~10 GB
-   is comfortable. `~/Downloads` alone is 87 GB.
-3. `git worktree remove .claude/worktrees/m1a-provider-breadth`
-4. Delete this block, then start M1b from the merged `main`.
+**The 13 skips are the database tests, and they are the one thing this host
+still cannot run** — see B4 below. `conftest.py` skips them when Postgres is
+unreachable, which is the honest behaviour, but it does mean the local run
+above is *not* evidence for anything in `test_ingestion.py` or
+`test_routes.py`. CI is. Which makes the CI gap below worth closing rather than
+leaving as an inference.
 
 **CI evidence, and its one gap.** Run #9 passed first try — worth noting
 against M0, which needed three runs and whose two failures found five defects.
@@ -55,8 +52,7 @@ service is not doing its job.
 Dedupe, freshness, the closure state machine, the admin job table, and the
 source health page. No M1b plan file exists yet — write one (per
 `superpowers:writing-plans`) before touching code, the same way M1a's plan was
-written before Task 1 started. Do this **from the merged `main`**, not from the
-M1a worktree.
+written before Task 1 started.
 
 M1 was split into four plans, because `CLAUDE.md` §6 lists four independent
 subsystems under one milestone and a single plan for all of them would not
@@ -184,26 +180,39 @@ green. The fix did what it was written to do.
 
 ## Blockers
 
-### B4 — Host disk full again; Docker cannot start — OPEN 2026-07-31
+### B4 — Docker will not start — STILL OPEN 2026-08-01 (disk part resolved)
 
-`/System/Volumes/Data` is at **100% — 180 MB free** of 233 GB. B2 recovered to
-5.8 GB free at the end of the CI session; it has since filled completely.
-Docker Desktop's engine now refuses to start (`Docker Desktop is unable to
-start`), so postgres and redis cannot run on this host. Blocked locally until
-space is freed: `make up`, `make migrate`, `make demo`, `make acceptance`, and
-the 13 database-backed tests (which skip, per `tests/conftest.py`, when the
-database is unreachable).
+**The disk half is fixed and the Docker half is not.** These were one blocker
+on 2026-07-31 and they have come apart, so treat them separately.
 
-Verified in this session despite the blocker: `make check` passes —
+**Disk — resolved.** `/System/Volumes/Data` now reports **12 GB free** of
+233 GB, up from 180 MB. Freed by the human; nothing in this project was
+deleted by an agent. That clears the condition B4 was originally written about
+and puts the host above the ~10 GB working figure.
+
+**Docker — still down.** With 12 GB free, `open -a Docker` starts
+`com.docker.backend` (two processes, confirmed by `pgrep`) but **no socket is
+ever created**: `~/.docker/run/` stays empty and `docker info` fails with
+`dial unix /Users/tahmudun/.docker/run/docker.sock: connect: no such file or
+directory` after **180 s** of polling. So the engine failing to start was not
+only a symptom of the full disk, and freeing space did not fix it on its own.
+
+The likely cause is the same one B3 records — after the disk filled, Docker
+Desktop came back showing an Electron error dialog, and a dialog waiting for a
+click cannot be answered from a shell. **This needs a human at the GUI:** open
+Docker Desktop, dismiss whatever it is showing, and if it still refuses, use
+its *Troubleshoot → Reset to factory defaults* (the VM is disposable — every
+container here is rebuilt by `make up`, and the only volume is fixture data
+that `make seed` recreates).
+
+Blocked locally until then: `make up`, `make migrate`, `make demo`,
+`make acceptance`, and the 13 database-backed tests, which **skip** rather than
+fail (`tests/conftest.py`) when the database is unreachable.
+
+Verified at `54ef35a` despite the blocker: `make check` passes —
 `337 passed, 13 skipped` Python, 35 web. The skips are the documented
 database-unreachable condition, not a code regression, and CI run #9 at
 `430347a` remains the evidence that all 350 pass against a real database.
-
-Where the space is (measured only — **nothing was deleted**): `~/Downloads`
-87 GB, `~/Projects` 7.4 GB, Docker VM 7.7 GB actual (`Docker.raw` reports a
-sparse apparent size of 233 GB; ignore it), `~/Library/Caches` 1.5 GB. The
-rest is outside the places this project may look. Freeing space is a human
-action; ~10 GB is comfortable for the stack plus one CI-equivalent image pull.
 
 ### B1 — No container runtime — RESOLVED 2026-07-30
 
