@@ -44,11 +44,13 @@ from nightshift.db.models import (
     Job,
     JobLocation,
     JobSourceLink,
+    JobStatusEvent,
     Source,
     SourceJobRecord,
 )
 from nightshift.db.types import utcnow
 from nightshift.domain.companies import normalize_company_name
+from nightshift.domain.freshness import RecordObservation, decide_job_status
 
 log = structlog.get_logger(__name__)
 
@@ -68,8 +70,8 @@ class IngestionStats:
     updated: int = 0
     unchanged: int = 0
     failed: int = 0
-    # `closed` stays at zero for the whole of M0: the closure state machine is
-    # an M1 deliverable, and closing a job requires evidence M0 cannot gather.
+    # Jobs that transitioned to `closed` during this run (ADR 0009). Only ever
+    # non-zero for boards that answered — see apply_freshness.
     closed: int = 0
     boards_ok: list[str] = field(default_factory=list)
     boards_failed: list[str] = field(default_factory=list)
@@ -348,6 +350,125 @@ async def _canonical_job_for(session: AsyncSession, record: SourceJobRecord) -> 
     return job
 
 
+async def apply_freshness(
+    session: AsyncSession,
+    *,
+    source: Source,
+    polled_tokens: Sequence[str],
+    run: IngestionRun,
+    now: datetime,
+) -> int:
+    """Age every record on the boards that answered, then re-decide their jobs.
+
+    ``polled_tokens`` carries only the boards whose fetch succeeded, and that
+    argument is where invariant I3 lives in this function. A board that failed
+    is not in the list, so none of its records are aged and none of its jobs
+    are re-decided. There is deliberately no parameter by which a caller could
+    ask for a failed board to be processed anyway — the guard is structural,
+    not a condition someone can forget to write.
+
+    Returns the number of jobs that newly became ``closed``.
+    """
+    if not polled_tokens:
+        return 0
+
+    tokens = list(polled_tokens)
+
+    # A record on a board that answered, which this run did not touch, was not
+    # in the response. `last_seen_at < now` is the test for that: persisting a
+    # posting sets it to `now`, so anything older was absent from the payload.
+    stale_records = (
+        (
+            await session.execute(
+                select(SourceJobRecord).where(
+                    SourceJobRecord.source_id == source.id,
+                    SourceJobRecord.source_company_key.in_(tokens),
+                    SourceJobRecord.last_seen_at < now,
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for record in stale_records:
+        record.consecutive_misses += 1
+        record.source_status = SourceStatus.MISSING
+    await session.flush()
+
+    # Re-decide every job reachable from this source's polled boards, not only
+    # the ones that just went missing: a job whose second source vanished has
+    # not changed itself, but its verdict may have.
+    jobs = (
+        (
+            await session.execute(
+                select(Job)
+                .join(JobSourceLink, JobSourceLink.job_id == Job.id)
+                .join(
+                    SourceJobRecord,
+                    SourceJobRecord.id == JobSourceLink.source_job_record_id,
+                )
+                .where(
+                    SourceJobRecord.source_id == source.id,
+                    SourceJobRecord.source_company_key.in_(tokens),
+                )
+                .distinct()
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    closed = 0
+    for job in jobs:
+        # Every record describing this job, across all sources — not only the
+        # one being polled. A job listed by two boards is missing only when
+        # both stop listing it, and that is decided in freshness.py.
+        observations = (
+            await session.execute(
+                select(SourceJobRecord.consecutive_misses, SourceJobRecord.last_seen_at)
+                .join(
+                    JobSourceLink,
+                    JobSourceLink.source_job_record_id == SourceJobRecord.id,
+                )
+                .where(JobSourceLink.job_id == job.id)
+            )
+        ).all()
+
+        decision = decide_job_status(
+            current=job.status,
+            records=[
+                RecordObservation(consecutive_misses=misses, last_seen_at=last_seen)
+                for misses, last_seen in observations
+            ],
+            board_last_success_at=source.last_success_at,
+            now=now,
+        )
+        if decision.status is job.status:
+            # Not a transition. Writing a row per poll would bury the real
+            # transitions under thousands of no-ops.
+            continue
+
+        session.add(
+            JobStatusEvent(
+                job_id=job.id,
+                from_status=job.status,
+                to_status=decision.status,
+                reason=decision.reason,
+                ingestion_run_id=run.id,
+                observed_misses=min((m for m, _ in observations), default=None),
+            )
+        )
+        job.status = decision.status
+        # The `closed_at_matches_status` check constraint pairs these two, so a
+        # buggy transition is a database error rather than a silent one.
+        job.closed_at = now if decision.status is JobStatus.CLOSED else None
+        if decision.status is JobStatus.CLOSED:
+            closed += 1
+
+    await session.flush()
+    return closed
+
+
 async def ingest_boards(
     session: AsyncSession,
     adapter: JobSourceAdapter,
@@ -378,7 +499,8 @@ async def ingest_boards(
     for board in boards:
         outcome = await adapter.fetch_board(board)
         if not outcome.ok:
-            # I3: we learned nothing. No listing state changes, nothing closes.
+            # I3: we learned nothing. No listing state changes, nothing closes,
+            # and — crucially — no miss counter moves. See apply_freshness.
             stats.boards_failed.append(board.token)
             stats.errors.append(f"{board.ats}:{board.token}: {outcome.error}")
             source.last_failure_at = timestamp
@@ -386,8 +508,16 @@ async def ingest_boards(
             continue
 
         stats.boards_ok.append(board.token)
-        await _persist_outcome(session, adapter, outcome, source=source, stats=stats, now=timestamp)
+        # Set before apply_freshness reads it, or the first poll of a new source
+        # would decide `unverified` on a board that just answered.
         source.last_success_at = timestamp
+        await _persist_outcome(session, adapter, outcome, source=source, stats=stats, now=timestamp)
+
+    # Only the boards that answered. A failed board contributes no evidence and
+    # is not in this list.
+    stats.closed = await apply_freshness(
+        session, source=source, polled_tokens=stats.boards_ok, run=run, now=timestamp
+    )
 
     run.finished_at = utcnow()
     run.status = stats.status
