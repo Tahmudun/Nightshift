@@ -83,6 +83,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["T20"]
 "nightshift/cli.py" = ["T20"]          # a CLI prints; that is its job
+"scripts/*" = ["T20"]                  # so does a script run by a human
 
 # ---------------------------------------------------------------------------
 # mypy

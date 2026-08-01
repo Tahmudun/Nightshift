@@ -18,6 +18,12 @@ import yaml
 
 from nightshift.db.base import EmploymentType
 from nightshift.domain.dedupe import DedupeCandidate, compare, location_key, normalize_url
+from nightshift.domain.embeddings import (
+    Embedder,
+    StubEmbedder,
+    default_embedder,
+    real_model_available,
+)
 
 FIXTURE = Path(__file__).parent / "fixtures" / "dedupe_pairs.yaml"
 
@@ -26,7 +32,22 @@ def _cases() -> list[dict[str, Any]]:
     return list(yaml.safe_load(FIXTURE.read_text())["cases"])
 
 
+def _embedder() -> Embedder:
+    """The real model when present, the stub otherwise.
+
+    Verdict assertions are only *made* under the real model — see the skip in
+    ``test_labelled_pair_gets_the_expected_verdict``. The threshold was derived
+    against that model, and a green run against a trigram hash would be
+    evidence of nothing. The stub is here so the structural tests (symmetry,
+    cross-company blocking) still exercise the similarity code path when the
+    weights are absent.
+    """
+    return default_embedder() if real_model_available() else StubEmbedder()
+
+
 def _candidate(spec: dict[str, Any], *, company: str = "acme") -> DedupeCandidate:
+    description = spec.get("description")
+    embedding = _embedder().embed([description])[0] if description else None
     return DedupeCandidate(
         company_key=company,
         canonical_url=spec.get("canonical_url"),
@@ -34,13 +55,19 @@ def _candidate(spec: dict[str, Any], *, company: str = "acme") -> DedupeCandidat
         employment_type=EmploymentType(spec["employment_type"]),
         location_keys=frozenset(spec.get("locations", [])),
         description_hash=spec["description_hash"],
-        description=spec.get("description"),
-        embedding=None,
+        description=description,
+        embedding=embedding,
     )
+
+
+def _needs_the_real_model(case: dict[str, Any]) -> bool:
+    return bool(case["a"].get("description") and case["b"].get("description"))
 
 
 @pytest.mark.parametrize("case", _cases(), ids=lambda c: c["name"])
 def test_labelled_pair_gets_the_expected_verdict(case: dict[str, Any]) -> None:
+    if _needs_the_real_model(case) and not real_model_available():
+        pytest.skip("embedding model not downloaded — run `make model`")
     verdict = compare(_candidate(case["a"]), _candidate(case["b"]))
     expected_merge = case["verdict"] == "merge"
     assert verdict.merge is expected_merge, (
@@ -107,6 +134,73 @@ def test_every_merge_verdict_carries_a_reason_and_a_confidence() -> None:
         if verdict.merge:
             assert verdict.reason
             assert 0.0 < verdict.confidence <= 1.0
+
+
+class TestSimilarityIsConfined:
+    """ADR 0010's central constraint, asserted rather than trusted.
+
+    If any of these fail, the layer ordering has been inverted and a number is
+    deciding on its own — which is the one thing the human's choice to include
+    similarity was made conditional on.
+    """
+
+    @staticmethod
+    def _pair(**overrides: Any) -> tuple[DedupeCandidate, DedupeCandidate]:
+        text = "Backend engineer building payment systems in Python and Go."
+        embedding = _embedder().embed([text])[0]
+        base: dict[str, Any] = {
+            "company_key": "acme",
+            "employment_type": EmploymentType.FULL_TIME,
+            "location_keys": frozenset({"new york|new york|"}),
+            "normalized_title": "backend engineer",
+            "description": text,
+            "embedding": embedding,
+        }
+        a = DedupeCandidate(
+            **{**base, "canonical_url": "https://boards.greenhouse.io/acme/jobs/90"},
+            description_hash="x",
+        )
+        b = DedupeCandidate(
+            **{**base, **overrides, "canonical_url": "https://boards.greenhouse.io/acme/jobs/91"},
+            description_hash="y",
+        )
+        return a, b
+
+    def test_identical_text_still_merges_when_everything_agrees(self) -> None:
+        """The control. Without this, the three tests below could pass because
+        the similarity layer is broken rather than because it is confined."""
+        a, b = self._pair()
+        verdict = compare(a, b)
+        assert verdict.merge is True
+        assert verdict.reason == "similar_description"
+
+    def test_similarity_cannot_overcome_a_different_title(self) -> None:
+        a, b = self._pair(normalized_title="staff backend engineer")
+        verdict = compare(a, b)
+        assert verdict.merge is False
+        assert verdict.reason == "different_title"
+
+    def test_similarity_cannot_overcome_a_different_location(self) -> None:
+        a, b = self._pair(location_keys=frozenset({"denver|colorado|"}))
+        verdict = compare(a, b)
+        assert verdict.merge is False
+        assert verdict.reason == "no_shared_location"
+
+    def test_similarity_cannot_overcome_a_different_employment_type(self) -> None:
+        a, b = self._pair(employment_type=EmploymentType.INTERNSHIP)
+        verdict = compare(a, b)
+        assert verdict.merge is False
+        assert verdict.reason == "different_employment_type"
+
+    def test_similarity_never_outranks_byte_identical_content(self) -> None:
+        """Layer 2 compares actual bytes and earns 0.99; layer 3 compares a
+        number and is capped below it. A merge's confidence has to reflect what
+        was actually checked."""
+        from nightshift.domain.dedupe import SIMILARITY_THRESHOLD
+
+        a, b = self._pair()
+        assert compare(a, b).confidence <= 0.95
+        assert SIMILARITY_THRESHOLD < 1.0
 
 
 class TestUrlNormalisation:

@@ -23,11 +23,31 @@ from dataclasses import dataclass
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from nightshift.db.base import EmploymentType
+from nightshift.domain.embeddings import cosine_similarity
 
 # Bumped whenever a layer, a threshold or a blocking rule changes. Stored on
 # every merge event, so a change in merge behaviour is attributable rather than
 # archaeological.
 DEDUPE_RULESET_VERSION = "1"
+
+# Derived from tests/fixtures/dedupe_pairs.yaml by
+# scripts/derive_dedupe_threshold.py, not chosen. Measured 2026-08-01 under
+# bge-small-en-v1.5:
+#
+#     0.9693  merge     edited_description_still_merges
+#     0.9370  merge     cross_posted_reworded_text
+#     0.7640  distinct  same_title_genuinely_different_role
+#
+# Any value in (0.7640, 0.9370] separates the labelled set; this is the
+# midpoint. The midpoint rather than something more cautious because the
+# caution already lives in the layer ordering — similarity is unreachable
+# until company, employment type, title and location all agree — and doubling
+# it here would only cost true merges without buying protection the blocking
+# rules do not already provide.
+#
+# Re-derive when the fixture set grows, and bump DEDUPE_RULESET_VERSION when
+# this changes.
+SIMILARITY_THRESHOLD = 0.85
 
 # Tracking parameters carry no identity. Everything else in the query string is
 # kept: some boards identify the posting there, and stripping the whole query
@@ -168,5 +188,18 @@ def compare(a: DedupeCandidate, b: DedupeCandidate) -> DedupeVerdict:
     # Layer 2 — byte-identical descriptions, under an agreeing title and office.
     if a.description_hash == b.description_hash:
         return DedupeVerdict(True, "identical_content", 0.99)
+
+    # Layer 3 — ADR 0010. Reachable only once company, employment type, title
+    # and location already agree, so similarity breaks a tie and never makes a
+    # match on its own. A pair disagreeing on any of the above never arrives
+    # here, however high it would have scored.
+    if a.embedding is not None and b.embedding is not None:
+        similarity = cosine_similarity(a.embedding, b.embedding)
+        if similarity >= SIMILARITY_THRESHOLD:
+            # Confidence is the similarity itself, capped below the 0.99 that
+            # layer 2 earns by comparing actual bytes. A number is not a reason,
+            # and this layer must never outrank one that compared content.
+            return DedupeVerdict(True, "similar_description", min(similarity, 0.95))
+        return DedupeVerdict(False, "below_similarity_threshold")
 
     return DedupeVerdict(False, "no_matching_layer")
