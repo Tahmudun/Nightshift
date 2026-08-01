@@ -1,0 +1,279 @@
+# Labelled pairs for the dedupe evaluation suite (PRODUCT-SPEC §7.5, ADR 0010).
+#
+#   verdict: merge     these two describe one real-world opening
+#   verdict: distinct  these are two different jobs, and merging them costs the
+#                      user one of them permanently
+#
+# The `distinct` cases are the load-bearing half. A missed merge shows someone
+# the same job twice, which is obvious and self-correcting. A wrong merge
+# deletes a real opening from their view and they never learn it existed.
+#
+# Every case here is `synthetic: true`: these are dedupe *scenarios*, and no
+# single recorded board exhibits them. The recorded payloads in
+# tests/fixtures/{lever,ashby,greenhouse} remain the source of truth for field
+# shapes; this file is the source of truth for merge policy. Location strings
+# and title forms are taken from those recordings so the shapes are real even
+# where the pairings are constructed.
+#
+# `locations` entries are location_key() output: "city|state|country",
+# casefolded.
+
+cases:
+  # --- 1. True duplicates ---------------------------------------------------
+  - name: same_posting_seen_twice
+    category: true_duplicate
+    synthetic: true
+    verdict: merge
+    expect_reason: same_canonical_url
+    a:
+      canonical_url: "https://jobs.lever.co/alloy/abc-123"
+      normalized_title: "senior software engineer"
+      employment_type: full_time
+      locations: ["new york|new york|"]
+      description_hash: "aaa"
+    b:
+      canonical_url: "https://jobs.lever.co/alloy/abc-123?utm_source=linkedin"
+      normalized_title: "senior software engineer"
+      employment_type: full_time
+      locations: ["new york|new york|"]
+      description_hash: "bbb"
+
+  - name: cross_posted_identical_text
+    category: true_duplicate
+    synthetic: true
+    verdict: merge
+    expect_reason: identical_content
+    a:
+      canonical_url: "https://boards.greenhouse.io/acme/jobs/1"
+      normalized_title: "backend engineer"
+      employment_type: full_time
+      locations: ["new york|new york|"]
+      description_hash: "ccc"
+    b:
+      canonical_url: "https://jobs.lever.co/acme/2"
+      normalized_title: "backend engineer"
+      employment_type: full_time
+      locations: ["new york|new york|"]
+      description_hash: "ccc"
+
+  # --- 2. Near duplicates ---------------------------------------------------
+  # Same role, same office, copy reworded between the two boards. Layers 1 and 2
+  # cannot see this, and it is the entire reason ADR 0010 admits similarity.
+  - name: cross_posted_reworded_text
+    category: near_duplicate
+    synthetic: true
+    verdict: merge
+    expect_reason: similar_description
+    a:
+      canonical_url: "https://boards.greenhouse.io/acme/jobs/3"
+      normalized_title: "backend engineer"
+      employment_type: full_time
+      locations: ["new york|new york|"]
+      description_hash: "ddd"
+      description: >-
+        We are looking for a backend engineer to build and operate the services
+        behind our payments platform. You will work in Python and Go, own
+        systems end to end, and partner closely with product.
+    b:
+      canonical_url: "https://jobs.lever.co/acme/4"
+      normalized_title: "backend engineer"
+      employment_type: full_time
+      locations: ["new york|new york|"]
+      description_hash: "eee"
+      description: >-
+        Backend engineer wanted to build and run the services powering our
+        payments platform. Python and Go, end-to-end ownership, and close
+        collaboration with the product team.
+
+  # --- 3. Distinct roles with similar titles --------------------------------
+  # The case §7.5 calls out by name: do not merge on title similarity.
+  - name: engineer_two_and_three_are_different_jobs
+    category: distinct_similar_title
+    synthetic: true
+    verdict: distinct
+    a:
+      canonical_url: "https://boards.greenhouse.io/acme/jobs/5"
+      normalized_title: "software engineer ii"
+      employment_type: full_time
+      locations: ["new york|new york|"]
+      description_hash: "fff"
+    b:
+      canonical_url: "https://boards.greenhouse.io/acme/jobs/6"
+      normalized_title: "software engineer iii"
+      employment_type: full_time
+      locations: ["new york|new york|"]
+      description_hash: "ggg"
+
+  - name: frontend_and_backend_share_a_stem
+    category: distinct_similar_title
+    synthetic: true
+    verdict: distinct
+    a:
+      canonical_url: "https://boards.greenhouse.io/acme/jobs/7"
+      normalized_title: "frontend engineer"
+      employment_type: full_time
+      locations: ["new york|new york|"]
+      description_hash: "hhh"
+    b:
+      canonical_url: "https://boards.greenhouse.io/acme/jobs/8"
+      normalized_title: "backend engineer"
+      employment_type: full_time
+      locations: ["new york|new york|"]
+      description_hash: "iii"
+
+  # --- 4. Reposts -----------------------------------------------------------
+  # A genuinely re-published requisition: new source id, new URL, same role,
+  # same office, unchanged text. One opening, and it must merge.
+  - name: repost_with_a_new_id
+    category: repost
+    synthetic: true
+    verdict: merge
+    expect_reason: identical_content
+    a:
+      canonical_url: "https://boards.greenhouse.io/acme/jobs/9"
+      normalized_title: "data engineer"
+      employment_type: full_time
+      locations: ["new york|new york|"]
+      description_hash: "jjj"
+    b:
+      canonical_url: "https://boards.greenhouse.io/acme/jobs/10"
+      normalized_title: "data engineer"
+      employment_type: full_time
+      locations: ["new york|new york|"]
+      description_hash: "jjj"
+
+  # --- 5. Seasonal internship variations ------------------------------------
+  # The blocking rule on employment type. An internship and a full-time role
+  # sharing a title are different jobs even when everything else matches — and
+  # on the recorded Ashby board they routinely do match on everything else.
+  - name: internship_never_merges_with_full_time
+    category: seasonal_internship
+    synthetic: true
+    verdict: distinct
+    a:
+      canonical_url: "https://jobs.ashbyhq.com/ramp/11"
+      normalized_title: "software engineer"
+      employment_type: internship
+      locations: ["new york|new york|"]
+      description_hash: "kkk"
+    b:
+      canonical_url: "https://jobs.ashbyhq.com/ramp/12"
+      normalized_title: "software engineer"
+      employment_type: full_time
+      locations: ["new york|new york|"]
+      description_hash: "kkk"
+
+  - name: summer_and_winter_internships_are_different_jobs
+    category: seasonal_internship
+    synthetic: true
+    verdict: distinct
+    a:
+      canonical_url: "https://jobs.ashbyhq.com/ramp/13"
+      normalized_title: "software engineer intern summer 2027"
+      employment_type: internship
+      locations: ["new york|new york|"]
+      description_hash: "lll"
+    b:
+      canonical_url: "https://jobs.ashbyhq.com/ramp/14"
+      normalized_title: "software engineer intern winter 2027"
+      employment_type: internship
+      locations: ["new york|new york|"]
+      description_hash: "mmm"
+
+  # --- 6. Jobs in multiple locations ----------------------------------------
+  # M0's dedupe note: keep multi-location roles distinct. Two postings of the
+  # same title in two cities are two openings.
+  - name: same_title_different_cities_stay_separate
+    category: multi_location
+    synthetic: true
+    verdict: distinct
+    a:
+      canonical_url: "https://jobs.lever.co/alloy/15"
+      normalized_title: "account executive"
+      employment_type: full_time
+      locations: ["new york|new york|"]
+      description_hash: "nnn"
+    b:
+      canonical_url: "https://jobs.lever.co/alloy/16"
+      normalized_title: "account executive"
+      employment_type: full_time
+      locations: ["denver|colorado|"]
+      description_hash: "nnn"
+
+  # One shared location out of several is enough: a role open in NYC and
+  # Denver, cross-posted, is still one role.
+  - name: overlapping_location_sets_merge
+    category: multi_location
+    synthetic: true
+    verdict: merge
+    expect_reason: identical_content
+    a:
+      canonical_url: "https://boards.greenhouse.io/acme/jobs/17"
+      normalized_title: "solutions architect"
+      employment_type: full_time
+      locations: ["new york|new york|", "denver|colorado|"]
+      description_hash: "ooo"
+    b:
+      canonical_url: "https://jobs.lever.co/acme/18"
+      normalized_title: "solutions architect"
+      employment_type: full_time
+      locations: ["new york|new york|", "austin|texas|"]
+      description_hash: "ooo"
+
+  # --- 7. Jobs with modified descriptions -----------------------------------
+  # Same posting, one paragraph added. The hash differs; it is still one job.
+  - name: edited_description_still_merges
+    category: modified_description
+    synthetic: true
+    verdict: merge
+    expect_reason: similar_description
+    a:
+      canonical_url: "https://boards.greenhouse.io/acme/jobs/19"
+      normalized_title: "product designer"
+      employment_type: full_time
+      locations: ["new york|new york|"]
+      description_hash: "ppp"
+      description: >-
+        Product designer for our core experience. You will own flows end to
+        end, from research through high-fidelity design, and work daily with
+        engineers. Five years of experience with complex web products.
+    b:
+      canonical_url: "https://boards.greenhouse.io/acme/jobs/20"
+      normalized_title: "product designer"
+      employment_type: full_time
+      locations: ["new york|new york|"]
+      description_hash: "qqq"
+      description: >-
+        Product designer for our core experience. You will own flows end to
+        end, from research through high-fidelity design, and work daily with
+        engineers. Five years of experience with complex web products. This
+        role reports to the Head of Design and is hybrid, three days in office.
+
+  # A rewrite that is not the same job: same title and office, but the actual
+  # role changed. This is the pair that must not merge however high similarity
+  # gets, and it is why the threshold is derived from this file rather than
+  # chosen.
+  - name: same_title_genuinely_different_role
+    category: modified_description
+    synthetic: true
+    verdict: distinct
+    a:
+      canonical_url: "https://boards.greenhouse.io/acme/jobs/21"
+      normalized_title: "engineering manager"
+      employment_type: full_time
+      locations: ["new york|new york|"]
+      description_hash: "rrr"
+      description: >-
+        Engineering manager for our infrastructure group. You will lead a team
+        of eight, own reliability and cost, and be responsible for the roadmap
+        of our compute platform.
+    b:
+      canonical_url: "https://boards.greenhouse.io/acme/jobs/22"
+      normalized_title: "engineering manager"
+      employment_type: full_time
+      locations: ["new york|new york|"]
+      description_hash: "sss"
+      description: >-
+        Engineering manager for growth marketing engineering. You will lead a
+        team of four, own the experimentation platform, and partner with
+        marketing on acquisition funnels.
