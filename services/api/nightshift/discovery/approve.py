@@ -20,6 +20,7 @@ from typing import Any
 import yaml
 
 from nightshift.discovery.models import Candidate, CandidateFile, Verdict
+from nightshift.domain.companies import normalize_company_name
 
 # services/api/nightshift/discovery/approve.py -> repo root, matching the
 # arithmetic domain/registry.py does from the same depth.
@@ -39,14 +40,53 @@ def approvable(
     real board on both Lever and Ashby, and comparing tokens alone would hold a
     genuinely different employer's board forever.
     """
+    eligible = [
+        candidate
+        for candidate in file.candidates
+        if candidate.verdict is Verdict.LIVE_NAMED and candidate.key not in registry_tokens
+    ]
+    colliding = _names_claimed_more_than_once(eligible)
     return sorted(
-        (
-            candidate
-            for candidate in file.candidates
-            if candidate.verdict is Verdict.LIVE_NAMED and candidate.key not in registry_tokens
-        ),
+        (candidate for candidate in eligible if _name_key(candidate) not in colliding),
         key=_review_order,
     )
+
+
+def _name_key(candidate: Candidate) -> str | None:
+    """The candidate's employer identity, or None if it has no usable one.
+
+    Same normalisation the validator uses for the registry collision check, so
+    the two cannot disagree about whether two names are one employer.
+    """
+    if not candidate.company_name:
+        return None
+    try:
+        return normalize_company_name(candidate.company_name)
+    except ValueError:
+        return None
+
+
+def _names_claimed_more_than_once(candidates: list[Candidate]) -> set[str]:
+    """Employer names claimed by two or more candidates in the same batch.
+
+    The `name_collision` verdict is decided at validation time against names
+    already in the **registry**, so it cannot see two candidates in the *same
+    batch* naming one employer — and that is not hypothetical. The recorded
+    crawl slice yields both `Abridge` and `abridge`: two Ashby tokens, one
+    employer, 42 postings each. Promoting both would put two rows in the
+    registry for one company, poll the same board twice, and hand dedupe 42
+    duplicate jobs to merge back together.
+
+    Neither side wins. Both are held, because whether these are one employer
+    with two board slugs or two genuinely different companies is exactly the
+    judgement ADR 0005 reserves for a human.
+    """
+    seen: dict[str, int] = {}
+    for candidate in candidates:
+        key = _name_key(candidate)
+        if key is not None:
+            seen[key] = seen.get(key, 0) + 1
+    return {name for name, count in seen.items() if count > 1}
 
 
 def _review_order(candidate: Candidate) -> tuple[int, str]:

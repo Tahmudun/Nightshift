@@ -12,208 +12,208 @@
 candidates:
 - ats: ashby
   token: 0g
-  verdict: unvalidated
-  posting_count: 0
+  verdict: live_named
+  company_name: 0g Labs
+  posting_count: 3
   nyc_posting_count: 0
   first_seen: '2026-08-02'
-  last_validated: '0001-01-01'
+  last_validated: '2026-08-02'
   source: crawl_index
-  notes: harvested from a crawl index; no provider has been asked yet
 - ats: ashby
   token: 0x
-  verdict: unvalidated
+  verdict: empty
   posting_count: 0
   nyc_posting_count: 0
   first_seen: '2026-08-02'
-  last_validated: '0001-01-01'
+  last_validated: '2026-08-02'
   source: crawl_index
-  notes: harvested from a crawl index; no provider has been asked yet
+  notes: live board, zero open postings — re-validated on the next run
 - ats: ashby
   token: 10xteam
-  verdict: unvalidated
-  posting_count: 0
+  verdict: live_named
+  company_name: 10x Team
+  posting_count: 133
   nyc_posting_count: 0
   first_seen: '2026-08-02'
-  last_validated: '0001-01-01'
+  last_validated: '2026-08-02'
   source: crawl_index
-  notes: harvested from a crawl index; no provider has been asked yet
 - ats: ashby
   token: 1bios
-  verdict: unvalidated
-  posting_count: 0
+  verdict: live_named
+  company_name: 1bios
+  posting_count: 2
   nyc_posting_count: 0
   first_seen: '2026-08-02'
-  last_validated: '0001-01-01'
+  last_validated: '2026-08-02'
   source: crawl_index
-  notes: harvested from a crawl index; no provider has been asked yet
 - ats: ashby
   token: 1mind
-  verdict: unvalidated
-  posting_count: 0
+  verdict: live_named
+  company_name: 1mind
+  posting_count: 9
   nyc_posting_count: 0
   first_seen: '2026-08-02'
-  last_validated: '0001-01-01'
+  last_validated: '2026-08-02'
   source: crawl_index
-  notes: harvested from a crawl index; no provider has been asked yet
 - ats: ashby
   token: 1password
-  verdict: unvalidated
-  posting_count: 0
-  nyc_posting_count: 0
+  verdict: live_named
+  company_name: 1Password
+  posting_count: 68
+  nyc_posting_count: 1
   first_seen: '2026-08-02'
-  last_validated: '0001-01-01'
+  last_validated: '2026-08-02'
   source: crawl_index
-  notes: harvested from a crawl index; no provider has been asked yet
 - ats: ashby
   token: 1x
-  verdict: unvalidated
-  posting_count: 0
+  verdict: live_named
+  company_name: 1X
+  posting_count: 81
   nyc_posting_count: 0
   first_seen: '2026-08-02'
-  last_validated: '0001-01-01'
+  last_validated: '2026-08-02'
   source: crawl_index
-  notes: harvested from a crawl index; no provider has been asked yet
 - ats: ashby
   token: 3imembers
-  verdict: unvalidated
-  posting_count: 0
-  nyc_posting_count: 0
+  verdict: live_named
+  company_name: 3i Members
+  posting_count: 8
+  nyc_posting_count: 5
   first_seen: '2026-08-02'
-  last_validated: '0001-01-01'
+  last_validated: '2026-08-02'
   source: crawl_index
-  notes: harvested from a crawl index; no provider has been asked yet
 - ats: ashby
   token: 42dot
-  verdict: unvalidated
-  posting_count: 0
+  verdict: live_named
+  company_name: 42dot
+  posting_count: 114
   nyc_posting_count: 0
   first_seen: '2026-08-02'
-  last_validated: '0001-01-01'
+  last_validated: '2026-08-02'
   source: crawl_index
-  notes: harvested from a crawl index; no provider has been asked yet
 - ats: ashby
   token: 5bluesoftware
-  verdict: unvalidated
-  posting_count: 0
+  verdict: live_named
+  company_name: 5Blue Software
+  posting_count: 5
   nyc_posting_count: 0
   first_seen: '2026-08-02'
-  last_validated: '0001-01-01'
+  last_validated: '2026-08-02'
   source: crawl_index
-  notes: harvested from a crawl index; no provider has been asked yet
 - ats: ashby
   token: 8fleet-inc
-  verdict: unvalidated
-  posting_count: 0
+  verdict: live_named
+  company_name: 8Fleet Inc.
+  posting_count: 29
   nyc_posting_count: 0
   first_seen: '2026-08-02'
-  last_validated: '0001-01-01'
+  last_validated: '2026-08-02'
   source: crawl_index
-  notes: harvested from a crawl index; no provider has been asked yet
 - ats: ashby
   token: 8vc
-  verdict: unvalidated
-  posting_count: 0
+  verdict: live_named
+  company_name: 8VC
+  posting_count: 4
   nyc_posting_count: 0
   first_seen: '2026-08-02'
-  last_validated: '0001-01-01'
+  last_validated: '2026-08-02'
   source: crawl_index
-  notes: harvested from a crawl index; no provider has been asked yet
 - ats: ashby
   token: 9-mothers
-  verdict: unvalidated
-  posting_count: 0
+  verdict: live_named
+  company_name: 9 Mothers
+  posting_count: 13
   nyc_posting_count: 0
   first_seen: '2026-08-02'
-  last_validated: '0001-01-01'
+  last_validated: '2026-08-02'
   source: crawl_index
-  notes: harvested from a crawl index; no provider has been asked yet
 - ats: ashby
   token: 9fin
-  verdict: unvalidated
-  posting_count: 0
-  nyc_posting_count: 0
+  verdict: live_named
+  company_name: 9fin
+  posting_count: 40
+  nyc_posting_count: 12
   first_seen: '2026-08-02'
-  last_validated: '0001-01-01'
+  last_validated: '2026-08-02'
   source: crawl_index
-  notes: harvested from a crawl index; no provider has been asked yet
 - ats: ashby
   token: Aaron-School
-  verdict: unvalidated
-  posting_count: 0
-  nyc_posting_count: 0
+  verdict: live_named
+  company_name: Aaron School
+  posting_count: 2
+  nyc_posting_count: 2
   first_seen: '2026-08-02'
-  last_validated: '0001-01-01'
+  last_validated: '2026-08-02'
   source: crawl_index
-  notes: harvested from a crawl index; no provider has been asked yet
 - ats: ashby
   token: Abridge
-  verdict: unvalidated
-  posting_count: 0
+  verdict: live_named
+  company_name: Abridge
+  posting_count: 42
   nyc_posting_count: 0
   first_seen: '2026-08-02'
-  last_validated: '0001-01-01'
+  last_validated: '2026-08-02'
   source: crawl_index
-  notes: harvested from a crawl index; no provider has been asked yet
 - ats: ashby
   token: a-place-for-mom
-  verdict: unvalidated
-  posting_count: 0
+  verdict: live_named
+  company_name: A Place for Mom
+  posting_count: 56
   nyc_posting_count: 0
   first_seen: '2026-08-02'
-  last_validated: '0001-01-01'
+  last_validated: '2026-08-02'
   source: crawl_index
-  notes: harvested from a crawl index; no provider has been asked yet
 - ats: ashby
   token: a-team
-  verdict: unvalidated
-  posting_count: 0
+  verdict: live_named
+  company_name: A.Team
+  posting_count: 3
   nyc_posting_count: 0
   first_seen: '2026-08-02'
-  last_validated: '0001-01-01'
+  last_validated: '2026-08-02'
   source: crawl_index
-  notes: harvested from a crawl index; no provider has been asked yet
 - ats: ashby
   token: a16z-new-media
-  verdict: unvalidated
-  posting_count: 0
-  nyc_posting_count: 0
+  verdict: live_named
+  company_name: a16z New Media
+  posting_count: 25
+  nyc_posting_count: 13
   first_seen: '2026-08-02'
-  last_validated: '0001-01-01'
+  last_validated: '2026-08-02'
   source: crawl_index
-  notes: harvested from a crawl index; no provider has been asked yet
 - ats: ashby
   token: abacum
-  verdict: unvalidated
-  posting_count: 0
-  nyc_posting_count: 0
+  verdict: live_named
+  company_name: Abacum
+  posting_count: 18
+  nyc_posting_count: 5
   first_seen: '2026-08-02'
-  last_validated: '0001-01-01'
+  last_validated: '2026-08-02'
   source: crawl_index
-  notes: harvested from a crawl index; no provider has been asked yet
 - ats: ashby
   token: abe
-  verdict: unvalidated
+  verdict: empty
   posting_count: 0
   nyc_posting_count: 0
   first_seen: '2026-08-02'
-  last_validated: '0001-01-01'
+  last_validated: '2026-08-02'
   source: crawl_index
-  notes: harvested from a crawl index; no provider has been asked yet
+  notes: live board, zero open postings — re-validated on the next run
 - ats: ashby
   token: abound
-  verdict: unvalidated
-  posting_count: 0
+  verdict: live_named
+  company_name: Abound
+  posting_count: 27
   nyc_posting_count: 0
   first_seen: '2026-08-02'
-  last_validated: '0001-01-01'
+  last_validated: '2026-08-02'
   source: crawl_index
-  notes: harvested from a crawl index; no provider has been asked yet
 - ats: ashby
   token: abridge
-  verdict: unvalidated
-  posting_count: 0
+  verdict: live_named
+  company_name: Abridge
+  posting_count: 42
   nyc_posting_count: 0
   first_seen: '2026-08-02'
-  last_validated: '0001-01-01'
+  last_validated: '2026-08-02'
   source: crawl_index
-  notes: harvested from a crawl index; no provider has been asked yet

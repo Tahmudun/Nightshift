@@ -288,3 +288,71 @@ def test_promotion_writes_the_file_and_nothing_else() -> None:
 
     source = inspect.getsource(approve)
     assert "git" not in source.lower(), "approval must never commit on a human's behalf"
+
+
+class TestTwoCandidatesForOneEmployer:
+    """Found by running the real pipeline, not by reading the code.
+
+    The recorded crawl slice yields both `Abridge` and `abridge` — two live
+    Ashby tokens, one employer, 42 postings each. The `name_collision` verdict
+    is decided against names already in the *registry*, so it is structurally
+    unable to see a collision between two candidates in the same batch, and
+    both walked into the approval report.
+    """
+
+    def test_two_tokens_naming_one_employer_are_both_held(self) -> None:
+        file = CandidateFile(
+            candidates=(
+                _candidate(token="Abridge", company_name="Abridge"),
+                _candidate(token="abridge", company_name="Abridge"),
+            )
+        )
+        assert approvable(file, registry_tokens=frozenset()) == []
+
+    def test_a_case_or_suffix_variant_still_counts_as_one_employer(self) -> None:
+        """The comparison is on the normalised name, the same one the validator
+        uses against the registry, so "Acme" and "Acme, Inc." are one employer
+        here exactly as they would be there."""
+        file = CandidateFile(
+            candidates=(
+                _candidate(token="acme", company_name="Acme"),
+                _candidate(token="acme-inc", company_name="Acme, Inc."),
+            )
+        )
+        assert approvable(file, registry_tokens=frozenset()) == []
+
+    def test_holding_a_collision_does_not_hold_the_rest_of_the_batch(self) -> None:
+        """Non-vacuity: a check that dropped everything on any collision would
+        pass the two tests above and make bulk approval useless."""
+        file = CandidateFile(
+            candidates=(
+                _candidate(token="Abridge", company_name="Abridge"),
+                _candidate(token="abridge", company_name="Abridge"),
+                _candidate(token="realco", company_name="Real Co"),
+            )
+        )
+        assert [c.token for c in approvable(file, registry_tokens=frozenset())] == ["realco"]
+
+    def test_two_different_employers_are_both_still_approvable(self) -> None:
+        """The other direction. `normalize_company_name` is deliberately
+        conservative — Meta and Metabase stay distinct — and this gate must not
+        widen it into a fuzzy matcher that merges real, different companies."""
+        file = CandidateFile(
+            candidates=(
+                _candidate(token="meta", company_name="Meta"),
+                _candidate(token="metabase", company_name="Metabase"),
+            )
+        )
+        assert len(approvable(file, registry_tokens=frozenset())) == 2
+
+    def test_the_same_employer_on_two_providers_is_still_a_collision(self) -> None:
+        """`ramp` is live on both Lever and Ashby. Two providers serving one
+        employer's jobs is a real duplicate feed, and which to poll is a human's
+        call, not a coin toss."""
+        file = CandidateFile(
+            candidates=(
+                _candidate(ats="ashby", token="ramp", company_name="Ramp"),
+                _candidate(ats="lever", token="ramp", company_name="Ramp"),
+            )
+        )
+        assert approvable(file, registry_tokens=frozenset()) == []

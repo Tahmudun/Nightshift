@@ -229,6 +229,33 @@ async def cmd_approve(args: argparse.Namespace) -> int:
             if count:
                 print(f"  {verdict.value:<15} {count}")
 
+    # Named explicitly rather than left as a silent absence from the table
+    # above. These validated `live_named` and would look approvable to anyone
+    # reading the candidate file; the only reason they are missing from the
+    # report is a collision the verdict could not see, and an operator who is
+    # not told that will conclude the board was never discovered.
+    approved_keys = {candidate.key for candidate in eligible}
+    withheld = [
+        candidate
+        for candidate in file.candidates
+        if candidate.verdict is Verdict.LIVE_NAMED
+        and candidate.key not in approved_keys
+        and candidate.key not in existing
+    ]
+    if withheld:
+        print(
+            f"\n{len(withheld)} live, named candidate(s) withheld because two or more "
+            "of them name the same employer:"
+        )
+        for candidate in sorted(withheld, key=lambda c: (c.company_name or "", c.ats, c.token)):
+            print(
+                f"  {(candidate.company_name or ''):<34.34} {candidate.ats:<11} {candidate.token}"
+            )
+        print(
+            "  One employer, more than one board. Which to poll — or whether these are "
+            "genuinely different companies — is a human's call (ADR 0005)."
+        )
+
     if not args.write:
         print("\nDry run. Nothing was written. Re-run with --write to edit the registry.")
         return 0

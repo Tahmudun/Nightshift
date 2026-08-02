@@ -264,3 +264,33 @@ def test_no_command_is_scheduled() -> None:
 
     source = Path(worker_main.__file__).read_text()
     assert "discovery" not in source.lower()
+
+
+def test_a_withheld_collision_is_named_not_silently_absent(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Two candidates naming one employer are held — but an operator reading a
+    report they are simply missing from will conclude the board was never
+    discovered. The report has to say why it is not offering them."""
+    candidates = tmp_path / "candidates.yaml"
+    save_candidates(
+        CandidateFile(
+            candidates=(_live_named("Abridge", "Abridge"), _live_named("abridge", "Abridge"))
+        ),
+        candidates,
+    )
+
+    main(
+        [
+            "--candidates",
+            str(candidates),
+            "--registry",
+            str(_registry(tmp_path / "r.yaml")),
+            "approve",
+        ]
+    )
+
+    out = capsys.readouterr().out
+    assert "withheld" in out
+    assert "same employer" in out
+    assert "Abridge" in out
