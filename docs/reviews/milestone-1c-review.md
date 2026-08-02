@@ -5,9 +5,11 @@
 **Scope:** `nightshift/discovery/`, `PoliteClient.get_text`, `GET /coverage`,
 `/analyze/coverage`, five `make` targets.
 
-At close: **600 Python tests** (from 493 at branch start), 42 web unit, **16
+At close: **607 Python tests** (from 493 at branch start), 42 web unit, **16
 seeded browser tests** (from 11). `make check` green; `make test-e2e-seeded`
-green against a real seeded stack.
+green against a real seeded stack; **CI green at `19236f5`** (run
+30764366853, all five jobs, `607 passed` read from the log rather than
+inferred).
 
 This review looks for the failure modes the plan named — a validator that
 classifies everything `unreachable` when a provider changes shape, an approval
@@ -85,9 +87,33 @@ the column is not uniformly "unknown".
 
 ## 3. What actually went wrong, and what caught it
 
-Five defects. **Four of the five were found by running something, not by
-reading it** — which is the same pattern M1a and M1b recorded, now three
-milestones running.
+Six defects. **Five of the six were found by running something, not by reading
+it** — the same pattern M1a and M1b recorded, now three milestones running.
+
+**0. `.gitignore` silently swallowed the entire coverage route, and only CI
+noticed.** The worst of the six, and the one worth the most as a lesson. An
+unanchored `coverage/` — intended for vitest's output directory — matches a
+directory of that name at *any* depth, so
+`apps/web/src/app/analyze/coverage/page.tsx` was never committed. `git add -A`
+reported nothing. `make check` passed. `make acceptance` passed. All 16 seeded
+browser tests passed, including the five written specifically to prove this
+page reaches a screen. **Every one of them reads the working tree, where the
+file existed.** CI built from a clean checkout and served a 404.
+
+The general form is worth stating plainly: *a local test suite cannot detect a
+file missing from the repository, because it is not missing locally.* No amount
+of additional browser testing would have caught this. The fix is a test that
+asks git instead of the filesystem — `tests/test_repo_integrity.py` — which
+sweeps the source trees, names the lost file specifically so a future
+over-broad ignore rule cannot absorb the regression, and asserts the unanchored
+pattern never returns. Verified to fail before the file was added.
+
+It also exposed a weak test of my own: `the page never reports a percentage of
+the market` **passed against the 404**, because a Next.js error page contains
+no percent sign either. A test whose assertion is "this string is absent"
+passes hardest when the page is missing entirely. It is left as-is — the four
+positive assertions beside it are what carry the criterion — but it is not
+independent evidence and should not be counted as such.
 
 1. **The design's central example board is dead.** `a3c41b8b71eff8c4` — the
    live-but-unnameable board the whole approval gate is designed around — now

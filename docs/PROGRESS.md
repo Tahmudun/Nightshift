@@ -7,22 +7,43 @@
 **M0: COMPLETE — 6 of 6 acceptance criteria verified at commit `4c1643f`.**
 **M1a: COMPLETE, CI-green at `430347a`, merged to `main` as PR #1 (`54ef35a`).**
 **M1b: COMPLETE and reviewed. Merged to `main` as PR #2 (`cf48719`).**
-**M1c: COMPLETE and reviewed (`docs/reviews/milestone-1c-review.md`). Not yet merged; CI has not seen the branch.**
+**M1c: COMPLETE, reviewed, and CI-green at `19236f5` — PR #3 open, awaiting the human's merge.**
 **Last updated: 2026-08-02**
 
 ---
 
 ## Next exact action
 
-### Next: push `m1c-board-discovery`, open a PR, watch CI. Then write the M1d plan.
+### Next: merge PR #3, then write the M1d plan.
 
-**M1c is finished locally and has never been near CI.** Six tasks, all six
-acceptance-relevant criteria evidenced below, review written. Branch head
-`152d920`. Every claim in this file for M1c was verified on this laptop —
-which M0's record says is exactly the state in which CI finds defects, because
-every defect it has ever found lived in a file no local command runs.
+**M1c is finished and CI-green.** Six tasks, three acceptance criteria
+evidenced below, review written. Branch head `19236f5`,
+[PR #3](https://github.com/Tahmudun/Nightshift/pull/3), run
+[30764366853](https://github.com/Tahmudun/Nightshift/actions/runs/30764366853):
+all five jobs green — `python` **607 passed, zero skipped** (read from the log,
+not inferred), `e2e` 2m22s, `migrations`, `web`, `secret scan`.
 
-After the PR is green and merged, M1d is the last piece of M1: two-phase
+**The first CI run failed, and it caught something no local command could
+have.** Recorded here rather than only in the review, because the lesson is
+about how this repo verifies itself: `.gitignore` carried an unanchored
+`coverage/` — meant for vitest output — and an unanchored pattern matches a
+directory of that name at *any* depth. It silently swallowed
+`apps/web/src/app/analyze/coverage/page.tsx`, the whole coverage route, for the
+entire milestone. `git add -A` said nothing. `make check`, `make acceptance`
+and all 16 seeded browser tests passed, **because every one of them reads the
+working tree, where the file existed.** CI built from a clean checkout and got
+a 404 — its accessibility snapshot literally reads "This page could not be
+found".
+
+A local suite cannot see a file missing from the repository, because it is not
+missing locally. `services/api/tests/test_repo_integrity.py` now closes that
+gap: it is the one test that asks `git ls-files` rather than the filesystem. It
+sweeps the source trees, names the lost file specifically so a future
+over-broad ignore rule cannot absorb the regression, and asserts the unanchored
+pattern itself never comes back. This is the fourth time in this project that a
+defect lived somewhere no local command looks.
+
+After the merge, M1d is the last piece of M1: two-phase
 conditional polling (ADR 0007), hot/warm tiers, queue-driven ARQ. No plan file
 exists for it yet. **Read the four items below before writing that plan** —
 they are M1c's output and they change what M1d has to do.
@@ -444,7 +465,7 @@ These ran on this machine and passed:
 | Python format | `ruff format --check services/api` | 45 files already formatted |
 | Python lint | `ruff check services/api` | All checks passed |
 | Python types | `mypy nightshift` | Success: no issues found in 31 source files (strict) |
-| Python tests | `pytest -q` | **600 passed**, zero skipped, ~100s (measured 2026-08-02 at `152d920`; 480 before M1c) |
+| Python tests | `pytest -q` | **607 passed**, zero skipped (CI run 30764366853 at `19236f5`, read from the log; 480 before M1c) |
 | Web types | `tsc --noEmit` | clean, `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes` |
 | Web lint | `eslint . --max-warnings 0` | clean |
 | Web tests | `vitest run` | **42 passed** (5 files) |
@@ -457,7 +478,7 @@ These ran on this machine and passed:
 | Whole-stack acceptance | `make acceptance` | **18 checks + 16 browser tests**, re-run 2026-08-02 at `152d920`; seeded corpus 31 jobs / 3 companies / 62 locations across greenhouse + lever + ashby |
 | Live source reachable | `GET /v1/boards/datadog/jobs` | HTTP 200, 426 postings |
 
-**Total: 663 automated tests passing** (600 Python, 42 web unit, 5 degraded e2e,
+**Total: 670 automated tests passing** (607 Python, 42 web unit, 5 degraded e2e,
 16 seeded e2e), plus the 18 assertions in `scripts/verify.py`, which are not
 pytest tests but do gate `make acceptance` with an exit code. Of the 480
 Python tests, **55** are database-backed
