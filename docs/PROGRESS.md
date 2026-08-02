@@ -3,22 +3,111 @@
 > Read this first, every session. If the repo state does not match what this
 > file claims, fix this file before writing code.
 
-**Current milestone: M1 — Employment data spine. M1a + M1b + M1c done, M1d next.**
+**Current milestone: M1 — Employment data spine. M1a + M1b + M1c done, M1d designed and planned, not started.**
 **M0: COMPLETE — 6 of 6 acceptance criteria verified at commit `4c1643f`.**
 **M1a: COMPLETE, CI-green at `430347a`, merged to `main` as PR #1 (`54ef35a`).**
 **M1b: COMPLETE and reviewed. Merged to `main` as PR #2 (`cf48719`).**
-**M1c: COMPLETE, reviewed, and CI-green at `19236f5` — PR #3 open, awaiting the human's merge.**
+**M1c: COMPLETE, reviewed, CI-green at `19236f5`, merged to `main` as PR #3 (`f377303`).**
 **Last updated: 2026-08-02**
 
 ---
 
 ## Next exact action
 
-### Next: merge PR #3, then write the M1d plan.
+### Next: M1d Task 1 — `PoliteClient` learns `If-None-Match`.
 
-**M1c is finished and CI-green.** Six tasks, three acceptance criteria
-evidenced below, review written. Branch head `19236f5`,
-[PR #3](https://github.com/Tahmudun/Nightshift/pull/3), run
+Branch `m1d-conditional-polling`, off `main` at `f377303`. The design is
+`docs/architecture/conditional-polling.md` (`856ad62`) and the plan is
+`docs/plans/2026-08-02-m1d-conditional-polling.md` (`f7a3bcd`) — eleven TDD
+tasks. **Read design §4 and §5 before Task 5**; they are where this milestone
+can go wrong invisibly.
+
+**No M1d code has been written.** Nothing in `services/api` or `apps/web`
+changed on this branch yet.
+
+### What was measured before planning, and what it changed
+
+All three providers were probed live on 2026-08-02, because ADR 0007 asked for
+exactly this and never got it.
+
+1. **All three honour `If-None-Match` and return `304`.** Greenhouse, Lever and
+   Ashby, each sent its own ETag back, each answering `304` with an empty body.
+   ADR 0007 verified only Greenhouse and provided a fallback for a provider that
+   could not revalidate. No fallback is needed.
+2. **"Neither Lever nor Ashby publishes an `updated_at`" is no longer M1d's
+   biggest problem — it mostly dissolves.** This file recorded it three times,
+   most recently as *"the most consequential"* finding carried into M1d. The
+   worry was that ADR 0007's phase-2 diff has no timestamp to compare on two of
+   three providers. True, and close to irrelevant: **Lever and Ashby return the
+   complete posting, description included, in the single board request** (Lever
+   `alloy`, 6,373 characters of `description` on the first posting; Ashby
+   `ramp`, 7,332 of `descriptionHtml`). There is no second fetch for a timestamp
+   to gate. Two-phase polling is a **Greenhouse-only** mechanism, and Greenhouse
+   publishes `updated_at` on its listing.
+3. **Greenhouse's per-posting payload is byte-identical to its `content=true`
+   list item** — compared key-by-key and value-by-value, zero differences. So
+   phase 2 reuses `GreenhouseAdapter.normalize` unchanged and there is no second
+   normalization path for the location parser to drift in.
+4. **Lever does not compress.** 232,855 bytes with no `Content-Encoding` despite
+   being offered gzip. A Lever `200` is the most expensive response this system
+   takes, which makes its `304`s the most valuable.
+
+### The defect the design exists to prevent
+
+`apply_freshness` ages a record by `last_seen_at < now`. Phase 2 deliberately
+does not refetch an unchanged posting, so that posting is never written, so it
+looks absent — **every unchanged posting on every Greenhouse board would take a
+miss per poll and close on the third.** Nothing errors; the damage lands three
+polls after the change. `FetchOutcome` therefore separates *listed* (phase 1,
+complete, drives freshness) from *fetched* (phase 2, partial, drives
+persistence). Plan Task 5, with the mutation check that proves it.
+
+Related, and already true in committed code: `FetchOutcome.is_authoritative_empty`
+is `ok and not jobs`, which a `304` satisfies — so a `304` currently reads as
+"this board authoritatively has no postings". Plan Task 2 fixes it and adds a
+validator making the confusion unrepresentable.
+
+### `promote` destroys the registry's comments — found by running it
+
+The human approved promoting M1c's 19 discovered boards. Running
+`make registry-approve-write` for the first time in the project's history
+exposed a defect M1c structurally could not see, because M1c deliberately never
+wrote to the registry and cited byte-identity as evidence of restraint.
+
+`promote`'s docstring says *"Additive, never destructive."* In the data sense it
+is — verified semantically: all four existing boards came through identical,
+nothing re-enabled, nothing lost. But it rebuilds the file with
+`yaml.safe_dump`, preserving only the leading comment block, and it **deleted
+ten lines of human-written rationale from between the entries** — including the
+note on `Stripe` reading *"enable once the freshness and closure state machine
+lands"*, which is a message to M1d, deleted by approving unrelated boards. It
+also writes `added: '2026-08-02'` where hand-written entries use bare dates,
+leaving one file with two conventions.
+
+**The write was reverted; `data/board-registry.yaml` is unchanged at 4 boards.**
+Plan Task 10 fixes `promote` to append rather than re-serialize, then promotes
+the 19 for real, with a diff that must be additions only.
+
+Also in Task 10: `test_the_pollable_set_is_exactly_these_three_boards` fired
+correctly on all 19 and needs reshaping — enumerating every pollable board does
+not survive a registry meant to grow into the thousands, and deleting the guard
+would remove the only thing stopping a hand-disabled board going live. Replaced
+by an exact set over the four hand-curated boards plus a provenance requirement
+on every other pollable one.
+
+### Scope decided by the human this session
+
+- Merge PR #3 — done, `f377303`.
+- Approve the 19 discovered boards — deferred into Task 10 behind the `promote`
+  fix, so their arrival does not destroy the file they arrive in.
+- Of the three carried weaknesses, M1d fixes **the `merge_jobs` row lock only**.
+  The discovery mass-failure signal and `cmd_validate`'s per-board file rewrite
+  stay recorded as debt and are explicitly out of scope.
+- Scheduling shape: `next_poll_at` per board drained by a small cron, over a
+  cron per tier. ADR 0011 records it during Task 11.
+
+**The M1c record, kept for the history below:** six tasks, three acceptance
+criteria evidenced, review written. Branch head `19236f5`, run
 [30764366853](https://github.com/Tahmudun/Nightshift/actions/runs/30764366853):
 all five jobs green — `python` **607 passed, zero skipped** (read from the log,
 not inferred), `e2e` 2m22s, `migrations`, `web`, `secret scan`.
@@ -58,9 +147,16 @@ they are M1c's output and they change what M1d has to do.
 2. **`cmd_validate` rewrites the whole candidate file after every board.**
    Correct and interruption-safe at 23 candidates; O(n²) at 2,605.
 3. **`merge_jobs` still has no row lock** — carried from M1b, and M1d's
-   queue-driven polling is exactly what makes it reachable.
-4. **ADR 0007's phase-2 diff has no timestamp on two of three providers** —
-   carried from M1a, still true, still the most consequential of these.
+   queue-driven polling is exactly what makes it reachable. **In M1d's scope**
+   (plan Task 9); items 1 and 2 are explicitly out of it.
+4. ~~**ADR 0007's phase-2 diff has no timestamp on two of three providers**~~ —
+   **resolved 2026-08-02 by measurement, not by code.** Lever and Ashby return
+   every posting in full from the board endpoint, so there is no phase 2 on
+   those providers and no timestamp for it to need. Greenhouse, the only
+   two-phase provider, publishes `updated_at` on its listing. This had been
+   recorded three times as the most consequential item here; it was never
+   re-checked against a live board until M1d was planned. See "What was measured
+   before planning" above.
 
 ### The M1c pipeline, run end to end on 2026-08-02
 
