@@ -1,0 +1,18 @@
+{
+  "provenance": {
+    "endpoint": "https://boards-api.greenhouse.io/v1/boards/6sense/jobs",
+    "recorded_at": "2026-08-02T07:47:16+00:00",
+    "board_token": "jobs",
+    "http_status": 200,
+    "recorded_by": "scripts/record_discovery_fixture.py",
+    "note": "Verbatim response body.",
+    "top_level_keys": [
+      "jobs",
+      "meta"
+    ],
+    "job_count": 35
+  },
+  "why_this_recording_exists": "The postings half of the same board, so a Greenhouse candidate can be validated end to end.",
+  "why_each_job_is_here": {},
+  "coverage_not_available_on_this_board": []
+}

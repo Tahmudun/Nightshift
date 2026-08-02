@@ -20,7 +20,12 @@ import httpx
 import pytest
 import respx
 
-from nightshift.adapters.base import BoardRef, JobSourceAdapter, RawJob
+from nightshift.adapters.base import (
+    BoardRef,
+    JobSourceAdapter,
+    RawJob,
+    SourceUnavailableError,
+)
 from nightshift.adapters.greenhouse import (
     BOARD_URL,
     GreenhouseAdapter,
@@ -29,7 +34,11 @@ from nightshift.adapters.greenhouse import (
     html_to_text,
     normalize_title,
 )
-from nightshift.adapters.http import OutboundHTTPDisabledError, PoliteClient
+from nightshift.adapters.http import (
+    MAX_TEXT_BYTES,
+    OutboundHTTPDisabledError,
+    PoliteClient,
+)
 from nightshift.config import Settings
 from nightshift.db.base import EmploymentType, LocationConfidence, SourceType
 from tests.conftest import make_settings
@@ -219,6 +228,87 @@ class TestPoliteClient:
             outcome = await adapter.fetch_board(BOARD)
         assert outcome.ok is False
         assert "disabled" in (outcome.error or "")
+
+
+PAGE_URL = "https://jobs.ashbyhq.com/example"
+
+
+class TestGetText:
+    """`get_text`, added at M1c so discovery can read an Ashby board page.
+
+    It shares the rate limiter, retry policy and kill switch with `get_json`
+    rather than opening a second HTTP path — these tests are what keep that
+    true, since a fresh path would pass a naive "it returns the body" test.
+    """
+
+    @respx.mock
+    async def test_returns_the_body_as_text(self) -> None:
+        respx.get(PAGE_URL).mock(return_value=httpx.Response(200, html="<title>Acme Jobs</title>"))
+        async with PoliteClient(make_settings(outbound_http_enabled=True)) as client:
+            assert await client.get_text(PAGE_URL) == "<title>Acme Jobs</title>"
+
+    @respx.mock
+    async def test_a_huge_page_is_truncated_rather_than_refused(self) -> None:
+        """The cap is why this method exists in this form.
+
+        A board page carries a megabyte of application JavaScript after the
+        `<head>`. Truncating keeps the title; raising would report a live board
+        as `unreachable`, which is the "absence of data is data" mistake one
+        level up from I3.
+        """
+        body = "<title>Acme Jobs</title>" + ("x" * (MAX_TEXT_BYTES * 2))
+        respx.get(PAGE_URL).mock(return_value=httpx.Response(200, html=body))
+        async with PoliteClient(make_settings(outbound_http_enabled=True)) as client:
+            text = await client.get_text(PAGE_URL)
+
+        assert len(text.encode()) == MAX_TEXT_BYTES
+        assert len(text) < len(body)
+        assert "<title>Acme Jobs</title>" in text, "the cap must keep the head, not the tail"
+
+    @respx.mock
+    async def test_a_non_json_content_type_is_not_an_error(self) -> None:
+        """`get_json` legitimately refuses this; reading HTML is the whole point."""
+        respx.get(PAGE_URL).mock(
+            return_value=httpx.Response(
+                200, text="<title>Acme Jobs</title>", headers={"content-type": "text/html"}
+            )
+        )
+        async with PoliteClient(make_settings(outbound_http_enabled=True)) as client:
+            assert "Acme" in await client.get_text(PAGE_URL)
+
+    @respx.mock
+    async def test_a_404_raises_source_unavailable_without_retrying(self) -> None:
+        route = respx.get(PAGE_URL).mock(return_value=httpx.Response(404))
+        async with PoliteClient(
+            make_settings(outbound_http_enabled=True, http_max_retries=3)
+        ) as client:
+            with pytest.raises(SourceUnavailableError):
+                await client.get_text(PAGE_URL)
+
+        assert route.call_count == 1
+
+    @respx.mock
+    async def test_retries_a_transient_failure_like_get_json_does(self) -> None:
+        route = respx.get(PAGE_URL).mock(
+            side_effect=[httpx.Response(503), httpx.Response(200, html="<title>Acme Jobs</title>")]
+        )
+        async with PoliteClient(
+            make_settings(outbound_http_enabled=True, http_max_retries=2)
+        ) as client:
+            assert "Acme" in await client.get_text(PAGE_URL)
+
+        assert route.call_count == 2
+
+    @respx.mock
+    async def test_the_kill_switch_blocks_it_too(self) -> None:
+        """A second HTTP path that forgot the kill switch would make `make demo`
+        reach the network — this is the assertion that stops that."""
+        route = respx.get(PAGE_URL).mock(return_value=httpx.Response(200, html="<title>x</title>"))
+        async with PoliteClient(make_settings(outbound_http_enabled=False)) as client:
+            with pytest.raises(OutboundHTTPDisabledError):
+                await client.get_text(PAGE_URL)
+
+        assert route.call_count == 0
 
 
 # ---------------------------------------------------------------------------

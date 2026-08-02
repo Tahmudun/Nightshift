@@ -1,0 +1,17 @@
+{
+  "provenance": {
+    "endpoint": "https://boards-api.greenhouse.io/v1/boards/6sense",
+    "recorded_at": "2026-08-02T07:47:16+00:00",
+    "board_token": "6sense",
+    "http_status": 200,
+    "recorded_by": "scripts/record_discovery_fixture.py",
+    "note": "Verbatim response body.",
+    "top_level_keys": [
+      "content",
+      "name"
+    ]
+  },
+  "why_this_recording_exists": "Greenhouse, unlike Ashby, states the employer name in its board endpoint. This is the whole reason Greenhouse needs no page fetch.",
+  "why_each_job_is_here": {},
+  "coverage_not_available_on_this_board": []
+}
