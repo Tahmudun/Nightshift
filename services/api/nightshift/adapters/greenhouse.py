@@ -32,6 +32,7 @@ import structlog
 from nightshift.adapters.base import (
     BoardRef,
     FetchOutcome,
+    ListedPosting,
     NormalizedSourceJob,
     RawJob,
     SourceUnavailableError,
@@ -43,6 +44,11 @@ from nightshift.domain.locations import infer_remote_policy, parse_location_fiel
 log = structlog.get_logger(__name__)
 
 BOARD_URL: Final = "https://boards-api.greenhouse.io/v1/boards/{token}/jobs?content=true"
+
+#: Bumped when normalization changes, so a stored ETag earned by the old parser
+#: is discarded rather than letting the new parser never see the payload it was
+#: written for (ADR 0007).
+PARSER_VERSION: Final = "1"
 
 _TAG = re.compile(r"<[^>]+>")
 _BLOCK_END = re.compile(r"</(?:p|div|li|ul|ol|h[1-6]|tr|table|blockquote)\s*>", re.IGNORECASE)
@@ -208,11 +214,17 @@ class GreenhouseAdapter:
 
     source_name = "greenhouse"
     source_type = SourceType.ATS_GREENHOUSE
+    parser_version = PARSER_VERSION
+    #: Greenhouse's listing carries no descriptions, so postings that changed
+    #: need a second request. It is the only one of the three providers where
+    #: that is true, and the only one publishing an updated-at field to decide
+    #: which postings those are. Set True in M1d Task 4.
+    is_two_phase = False
 
     def __init__(self, client: PoliteClient) -> None:
         self._client = client
 
-    async def fetch_board(self, board: BoardRef) -> FetchOutcome:
+    async def fetch_board(self, board: BoardRef, *, etag: str | None = None) -> FetchOutcome:
         """Poll one board. Never raises — unconditionally, not just for a
         source failure: unlike Lever and Ashby, this adapter's ``client`` is
         required at construction, not optional, so there is no caller-bug
@@ -227,7 +239,7 @@ class GreenhouseAdapter:
         """
         url = BOARD_URL.format(token=board.token)
         try:
-            payload = await self._client.get_json(url)
+            response = await self._client.get_json_conditional(url, etag=etag)
         except SourceUnavailableError as exc:
             log.warning(
                 "greenhouse_board_unavailable",
@@ -238,6 +250,12 @@ class GreenhouseAdapter:
             )
             return FetchOutcome(board=board, ok=False, http_status=exc.http_status, error=str(exc))
 
+        if response.not_modified:
+            # Zero writes downstream. ADR 0007 verified revalidation on this
+            # provider; M1d confirmed Lever and Ashby behave the same way.
+            return FetchOutcome(board=board, ok=True, not_modified=True, etag=etag, http_status=304)
+
+        payload = response.payload
         if not isinstance(payload, dict) or not isinstance(payload.get("jobs"), list):
             # A 200 with an unexpected shape is a source problem, not evidence
             # of zero jobs. Treat it as unavailable.
@@ -262,7 +280,22 @@ class GreenhouseAdapter:
             )
 
         log.info("greenhouse_board_fetched", board=board.token, jobs=len(jobs))
-        return FetchOutcome(board=board, ok=True, jobs=tuple(jobs), http_status=200)
+        return FetchOutcome(
+            board=board,
+            ok=True,
+            jobs=tuple(jobs),
+            # Greenhouse is the one provider publishing a per-posting
+            # updated-at, which is what makes the Task 4 diff possible.
+            listed=tuple(
+                ListedPosting(
+                    source_job_id=job.source_job_id,
+                    source_updated_at=_parse_timestamp(job.payload.get("updated_at")),
+                )
+                for job in jobs
+            ),
+            etag=response.etag,
+            http_status=response.http_status,
+        )
 
     def normalize(self, raw_job: RawJob, board: BoardRef) -> NormalizedSourceJob:
         """Pure mapping from raw payload to domain model. No I/O, no clock."""

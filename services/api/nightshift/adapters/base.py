@@ -198,12 +198,25 @@ class JobSourceAdapter(Protocol):
 
     source_name: str
     source_type: SourceType
+    #: Bumped by hand when normalization changes. ADR 0007: a stored ETag is
+    #: only valid for the parser that earned it, because a changed parser plus a
+    #: stale ETag means the new parser never sees the payload it was written
+    #: for. Read off the adapter rather than hard-coded where ETags are stored,
+    #: so adding a provider cannot forget it.
+    parser_version: str
+    #: True when a board listing carries no posting content, so changed postings
+    #: need a second request. Greenhouse only: Lever and Ashby return every
+    #: posting in full from the board endpoint (measured 2026-08-02), and a
+    #: second phase for them would be a request that could add nothing.
+    is_two_phase: bool
 
-    async def fetch_board(self, board: BoardRef) -> FetchOutcome:
-        """Poll one company board.
+    async def fetch_board(self, board: BoardRef, *, etag: str | None = None) -> FetchOutcome:
+        """Poll one company board, revalidating against ``etag`` when given one.
 
         Must not raise for an unreachable source — it returns ``ok=False``, so a
-        single bad board cannot abort a run over the others.
+        single bad board cannot abort a run over the others. A ``304`` is
+        neither a failure nor an empty board: it returns ``ok=True`` with
+        ``not_modified=True`` and describes no postings at all.
         """
         ...
 

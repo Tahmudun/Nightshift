@@ -14,8 +14,9 @@ from typing import Any
 
 import pytest
 
-from nightshift.adapters.base import BoardRef, RawJob
-from nightshift.adapters.lever import LeverAdapter
+from nightshift.adapters.base import BoardRef, RawJob, SourceUnavailableError
+from nightshift.adapters.http import ConditionalResponse
+from nightshift.adapters.lever import BOARD_URL, LeverAdapter
 
 FIXTURES = Path(__file__).parent / "fixtures" / "lever"
 BOARD = BoardRef(company="Alloy", ats="lever", token="alloy", nyc_presence=True)
@@ -196,16 +197,142 @@ class TestInvariantI3:
 
 
 class _StubClient:
-    """Stands in for PoliteClient. Returns a payload or raises.
+    """Stands in for PoliteClient. Returns a payload, a 304, or raises.
 
     Not a mock of the adapter under test — it replaces the network, which is
     the boundary a unit test is entitled to replace.
+
+    ``seen_etags`` records what the adapter actually sent. Asserting on it
+    rather than only on the return value is deliberate: M1c shipped a stub whose
+    route key matched no URL, so the stub raised and the test passed without
+    ever reaching the branch it existed to cover.
     """
 
-    def __init__(self, result: Any) -> None:
+    def __init__(
+        self,
+        result: Any,
+        *,
+        etag: str | None = 'W/"fresh"',
+        not_modified: bool = False,
+    ) -> None:
         self._result = result
+        self._etag = etag
+        self._not_modified = not_modified
+        self.seen_etags: list[str | None] = []
+        self.seen_urls: list[str] = []
 
-    async def get_json(self, url: str) -> Any:
+    async def get_json_conditional(
+        self, url: str, *, etag: str | None = None
+    ) -> ConditionalResponse:
+        self.seen_urls.append(url)
+        self.seen_etags.append(etag)
         if isinstance(self._result, Exception):
             raise self._result
-        return self._result
+        if self._not_modified:
+            return ConditionalResponse(not_modified=True, payload=None, etag=etag, http_status=304)
+        return ConditionalResponse(
+            not_modified=False, payload=self._result, etag=self._etag, http_status=200
+        )
+
+
+class TestConditionalFetch:
+    """M1d: Lever revalidates. Measured 2026-08-02 against the live board — it
+    serves `W/"38d97-QpFUTs..."` and answers 304 when it is sent back.
+
+    Lever is also the provider where a 304 is worth most: it is the one of the
+    three that does not compress, so a 200 costs 232 KB on the wire.
+    """
+
+    async def test_a_304_yields_not_modified_and_describes_no_postings(self) -> None:
+        client = _StubClient(None, not_modified=True)
+        outcome = await LeverAdapter(client=client).fetch_board(BOARD, etag='W/"abc"')
+
+        assert outcome.ok is True
+        assert outcome.not_modified is True
+        assert outcome.jobs == ()
+        assert outcome.listed == ()
+        assert outcome.http_status == 304
+
+    async def test_a_304_is_not_an_empty_board(self) -> None:
+        """The whole point. Lever's empty-board case is a 200 with `[]`, and
+        these two must stay distinguishable."""
+        client = _StubClient(None, not_modified=True)
+        outcome = await LeverAdapter(client=client).fetch_board(BOARD, etag='W/"abc"')
+
+        assert outcome.is_authoritative_empty is False
+
+    async def test_a_304_keeps_the_etag_that_earned_it(self) -> None:
+        client = _StubClient(None, not_modified=True)
+        outcome = await LeverAdapter(client=client).fetch_board(BOARD, etag='W/"abc"')
+
+        assert outcome.etag == 'W/"abc"'
+
+    async def test_the_stored_etag_reaches_the_client(self) -> None:
+        client = _StubClient(_board_payload())
+        await LeverAdapter(client=client).fetch_board(BOARD, etag='W/"abc"')
+
+        assert client.seen_etags == ['W/"abc"']
+        assert client.seen_urls == [BOARD_URL.format(token="alloy")]
+
+    async def test_no_etag_is_sent_on_a_first_poll(self) -> None:
+        client = _StubClient(_board_payload())
+        await LeverAdapter(client=client).fetch_board(BOARD)
+
+        assert client.seen_etags == [None]
+
+    async def test_a_200_reports_the_new_etag_for_storage(self) -> None:
+        client = _StubClient(_board_payload(), etag='W/"fresh"')
+        outcome = await LeverAdapter(client=client).fetch_board(BOARD)
+
+        assert outcome.not_modified is False
+        assert outcome.etag == 'W/"fresh"'
+
+    async def test_every_fetched_posting_is_also_listed(self) -> None:
+        """Single-phase provider: the two sets describe the same postings.
+
+        Asserted rather than assumed. Freshness ages against `listed`, so a
+        Lever adapter that forgot to populate it would age every posting it had
+        just successfully fetched and close the entire board in three polls.
+        """
+        client = _StubClient(_board_payload())
+        outcome = await LeverAdapter(client=client).fetch_board(BOARD)
+
+        assert len(outcome.listed) > 0
+        assert outcome.listed_source_job_ids == tuple(j.source_job_id for j in outcome.jobs)
+
+    async def test_listed_postings_carry_no_timestamp(self) -> None:
+        """Lever publishes `createdAt` and no updated-at field. Inventing one
+        from createdAt would make an old posting look freshly changed forever."""
+        client = _StubClient(_board_payload())
+        outcome = await LeverAdapter(client=client).fetch_board(BOARD)
+
+        assert all(p.source_updated_at is None for p in outcome.listed)
+
+    async def test_an_empty_board_lists_nothing_and_is_authoritative(self) -> None:
+        client = _StubClient([])
+        outcome = await LeverAdapter(client=client).fetch_board(BOARD)
+
+        assert outcome.ok is True
+        assert outcome.not_modified is False
+        assert outcome.listed == ()
+        assert outcome.is_authoritative_empty is True
+
+    async def test_a_failure_still_reports_ok_false(self) -> None:
+        client = _StubClient(SourceUnavailableError("boom", http_status=503))
+        outcome = await LeverAdapter(client=client).fetch_board(BOARD, etag='W/"abc"')
+
+        assert outcome.ok is False
+        assert outcome.not_modified is False
+        assert outcome.is_authoritative_empty is False
+
+
+class TestAdapterMetadata:
+    def test_it_is_single_phase(self) -> None:
+        """Lever's board response carries every posting in full — 6,373
+        characters of `description` on the first alloy posting, measured
+        2026-08-02 — so there is nothing a second request could add."""
+        assert LeverAdapter(client=None).is_two_phase is False
+
+    def test_it_declares_a_parser_version(self) -> None:
+        """ADR 0007: a stored ETag is only valid for the parser that earned it."""
+        assert LeverAdapter(client=None).parser_version

@@ -17,7 +17,7 @@ from __future__ import annotations
 import asyncio
 import random
 from types import TracebackType
-from typing import Any, Final, Self
+from typing import Any, Final, Protocol, Self
 
 import httpx
 import structlog
@@ -69,6 +69,21 @@ class ConditionalResponse(BaseModel):
     #: value we sent is precisely the one that earned it.
     etag: str | None = None
     http_status: int
+
+
+class ConditionalJsonClient(Protocol):
+    """What an adapter needs from an HTTP client, and nothing more.
+
+    Declared once here rather than per adapter: Lever and Ashby each carried
+    their own copy, and a third would have been a third place to forget that
+    this method now takes an ETag. Narrow on purpose — an adapter typed against
+    the whole :class:`PoliteClient` could reach for the retry internals, and the
+    stubs in the test suite would have to grow to match.
+    """
+
+    async def get_json_conditional(
+        self, url: str, *, etag: str | None = None
+    ) -> ConditionalResponse: ...
 
 
 class RateLimiter:

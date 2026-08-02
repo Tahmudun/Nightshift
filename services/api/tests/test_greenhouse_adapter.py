@@ -62,6 +62,14 @@ def test_adapter_satisfies_the_protocol() -> None:
     assert not hasattr(adapter, "discover_companies")
 
 
+def test_the_adapter_declares_a_parser_version() -> None:
+    """ADR 0007: a stored ETag is only valid for the parser that earned it, so
+    the version has to be readable off the adapter rather than hard-coded where
+    the ETag is stored."""
+    adapter, _ = adapter_for(make_settings())
+    assert adapter.parser_version
+
+
 # ---------------------------------------------------------------------------
 # Fetching
 # ---------------------------------------------------------------------------
@@ -171,6 +179,109 @@ class TestInvariantI3:
         async with client:
             outcome = await adapter.fetch_board(BOARD)  # must not raise
         assert outcome.ok is False
+
+
+class TestConditionalFetch:
+    """M1d: Greenhouse revalidates. ADR 0007 verified this provider; M1d's
+    measurements confirmed the other two do the same.
+
+    Greenhouse stays on `content=true` in this task. Task 4 moves it to the
+    cheap listing plus per-posting fetches — doing both at once would mean a
+    failing test could be either change.
+    """
+
+    @respx.mock
+    async def test_a_304_yields_not_modified_and_describes_no_postings(self) -> None:
+        respx.get(BOARD_ENDPOINT).mock(return_value=httpx.Response(304))
+        adapter, client = adapter_for(make_settings(outbound_http_enabled=True))
+        async with client:
+            outcome = await adapter.fetch_board(BOARD, etag='W/"abc"')
+
+        assert outcome.ok is True
+        assert outcome.not_modified is True
+        assert outcome.jobs == ()
+        assert outcome.listed == ()
+        assert outcome.is_authoritative_empty is False
+
+    @respx.mock
+    async def test_the_stored_etag_reaches_the_provider(self) -> None:
+        route = respx.get(BOARD_ENDPOINT).mock(return_value=httpx.Response(304))
+        adapter, client = adapter_for(make_settings(outbound_http_enabled=True))
+        async with client:
+            await adapter.fetch_board(BOARD, etag='W/"abc"')
+
+        assert route.calls[0].request.headers["if-none-match"] == 'W/"abc"'
+
+    @respx.mock
+    async def test_no_etag_is_sent_on_a_first_poll(self) -> None:
+        route = respx.get(BOARD_ENDPOINT).mock(return_value=httpx.Response(200, json={"jobs": []}))
+        adapter, client = adapter_for(make_settings(outbound_http_enabled=True))
+        async with client:
+            await adapter.fetch_board(BOARD)
+
+        assert "if-none-match" not in route.calls[0].request.headers
+
+    @respx.mock
+    async def test_a_200_reports_the_new_etag_for_storage(
+        self, greenhouse_board_payload: dict[str, Any]
+    ) -> None:
+        respx.get(BOARD_ENDPOINT).mock(
+            return_value=httpx.Response(
+                200, json=greenhouse_board_payload, headers={"ETag": 'W/"fresh"'}
+            )
+        )
+        adapter, client = adapter_for(make_settings(outbound_http_enabled=True))
+        async with client:
+            outcome = await adapter.fetch_board(BOARD)
+
+        assert outcome.not_modified is False
+        assert outcome.etag == 'W/"fresh"'
+
+    @respx.mock
+    async def test_every_fetched_posting_is_also_listed(
+        self, greenhouse_board_payload: dict[str, Any]
+    ) -> None:
+        """Still true while Greenhouse is single-phase. Task 4 breaks this
+        deliberately, and replaces this test with the two-phase one."""
+        respx.get(BOARD_ENDPOINT).mock(
+            return_value=httpx.Response(200, json=greenhouse_board_payload)
+        )
+        adapter, client = adapter_for(make_settings(outbound_http_enabled=True))
+        async with client:
+            outcome = await adapter.fetch_board(BOARD)
+
+        assert len(outcome.listed) > 0
+        assert outcome.listed_source_job_ids == tuple(j.source_job_id for j in outcome.jobs)
+
+    @respx.mock
+    async def test_listed_postings_carry_the_providers_updated_at(
+        self, greenhouse_board_payload: dict[str, Any]
+    ) -> None:
+        """Greenhouse is the only one of the three that publishes this, and it
+        is what makes the Task 4 diff possible. Timezone-aware, because a naive
+        comparison against a stored TIMESTAMPTZ raises rather than mis-answers.
+        """
+        respx.get(BOARD_ENDPOINT).mock(
+            return_value=httpx.Response(200, json=greenhouse_board_payload)
+        )
+        adapter, client = adapter_for(make_settings(outbound_http_enabled=True))
+        async with client:
+            outcome = await adapter.fetch_board(BOARD)
+
+        stamped = [p for p in outcome.listed if p.source_updated_at is not None]
+        assert stamped, "the recorded board publishes updated_at on every posting"
+        assert all(p.source_updated_at.tzinfo is not None for p in stamped)  # type: ignore[union-attr]
+
+    @respx.mock
+    async def test_a_failure_still_reports_ok_false(self) -> None:
+        respx.get(BOARD_ENDPOINT).mock(return_value=httpx.Response(503))
+        adapter, client = adapter_for(make_settings(outbound_http_enabled=True, http_max_retries=0))
+        async with client:
+            outcome = await adapter.fetch_board(BOARD, etag='W/"abc"')
+
+        assert outcome.ok is False
+        assert outcome.not_modified is False
+        assert outcome.is_authoritative_empty is False
 
 
 class TestPoliteClient:

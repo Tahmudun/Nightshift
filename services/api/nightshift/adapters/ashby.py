@@ -26,7 +26,15 @@ postings, 12 kept in the committed fixture):
   the component whose `compensationType` is `"Salary"` is read as pay.
 * `employmentType` is explicit and includes "Intern".
 * There is **no updated/modified field** and **no company name**
-  (`board-discovery.md` §3). Both are asserted in the test suite.
+  (`board-discovery.md` §3). Both are asserted in the test suite. M1d measured
+  why the missing timestamp costs nothing: the board response already carries
+  every posting in full (7,332 characters of `descriptionHtml` on the first
+  `ramp` posting), so there is no second fetch here for a timestamp to gate.
+  `is_two_phase` is False. Note `publishedAt` is a *publication* date — reading
+  it as a modification date would make every posting look changed on the poll
+  after it appeared, and never again.
+* It serves an **ETag and honours `If-None-Match`** (measured 2026-08-02), and
+  its own `Cache-Control` is `public, max-age=60, stale-while-revalidate=60`.
 * `address.postalAddress` is structured and would be a better location source
   than the free-text `location`/`secondaryLocations` strings. Deliberately
   unused here: geocoding is a later stage, and feeding a second location
@@ -37,24 +45,31 @@ postings, 12 kept in the committed fixture):
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
-from typing import Any, Final, Protocol
+from typing import Any, Final
 
 import structlog
 
 from nightshift.adapters.base import (
     BoardRef,
     FetchOutcome,
+    ListedPosting,
     NormalizedSourceJob,
     RawJob,
     SourceUnavailableError,
 )
 from nightshift.adapters.greenhouse import content_hash, html_to_text, normalize_title
+from nightshift.adapters.http import ConditionalJsonClient
 from nightshift.db.base import EmploymentType, SourceType
 from nightshift.domain.locations import infer_remote_policy, parse_location_list
 
 log = structlog.get_logger(__name__)
 
 BOARD_URL: Final = "https://api.ashbyhq.com/posting-api/job-board/{token}?includeCompensation=true"
+
+#: Bumped when normalization changes, so a stored ETag earned by the old parser
+#: is discarded rather than letting the new parser never see the payload it was
+#: written for (ADR 0007).
+PARSER_VERSION: Final = "1"
 
 # Ashby's own vocabulary, mapped explicitly. Anything unlisted is `unknown`
 # rather than a plausible default — A13 is emphatic that eligibility is M3's
@@ -78,10 +93,6 @@ _SALARY_INTERVALS: Final[dict[str, str]] = {
     "1 day": "day",
     "1 hour": "hour",
 }
-
-
-class _JsonClient(Protocol):
-    async def get_json(self, url: str) -> Any: ...
 
 
 def _parse_timestamp(value: object) -> datetime | None:
@@ -194,11 +205,16 @@ class AshbyAdapter:
 
     source_name = "ashby"
     source_type = SourceType.ATS_ASHBY
+    parser_version = PARSER_VERSION
+    #: Ashby's board response carries every posting in full — 7,332 characters
+    #: of `descriptionHtml` on the first ramp posting, measured 2026-08-02 — so
+    #: a second phase would be a request that could add nothing.
+    is_two_phase = False
 
-    def __init__(self, client: _JsonClient | None) -> None:
+    def __init__(self, client: ConditionalJsonClient | None) -> None:
         self._client = client
 
-    async def fetch_board(self, board: BoardRef) -> FetchOutcome:
+    async def fetch_board(self, board: BoardRef, *, etag: str | None = None) -> FetchOutcome:
         """Poll one board. Never raises for a source failure.
 
         I3 lives or dies on this method: a bad response, timeout, or
@@ -213,7 +229,7 @@ class AshbyAdapter:
             raise RuntimeError("AshbyAdapter needs a client to fetch")
         url = BOARD_URL.format(token=board.token)
         try:
-            payload = await self._client.get_json(url)
+            response = await self._client.get_json_conditional(url, etag=etag)
         except SourceUnavailableError as exc:
             log.warning(
                 "ashby_board_unavailable",
@@ -224,6 +240,14 @@ class AshbyAdapter:
             )
             return FetchOutcome(board=board, ok=False, http_status=exc.http_status, error=str(exc))
 
+        if response.not_modified:
+            # Zero writes downstream. The board is byte-identical to the copy we
+            # already parsed, so every posting we know about is still listed.
+            # Distinct from Ashby's real empty board, which is a 200 carrying
+            # `{"jobs": []}` — recorded in M1c as ashby_0x_empty_board.json.
+            return FetchOutcome(board=board, ok=True, not_modified=True, etag=etag, http_status=304)
+
+        payload = response.payload
         if not isinstance(payload, dict) or not isinstance(payload.get("jobs"), list):
             # A response shaped like `{"apiVersion": 1}` with no `jobs` key at
             # all is a source problem, and "no jobs" is the one conclusion we
@@ -249,7 +273,22 @@ class AshbyAdapter:
             )
 
         log.info("ashby_board_fetched", board=board.token, jobs=len(jobs))
-        return FetchOutcome(board=board, ok=True, jobs=tuple(jobs), http_status=200)
+        return FetchOutcome(
+            board=board,
+            ok=True,
+            jobs=tuple(jobs),
+            # Single-phase: everything fetched is everything listed. Ashby
+            # publishes `publishedAt` and no updated-at field, and needs none —
+            # treating a publication date as a modification date would make
+            # every posting look changed on the poll after it appeared and
+            # never again.
+            listed=tuple(
+                ListedPosting(source_job_id=job.source_job_id, source_updated_at=None)
+                for job in jobs
+            ),
+            etag=response.etag,
+            http_status=response.http_status,
+        )
 
     def normalize(self, raw_job: RawJob, board: BoardRef) -> NormalizedSourceJob:
         """Normalize, taking the employer name from the approved registry entry.
