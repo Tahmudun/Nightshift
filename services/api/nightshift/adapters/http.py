@@ -21,6 +21,7 @@ from typing import Any, Final, Self
 
 import httpx
 import structlog
+from pydantic import BaseModel, ConfigDict
 
 from nightshift.adapters.base import SourceUnavailableError
 from nightshift.config import Settings, get_settings
@@ -43,6 +44,31 @@ MAX_TEXT_BYTES: Final = 256 * 1024
 
 class OutboundHTTPDisabledError(SourceUnavailableError):
     """Raised when live HTTP is attempted while the kill switch is off."""
+
+
+class ConditionalResponse(BaseModel):
+    """The result of one conditional GET.
+
+    ``not_modified`` is the whole point of this type: it is neither a failure
+    nor an empty body, and a caller that collapses it into either is the I3
+    failure ADR 0007 warned about before there was code to warn about. A ``304``
+    carries no jobs — and so does a genuinely empty board — but only one of them
+    is evidence that anything closed.
+
+    Frozen, because this travels from the adapter to whatever stores the ETag,
+    and a mutable one invites fixing up the etag after the fact, which is how a
+    stored ETag outlives the payload it belongs to.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    not_modified: bool
+    payload: Any = None
+    #: On a ``200``, the provider's new ETag, or ``None`` if it served none. On a
+    #: ``304``, the ETag we sent — a 304 may carry no header of its own, and the
+    #: value we sent is precisely the one that earned it.
+    etag: str | None = None
+    http_status: int
 
 
 class RateLimiter:
@@ -107,6 +133,26 @@ class PoliteClient:
         Every failure path funnels into that one exception type because callers
         must treat them identically under I3: a timeout, a 503, and a truncated
         body are all "we learned nothing", never "the jobs are gone".
+
+        Unconditional by construction: sending no ``If-None-Match`` means the
+        server cannot answer ``304``, so ``payload`` is always present here and
+        no existing caller has to learn about revalidation.
+        """
+        return (await self.get_json_conditional(url)).payload
+
+    async def get_json_conditional(
+        self, url: str, *, etag: str | None = None
+    ) -> ConditionalResponse:
+        """GET with ``If-None-Match``, returning ``304`` as data rather than as an error.
+
+        Shares the rate limiter, the retry budget, the backoff and the kill
+        switch with every other method here — :meth:`get_json` delegates to this
+        one rather than the two living side by side, because a second HTTP path
+        is a second place to forget all four.
+
+        A ``304`` is never retried. It is the answer, and the cheapest one a
+        provider can give us: measured 2026-08-02, all three providers serve an
+        ``ETag`` and all three honour it.
         """
         if not self._settings.outbound_http_enabled:
             raise OutboundHTTPDisabledError(
@@ -116,6 +162,8 @@ class PoliteClient:
         if self._client is None:
             raise RuntimeError("PoliteClient must be used as an async context manager")
 
+        headers = {"If-None-Match": etag} if etag else None
+
         attempts = self._settings.http_max_retries + 1
         last_error: str = "no attempt made"
         last_status: int | None = None
@@ -123,19 +171,38 @@ class PoliteClient:
         for attempt in range(1, attempts + 1):
             await self._limiter.acquire()
             try:
-                response = await self._client.get(url)
+                response = await self._client.get(url, headers=headers)
             except httpx.HTTPError as exc:
                 last_error = f"{type(exc).__name__}: {exc}"
                 last_status = None
             else:
                 last_status = response.status_code
+                if response.status_code == 304:
+                    # Checked before the terminal branch below, and deliberately
+                    # not via `is_success` — httpx counts only 2xx as success,
+                    # and 304 is not in _RETRYABLE_STATUS, so falling through
+                    # would raise and turn the cheapest possible success into a
+                    # source outage that closes jobs.
+                    return ConditionalResponse(
+                        not_modified=True,
+                        payload=None,
+                        etag=etag,
+                        http_status=304,
+                    )
                 if response.is_success:
                     try:
-                        return response.json()
+                        payload = response.json()
                     except ValueError as exc:
                         # A 200 with a broken body is a source problem, and
                         # retrying it occasionally does help (partial transfer).
                         last_error = f"invalid JSON: {exc}"
+                    else:
+                        return ConditionalResponse(
+                            not_modified=False,
+                            payload=payload,
+                            etag=response.headers.get("ETag"),
+                            http_status=response.status_code,
+                        )
                 elif response.status_code in _RETRYABLE_STATUS:
                     last_error = f"HTTP {response.status_code}"
                 else:
