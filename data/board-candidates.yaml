@@ -1,0 +1,12 @@
+# Discovered board candidates — written by `make discover`, read by
+# `make registry-approve`. Committed on purpose: the diff is the review.
+#
+# NOTHING HERE IS IN THE REGISTRY YET. Promotion happens only when a human runs
+# `make registry-approve`, and only `live_named` candidates are promoted in
+# bulk (ADR 0005). Everything else waits for individual attention.
+#
+# No candidate is ever deleted by the pipeline. `empty` means a live board with
+# no open roles and `unreachable` means we could not check — neither is
+# evidence the board is worthless, and both become approvable the moment they
+# return named postings.
+candidates: []
