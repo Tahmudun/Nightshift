@@ -92,12 +92,12 @@ class _StubAdapter:
 
 
 async def _ingest(
-    session: AsyncSession, postings: list[dict[str, Any]]
+    session: AsyncSession, postings: list[dict[str, Any]], *, now: datetime = NOW
 ) -> tuple[Any, IngestionStats]:
     source = await get_or_create_source(
         session, name="lever_merge_test", source_type=SourceType.ATS_LEVER
     )
-    return await ingest_boards(session, _StubAdapter(postings), [BOARD], source=source, now=NOW)
+    return await ingest_boards(session, _StubAdapter(postings), [BOARD], source=source, now=now)
 
 
 async def _count(session: AsyncSession, model: Any) -> int:
@@ -300,3 +300,41 @@ async def test_absorbing_locations_does_not_duplicate_shared_ones(
     await _ingest(db_session, DUPLICATE_PAIR)
     rows = (await db_session.execute(select(JobLocation.raw_text))).scalars().all()
     assert len(rows) == len(set(rows)), f"duplicate location rows after merge: {sorted(rows)}"
+
+
+async def test_a_repost_merging_into_a_closed_job_reopens_it(
+    db_session: AsyncSession,
+) -> None:
+    """Dedupe compares against closed jobs too, and that is deliberate.
+
+    A company closes a listing and re-publishes it weeks later under a new id.
+    The new posting merges into the closed original — which is correct, it is
+    the same opening — and the closure machine then re-decides on the merged
+    job's records and reopens it, because one of them was listed at this poll.
+
+    Checked because the two subsystems could plausibly have fought: a merge
+    that inherited the winner's `closed` state without freshness re-running
+    would leave a live job invisible, and nothing else in the suite covers the
+    handover between them.
+    """
+    from datetime import timedelta
+
+    from nightshift.db.base import JobStatus
+
+    original = _variant(id="rp-1", hostedUrl="https://jobs.lever.co/alloy/rp-1")
+    await _ingest(db_session, [original])
+
+    # Close it: three misses spread past the seven-day line.
+    for day in (1, 2, 3, 8):
+        await _ingest(db_session, [], now=NOW + timedelta(days=day))
+    closed = (await db_session.execute(select(Job))).scalars().one()
+    assert closed.status is JobStatus.CLOSED
+
+    # Re-published under a new id, same content.
+    repost = _variant(id="rp-2", hostedUrl="https://jobs.lever.co/alloy/rp-2")
+    await _ingest(db_session, [repost], now=NOW + timedelta(days=20))
+
+    assert await _count(db_session, Job) == 1, "the repost did not merge into the original"
+    job = (await db_session.execute(select(Job))).scalars().one()
+    assert job.status is JobStatus.OPEN
+    assert job.closed_at is None

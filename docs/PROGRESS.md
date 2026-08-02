@@ -3,10 +3,11 @@
 > Read this first, every session. If the repo state does not match what this
 > file claims, fix this file before writing code.
 
-**Current milestone: M1 — Employment data spine. M1a merged into `main`, M1b next.**
+**Current milestone: M1 — Employment data spine. M1a + M1b done, M1c next.**
 **M0: COMPLETE — 6 of 6 acceptance criteria verified at commit `4c1643f`.**
 **M1a: COMPLETE, CI-green at `430347a`, merged to `main` as PR #1 (`54ef35a`).**
-**Last updated: 2026-08-01**
+**M1b: COMPLETE and reviewed at `eda0297`. Draft PR #2 open, NOT yet merged.**
+**Last updated: 2026-08-02**
 
 ---
 
@@ -33,31 +34,50 @@ them, but by inference from the job's step order rather than from reading the
 count. It has now been observed directly, locally, against a real PostGIS
 cluster. See B4.
 
-### M1b is 8 of 10 tasks done, on branch `m1b-canonical-spine` (not pushed)
+### M1b: all 10 tasks done. **Next: write and execute the M1c plan.**
 
-**Resume at Task 9** of `docs/plans/2026-08-01-m1b-canonical-spine.md`. Tasks
-1–8 are complete, each committed separately with recorded evidence and a
-mutation check. What is left is the surface: Task 9 (admin job route, per-job
-status history, source-health detail) and Task 10 (the web UI, the acceptance
-table, the milestone review).
+M1b is complete and reviewed. Every task was committed separately with recorded
+evidence and a mutation check; the review is
+`docs/reviews/milestone-1b-review.md`. Board discovery (M1c) is next, and its
+design already exists in full at `docs/architecture/board-discovery.md` — write
+the plan before touching code, as M1a and M1b both did.
+
+**PR #2 is still a draft and is not merged.** It was opened at task 8 so CI
+could exercise the migration early. Tasks 9 and 10 landed after CI run #10, so
+mark it ready for review, confirm CI is green on the new head, and merge before
+starting M1c on `main`.
 
 | Task | State |
 |---|---|
-| 1 — three tables + append-only triggers | **done** `dc7bdc3` |
-| 2 — closure decision function (pure) | **done** `ad606c9` |
-| 3 — closure applied in the pipeline | **done** `e819d38` |
-| 4 — labelled dedupe fixture set (red) | **done** |
-| 5 — deterministic dedupe layers | **done** |
-| 6 — local embedder (A5) | **done** |
-| 7 — similarity layer, derived threshold | **done** `b8a2568` |
-| 8 — merging in the pipeline | **done** `5532abc` |
-| 9 — API surface | **not started** |
-| 10 — web UI, acceptance table, review | **not started** |
+| 1 — three tables + append-only triggers | done `dc7bdc3` |
+| 2 — closure decision function (pure) | done `ad606c9` |
+| 3 — closure applied in the pipeline | done `e819d38` |
+| 4 — labelled dedupe fixture set (red) | done |
+| 5 — deterministic dedupe layers | done |
+| 6 — local embedder (A5) | done |
+| 7 — similarity layer, derived threshold | done `b8a2568` |
+| 8 — merging in the pipeline | done `5532abc` |
+| 9 — API surface | done `61bd721` |
+| 10 — web UI, review, PROGRESS | done `0a721f0` |
 
-**Verified at `5532abc`:** `make check` green — **467 Python tests, zero
-skipped**, 35 web, ruff and mypy clean on 34 source files. The migration was
-run down and up against the live cluster: both triggers, the trigger function
-and all three tables drop and are restored.
+**Verified at `eda0297`, from a clean shell:**
+
+```
+make check        480 Python tests (0 skipped), 42 web, ruff + mypy clean (34 files)
+make acceptance   18 verify checks + 11 seeded browser tests   (was 6 at M1a)
+migration         down and up on a live cluster: both triggers, the trigger
+                  function and all three tables drop and are restored
+```
+
+**The review found the milestone's worst bug, and reading the code had not.**
+A merge silently dropped locations only the losing posting named — board A says
+"Washington, DC", board B says "Washington, DC" and "Austin, TX", they share a
+location so they merge, and Austin cascaded away with the deleted row. A user
+filtering for Austin would never have seen the role, at the exact moment two
+sources agreed it exists there. Found by probing with a deliberately
+asymmetric pair; every existing merge test used pairs whose location sets were
+identical, so the suite was green and blind. Fixed in `eda0297` with a
+regression test and a control.
 
 **CI green, first try — run #10, all five jobs:**
 https://github.com/Tahmudun/Nightshift/actions/runs/30720960500 — pushed as
@@ -315,6 +335,35 @@ this project and was left alone.
 
 ---
 
+## Acceptance criteria — M1
+
+Per invariant I6, "the code exists" is not evidence. M1 has fifteen criteria in
+`CLAUDE.md` §6 across four plans. **Nine are earned and verified below. Six
+belong to M1c and M1d and are explicitly unclaimed** — listing them as pending
+rather than omitting them is the point of this table.
+
+| # | Criterion | Status | Evidence |
+|---|---|---|---|
+| 1 | Same fixture input → byte-identical normalized output, twice | **VERIFIED** (M1a) | `test_normalization_is_deterministic` per adapter. Unaffected by M1b; `test_decision_is_deterministic` extends the same guarantee to the closure verdict |
+| 2 | Re-ingestion is idempotent: no dupes, no spurious updates | **VERIFIED** | `test_reingestion_is_idempotent` (M1a) plus `test_re_ingesting_a_merged_board_is_idempotent` — the second poll of a merged pair reports `created == 0`, leaves 1 job, and writes no second merge event. `test_an_unchanged_repoll_does_not_re_embed` asserts the model does no work either |
+| 3 | Simulated source outage closes zero jobs | **VERIFIED** | `test_a_failed_board_does_not_increment_a_miss`: five consecutive failed polls, well past every ADR 0009 threshold, leave all 9 jobs open **and every miss counter at 0**. The counter is the assertion, not the status — a failed fetch that bumps the counter closes jobs three polls later, and the pre-existing status-only test does not catch that. Confirmed by mutation: making a failed board count as answered fails this test and not the older one |
+| 4 | Dedupe fixture suite: true dupes merge, near-dupes and same-title-different-role stay separate | **VERIFIED** | `tests/fixtures/dedupe_pairs.yaml`, all seven §7.5 categories, both verdicts, 55 assertions in `test_dedupe.py`. Zero skips locally — the similarity cases require the real model and it is present. Non-vacuity: removing the title guard collapses the 9 real postings on the recorded Alloy board |
+| 5 | Every canonical job traces to at least one raw source record | **VERIFIED** | `test_every_job_still_traces_to_a_raw_record` and `test_a_merge_keeps_every_source_link` — after a merge the surviving job carries **both** links, with distinguishable reasons (`sole_source_record`, `identical_content`). Also asserted at the API boundary: `test_admin_rows_carry_provenance` |
+| 6 | Multi-location postings produce multiple `job_locations` rows | **VERIFIED** | `test_multi_location_posting_yields_multiple_rows` (M1a), plus the browser test on real seeded data. **And a merge no longer destroys them** — `test_a_merge_absorbs_locations_the_winner_did_not_have`, which is the review's headline bug |
+| 7 | Ingestion failures are visible in the UI, not just logs | **VERIFIED** | `/operate` shows per-source last success, last failure, last run error and a job breakdown by closure state; `/operate/jobs` shows every job's state with a permanent legend. 5 seeded browser tests, including one asserting the status is readable as a word rather than only a colour (§12.4) |
+| 8 | Freshness + closure state machine | **VERIFIED** | 22 pure decision tests + 11 pipeline tests against a real database. Both ADR 0009 thresholds asserted, and `test_unverified_never_becomes_closed_however_long_it_lasts` runs the outage out to ten years |
+| 9 | Admin job table, source health page | **VERIFIED** | `/operate/jobs` and the grown `/operate`. `job_status_counts` was added to the source route because `job_count` cannot move when a job closes — asserted directly: three empty-but-live polls take a source from 9 open to 9 stale while its total stays 9 |
+| 10 | Discovery yields candidates from a committed crawl fixture, deterministically | **NOT CLAIMED** | M1c. Design exists at `docs/architecture/board-discovery.md`; no code |
+| 11 | A live-but-unnameable board cannot reach bulk approval | **NOT CLAIMED** | M1c |
+| 12 | The coverage page names what is *not* covered | **NOT CLAIMED** | M1c |
+| 13 | A `304 Not Modified` produces zero writes and closes zero jobs | **NOT CLAIMED** | M1d. ADR 0007's design is written; conditional requests are not implemented |
+| 14 | Greenhouse + Lever + Ashby behind one interface | **VERIFIED** (M1a) | Three adapters on the unchanged `JobSourceAdapter` Protocol |
+| 15 | `source_job_records` preserving raw payloads | **VERIFIED** (M0/M1a) | Asserted again in M1b: a merge collapses the canonical view and leaves both raw records untouched |
+
+**M1 is not complete.** M1a and M1b are; M1c and M1d are not started.
+
+---
+
 ## Acceptance criteria — M0
 
 Per invariant I6, "the code exists" is not evidence. Each row is either verified
@@ -393,28 +442,35 @@ These ran on this machine and passed:
 | Python format | `ruff format --check services/api` | 45 files already formatted |
 | Python lint | `ruff check services/api` | All checks passed |
 | Python types | `mypy nightshift` | Success: no issues found in 31 source files (strict) |
-| Python tests | `pytest -q` | **350 passed** in ~7s (laptop, DB reachable at `localhost:5433`) |
+| Python tests | `pytest -q` | **480 passed**, zero skipped, ~85s (the embedding model now loads during ingestion tests) |
 | Web types | `tsc --noEmit` | clean, `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes` |
 | Web lint | `eslint . --max-warnings 0` | clean |
-| Web tests | `vitest run` | **35 passed** (4 files) |
+| Web tests | `vitest run` | **42 passed** (5 files) |
 | Colour contrast | `vitest run colour-contrast` | 16 assertions on measured WCAG 2.1 ratios |
 | Web build | `next build` | compiled, 7 static routes, 102 kB shared JS |
 | E2E — degraded (no API) | `make test-e2e` | **5 passed** in 15.0s |
-| E2E — seeded corpus | `make test-e2e-seeded` | **6 passed**, 32.3s, against the now-3-provider seed |
+| E2E — seeded corpus | `make test-e2e-seeded` | **11 passed**, 44.5s — 5 new on the admin job table and the closure vocabulary |
 | Migration renders | `alembic upgrade head --sql` | full DDL emitted, 8 tables, 8 enums |
 | Migration round trip | `make migrate-down && make migrate` | 8 tables + 8 enum types dropped and restored, live cluster |
-| Whole-stack acceptance | `make acceptance` | **18 checks + 6 browser tests**, seeded corpus now 31 jobs / 3 companies / 62 locations across greenhouse + lever + ashby |
+| Whole-stack acceptance | `make acceptance` | **18 checks + 11 browser tests**, seeded corpus 31 jobs / 3 companies / 62 locations across greenhouse + lever + ashby |
 | Live source reachable | `GET /v1/boards/datadog/jobs` | HTTP 200, 426 postings |
 
-**Total: 396 automated tests passing** (350 Python, 35 web unit, 5 degraded e2e,
-6 seeded e2e), plus the 18 assertions in `scripts/verify.py`, which are not
-pytest tests but do gate `make acceptance` with an exit code. Of the 350
-Python tests, 13 are database-backed (`requires_db`/`pytest.mark.integration`
-in `tests/conftest.py`) and were, until this review, database-backed *only on
-a laptop with Postgres running* — the `python` CI job had no `postgres`
-service, so they silently skipped there and CI never actually ran them. See
-the CI paragraph above: the workflow now has a `postgres` service, but that
-fix itself has not yet been proven by a real CI run.
+**Total: 538 automated tests passing** (480 Python, 42 web unit, 5 degraded e2e,
+11 seeded e2e), plus the 18 assertions in `scripts/verify.py`, which are not
+pytest tests but do gate `make acceptance` with an exit code. Of the 480
+Python tests, **55** are database-backed
+(`requires_db`/`pytest.mark.integration` in `tests/conftest.py`) — up from 13
+at M1a, because closure, merging and the admin routes are all transactional
+and cannot be exercised honestly against a fake session.
+
+**That gap is now closed, and it was closed by reading rather than by
+inferring.** At M1a those tests skipped in CI (no `postgres` service) and the
+fix had never been proven. `gh` was installed this session, so CI run #10's
+`python` job log was read directly: `467 passed, 2 warnings` with no skip
+line. The `Fetch the embedding model` step ran too, which matters for the same
+reason — the real-model tests and the similarity half of the dedupe suite skip
+themselves when the weights are missing, so without that step CI would have
+been green while never testing the component the threshold depends on.
 
 Re-run in the M1a session on 2026-07-30 (Task 10, closing M1a): Python format,
 lint, types, tests (via `make check`); web types, lint, unit tests (also
@@ -610,8 +666,9 @@ presented to a user as working.
 |---|---|---|
 | `FixtureGreenhouseAdapter` (`cli.py`) | Subclasses the real adapter, overrides only `fetch_board` to read a committed JSON file. Constructed with no HTTP client, so it cannot make a request. Attributed to source `greenhouse_fixture` with `source_type='fixture'`, badged **"committed fixture"** in the Operate UI. ADR 0004 | Permanent — this is the offline demo path, not a stopgap |
 | Geocoding | **Does not exist.** No coordinate has ever been written. Every location is `city_only`, `remote`, or `unknown`; `mappable_locations` reads 0 and the UI says "nothing geocoded yet" | M1 (NYC GeoSearch, A4) |
-| Closure state machine | `records_closed` is hardcoded to 0. `jobs.status` only ever holds `open`. Nothing can close a listing, which is the safe direction under I3 | M1 |
-| Dedupe | None. One canonical job per source record, linked with `match_confidence=1.0` and `link_reason='sole_source_record'` — a claim about provenance, not about identity | M1 |
+| Dedupe similarity threshold | **Real, but thinly calibrated.** `SIMILARITY_THRESHOLD = 0.85` was derived by `services/api/scripts/derive_dedupe_threshold.py` from the labelled set, not chosen — and only **three** labelled pairs carry descriptions, so three points define it. The separation is wide (0.7640 distinct / 0.9370 merge) but it is the number most likely to be wrong in a way no current test can see. Re-derive as the fixture set grows | Re-derive at M1c, when real cross-posted boards arrive |
+| Merge concurrency | `merge_jobs` has no row lock. Unreachable at `max_jobs=1`; the day ADR 0007 makes polling queue-driven, two workers can each decide A and B are duplicates and each try to delete the other's winner. `get_or_create_company` was made an upsert in M1a for exactly this reason and merging has no equivalent | M1d — named in the M1b review as the thing that milestone must not inherit unnoticed |
+| Later-arising duplicates | Dedupe runs only on creation, deliberately: re-running the matcher every poll is how a settled merge starts oscillating. The consequence is that two jobs which become duplicates *later* — a title corrected on one board to match the other — never merge, and nothing reconciles them | No milestone. Revisit if visible duplicates are reported |
 | `job_locations.geom` | Column and GiST index exist; always NULL | M1 |
 | `normalize_title` | Whitespace and dash folding only. Deliberately does **not** attempt role-family normalization — asserted by `test_does_not_attempt_role_family_normalisation` | M3 |
 | `jobs.role_family`, `jobs.seniority` | Columns exist, always NULL. NULL means "not classified", never a guessed default | M3 |
@@ -625,6 +682,85 @@ presented to a user as working.
 ---
 
 ## Session log
+
+### 2026-08-01/02 — M1b: the canonical spine
+
+Ten tasks, ten separate commits, each mutation-checked. The engine — closure,
+dedupe, embeddings — and the operational surface that makes both observable.
+
+**The session opened by finding the repo ahead of its own notes.** PROGRESS
+said M1a was "written, not started". It was finished, CI-green and already
+merged as PR #1; the file was simply stale. Synced, removed the leftover
+worktree, and — with Docker back — ran the database tests locally for the first
+time ever: `350 passed`, zero skipped. Until that moment every local
+`make check` on this host had reported `337 passed, 13 skipped` and nobody had
+seen the other 13 run anywhere except by inference.
+
+**Two decisions were the human's, and one of them was against my
+recommendation.** ADR 0009 fixes closure at three misses *and* seven days, the
+cautious end of three options offered. ADR 0010 admits embedding similarity
+into dedupe; I recommended deterministic rules only. Both ADRs record who
+decided what. The constraint that makes the second safe is that similarity is
+unreachable until company, employment type, title and location already agree —
+so it breaks ties and never matches on its own, asserted by
+`TestSimilarityIsConfined` with a control case so its negative tests cannot
+pass by the layer merely being broken.
+
+**Three bugs, none of them found by reading code.**
+
+1. **A merge silently dropped locations only the losing posting named.** The
+   worst of the three. Board A says "Washington, DC"; board B says
+   "Washington, DC" and "Austin, TX"; they share a location so they merge, and
+   Austin cascaded away with the deleted row. A user filtering for Austin would
+   never have seen the role, at the exact moment two sources agreed it exists
+   there. Found by writing a throwaway probe with a deliberately asymmetric
+   pair — every existing merge test used pairs whose location sets were
+   identical, so the suite was green and blind. *A fixture that varies only in
+   the dimension under test will not catch a bug in a dimension held constant.*
+2. **Two descriptionless postings merged on their emptiness.**
+   `content_hash(None)` returns the sha256 of the empty string — a genuine
+   64-character digest, equal on both sides — so layer 2 found them identical
+   and merged them on "identical content". The same failure shape as two null
+   URLs matching each other, which `normalize_url` had already guarded. One
+   guard existed and its twin did not.
+3. **Alembic autogenerate produced three defects at once**, all of which would
+   have failed at runtime rather than at review: it referenced `pgvector` and
+   `nightshift.db.types` without importing either, and emitted a `CREATE TYPE`
+   for `job_status`, which already exists and is in use by `jobs`. The M0
+   migration leaves a note at its head about exactly this; that note is now
+   load-bearing rather than historical.
+
+**The similarity threshold was derived, not chosen.**
+`scripts/derive_dedupe_threshold.py` scores the labelled set under the real
+model: merges at 0.9693 and 0.9370, the distinct pair at 0.7640. Any value in
+(0.7640, 0.9370] separates the set; 0.85 is the midpoint. The script refuses to
+suggest a number when no separating window exists, which is the branch that
+matters. **Three labelled pairs carry descriptions, so three points define this
+number** — recorded in "Not real yet" as the thing most likely to be wrong in
+a way no current test can see.
+
+**The mutation that mattered most.** Making a failed board count as answered
+fails two closure tests — and *not* the pre-existing
+`test_a_failed_board_closes_nothing`, because one failed poll never reaches a
+threshold. The damage only becomes visible three polls later. That is why the
+new assertion is on the miss counter rather than on the status, and it is the
+clearest example in this project so far of an invariant test that was true and
+insufficient.
+
+**`gh` was installed, and it had been failing for a reason unrelated to `gh`.**
+The dead tap `homebrew/cask-versions` — a repository Homebrew itself deleted —
+made `brew update` error, and since every `brew install` auto-updates first,
+*any* package would have failed the same way. Untapped. That likely explains
+part of the earlier Docker Desktop trouble too. With `gh` working, CI run #10's
+log was read directly rather than inferred, closing the last inference in the
+evidence chain.
+
+**Deliberately not done:** a row lock in `merge_jobs`. Two workers merging
+concurrently is unreachable at `max_jobs=1` and becomes routine the day ADR
+0007's queue-driven polling lands. It is named in the M1b review as the single
+thing M1d must not inherit unnoticed, and it should be designed against M1d's
+real concurrency model rather than guessed at now.
+
 
 ### 2026-07-31 — Review session: state verified; host disk full again (B4)
 
