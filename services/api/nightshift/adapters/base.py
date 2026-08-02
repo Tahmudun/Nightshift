@@ -13,9 +13,9 @@ outside this package imports ``httpx`` (CLAUDE.md §7).
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol, Self, runtime_checkable
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from nightshift.db.base import EmploymentType, SourceType
 from nightshift.domain.locations import ParsedLocation
@@ -87,6 +87,26 @@ class NormalizedSourceJob(BaseModel):
     source_updated_at: datetime | None = None
 
 
+class ListedPosting(BaseModel):
+    """One posting as it appears in a board *listing*.
+
+    Deliberately thin, because a listing is the cheap request: 33 KB against
+    499 KB for the same Greenhouse board with content (measured 2026-08-02). It
+    carries an id and a last-modified stamp and no description, and its job is
+    to answer two questions — which postings are still open, and which of them
+    changed since we last looked.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    source_job_id: str
+    #: Greenhouse publishes this on its listing. Lever and Ashby publish no
+    #: updated-at field at all, and need none: their board response already
+    #: carries every posting in full, so there is no second fetch for a
+    #: timestamp to gate. Measured against live boards on 2026-08-02.
+    source_updated_at: datetime | None = None
+
+
 class FetchOutcome(BaseModel):
     """What happened when we polled one board.
 
@@ -94,6 +114,20 @@ class FetchOutcome(BaseModel):
     about the jobs on this board, so the caller must not touch their state.
     ``ok=True`` with an empty ``jobs`` list is a genuine, different fact: the
     board responded and has no open postings.
+
+    M1d adds a third state and one distinction.
+
+    ``not_modified`` is a ``304``: the listing is byte-identical to the copy we
+    already parsed. It is neither a failure nor an empty board, and it is the
+    cheapest answer a provider can give us.
+
+    ``listed`` versus ``jobs`` is the two-phase split (ADR 0007). ``listed`` is
+    every posting the board says exists, and it is what freshness ages against.
+    ``jobs`` is the subset we hold full payloads for. Greenhouse's poll makes
+    those differ — it fetches content only for postings that changed — while for
+    Lever and Ashby they describe the same postings. Ageing against ``jobs``
+    would count every unchanged Greenhouse posting as missing and close it three
+    polls later, silently. See ``docs/architecture/conditional-polling.md`` §4.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -101,13 +135,48 @@ class FetchOutcome(BaseModel):
     board: BoardRef
     ok: bool
     jobs: tuple[RawJob, ...] = ()
+    listed: tuple[ListedPosting, ...] = ()
+    not_modified: bool = False
+    etag: str | None = None
     http_status: int | None = None
     error: str | None = None
 
+    @model_validator(mode="after")
+    def _not_modified_carries_nothing(self) -> Self:
+        """A 304 has no body, so it cannot describe any posting.
+
+        Enforced rather than documented: an adapter returning postings beside
+        ``not_modified`` would make every downstream guard reason about a state
+        that cannot physically occur.
+        """
+        if self.not_modified and (self.jobs or self.listed):
+            raise ValueError("not_modified=True cannot carry jobs or listed postings")
+        return self
+
+    @property
+    def listed_source_job_ids(self) -> tuple[str, ...]:
+        """Every posting id the board listed, in the order the board gave them.
+
+        The freshness pass ages on this rather than on ``jobs``. Not sorted:
+        determinism is asserted on normalized output, and re-ordering here would
+        hide a provider that started shuffling its listing between polls.
+        """
+        return tuple(posting.source_job_id for posting in self.listed)
+
     @property
     def is_authoritative_empty(self) -> bool:
-        """True only when the source successfully told us the board is empty."""
-        return self.ok and not self.jobs
+        """True only when the source successfully told us the board is empty.
+
+        ``not_modified`` is excluded explicitly. A 304 carries no jobs, so
+        without that clause an unchanged board reads as an empty one and every
+        posting on it closes — the failure ADR 0007 warned about in the abstract
+        before there was code to make it concrete.
+
+        ``listed`` is checked too: phase 1 naming ten postings while phase 2
+        fetches none is the normal state of a Greenhouse board where nothing
+        changed, and it is not an empty board either.
+        """
+        return self.ok and not self.not_modified and not self.jobs and not self.listed
 
 
 class SourceUnavailableError(Exception):
