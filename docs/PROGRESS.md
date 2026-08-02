@@ -13,12 +13,31 @@
 
 ## Next exact action
 
-### Next: execute `docs/plans/2026-08-02-m1c-board-discovery.md`, from Task 1
+### Next: execute `docs/plans/2026-08-02-m1c-board-discovery.md`, from Task 3
+
+Branch `m1c-board-discovery`. **Tasks 1 and 2 are done and committed:**
+
+- Task 1 (`1723d65`) — `discovery/sources/crawl_index.py`, token harvesting
+  from a recorded Common Crawl slice.
+- Task 2 (`b907b85`) — `discovery/models.py`, `discovery/candidates.py`, and
+  the committed (currently empty) `data/board-candidates.yaml`. 14 tests.
+  `make check` green at that commit: **507 Python** / 42 web, zero skips.
+
+**Task 3 is the one that needs a human present.** Its first step records five
+live fixtures over the network (Ashby's `0g` board and board page, Greenhouse's
+`6sense`, the `a3c41b8b71eff8c4` junk board), and its step 4 adds `get_text` to
+`PoliteClient`. Nothing before it touched the network.
+
+One plan bug found and fixed rather than copied: Task 2's draft computed the
+repo root as `parents[3]`, which from `nightshift/discovery/` is `services/`,
+not the root — it would have written `services/data/board-candidates.yaml` and
+the approval step would later have read an empty file from the right path.
+`domain/registry.py` uses `parents[4]` from the same depth; so does this.
 
 **M1b is merged.** `main` is at `cf48719` and contains it; PR #2 was merged by
 the human and both the branch and its worktree are gone.
 
-The M1c plan was written this session: six tasks, TDD, real code in every step.
+The M1c plan was written last session: six tasks, TDD, real code in every step.
 The design it implements already existed in full at
 `docs/architecture/board-discovery.md` — this plan does not re-decide anything,
 it sequences it.
