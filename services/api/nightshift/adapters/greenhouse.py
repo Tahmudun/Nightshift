@@ -1,12 +1,29 @@
-"""Greenhouse job board adapter.
+"""Greenhouse job board adapter. The one two-phase provider.
 
-Endpoint (AMENDMENTS A1, re-verified against a live board on 2026-07-29):
+Three endpoints (AMENDMENTS A1; re-verified against a live board 2026-08-02):
 
-    GET https://boards-api.greenhouse.io/v1/boards/{token}/jobs?content=true
+    GET /v1/boards/{token}/jobs               phase 1, the listing      33 KB
+    GET /v1/boards/{token}/jobs/{id}          phase 2, one posting     4.9 KB
+    GET /v1/boards/{token}/jobs?content=true  first ingestion only     499 KB
 
-Unauthenticated, poll-only, no webhooks. Field shapes below were read off a real
-response (Datadog, 426 postings) rather than from documentation, and the notes
-record what that response actually contained:
+Unauthenticated, poll-only, no webhooks. Greenhouse is the only one of the three
+providers whose board listing omits descriptions, which is what makes a second
+phase necessary — and, not coincidentally, the only one publishing a per-posting
+``updated_at`` to decide which postings need one. Lever and Ashby return every
+posting in full from a single request and have no phase 2 at all.
+
+The measurement that makes the split safe: a phase-2 payload is **byte-identical**
+to the same posting inside ``?content=true`` — compared key-by-key and
+value-by-value, zero differences — so ``normalize`` is reused rather than
+duplicated. A second normalization path is a second place for the location
+parser to drift, and I1 failures have come from exactly that three times here.
+
+``content=true`` on a routine poll is a bug (ADR 0007). It is reserved for a
+board nobody has polled before, where the alternative is one phase-2 request per
+posting — 429 of them on Datadog.
+
+Field shapes below were read off a real response (Datadog, 426 postings) rather
+than from documentation, and the notes record what that response contained:
 
 * ``content`` is HTML **and HTML-escaped** — ``&lt;p&gt;`` on the wire. It needs
   unescaping before it is HTML at all.
@@ -24,6 +41,7 @@ from __future__ import annotations
 import hashlib
 import html
 import re
+from collections.abc import Sequence
 from datetime import UTC, date, datetime
 from typing import Any, Final
 
@@ -43,7 +61,27 @@ from nightshift.domain.locations import infer_remote_policy, parse_location_fiel
 
 log = structlog.get_logger(__name__)
 
-BOARD_URL: Final = "https://boards-api.greenhouse.io/v1/boards/{token}/jobs?content=true"
+#: Phase 1. The cheap request the whole design rests on: 33 KB against 499 KB
+#: for the same board with content, measured on `datadog` 2026-08-02. Carries
+#: id, updated_at, first_published, location, title and absolute_url — every
+#: field the freshness pass needs, and no descriptions.
+LISTING_URL: Final = "https://boards-api.greenhouse.io/v1/boards/{token}/jobs"
+
+#: Phase 2. One posting, with content: 4,852 bytes. Its payload is byte-identical
+#: to the same posting inside `?content=true` — compared key-by-key and
+#: value-by-value on 2026-08-02, zero differences — which is why `normalize` is
+#: reused for it rather than duplicated.
+JOB_URL: Final = "https://boards-api.greenhouse.io/v1/boards/{token}/jobs/{job_id}"
+
+#: Reserved for a board's first ingestion, and nothing else (ADR 0007). Using it
+#: on a routine poll is a bug that is invisible from the outside: the data would
+#: be correct and the bandwidth ruinous. See `fetch_full_board`.
+FULL_BOARD_URL: Final = "https://boards-api.greenhouse.io/v1/boards/{token}/jobs?content=true"
+
+#: Retained under its old name because `record_fixture.py` and the seed path
+#: still address the whole board. New callers should name which of the three
+#: above they mean.
+BOARD_URL: Final = FULL_BOARD_URL
 
 #: Bumped when normalization changes, so a stored ETag earned by the old parser
 #: is discarded rather than letting the new parser never see the payload it was
@@ -217,27 +255,32 @@ class GreenhouseAdapter:
     parser_version = PARSER_VERSION
     #: Greenhouse's listing carries no descriptions, so postings that changed
     #: need a second request. It is the only one of the three providers where
-    #: that is true, and the only one publishing an updated-at field to decide
-    #: which postings those are. Set True in M1d Task 4.
-    is_two_phase = False
+    #: that is true, and — not coincidentally — the only one publishing an
+    #: updated-at field to decide which postings those are.
+    is_two_phase = True
 
     def __init__(self, client: PoliteClient) -> None:
         self._client = client
 
     async def fetch_board(self, board: BoardRef, *, etag: str | None = None) -> FetchOutcome:
-        """Poll one board. Never raises — unconditionally, not just for a
-        source failure: unlike Lever and Ashby, this adapter's ``client`` is
-        required at construction, not optional, so there is no caller-bug
-        raise path to carve out here either.
+        """Phase 1: list the board's postings without fetching any content.
 
-        I3 lives or dies on this method: a failure returns ``ok=False`` on
-        the returned :class:`FetchOutcome`, which tells the caller it
-        learned *nothing* about these jobs. That is categorically different
-        from ``ok=True`` with an empty list, which means the board really is
-        empty. Collapsing the two is how a source outage closes a thousand
-        live jobs.
+        Never raises — unconditionally, not just for a source failure: unlike
+        Lever and Ashby, this adapter's ``client`` is required at construction,
+        so there is no caller-bug raise path to carve out either.
+
+        I3 lives or dies on this method. A failure returns ``ok=False``, which
+        tells the caller it learned *nothing* about these jobs — categorically
+        different from ``ok=True`` with nothing listed, which means the board
+        really is empty. Collapsing the two is how a source outage closes a
+        thousand live jobs.
+
+        Returns no ``jobs`` at all, deliberately. The listing has no
+        descriptions to give, and which postings deserve a second request is a
+        question only the caller can answer, because it depends on what is
+        already stored. See :meth:`fetch_postings`.
         """
-        url = BOARD_URL.format(token=board.token)
+        url = LISTING_URL.format(token=board.token)
         try:
             response = await self._client.get_json_conditional(url, etag=etag)
         except SourceUnavailableError as exc:
@@ -266,11 +309,63 @@ class GreenhouseAdapter:
                 error="unexpected payload shape: missing 'jobs' array",
             )
 
-        jobs: list[RawJob] = []
-        for entry in payload["jobs"]:
-            if not isinstance(entry, dict) or entry.get("id") is None:
+        listed = tuple(
+            ListedPosting(
+                source_job_id=str(entry["id"]),
+                source_updated_at=_parse_timestamp(entry.get("updated_at")),
+            )
+            for entry in payload["jobs"]
+            if isinstance(entry, dict) and entry.get("id") is not None
+        )
+
+        log.info("greenhouse_board_listed", board=board.token, listed=len(listed))
+        return FetchOutcome(
+            board=board,
+            ok=True,
+            listed=listed,
+            etag=response.etag,
+            http_status=response.http_status,
+        )
+
+    async def fetch_postings(
+        self, board: BoardRef, source_job_ids: Sequence[str]
+    ) -> tuple[tuple[RawJob, ...], list[str]]:
+        """Phase 2: pull full content for the postings that changed.
+
+        Returns what succeeded and the ids that did not, rather than raising.
+        One posting 404-ing mid-poll must not cost the rest of the board, and it
+        must not read as those postings being gone either — a caller that saw an
+        exception here would have no way to tell the difference (I3).
+
+        Asked for nothing, it asks the network for nothing. That is the common
+        case on a healthy board: the listing changed because one posting moved,
+        and the other four hundred did not.
+        """
+        fetched: list[RawJob] = []
+        failed: list[str] = []
+
+        for job_id in source_job_ids:
+            url = JOB_URL.format(token=board.token, job_id=job_id)
+            try:
+                response = await self._client.get_json_conditional(url)
+            except SourceUnavailableError as exc:
+                log.warning(
+                    "greenhouse_posting_unavailable",
+                    board=board.token,
+                    source_job_id=job_id,
+                    error=str(exc),
+                    http_status=exc.http_status,
+                )
+                failed.append(job_id)
                 continue
-            jobs.append(
+
+            entry = response.payload
+            if not isinstance(entry, dict) or entry.get("id") is None:
+                log.warning("greenhouse_posting_bad_shape", board=board.token, source_job_id=job_id)
+                failed.append(job_id)
+                continue
+
+            fetched.append(
                 RawJob(
                     source_job_id=str(entry["id"]),
                     source_company_key=board.token,
@@ -279,13 +374,67 @@ class GreenhouseAdapter:
                 )
             )
 
+        if source_job_ids:
+            log.info(
+                "greenhouse_postings_fetched",
+                board=board.token,
+                fetched=len(fetched),
+                failed=len(failed),
+            )
+        return tuple(fetched), failed
+
+    async def fetch_full_board(self, board: BoardRef) -> FetchOutcome:
+        """The whole board with content, in one request. First ingestion only.
+
+        ADR 0007 reserves ``content=true`` for a board nobody has polled before,
+        and this method is that reservation made explicit rather than left as a
+        comment. Without it a first poll of Datadog would be 429 individual
+        phase-2 requests — nine minutes at the configured rate, against one
+        provider, to fetch what a single request returns.
+
+        Unconditional on purpose: there is no stored ETag for a board we have
+        never seen, and revalidating against nothing is a wasted header.
+        """
+        url = FULL_BOARD_URL.format(token=board.token)
+        try:
+            response = await self._client.get_json_conditional(url)
+        except SourceUnavailableError as exc:
+            log.warning(
+                "greenhouse_board_unavailable",
+                board=board.token,
+                company=board.company,
+                error=str(exc),
+                http_status=exc.http_status,
+            )
+            return FetchOutcome(board=board, ok=False, http_status=exc.http_status, error=str(exc))
+
+        payload = response.payload
+        if not isinstance(payload, dict) or not isinstance(payload.get("jobs"), list):
+            return FetchOutcome(
+                board=board,
+                ok=False,
+                http_status=200,
+                error="unexpected payload shape: missing 'jobs' array",
+            )
+
+        jobs = tuple(
+            RawJob(
+                source_job_id=str(entry["id"]),
+                source_company_key=board.token,
+                canonical_url=entry.get("absolute_url"),
+                payload=entry,
+            )
+            for entry in payload["jobs"]
+            if isinstance(entry, dict) and entry.get("id") is not None
+        )
+
         log.info("greenhouse_board_fetched", board=board.token, jobs=len(jobs))
         return FetchOutcome(
             board=board,
             ok=True,
-            jobs=tuple(jobs),
-            # Greenhouse is the one provider publishing a per-posting
-            # updated-at, which is what makes the Task 4 diff possible.
+            jobs=jobs,
+            # Everything fetched is everything listed: this request *is* the
+            # whole board, so freshness has the complete picture from it alone.
             listed=tuple(
                 ListedPosting(
                     source_job_id=job.source_job_id,

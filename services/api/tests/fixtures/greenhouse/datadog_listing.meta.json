@@ -1,0 +1,14 @@
+{
+  "provenance": {
+    "endpoint": "https://boards-api.greenhouse.io/v1/boards/datadog/jobs",
+    "recorded_at": "2026-08-02T20:58:31.154968+00:00",
+    "board_token": "datadog",
+    "full_response_job_count": 429,
+    "note": "The cheap half of ADR 0007's two-phase poll: no content=true. Each posting is byte-identical to the live response; only the set was reduced (429 -> 25). Nothing inside a posting was edited or synthesised."
+  },
+  "what_this_fixture_proves": {
+    "postings_carrying_updated_at": 25,
+    "postings_carrying_content": 0,
+    "why_it_matters": "updated_at is what the phase-2 diff compares on, and Greenhouse is the only one of the three providers that publishes it. content must be absent \u2014 a listing that carried descriptions would make the 15x saving imaginary."
+  }
+}
