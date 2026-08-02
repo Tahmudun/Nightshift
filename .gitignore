@@ -22,7 +22,13 @@ node_modules/
 out/
 *.tsbuildinfo
 .turbo/
-coverage/
+# Anchored to where vitest actually writes coverage output. An unanchored
+# `coverage/` matches a directory of that name at ANY depth, and it silently
+# swallowed `apps/web/src/app/analyze/coverage/` — the whole route — for a
+# whole milestone. Every local command passed, because the file was on disk;
+# only CI, building from a clean checkout, saw the 404.
+/apps/web/coverage/
+/services/api/coverage/
 playwright-report/
 test-results/
 .playwright/
