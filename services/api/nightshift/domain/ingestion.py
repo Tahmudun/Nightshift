@@ -510,6 +510,59 @@ async def find_duplicate(session: AsyncSession, *, job: Job) -> tuple[Job, Dedup
     return None
 
 
+async def _absorb_locations(session: AsyncSession, *, winner: Job, loser: Job) -> None:
+    """Move locations the loser named and the winner did not.
+
+    Two cross-posted listings of one role can name different sets of offices —
+    one board says "Washington, DC", the other says "Washington, DC" and
+    "Austin, TX". They share a location, so they merge, and without this the
+    loser's rows cascade away with it and the canonical job silently
+    under-reports where the role is. A user filtering for Austin would never
+    see it, at the exact moment two sources agree the job exists there.
+
+    Deduplicated on the parsed (city, state, country) key rather than on
+    ``raw_text``: "New York, NY" and "New York, NY (HQ)" are the same office
+    written twice, and keeping both would turn one place into two.
+
+    Moved rows are never primary. The winner already has one, and A2 lets order
+    carry meaning for sorting only — so a second primary would be a claim
+    neither posting made.
+    """
+    existing = {
+        location_key(city, state, country)
+        for city, state, country in (
+            await session.execute(
+                select(JobLocation.city, JobLocation.state, JobLocation.country).where(
+                    JobLocation.job_id == winner.id
+                )
+            )
+        ).all()
+    }
+
+    loser_rows = (
+        (await session.execute(select(JobLocation).where(JobLocation.job_id == loser.id)))
+        .scalars()
+        .all()
+    )
+    moved = False
+    for row in loser_rows:
+        key = location_key(row.city, row.state, row.country)
+        if key in existing:
+            continue
+        existing.add(key)
+        row.job_id = winner.id
+        row.is_primary = False
+        moved = True
+
+    if moved:
+        await session.flush()
+        # The loser is about to be deleted, and Job.locations cascades
+        # delete-orphan. Expiring the collection stops SQLAlchemy deleting the
+        # rows we just reassigned along with it.
+        session.expire(loser, ["locations"])
+        session.expire(winner, ["locations"])
+
+
 async def merge_jobs(
     session: AsyncSession, *, winner: Job, loser: Job, verdict: DedupeVerdict
 ) -> None:
@@ -556,6 +609,8 @@ async def merge_jobs(
     winner.last_seen_at = max(winner.last_seen_at, loser.last_seen_at)
 
     await session.flush()
+    # Before the delete, not after: the loser's location rows cascade with it.
+    await _absorb_locations(session, winner=winner, loser=loser)
     await session.delete(loser)
     await session.flush()
 

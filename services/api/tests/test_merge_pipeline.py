@@ -29,6 +29,7 @@ from nightshift.db.base import SourceType
 from nightshift.db.models import (
     Job,
     JobEmbedding,
+    JobLocation,
     JobMergeEvent,
     JobSourceLink,
     SourceJobRecord,
@@ -252,3 +253,50 @@ async def test_an_unchanged_repoll_does_not_re_embed(db_session: AsyncSession) -
         await db_session.execute(select(JobEmbedding.updated_at, JobEmbedding.source_hash))
     ).all()
     assert before == after
+
+
+async def test_a_merge_absorbs_locations_the_winner_did_not_have(
+    db_session: AsyncSession,
+) -> None:
+    """Silent data loss, found by probing rather than by reading.
+
+    Two cross-posted listings of one role can name different sets of offices —
+    one board says "Washington, DC", the other says "Washington, DC" and
+    "Austin, TX". They share a location, so they merge; the loser is then
+    deleted and its `job_locations` rows cascade away with it.
+
+    The raw payload survives, so nothing is unrecoverable. But the canonical
+    job then under-reports where the role actually is, and a user filtering for
+    Austin would never see it — which defeats A2's "one row per location the
+    posting names" at the exact moment two sources agree it is one job.
+    """
+    shared = _first_posting()["categories"]["allLocations"]
+    a = _variant(id="loc-a", hostedUrl="https://jobs.lever.co/alloy/loc-a")
+    b = _variant(id="loc-b", hostedUrl="https://jobs.lever.co/alloy/loc-b")
+    b["categories"] = {**b["categories"], "allLocations": [*shared, "Austin, TX"]}
+
+    await _ingest(db_session, [a, b])
+    assert await _count(db_session, Job) == 1, "the pair did not merge; the test proves nothing"
+
+    raw_texts = (await db_session.execute(select(JobLocation.raw_text))).scalars().all()
+    assert any("Austin" in text for text in raw_texts), (
+        f"the merge dropped a location only the loser named: {sorted(raw_texts)}"
+    )
+
+    # Exactly one primary. Absorbing rows must not produce two.
+    primaries = (
+        await db_session.execute(
+            select(func.count()).select_from(JobLocation).where(JobLocation.is_primary.is_(True))
+        )
+    ).scalar_one()
+    assert primaries == 1
+
+
+async def test_absorbing_locations_does_not_duplicate_shared_ones(
+    db_session: AsyncSession,
+) -> None:
+    """The control for the test above: a merge of two identical location sets
+    must not end up with each office listed twice."""
+    await _ingest(db_session, DUPLICATE_PAIR)
+    rows = (await db_session.execute(select(JobLocation.raw_text))).scalars().all()
+    assert len(rows) == len(set(rows)), f"duplicate location rows after merge: {sorted(rows)}"
