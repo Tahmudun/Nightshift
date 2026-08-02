@@ -260,3 +260,45 @@ class JobStatusEventOut(BaseModel):
     reason: str
     observed_misses: int | None
     created_at: datetime
+
+
+class BlindSpotOut(BaseModel):
+    """One thing the system cannot see, and why.
+
+    ``count`` is nullable on purpose and null is the common case. For most of
+    these gaps the size is genuinely unknown — counting the NYC employers on
+    Workday would mean enumerating NYC employers, which is the problem itself —
+    and reporting ``0`` there would be a fabricated statistic. Null renders as
+    "unknown" and the page says so in words.
+    """
+
+    id: str
+    title: str
+    explanation: str
+    count: int | None = Field(
+        default=None,
+        description="Size of the gap, or null when it is genuinely unknown. Never 0 as a stand-in.",
+    )
+
+
+class BoardCoverageOut(BaseModel):
+    total: int
+    pollable: int
+    by_ats: dict[str, int]
+    by_status: dict[str, int]
+    with_nyc_presence: int
+
+
+class CoverageOut(BaseModel):
+    """What is covered, and what is not.
+
+    Deliberately carries **no percentage of the market**. There is no
+    denominator: nobody knows how many tech roles open in New York, so any such
+    figure would be arithmetic on a number nobody has. The M1 criterion this
+    schema serves is that the gaps are named, not that the coverage is high.
+    """
+
+    boards: BoardCoverageOut
+    candidates: dict[str, int]
+    candidates_total: int
+    blind_spots: list[BlindSpotOut]

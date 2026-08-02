@@ -1,0 +1,16 @@
+{
+  "provenance": {
+    "endpoint": "https://index.commoncrawl.org/CC-MAIN-2026-30-index?url=jobs.ashbyhq.com%2F%2A&output=json&fl=url&limit=400",
+    "recorded_at": "2026-08-02T07:24:52.372414+00:00",
+    "board_token": "(pattern) jobs.ashbyhq.com/*",
+    "http_status": 200,
+    "crawl": "CC-MAIN-2026-30",
+    "rows": 400,
+    "limit": 400,
+    "note": "Truncated by --limit. This is a reviewable slice of the index, not the whole of it; any token count derived from it is a count for this slice and must be labelled as such. Nothing was edited: these are the response's lines verbatim, blank lines dropped."
+  },
+  "why_each_job_is_here": {},
+  "coverage_not_available_on_this_board": [
+    "lever - jobs.lever.co/robots.txt disallows CCBot, so no Lever page is in this or any Common Crawl index (ADR 0006)"
+  ]
+}

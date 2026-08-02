@@ -15,10 +15,19 @@ import pytest
 FIXTURE_ROOT = Path(__file__).parent / "fixtures"
 REQUIRED_PROVENANCE_KEYS = {"endpoint", "recorded_at", "board_token"}
 
+#: Every extension a recorded response can arrive in. Extended at M1c: board
+#: discovery records a crawl index as `.jsonl` and an Ashby board page as
+#: `.html`, and a glob that only saw `.json` would have exempted precisely the
+#: newest recordings — the ones least likely to have been checked by hand.
+RECORDED_SUFFIXES = (".json", ".jsonl", ".html")
+
 
 def _payload_fixtures() -> list[Path]:
     return sorted(
-        path for path in FIXTURE_ROOT.rglob("*.json") if not path.name.endswith(".meta.json")
+        path
+        for suffix in RECORDED_SUFFIXES
+        for path in FIXTURE_ROOT.rglob(f"*{suffix}")
+        if not path.name.endswith(".meta.json")
     )
 
 
@@ -31,6 +40,23 @@ def test_every_fixture_has_provenance(fixture: Path) -> None:
     missing = REQUIRED_PROVENANCE_KEYS - provenance.keys()
     assert not missing, f"{meta.name} provenance missing {sorted(missing)}"
     assert provenance["endpoint"].startswith("https://"), meta.name
+
+
+def test_the_discovery_name_fixtures_exist() -> None:
+    """The approval gate (ADR 0005) rests on two recordings, named rather than
+    counted: a page that names an employer and a page that does not.
+
+    Losing either would leave the gate's tests passing against whatever
+    remained, which is how a control goes hollow without anything going red.
+    """
+    discovery = FIXTURE_ROOT / "discovery"
+    for name in ("ashby_0g_page.html", "ashby_unnameable_page.html"):
+        assert (discovery / name).exists(), f"missing discovery fixture {name}"
+
+    named = (discovery / "ashby_0g_page.html").read_text()
+    unnamed = (discovery / "ashby_unnameable_page.html").read_text()
+    assert "0g Labs" in named, "the fixture no longer carries the name it exists to carry"
+    assert "0g Labs" not in unnamed
 
 
 def test_the_three_lever_i3_fixtures_exist() -> None:

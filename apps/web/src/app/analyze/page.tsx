@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 import { CorpusReadout } from '@/components/CorpusReadout';
 
 /**
@@ -19,6 +21,23 @@ export default function AnalyzePage() {
       </section>
 
       <CorpusReadout />
+
+      <section className="border border-ink-700 bg-ink-900/40 p-5">
+        <h2 className="font-mono text-[10px] uppercase tracking-[0.16em] text-paper-faint">
+          Coverage
+        </h2>
+        <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-paper-dim">
+          The corpus above is only as complete as the set of employers this system can see at all.{' '}
+          <Link
+            href="/analyze/coverage"
+            className="text-paper underline underline-offset-2 hover:text-paper-dim"
+          >
+            Coverage
+          </Link>{' '}
+          reports which boards are known and, more usefully, names the hiring this system is
+          structurally unable to observe.
+        </p>
+      </section>
 
       <section className="border border-ink-700 bg-ink-900/40 p-5">
         <h2 className="font-mono text-[10px] uppercase tracking-[0.16em] text-paper-faint">

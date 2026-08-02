@@ -209,3 +209,33 @@ export const sourceHealthSchema = z.object({
   job_status_counts: jobStatusCountsSchema,
 });
 export type SourceHealth = z.infer<typeof sourceHealthSchema>;
+
+/**
+ * One thing this system cannot see, and why.
+ *
+ * `count` is nullable and null is the common case: for most of these gaps the
+ * size is genuinely unknown, and rendering `0` instead would turn "we cannot
+ * know" into "there is no gap". The UI must print the word "unknown" rather
+ * than coercing this to a number.
+ */
+export const blindSpotSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  explanation: z.string(),
+  count: z.number().int().nonnegative().nullable(),
+});
+export type BlindSpot = z.infer<typeof blindSpotSchema>;
+
+export const coverageSchema = z.object({
+  boards: z.object({
+    total: z.number().int().nonnegative(),
+    pollable: z.number().int().nonnegative(),
+    by_ats: z.record(z.string(), z.number().int().nonnegative()),
+    by_status: z.record(z.string(), z.number().int().nonnegative()),
+    with_nyc_presence: z.number().int().nonnegative(),
+  }),
+  candidates: z.record(z.string(), z.number().int().nonnegative()),
+  candidates_total: z.number().int().nonnegative(),
+  blind_spots: z.array(blindSpotSchema).min(1, 'a coverage report with no named gaps is a bug'),
+});
+export type Coverage = z.infer<typeof coverageSchema>;

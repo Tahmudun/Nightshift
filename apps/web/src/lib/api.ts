@@ -9,12 +9,14 @@
 import type { z } from 'zod';
 
 import {
+  coverageSchema,
   healthSchema,
   jobAdminListSchema,
   jobListSchema,
   jobStatusEventSchema,
   sourceHealthSchema,
   statsSchema,
+  type Coverage,
   type Health,
   type JobAdminList,
   type JobList,
@@ -148,4 +150,9 @@ export function fetchJobAdmin(query: JobAdminQuery = {}): Promise<JobAdminList> 
 /** Every closure-machine transition for one job, oldest first. */
 export function fetchJobHistory(jobId: string): Promise<JobStatusEvent[]> {
   return request(`/jobs/${jobId}/history`, jobStatusEventSchema.array());
+}
+
+/** What is covered and — the reason the endpoint exists — what is not. */
+export function fetchCoverage(): Promise<Coverage> {
+  return request('/coverage', coverageSchema);
 }

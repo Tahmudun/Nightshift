@@ -1,0 +1,1230 @@
+{
+  "jobs": [
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/8083314?gh_jid=8083314",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3502104,
+      "location": {
+        "name": "United States, Remote"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "United States of America"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 8083314,
+      "updated_at": "2026-07-29T15:49:37-04:00",
+      "requisition_id": "JR-1001707",
+      "title": "Benefits Partner",
+      "company_name": "6sense",
+      "first_published": "2026-07-29T15:49:29-04:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/8094865?gh_jid=8094865",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3506735,
+      "location": {
+        "name": "Madison, Wisconsin, United States"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "United States of America"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 8094865,
+      "updated_at": "2026-07-30T14:47:21-04:00",
+      "requisition_id": "JR-1001712",
+      "title": "Business Development Representative - Strategic",
+      "company_name": "6sense",
+      "first_published": "2026-07-30T14:47:21-04:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/8051172?gh_jid=8051172",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3489458,
+      "location": {
+        "name": "United States, Remote"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "United States of America"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 8051172,
+      "updated_at": "2026-07-27T10:47:44-04:00",
+      "requisition_id": "JR-1001687",
+      "title": "Head of Sales, East",
+      "company_name": "6sense",
+      "first_published": "2026-07-09T13:50:45-04:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/8051176?gh_jid=8051176",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3489460,
+      "location": {
+        "name": "Austin, Texas, United States"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "United States of America"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 8051176,
+      "updated_at": "2026-07-27T10:47:44-04:00",
+      "requisition_id": "JR-1001685",
+      "title": "Head of Sales, South",
+      "company_name": "6sense",
+      "first_published": "2026-07-09T13:53:26-04:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/8037321?gh_jid=8037321",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3483876,
+      "location": {
+        "name": "Pune, Maharashtra, India"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "India"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 8037321,
+      "updated_at": "2026-07-27T10:47:44-04:00",
+      "requisition_id": "JR-1001667",
+      "title": "Manager, Campaign Operations",
+      "company_name": "6sense",
+      "first_published": "2026-07-01T07:43:57-04:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/8055700?gh_jid=8055700",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3491330,
+      "location": {
+        "name": "United States, Remote"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "United States of America"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 8055700,
+      "updated_at": "2026-07-31T10:24:35-04:00",
+      "requisition_id": "JR-1001627",
+      "title": "Partner Marketing Manager",
+      "company_name": "6sense",
+      "first_published": "2026-07-31T10:17:02-04:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/5636812?gh_jid=5636812",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 2767085,
+      "location": {
+        "name": "Bengaluru, Karnataka, India"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "India"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 5636812,
+      "updated_at": "2026-07-27T10:47:44-04:00",
+      "requisition_id": "1385",
+      "title": "Principal Architect",
+      "company_name": "6sense",
+      "first_published": "2024-03-20T07:46:31-04:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/8052642?gh_jid=8052642",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3490091,
+      "location": {
+        "name": "United States, Remote"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "United States of America"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 8052642,
+      "updated_at": "2026-07-28T10:34:00-04:00",
+      "requisition_id": "JR-1001678",
+      "title": "Principal Customer Success Manager - Strategic",
+      "company_name": "6sense",
+      "first_published": "2026-07-16T10:10:59-04:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/7994495?gh_jid=7994495",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3467894,
+      "location": {
+        "name": "United States, Remote"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "United States of America"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 7994495,
+      "updated_at": "2026-07-27T10:47:44-04:00",
+      "requisition_id": "JR-1001658",
+      "title": "Product Lead, AI Platform",
+      "company_name": "6sense",
+      "first_published": "2026-06-11T11:19:15-04:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/7994497?gh_jid=7994497",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3467895,
+      "location": {
+        "name": "United States, Remote"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "United States of America"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 7994497,
+      "updated_at": "2026-07-27T10:47:44-04:00",
+      "requisition_id": "JR-1001659",
+      "title": "Product Lead, Predictive Platform",
+      "company_name": "6sense",
+      "first_published": "2026-06-11T11:21:04-04:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/8015936?gh_jid=8015936",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": null,
+      "location": {
+        "name": "United States, Remote"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": null,
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 8015936,
+      "updated_at": "2026-07-27T10:47:44-04:00",
+      "requisition_id": null,
+      "title": "Senior Account Executive",
+      "company_name": "6sense",
+      "first_published": "2026-06-18T14:13:49-04:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/7707001?gh_jid=7707001",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3386847,
+      "location": {
+        "name": "San Francisco, California, United States"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "United States of America"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 7707001,
+      "updated_at": "2026-07-27T10:47:44-04:00",
+      "requisition_id": "JR-1001563",
+      "title": "Senior Software Engineer",
+      "company_name": "6sense",
+      "first_published": "2026-03-26T14:42:32-04:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/7707006?gh_jid=7707006",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3386849,
+      "location": {
+        "name": "Bengaluru, Karnataka, India"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "India"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 7707006,
+      "updated_at": "2026-07-27T10:47:44-04:00",
+      "requisition_id": "JR-1001565",
+      "title": "Senior Software Engineer (Core Applications)",
+      "company_name": "6sense",
+      "first_published": "2026-03-12T14:31:42-04:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/8037358?gh_jid=8037358",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3483877,
+      "location": {
+        "name": "Austin, Texas, United States"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "United States of America"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 8037358,
+      "updated_at": "2026-07-27T10:47:44-04:00",
+      "requisition_id": "JR-1001664",
+      "title": "Software Engineer III",
+      "company_name": "6sense",
+      "first_published": "2026-06-30T10:52:22-04:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/8009157?gh_jid=8009157",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3472565,
+      "location": {
+        "name": "San Francisco, California, United States"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "United States of America"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 8009157,
+      "updated_at": "2026-07-27T10:47:44-04:00",
+      "requisition_id": "JR-1001645",
+      "title": "Software Engineer III",
+      "company_name": "6sense",
+      "first_published": "2026-06-16T08:42:51-04:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/7403125?gh_jid=7403125",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3298665,
+      "location": {
+        "name": "San Francisco, California, United States"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "United States of America"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 7403125,
+      "updated_at": "2026-07-27T10:47:44-04:00",
+      "requisition_id": "JR-1001419",
+      "title": "Software Engineer III, Frontend",
+      "company_name": "6sense",
+      "first_published": "2025-11-25T10:19:43-05:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/8082747?gh_jid=8082747",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3501850,
+      "location": {
+        "name": "United States, Remote"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "United States of America"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 8082747,
+      "updated_at": "2026-07-29T15:55:14-04:00",
+      "requisition_id": "JR-1001708",
+      "title": "Sr. Compensation Partner",
+      "company_name": "6sense",
+      "first_published": "2026-07-29T15:54:45-04:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/7974951?gh_jid=7974951",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3461393,
+      "location": {
+        "name": "San Francisco, California, United States"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "United States of America"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 7974951,
+      "updated_at": "2026-07-27T10:47:44-04:00",
+      "requisition_id": "2049",
+      "title": "Sr. Data Scientist",
+      "company_name": "6sense",
+      "first_published": "2026-06-03T09:14:21-04:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/7512125?gh_jid=7512125",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3329656,
+      "location": {
+        "name": "United States, Remote"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "United States of America"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 7512125,
+      "updated_at": "2026-07-27T10:47:44-04:00",
+      "requisition_id": "JR-1001374",
+      "title": "Sr. Principal Technical Product Marketing Manager",
+      "company_name": "6sense",
+      "first_published": "2026-07-07T11:15:56-04:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/7811972?gh_jid=7811972",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3411808,
+      "location": {
+        "name": "Bengaluru, Karnataka, India"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "India"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 7811972,
+      "updated_at": "2026-07-30T10:58:58-04:00",
+      "requisition_id": "JR-1001608",
+      "title": "Sr. Product Manager",
+      "company_name": "6sense",
+      "first_published": "2026-04-28T00:16:54-04:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/8049017?gh_jid=8049017",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3488580,
+      "location": {
+        "name": "Bengaluru, Karnataka, India"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "India"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 8049017,
+      "updated_at": "2026-07-27T10:47:44-04:00",
+      "requisition_id": "JR-1001681",
+      "title": "Sr. Product Manager",
+      "company_name": "6sense",
+      "first_published": "2026-07-17T13:01:46-04:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/7994493?gh_jid=7994493",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3467893,
+      "location": {
+        "name": "United States, Remote"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "United States of America"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 7994493,
+      "updated_at": "2026-07-27T10:47:44-04:00",
+      "requisition_id": "JR-1001660",
+      "title": "Sr. Product Manager, Specialized Modeling & Verticals",
+      "company_name": "6sense",
+      "first_published": "2026-06-11T11:22:41-04:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/7669228?gh_jid=7669228",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3375246,
+      "location": {
+        "name": "Bengaluru, Karnataka, India"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "India"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 7669228,
+      "updated_at": "2026-07-27T10:47:44-04:00",
+      "requisition_id": "JR-1001553",
+      "title": "Sr. Software Engineer",
+      "company_name": "6sense",
+      "first_published": "2026-03-25T10:00:58-04:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/7834739?gh_jid=7834739",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3417640,
+      "location": {
+        "name": "San Francisco, California, United States"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "United States of America"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 7834739,
+      "updated_at": "2026-07-27T10:47:44-04:00",
+      "requisition_id": "JR-1001614",
+      "title": "Sr. Software Engineer",
+      "company_name": "6sense",
+      "first_published": "2026-05-04T14:25:05-04:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/8002993?gh_jid=8002993",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3470045,
+      "location": {
+        "name": "San Francisco, California, United States"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "United States of America"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 8002993,
+      "updated_at": "2026-07-27T10:47:44-04:00",
+      "requisition_id": "JR-1001649",
+      "title": "Staff Enterprise AI Engineer",
+      "company_name": "6sense",
+      "first_published": "2026-06-23T12:48:41-04:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/7931657?gh_jid=7931657",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3446420,
+      "location": {
+        "name": "United States, Remote"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "United States of America"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 7931657,
+      "updated_at": "2026-07-27T10:47:44-04:00",
+      "requisition_id": "JR-1001637",
+      "title": "Staff Product Manager",
+      "company_name": "6sense",
+      "first_published": "2026-05-28T09:34:57-04:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/7996539?gh_jid=7996539",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3347781,
+      "location": {
+        "name": "India, Remote"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "India"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 7996539,
+      "updated_at": "2026-07-27T10:47:44-04:00",
+      "requisition_id": "JR-1001488",
+      "title": "Staff Security Engineer - SecOps & Threat",
+      "company_name": "6sense",
+      "first_published": "2026-06-10T09:08:23-04:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/7569929?gh_jid=7569929",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3347781,
+      "location": {
+        "name": "Romania, Remote"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "India"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 7569929,
+      "updated_at": "2026-07-27T10:47:44-04:00",
+      "requisition_id": "JR-1001488",
+      "title": "Staff Security Engineer - SecOps & Threat",
+      "company_name": "6sense",
+      "first_published": "2026-02-11T12:29:42-05:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/7905102?gh_jid=7905102",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3436414,
+      "location": {
+        "name": "United States, Remote"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "United States of America"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 7905102,
+      "updated_at": "2026-07-27T10:47:44-04:00",
+      "requisition_id": "JR-1001625",
+      "title": "Staff Security Engineer - SecOps & Threats",
+      "company_name": "6sense",
+      "first_published": "2026-05-11T10:16:28-04:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/7100430?gh_jid=7100430",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3201641,
+      "location": {
+        "name": "Bengaluru, Karnataka, India"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "India"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 7100430,
+      "updated_at": "2026-07-27T10:47:44-04:00",
+      "requisition_id": "JR-1001295",
+      "title": "Staff Software Engineer",
+      "company_name": "6sense",
+      "first_published": "2026-02-05T04:15:01-05:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/8037362?gh_jid=8037362",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3483879,
+      "location": {
+        "name": "Bengaluru, Karnataka, India"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "India"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 8037362,
+      "updated_at": "2026-07-27T10:47:44-04:00",
+      "requisition_id": "JR-1001665",
+      "title": "Staff Software Engineer (Backend)",
+      "company_name": "6sense",
+      "first_published": "2026-07-07T08:20:52-04:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/7743250?gh_jid=7743250",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3396206,
+      "location": {
+        "name": "Bengaluru, Karnataka, India"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "India"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 7743250,
+      "updated_at": "2026-07-27T10:47:44-04:00",
+      "requisition_id": "JR-1001586",
+      "title": "Staff Software Engineer - Data",
+      "company_name": "6sense",
+      "first_published": "2026-03-24T05:25:08-04:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/7647929?gh_jid=7647929",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3369185,
+      "location": {
+        "name": "Bengaluru, Karnataka, India"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "India"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 7647929,
+      "updated_at": "2026-07-27T10:47:44-04:00",
+      "requisition_id": "JR-1001543",
+      "title": "Staff Software Engineer - Infrastructure/DevOps",
+      "company_name": "6sense",
+      "first_published": "2026-02-25T12:55:41-05:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/7984433?gh_jid=7984433",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3464878,
+      "location": {
+        "name": "United States, Remote"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "United States of America"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 7984433,
+      "updated_at": "2026-07-27T10:47:44-04:00",
+      "requisition_id": "JR-1001653",
+      "title": "Strategic Account Executive",
+      "company_name": "6sense",
+      "first_published": "2026-06-18T14:41:48-04:00",
+      "language": "en",
+      "application_deadline": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/6sense/jobs/8067333?gh_jid=8067333",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 3495639,
+      "location": {
+        "name": "United States, Remote"
+      },
+      "metadata": [
+        {
+          "id": 26304877,
+          "name": "Country",
+          "value": [
+            "United States of America"
+          ],
+          "value_type": "multi_select"
+        }
+      ],
+      "id": 8067333,
+      "updated_at": "2026-07-27T10:47:44-04:00",
+      "requisition_id": "JR-1001702",
+      "title": "VP, FP&A",
+      "company_name": "6sense",
+      "first_published": "2026-07-16T08:17:22-04:00",
+      "language": "en",
+      "application_deadline": null
+    }
+  ],
+  "meta": {
+    "total": 35
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "provenance": {
+    "endpoint": "https://jobs.ashbyhq.com/0g",
+    "recorded_at": "2026-08-02T07:47:15+00:00",
+    "board_token": "0g",
+    "http_status": 200,
+    "recorded_by": "scripts/record_discovery_fixture.py",
+    "note": "Trimmed to <head> \u2014 the rest of the page is application JavaScript and discovery reads only the title. Nothing inside <head> was edited.",
+    "bytes_received": 14231,
+    "bytes_kept": 2972,
+    "trimmed_to_head": true,
+    "title": "0g Labs Jobs"
+  },
+  "why_this_recording_exists": "Where an Ashby employer name actually lives: the board page <title>. Trimmed to <head>.",
+  "why_each_job_is_here": {},
+  "coverage_not_available_on_this_board": []
+}

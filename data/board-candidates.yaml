@@ -1,0 +1,219 @@
+# Discovered board candidates — written by `make discover`, read by
+# `make registry-approve`. Committed on purpose: the diff is the review.
+#
+# NOTHING HERE IS IN THE REGISTRY YET. Promotion happens only when a human runs
+# `make registry-approve`, and only `live_named` candidates are promoted in
+# bulk (ADR 0005). Everything else waits for individual attention.
+#
+# No candidate is ever deleted by the pipeline. `empty` means a live board with
+# no open roles and `unreachable` means we could not check — neither is
+# evidence the board is worthless, and both become approvable the moment they
+# return named postings.
+candidates:
+- ats: ashby
+  token: 0g
+  verdict: live_named
+  company_name: 0g Labs
+  posting_count: 3
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '2026-08-02'
+  source: crawl_index
+- ats: ashby
+  token: 0x
+  verdict: empty
+  posting_count: 0
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '2026-08-02'
+  source: crawl_index
+  notes: live board, zero open postings — re-validated on the next run
+- ats: ashby
+  token: 10xteam
+  verdict: live_named
+  company_name: 10x Team
+  posting_count: 133
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '2026-08-02'
+  source: crawl_index
+- ats: ashby
+  token: 1bios
+  verdict: live_named
+  company_name: 1bios
+  posting_count: 2
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '2026-08-02'
+  source: crawl_index
+- ats: ashby
+  token: 1mind
+  verdict: live_named
+  company_name: 1mind
+  posting_count: 9
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '2026-08-02'
+  source: crawl_index
+- ats: ashby
+  token: 1password
+  verdict: live_named
+  company_name: 1Password
+  posting_count: 68
+  nyc_posting_count: 1
+  first_seen: '2026-08-02'
+  last_validated: '2026-08-02'
+  source: crawl_index
+- ats: ashby
+  token: 1x
+  verdict: live_named
+  company_name: 1X
+  posting_count: 81
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '2026-08-02'
+  source: crawl_index
+- ats: ashby
+  token: 3imembers
+  verdict: live_named
+  company_name: 3i Members
+  posting_count: 8
+  nyc_posting_count: 5
+  first_seen: '2026-08-02'
+  last_validated: '2026-08-02'
+  source: crawl_index
+- ats: ashby
+  token: 42dot
+  verdict: live_named
+  company_name: 42dot
+  posting_count: 114
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '2026-08-02'
+  source: crawl_index
+- ats: ashby
+  token: 5bluesoftware
+  verdict: live_named
+  company_name: 5Blue Software
+  posting_count: 5
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '2026-08-02'
+  source: crawl_index
+- ats: ashby
+  token: 8fleet-inc
+  verdict: live_named
+  company_name: 8Fleet Inc.
+  posting_count: 29
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '2026-08-02'
+  source: crawl_index
+- ats: ashby
+  token: 8vc
+  verdict: live_named
+  company_name: 8VC
+  posting_count: 4
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '2026-08-02'
+  source: crawl_index
+- ats: ashby
+  token: 9-mothers
+  verdict: live_named
+  company_name: 9 Mothers
+  posting_count: 13
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '2026-08-02'
+  source: crawl_index
+- ats: ashby
+  token: 9fin
+  verdict: live_named
+  company_name: 9fin
+  posting_count: 40
+  nyc_posting_count: 12
+  first_seen: '2026-08-02'
+  last_validated: '2026-08-02'
+  source: crawl_index
+- ats: ashby
+  token: Aaron-School
+  verdict: live_named
+  company_name: Aaron School
+  posting_count: 2
+  nyc_posting_count: 2
+  first_seen: '2026-08-02'
+  last_validated: '2026-08-02'
+  source: crawl_index
+- ats: ashby
+  token: Abridge
+  verdict: live_named
+  company_name: Abridge
+  posting_count: 42
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '2026-08-02'
+  source: crawl_index
+- ats: ashby
+  token: a-place-for-mom
+  verdict: live_named
+  company_name: A Place for Mom
+  posting_count: 56
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '2026-08-02'
+  source: crawl_index
+- ats: ashby
+  token: a-team
+  verdict: live_named
+  company_name: A.Team
+  posting_count: 3
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '2026-08-02'
+  source: crawl_index
+- ats: ashby
+  token: a16z-new-media
+  verdict: live_named
+  company_name: a16z New Media
+  posting_count: 25
+  nyc_posting_count: 13
+  first_seen: '2026-08-02'
+  last_validated: '2026-08-02'
+  source: crawl_index
+- ats: ashby
+  token: abacum
+  verdict: live_named
+  company_name: Abacum
+  posting_count: 18
+  nyc_posting_count: 5
+  first_seen: '2026-08-02'
+  last_validated: '2026-08-02'
+  source: crawl_index
+- ats: ashby
+  token: abe
+  verdict: empty
+  posting_count: 0
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '2026-08-02'
+  source: crawl_index
+  notes: live board, zero open postings — re-validated on the next run
+- ats: ashby
+  token: abound
+  verdict: live_named
+  company_name: Abound
+  posting_count: 27
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '2026-08-02'
+  source: crawl_index
+- ats: ashby
+  token: abridge
+  verdict: live_named
+  company_name: Abridge
+  posting_count: 42
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '2026-08-02'
+  source: crawl_index
