@@ -13,13 +13,11 @@ The split between them is the safety property worth understanding:
   verdicts in the candidate file and nothing else.
 * ``approve`` is **dry-run by default**. It prints the report; only ``--write``
   edits ``data/board-registry.yaml``, and even then a human commits the diff.
+* ``coverage`` reads both files and prints what is covered and what is not. It
+  writes nothing and exits 0 either way — it is a report, not a check.
 
 Nothing here writes to a table ingestion reads. A Common Crawl outage produces
 no candidates and never a modified registry (I3).
-
-``coverage`` is deliberately not here yet: the numbers it prints are computed
-in M1c Task 5, and a subcommand that exists before its data would be a mock
-wearing a command's name (I7).
 """
 
 from __future__ import annotations
@@ -40,6 +38,7 @@ from nightshift.discovery.candidates import (
     merge_candidate,
     save_candidates,
 )
+from nightshift.discovery.coverage import coverage_summary, format_coverage
 from nightshift.discovery.models import Candidate, Verdict
 from nightshift.discovery.sources.crawl_index import (
     CDX_URL,
@@ -241,10 +240,24 @@ async def cmd_approve(args: argparse.Namespace) -> int:
     return 0
 
 
+async def cmd_coverage(args: argparse.Namespace) -> int:
+    """Print what is covered and, more importantly, what is not."""
+    print(
+        format_coverage(
+            coverage_summary(
+                candidates=load_candidates(args.candidates),
+                registry=load_registry(args.registry),
+            )
+        )
+    )
+    return 0
+
+
 COMMANDS = {
     "discover": cmd_discover,
     "validate": cmd_validate,
     "approve": cmd_approve,
+    "coverage": cmd_coverage,
 }
 
 
@@ -282,6 +295,8 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="actually promote approved candidates into the registry",
     )
+
+    subparsers.add_parser("coverage", help="print what is and is not covered")
 
     args = parser.parse_args(argv)
     configure_logging()

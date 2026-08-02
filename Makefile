@@ -27,7 +27,7 @@ LOADENV := set -a && source .env && set +a
 .PHONY: help setup up down migrate migrate-down seed dev demo test test-py test-web \
         test-e2e check fmt lint typecheck reset-db ingest logs ps clean doctor \
         verify acceptance test-e2e-seeded browsers \
-        discover registry-validate registry-approve registry-approve-write
+        discover registry-validate registry-approve registry-approve-write coverage
 
 help: ## Show available targets
 	@echo "Nightshift — make targets"
@@ -144,6 +144,9 @@ registry-approve: setup ## Show the approval report; nothing is written
 
 registry-approve-write: setup ## Actually promote approved candidates, then commit the diff yourself
 	@$(LOADENV) && $(PY) -m nightshift.discovery.cli approve --write
+
+coverage: setup ## Print what is covered and, more to the point, what is not
+	@$(LOADENV) && $(PY) -m nightshift.discovery.cli coverage
 
 verify: setup ## Assert the stack actually works, and exit with a status code
 	@$(LOADENV) && $(PY) scripts/verify.py

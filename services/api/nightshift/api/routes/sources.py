@@ -16,6 +16,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from nightshift.api.schemas import (
+    BlindSpotOut,
+    BoardCoverageOut,
+    CoverageOut,
     IngestionRunOut,
     JobStatusCounts,
     LocationConfidenceBreakdown,
@@ -33,6 +36,8 @@ from nightshift.db.models import (
     SourceJobRecord,
 )
 from nightshift.db.session import get_db_session
+from nightshift.discovery.candidates import load_candidates
+from nightshift.discovery.coverage import coverage_summary
 from nightshift.domain.registry import BoardStatus, get_registry
 
 router = APIRouter(tags=["sources"])
@@ -227,3 +232,37 @@ async def board_registry() -> dict[str, object]:
             for status in BoardStatus
         },
     }
+
+
+@router.get("/coverage", response_model=CoverageOut)
+async def coverage() -> CoverageOut:
+    """What this system can see, and what it cannot.
+
+    The second half is the point (board-discovery.md §11). A coverage endpoint
+    that reported only what it had found would let a reader infer a
+    completeness nobody has earned; the blind spots are returned in the same
+    payload, at the same level, so a client cannot render one without the other
+    being right there.
+
+    Reads the registry and the candidate file, not the database: this answers
+    "what could we ever see", which is a question about which boards exist and
+    which are known, and the corpus counts already live at `/stats`.
+    """
+    summary = coverage_summary(candidates=load_candidates(), registry=get_registry())
+    return CoverageOut(
+        boards=BoardCoverageOut(
+            total=summary.boards_total,
+            pollable=summary.boards_pollable,
+            by_ats=summary.boards_by_ats,
+            by_status=summary.boards_by_status,
+            with_nyc_presence=summary.boards_with_nyc_presence,
+        ),
+        candidates=summary.candidates_by_verdict,
+        candidates_total=summary.candidates_total,
+        blind_spots=[
+            BlindSpotOut(
+                id=spot.id, title=spot.title, explanation=spot.explanation, count=spot.count
+            )
+            for spot in summary.blind_spots
+        ],
+    )
