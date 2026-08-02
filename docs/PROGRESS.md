@@ -13,26 +13,77 @@
 
 ## Next exact action
 
-### Next: execute `docs/plans/2026-08-02-m1c-board-discovery.md`, from Task 3
+### Next: execute `docs/plans/2026-08-02-m1c-board-discovery.md`, from Task 4
 
-Branch `m1c-board-discovery`. **Tasks 1 and 2 are done and committed:**
+Branch `m1c-board-discovery`. **Tasks 1, 2 and 3 are done and committed:**
 
 - Task 1 (`1723d65`) — `discovery/sources/crawl_index.py`, token harvesting
   from a recorded Common Crawl slice.
 - Task 2 (`b907b85`) — `discovery/models.py`, `discovery/candidates.py`, and
   the committed (currently empty) `data/board-candidates.yaml`. 14 tests.
-  `make check` green at that commit: **507 Python** / 42 web, zero skips.
+- Task 3 (`287a209`) — `discovery/validate.py`, the five verdicts, plus
+  `PoliteClient.get_text` and six recorded discovery fixtures. 25 tests.
+  `make check` green: **546 Python** / 42 web, zero skips.
 
-**Task 3 is the one that needs a human present.** Its first step records five
-live fixtures over the network (Ashby's `0g` board and board page, Greenhouse's
-`6sense`, the `a3c41b8b71eff8c4` junk board), and its step 4 adds `get_text` to
-`PoliteClient`. Nothing before it touched the network.
+Task 4 is approval + the CLI. It is pure file work and needs no network.
 
-One plan bug found and fixed rather than copied: Task 2's draft computed the
-repo root as `parents[3]`, which from `nightshift/discovery/` is `services/`,
-not the root — it would have written `services/data/board-candidates.yaml` and
-the approval step would later have read an empty file from the right path.
-`domain/registry.py` uses `parents[4]` from the same depth; so does this.
+**Two plan defects found and fixed rather than copied.**
+
+1. Task 2's draft computed the repo root as `parents[3]`, which from
+   `nightshift/discovery/` is `services/`, not the root — it would have written
+   `services/data/board-candidates.yaml` while the approval step later read an
+   empty file from the correct path. A silent split, not a crash.
+   `domain/registry.py` uses `parents[4]` from the same depth; so does this.
+2. Task 3's `test_validation_never_raises` was **vacuous as written**. Its stub
+   route was keyed `"anything"`, which appears in no URL, so the stub raised
+   `SourceUnavailableError` for a missing route and the test passed without
+   ever reaching the unexpected-exception branch it exists to cover. Re-keyed
+   to a fragment that actually matches.
+
+### M1c findings — measured 2026-08-02, all against live sources
+
+These are the reason Task 3 took the shape it did. All four change something
+already written down.
+
+1. **`a3c41b8b71eff8c4` is dead.** The design (`board-discovery.md` §6) names it
+   as *the* live-but-unnameable board — 200 with ten well-formed postings under
+   a machine-generated token — and the plan says deleting its fixture "would
+   hollow out the whole design". Its API now returns **404**, and it is absent
+   from the July 2026 crawl index in a range the committed slice covers
+   (`a-place-for-mom` … `abridge` brackets it), so it is gone rather than
+   transiently missing.
+2. **What replaced it is stronger evidence, not weaker.** Ashby serves
+   **HTTP 200 with `<title>Jobs</title>`** for *any* token that does not exist —
+   verified against both the dead token and a made-up one, byte-identical 7,128-
+   byte pages. So "a live page that names no employer" is now a recording
+   (`ashby_unnameable_page.html`), where the plan had specified a hand-written
+   stub. Acceptance criterion 11 is still evidenced, by a real recording of the
+   real mechanism.
+3. **The token is not the name, about half the time.** Of the 23 Ashby tokens in
+   the committed crawl slice, 21 boards are live and **10 have a name that
+   differs from the token**: `0g`→"0g Labs", `a-place-for-mom`→"A Place for Mom",
+   `a-team`→"A.Team", `10xteam`→"10x Team", `8fleet-inc`→"8Fleet Inc.". This is
+   the measured basis for I2's rule here, and it is a stronger number than the
+   design's single `0g` anecdote.
+4. **Case-variant duplicate tokens are real.** The same slice holds both
+   `Abridge` and `abridge` — two Ashby tokens, one employer, both live with 42
+   postings. **M1d and the approval step must expect this**: `(ats, token)` is
+   the candidate key and these are two distinct keys, so they will both reach
+   approval as separate boards and then produce a full set of duplicate jobs
+   for dedupe to merge. Cheaper to catch at approval as a `name_collision`.
+
+Also recorded, lower urgency:
+
+- **`scripts/record_crawl_fixture.py` (Task 1) uses `urllib`, which cannot
+  verify TLS on this host** — `CERTIFICATE_VERIFY_FAILED`, no certifi bundle
+  wired in. `PoliteClient` uses httpx and works. Task 3's recorder
+  (`scripts/record_discovery_fixture.py`) goes through `PoliteClient`
+  accordingly. The crawl recorder should be moved onto it too.
+- **Common Crawl's index 504s** at `limit=6000` and above for
+  `jobs.ashbyhq.com/*`; `limit=400` succeeds. Any bulk harvest has to page.
+- `0x` and `abe` are live Ashby boards with **zero** postings — real `empty`
+  verdicts, now recorded (`ashby_0x_empty_board.json`) so that branch is
+  asserted on Ashby's `{"jobs": []}` shape and not only on Lever's `[]`.
 
 **M1b is merged.** `main` is at `cf48719` and contains it; PR #2 was merged by
 the human and both the branch and its worktree are gone.
