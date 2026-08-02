@@ -42,10 +42,26 @@ evidence and a mutation check; the review is
 design already exists in full at `docs/architecture/board-discovery.md` — write
 the plan before touching code, as M1a and M1b both did.
 
-**PR #2 is still a draft and is not merged.** It was opened at task 8 so CI
-could exercise the migration early. Tasks 9 and 10 landed after CI run #10, so
-mark it ready for review, confirm CI is green on the new head, and merge before
-starting M1c on `main`.
+**PR #2 is ready for review and green, but NOT merged.** Merging it is the one
+remaining human action before M1c starts on `main`.
+https://github.com/Tahmudun/Nightshift/pull/2
+
+**CI green at `c0bf82b`, all five jobs**, counts read from the logs rather than
+inferred: `480 passed` (python, zero skips), `5 passed` (degraded e2e),
+`11 passed` (seeded e2e).
+https://github.com/Tahmudun/Nightshift/actions/runs/30735074717
+
+**One CI failure on the way there, and it found a real gap in `make check`.**
+The `web` job failed on prettier while `make check` was green: `make lint` ran
+`ruff format --check` for Python but only eslint for the web, so **no local
+command had ever checked TypeScript formatting**. The rule lived in CI alone.
+Fixed in `c0bf82b` by adding `fmt:check` to `make lint`, and the gate was
+verified able to fail — planting badly formatted TypeScript makes `make lint`
+exit non-zero and name the file.
+
+This is the same lesson M0's CI session cost five defects to learn: every
+defect CI finds lives in a file no local command executes. The asymmetry
+between the two languages' format checks had been sitting there since M0.
 
 | Task | State |
 |---|---|
