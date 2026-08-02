@@ -41,6 +41,35 @@ function formatWhen(iso: string | null): string {
   });
 }
 
+/**
+ * The per-source closure breakdown.
+ *
+ * `job_count` next to this cannot show it: a provenance link survives a
+ * closure, so a source whose every job has aged out reports exactly the same
+ * total as a healthy one. Without this column the table would say a dead board
+ * is fine.
+ *
+ * States at zero are omitted here rather than rendered as "0" — the row is
+ * dense and the full four-way breakdown with its explanations lives on the job
+ * table. `all open` is spelled out rather than left blank so an empty-looking
+ * cell never has to be interpreted.
+ */
+function StatusBreakdown({ counts }: { readonly counts: SourceHealth['job_status_counts'] }) {
+  const total = counts.open + counts.possibly_stale + counts.unverified + counts.closed;
+  if (total === 0) {
+    return <span className="font-mono text-[10px] text-paper-faint">—</span>;
+  }
+  if (counts.open === total) {
+    return <span className="font-mono text-[10px] text-signal-400">all open</span>;
+  }
+  const parts: string[] = [];
+  if (counts.open > 0) parts.push(`${counts.open} open`);
+  if (counts.possibly_stale > 0) parts.push(`${counts.possibly_stale} stale`);
+  if (counts.unverified > 0) parts.push(`${counts.unverified} unverified`);
+  if (counts.closed > 0) parts.push(`${counts.closed} closed`);
+  return <span className="font-mono text-[10px] tnum text-paper-dim">{parts.join(' · ')}</span>;
+}
+
 export function SourceHealthTable() {
   const { data, error, isPending } = useQuery({
     queryKey: ['sources'],
@@ -87,17 +116,23 @@ export function SourceHealthTable() {
         <caption className="sr-only">Job source health and last ingestion run</caption>
         <thead>
           <tr className="border-b border-ink-700">
-            {['Source', 'Kind', 'Roles', 'Last run', 'Last success', 'Last failure'].map(
-              (heading) => (
-                <th
-                  key={heading}
-                  scope="col"
-                  className="px-4 py-2 font-mono text-[9px] font-normal uppercase tracking-[0.16em] text-paper-faint"
-                >
-                  {heading}
-                </th>
-              ),
-            )}
+            {[
+              'Source',
+              'Kind',
+              'Roles',
+              'By status',
+              'Last run',
+              'Last success',
+              'Last failure',
+            ].map((heading) => (
+              <th
+                key={heading}
+                scope="col"
+                className="px-4 py-2 font-mono text-[9px] font-normal uppercase tracking-[0.16em] text-paper-faint"
+              >
+                {heading}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
@@ -118,6 +153,9 @@ export function SourceHealthTable() {
                 )}
               </td>
               <td className="px-4 py-3 text-[13px] text-paper-dim tnum">{source.job_count}</td>
+              <td className="px-4 py-3">
+                <StatusBreakdown counts={source.job_status_counts} />
+              </td>
               <td className="px-4 py-3">
                 <RunStatus status={source.last_run_status} />
                 {source.last_run_error !== null ? (

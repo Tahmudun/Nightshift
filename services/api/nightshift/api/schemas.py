@@ -143,6 +143,21 @@ class JobListOut(BaseModel):
     offset: int
 
 
+class JobStatusCounts(BaseModel):
+    """How many jobs sit in each closure state.
+
+    Every field defaults to zero and none is optional, so a state with no jobs
+    reads as an explicit `0` rather than vanishing from the response. A missing
+    key and a real zero are different claims, and the UI must not have to guess
+    which it received.
+    """
+
+    open: int = 0
+    possibly_stale: int = 0
+    unverified: int = 0
+    closed: int = 0
+
+
 class SourceHealthOut(BaseModel):
     """§2.6: source reliability must be visible, and visible on the bad days."""
 
@@ -155,6 +170,10 @@ class SourceHealthOut(BaseModel):
     last_run_status: IngestionRunStatus | None
     last_run_started_at: datetime | None
     last_run_error: str | None
+    # Added at M1b. Without a breakdown, a source whose jobs have all gone
+    # stale looks identical to a healthy one — the job_count above does not
+    # move when a job closes, because the provenance link survives closure.
+    job_status_counts: JobStatusCounts = Field(default_factory=lambda: JobStatusCounts())
 
 
 class IngestionRunOut(BaseModel):
@@ -198,3 +217,46 @@ class StatsOut(BaseModel):
     mappable_locations: int = Field(
         description="Locations with real coordinates. Zero until M1 adds geocoding."
     )
+
+
+class JobAdminRowOut(BaseModel):
+    """One row of the admin job table.
+
+    Deliberately not the same shape as :class:`JobSummaryOut`. This view answers
+    operational questions — is it still listed, how many sources describe it,
+    was it merged — and putting those into the user-facing schema would show a
+    job seeker the pipeline's internals.
+    """
+
+    id: UUID
+    title: str
+    company_name: str
+    status: JobStatus
+    first_seen_at: datetime
+    last_seen_at: datetime
+    closed_at: datetime | None
+    source_count: int
+    location_count: int
+    merge_count: int
+
+
+class JobAdminListOut(BaseModel):
+    items: list[JobAdminRowOut]
+    total: int
+    status_counts: JobStatusCounts
+
+
+class JobStatusEventOut(BaseModel):
+    """One transition, in the words the closure machine used at the time.
+
+    ``from_status`` is null on a job's first event: it transitioned from
+    nothing, and inventing `open -> open` would be a fabricated row.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    from_status: JobStatus | None
+    to_status: JobStatus
+    reason: str
+    observed_misses: int | None
+    created_at: datetime

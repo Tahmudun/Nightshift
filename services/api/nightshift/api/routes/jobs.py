@@ -18,15 +18,27 @@ from sqlalchemy.orm import selectinload
 
 from nightshift.api.schemas import (
     CompanyOut,
+    JobAdminListOut,
+    JobAdminRowOut,
     JobDetailOut,
     JobListOut,
     JobLocationOut,
     JobSourceOut,
+    JobStatusCounts,
+    JobStatusEventOut,
     JobSummaryOut,
     SalaryOut,
 )
 from nightshift.db.base import JobStatus, LocationConfidence
-from nightshift.db.models import Company, Job, JobLocation, JobSourceLink, SourceJobRecord
+from nightshift.db.models import (
+    Company,
+    Job,
+    JobLocation,
+    JobMergeEvent,
+    JobSourceLink,
+    JobStatusEvent,
+    SourceJobRecord,
+)
 from nightshift.db.session import get_db_session
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
@@ -140,6 +152,108 @@ async def list_jobs(
     return JobListOut(
         items=[_to_summary(job) for job in rows], total=total, limit=limit, offset=offset
     )
+
+
+@router.get("/admin", response_model=JobAdminListOut)
+async def list_jobs_for_admin(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    job_status: Annotated[JobStatus | None, Query(alias="status")] = None,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> JobAdminListOut:
+    """Operational view of the canonical job table.
+
+    Declared before ``/{job_id}`` deliberately: FastAPI matches in declaration
+    order, so the other way round this path resolves as a job whose id is the
+    string "admin" and returns 422.
+
+    Includes closed jobs by default, unlike the user-facing list. Hiding them
+    here would make the closure machine unobservable — which is the one thing
+    this view exists to prevent.
+    """
+    counted = (await session.execute(select(Job.status, func.count()).group_by(Job.status))).all()
+    status_counts = JobStatusCounts(**{state.value: count for state, count in counted})
+
+    filters = [Job.status == job_status] if job_status is not None else []
+
+    total = (
+        await session.execute(select(func.count()).select_from(Job).where(*filters))
+    ).scalar_one()
+
+    rows = (
+        await session.execute(
+            select(
+                Job,
+                Company.canonical_name,
+                func.count(func.distinct(JobSourceLink.id)),
+                func.count(func.distinct(JobLocation.id)),
+                func.count(func.distinct(JobMergeEvent.id)),
+            )
+            .join(Company, Company.id == Job.company_id)
+            .outerjoin(JobSourceLink, JobSourceLink.job_id == Job.id)
+            .outerjoin(JobLocation, JobLocation.job_id == Job.id)
+            .outerjoin(JobMergeEvent, JobMergeEvent.winner_job_id == Job.id)
+            .where(*filters)
+            .group_by(Job.id, Company.canonical_name)
+            # id breaks ties, as in list_jobs: a whole board shares one
+            # last_seen_at, so without it pagination can skip or repeat a row.
+            .order_by(Job.last_seen_at.desc(), Job.id)
+            .limit(limit)
+            .offset(offset)
+        )
+    ).all()
+
+    return JobAdminListOut(
+        items=[
+            JobAdminRowOut(
+                id=job.id,
+                title=job.title,
+                company_name=company_name,
+                status=job.status,
+                first_seen_at=job.first_seen_at,
+                last_seen_at=job.last_seen_at,
+                closed_at=job.closed_at,
+                source_count=source_count,
+                location_count=location_count,
+                merge_count=merge_count,
+            )
+            for job, company_name, source_count, location_count, merge_count in rows
+        ],
+        total=total,
+        status_counts=status_counts,
+    )
+
+
+@router.get("/{job_id}/history", response_model=list[JobStatusEventOut])
+async def job_history(
+    job_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> list[JobStatusEventOut]:
+    """Every transition this job has been through, oldest first.
+
+    This is the answer to "why did this job disappear?", and it survives the job
+    reopening — which is the whole reason ``job_status_events`` is append-only.
+    A reposted job has ``closed_at`` back to null, so the column that showed the
+    closure is gone and only these rows remain.
+    """
+    exists = (await session.execute(select(Job.id).where(Job.id == job_id))).scalar_one_or_none()
+    if exists is None:
+        # 404 rather than an empty list: "this job has no transitions" and "this
+        # job does not exist" are different answers and must not look alike.
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found")
+
+    events = (
+        (
+            await session.execute(
+                select(JobStatusEvent)
+                .where(JobStatusEvent.job_id == job_id)
+                .order_by(JobStatusEvent.created_at, JobStatusEvent.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [JobStatusEventOut.model_validate(event) for event in events]
 
 
 @router.get("/{job_id}", response_model=JobDetailOut)

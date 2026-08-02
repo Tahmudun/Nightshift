@@ -10,11 +10,15 @@ import type { z } from 'zod';
 
 import {
   healthSchema,
+  jobAdminListSchema,
   jobListSchema,
+  jobStatusEventSchema,
   sourceHealthSchema,
   statsSchema,
   type Health,
+  type JobAdminList,
   type JobList,
+  type JobStatusEvent,
   type SourceHealth,
   type Stats,
 } from './schemas';
@@ -120,4 +124,28 @@ export function fetchStats(): Promise<Stats> {
 
 export function fetchSourceHealth(): Promise<SourceHealth[]> {
   return request('/sources', sourceHealthSchema.array());
+}
+
+export interface JobAdminQuery {
+  limit?: number;
+  offset?: number;
+  status?: string;
+}
+
+/**
+ * The operational view of the job table. Unlike `fetchJobs`, this includes
+ * closed jobs by default — hiding them would make the closure machine
+ * unobservable, which is the one thing the admin view exists to prevent.
+ */
+export function fetchJobAdmin(query: JobAdminQuery = {}): Promise<JobAdminList> {
+  const params = new URLSearchParams();
+  params.set('limit', String(query.limit ?? 50));
+  params.set('offset', String(query.offset ?? 0));
+  if (query.status) params.set('status', query.status);
+  return request(`/jobs/admin?${params.toString()}`, jobAdminListSchema);
+}
+
+/** Every closure-machine transition for one job, oldest first. */
+export function fetchJobHistory(jobId: string): Promise<JobStatusEvent[]> {
+  return request(`/jobs/${jobId}/history`, jobStatusEventSchema.array());
 }

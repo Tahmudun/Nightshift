@@ -113,6 +113,13 @@ async def db_engine() -> AsyncIterator[AsyncEngine]:
 # below) and never outside the per-test transaction, so the truncation itself
 # is undone by the same rollback that undoes everything else.
 _INGESTION_TABLES = (
+    # M1b's three, listed first because they reference `jobs` and
+    # `ingestion_runs`. Adding them here is not optional: the no-CASCADE choice
+    # below means TRUNCATE fails loudly the moment a new table references one
+    # of these, which is exactly how this list stayed correct across M1b.
+    "job_status_events",
+    "job_merge_events",
+    "job_embeddings",
     "job_source_links",
     "job_locations",
     "ingestion_runs",

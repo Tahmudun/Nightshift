@@ -56,8 +56,17 @@ $(WEB_DIR)/node_modules/.installed: $(WEB_DIR)/package.json
 	@cd $(WEB_DIR) && npm install --silent --no-audit --no-fund
 	@touch $@
 
-setup: .env $(VENV)/.installed $(WEB_DIR)/node_modules/.installed ## Install JS + Python deps, create .env
+setup: .env $(VENV)/.installed $(WEB_DIR)/node_modules/.installed model ## Install JS + Python deps, fetch the embedding model, create .env
 	@echo "==> setup complete. next: make demo"
+
+# ~130 MB, downloaded once (AMENDMENTS A5). Kept inside `setup` rather than in
+# the test targets — unlike Playwright's browser, the product itself needs this,
+# and `make demo` must work offline afterwards.
+model: $(VENV)/.installed ## Download the local embedding model
+	@cd $(API_DIR) && ../../$(PY) -c "\
+	from nightshift.domain.embeddings import FastEmbedEmbedder, cache_dir, real_model_available; \
+	print('==> embedding model already present at', cache_dir()) if real_model_available() else \
+	(FastEmbedEmbedder().embed(['warm the cache']), print('==> embedding model ready at', cache_dir()))"
 
 doctor: ## Check that required tooling is present
 	@$(PYTHON) scripts/doctor.py
@@ -140,6 +149,12 @@ fmt: setup ## Format both languages
 lint: setup ## Lint both languages
 	@$(RUFF) format --check $(API_DIR)
 	@$(RUFF) check $(API_DIR)
+# The web formatter is checked here, not only in CI. Until M1b it was not, so
+# `make check` passed on unformatted TypeScript and the `web` job failed on the
+# push: the Python side had `ruff format --check` and the web side had only
+# eslint. A formatting rule no local command runs is a rule CI enforces alone,
+# which is the exact gap M0's CI session cost five defects to learn about.
+	@cd $(WEB_DIR) && npm run --silent fmt:check
 	@cd $(WEB_DIR) && npm run --silent lint
 
 typecheck: setup ## mypy + tsc

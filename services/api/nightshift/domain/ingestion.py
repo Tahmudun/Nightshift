@@ -1,16 +1,23 @@
-"""The fetch → preserve → normalize → persist pipeline.
+"""The fetch → preserve → normalize → persist → dedupe → age pipeline.
 
-Scope: M0 creates one canonical job per source record. There is no dedupe here,
-because dedupe is M1's flagship deliverable and it needs the layered-evidence
-rules and fixture suite from §7.5 to be anything other than a title comparison.
-What M0 does establish is the *shape* dedupe needs — raw payloads preserved,
-canonical rows reached only through ``job_source_links`` — so M1 adds a merge
-step rather than restructuring the pipeline.
+M0 shaped this module so that M1b could add steps rather than restructure it,
+and that is what happened: raw payloads were already preserved and canonical
+rows already reachable only through ``job_source_links``, so dedupe became a
+step at the end of the create branch and freshness a step at the end of the run.
 
-Invariant I3 is the load-bearing rule in this module. A board that failed
-contributes nothing: no state change, no closure, no counter movement beyond the
-failure record itself. The only thing a failed board updates is
-``sources.last_failure_at`` and the run's ``error_summary``.
+Policy lives in two pure modules and not here. :mod:`nightshift.domain.dedupe`
+decides whether two jobs are one, and :mod:`nightshift.domain.freshness` decides
+what state a job should be in; both take values and return verdicts. This module
+is the translation layer that reads rows, asks them, and writes the answer down.
+Keeping it that way is what makes the state machine and the merge rules testable
+without a database.
+
+Invariant I3 is the load-bearing rule here. A board that failed contributes
+nothing: no state change, no closure, and — the part that is easy to get wrong —
+no counter movement either, because a miss counter that ticks during an outage
+closes jobs three polls later with nothing in the data explaining why. The guard
+is structural: ``apply_freshness`` is given only the boards that answered, and
+there is no argument by which a caller can ask for the others.
 """
 
 from __future__ import annotations
@@ -42,21 +49,38 @@ from nightshift.db.models import (
     Company,
     IngestionRun,
     Job,
+    JobEmbedding,
     JobLocation,
+    JobMergeEvent,
     JobSourceLink,
+    JobStatusEvent,
     Source,
     SourceJobRecord,
 )
 from nightshift.db.types import utcnow
 from nightshift.domain.companies import normalize_company_name
+from nightshift.domain.dedupe import (
+    DEDUPE_RULESET_VERSION,
+    DedupeCandidate,
+    DedupeVerdict,
+    compare,
+    location_key,
+)
+from nightshift.domain.embeddings import (
+    EMBEDDING_DIMENSION,
+    EMBEDDING_MODEL_NAME,
+    default_embedder,
+)
+from nightshift.domain.freshness import RecordObservation, decide_job_status
 
 log = structlog.get_logger(__name__)
 
-# M0 links one raw record to one canonical job with full confidence, because the
-# claim being made is only "this job came from this record" — not "these two
-# records are the same job", which is the claim M1's dedupe has to earn.
-M0_LINK_REASON = "sole_source_record"
-M0_LINK_CONFIDENCE = 1.0
+# The reason on the first link a job ever gets. Full confidence, because the
+# claim it makes is only "this job came from this record" — not "these two
+# records are the same job", which is the claim dedupe has to earn and which
+# writes its own reason over this one on merge.
+SOLE_RECORD_REASON = "sole_source_record"
+SOLE_RECORD_CONFIDENCE = 1.0
 
 
 @dataclass(slots=True)
@@ -68,8 +92,8 @@ class IngestionStats:
     updated: int = 0
     unchanged: int = 0
     failed: int = 0
-    # `closed` stays at zero for the whole of M0: the closure state machine is
-    # an M1 deliverable, and closing a job requires evidence M0 cannot gather.
+    # Jobs that transitioned to `closed` during this run (ADR 0009). Only ever
+    # non-zero for boards that answered — see apply_freshness.
     closed: int = 0
     boards_ok: list[str] = field(default_factory=list)
     boards_failed: list[str] = field(default_factory=list)
@@ -277,11 +301,28 @@ async def persist_source_job(
             JobSourceLink(
                 job_id=job.id,
                 source_job_record_id=record.id,
-                match_confidence=M0_LINK_CONFIDENCE,
-                link_reason=M0_LINK_REASON,
+                match_confidence=SOLE_RECORD_CONFIDENCE,
+                link_reason=SOLE_RECORD_REASON,
             )
         )
         await session.flush()
+        await _store_embedding(session, job)
+
+        # Dedupe runs only on creation. An existing record already resolves to
+        # its canonical job through the link table, and re-running the matcher
+        # on every poll is how a settled merge starts oscillating between two
+        # jobs — and how the audit table fills with the same decision forever.
+        duplicate = await find_duplicate(session, job=job)
+        if duplicate is not None:
+            existing_job, verdict = duplicate
+            log.info(
+                "job_merged",
+                winner=str(existing_job.id),
+                loser=str(job.id),
+                reason=verdict.reason,
+                confidence=verdict.confidence,
+            )
+            await merge_jobs(session, winner=existing_job, loser=job, verdict=verdict)
         return "created"
 
     # --- existing record ---------------------------------------------------
@@ -348,6 +389,351 @@ async def _canonical_job_for(session: AsyncSession, record: SourceJobRecord) -> 
     return job
 
 
+async def _canonical_url_of(session: AsyncSession, job: Job) -> str | None:
+    """The URL of any source record describing this job.
+
+    Any, not all: after a merge a job has several, and they are by construction
+    the URLs that made it one job. Layer 1 only needs one to match.
+    """
+    return (
+        await session.execute(
+            select(SourceJobRecord.canonical_url)
+            .join(JobSourceLink, JobSourceLink.source_job_record_id == SourceJobRecord.id)
+            .where(JobSourceLink.job_id == job.id, SourceJobRecord.canonical_url.is_not(None))
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+
+async def _candidate_for(session: AsyncSession, job: Job) -> DedupeCandidate:
+    """Flatten a canonical job into a comparison candidate.
+
+    Both sides of every comparison are built by this one function, from the
+    database, so the two candidates cannot be constructed differently. An
+    earlier draft took one side's URL from the incoming payload and the other's
+    from storage, which made ``compare`` asymmetric through its inputs even
+    though the function itself is symmetric.
+    """
+    location_rows = (
+        await session.execute(
+            select(JobLocation.city, JobLocation.state, JobLocation.country).where(
+                JobLocation.job_id == job.id
+            )
+        )
+    ).all()
+    embedding = (
+        await session.execute(select(JobEmbedding.embedding).where(JobEmbedding.job_id == job.id))
+    ).scalar_one_or_none()
+
+    return DedupeCandidate(
+        # The company UUID, not its name: identity is already resolved by
+        # get_or_create_company, and re-deciding it here could disagree.
+        company_key=str(job.company_id),
+        canonical_url=await _canonical_url_of(session, job),
+        normalized_title=job.normalized_title,
+        employment_type=job.employment_type,
+        location_keys=frozenset(
+            location_key(city, state, country) for city, state, country in location_rows
+        ),
+        description_hash=job.canonical_description_hash or "",
+        description=job.description_text,
+        embedding=tuple(embedding) if embedding is not None else None,
+    )
+
+
+async def _store_embedding(session: AsyncSession, job: Job) -> None:
+    """Embed a job's description, skipping unchanged ones.
+
+    Keyed on the description hash, so a re-poll of an unchanged posting does no
+    model work. Without that check every poll would re-embed the whole corpus,
+    which is the difference between dedupe costing nothing on a quiet day and
+    costing everything.
+    """
+    if not job.description_text:
+        return
+
+    source_hash = job.canonical_description_hash or ""
+    existing = (
+        await session.execute(select(JobEmbedding).where(JobEmbedding.job_id == job.id))
+    ).scalar_one_or_none()
+    if existing is not None and existing.source_hash == source_hash:
+        return
+
+    vector = list(default_embedder().embed([job.description_text])[0])
+    if existing is None:
+        session.add(
+            JobEmbedding(
+                job_id=job.id,
+                model_name=EMBEDDING_MODEL_NAME,
+                dimension=EMBEDDING_DIMENSION,
+                embedding=vector,
+                source_hash=source_hash,
+            )
+        )
+    else:
+        existing.embedding = vector
+        existing.source_hash = source_hash
+        existing.model_name = EMBEDDING_MODEL_NAME
+        existing.dimension = EMBEDDING_DIMENSION
+    await session.flush()
+
+
+async def find_duplicate(session: AsyncSession, *, job: Job) -> tuple[Job, DedupeVerdict] | None:
+    """Find an existing job that ``job`` duplicates, within the same company.
+
+    Blocking by company is a correctness rule before it is a performance one:
+    merging across employers is never right, and there is no code path here
+    that can compare two companies' postings.
+
+    Linear in the company's job count. Fine at thousands; it will not be at
+    M1c's scale, and the fix then is a blocking index on
+    (company_id, normalized_title) — not now, because building for a load
+    nobody has measured is its own mistake (CLAUDE.md §8).
+    """
+    others = (
+        (
+            await session.execute(
+                select(Job).where(Job.company_id == job.company_id, Job.id != job.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if not others:
+        return None
+
+    candidate = await _candidate_for(session, job)
+    for other in others:
+        verdict = compare(candidate, await _candidate_for(session, other))
+        if verdict.merge:
+            return other, verdict
+    return None
+
+
+async def _absorb_locations(session: AsyncSession, *, winner: Job, loser: Job) -> None:
+    """Move locations the loser named and the winner did not.
+
+    Two cross-posted listings of one role can name different sets of offices —
+    one board says "Washington, DC", the other says "Washington, DC" and
+    "Austin, TX". They share a location, so they merge, and without this the
+    loser's rows cascade away with it and the canonical job silently
+    under-reports where the role is. A user filtering for Austin would never
+    see it, at the exact moment two sources agree the job exists there.
+
+    Deduplicated on the parsed (city, state, country) key rather than on
+    ``raw_text``: "New York, NY" and "New York, NY (HQ)" are the same office
+    written twice, and keeping both would turn one place into two.
+
+    Moved rows are never primary. The winner already has one, and A2 lets order
+    carry meaning for sorting only — so a second primary would be a claim
+    neither posting made.
+    """
+    existing = {
+        location_key(city, state, country)
+        for city, state, country in (
+            await session.execute(
+                select(JobLocation.city, JobLocation.state, JobLocation.country).where(
+                    JobLocation.job_id == winner.id
+                )
+            )
+        ).all()
+    }
+
+    loser_rows = (
+        (await session.execute(select(JobLocation).where(JobLocation.job_id == loser.id)))
+        .scalars()
+        .all()
+    )
+    moved = False
+    for row in loser_rows:
+        key = location_key(row.city, row.state, row.country)
+        if key in existing:
+            continue
+        existing.add(key)
+        row.job_id = winner.id
+        row.is_primary = False
+        moved = True
+
+    if moved:
+        await session.flush()
+        # The loser is about to be deleted, and Job.locations cascades
+        # delete-orphan. Expiring the collection stops SQLAlchemy deleting the
+        # rows we just reassigned along with it.
+        session.expire(loser, ["locations"])
+        session.expire(winner, ["locations"])
+
+
+async def merge_jobs(
+    session: AsyncSession, *, winner: Job, loser: Job, verdict: DedupeVerdict
+) -> None:
+    """Fold ``loser`` into ``winner``, preserving every provenance edge.
+
+    Reversibility does not depend on the snapshot written here. Canonical jobs
+    are derived from ``source_job_records.raw_payload``, which is preserved
+    verbatim, so any merge can be undone by re-deriving. The event exists to
+    make the decision auditable and an un-merge cheap — not because the data
+    could otherwise be lost.
+    """
+    session.add(
+        JobMergeEvent(
+            winner_job_id=winner.id,
+            loser_job_id=loser.id,
+            loser_snapshot={
+                "title": loser.title,
+                "normalized_title": loser.normalized_title,
+                "canonical_description_hash": loser.canonical_description_hash,
+                "company_id": str(loser.company_id),
+                "first_seen_at": loser.first_seen_at.isoformat(),
+                "status": loser.status.value,
+            },
+            reason=verdict.reason,
+            match_confidence=verdict.confidence,
+            ruleset_version=DEDUPE_RULESET_VERSION,
+        )
+    )
+
+    links = (
+        (await session.execute(select(JobSourceLink).where(JobSourceLink.job_id == loser.id)))
+        .scalars()
+        .all()
+    )
+    for link in links:
+        link.job_id = winner.id
+        link.match_confidence = verdict.confidence
+        link.link_reason = verdict.reason
+
+    # The winner keeps the earlier discovery date: it is the same opening, and
+    # the earlier sighting is the true one. Overwriting it with the later of the
+    # two would make every merge look like a brand-new posting.
+    winner.first_seen_at = min(winner.first_seen_at, loser.first_seen_at)
+    winner.last_seen_at = max(winner.last_seen_at, loser.last_seen_at)
+
+    await session.flush()
+    # Before the delete, not after: the loser's location rows cascade with it.
+    await _absorb_locations(session, winner=winner, loser=loser)
+    await session.delete(loser)
+    await session.flush()
+
+
+async def apply_freshness(
+    session: AsyncSession,
+    *,
+    source: Source,
+    polled_tokens: Sequence[str],
+    run: IngestionRun,
+    now: datetime,
+) -> int:
+    """Age every record on the boards that answered, then re-decide their jobs.
+
+    ``polled_tokens`` carries only the boards whose fetch succeeded, and that
+    argument is where invariant I3 lives in this function. A board that failed
+    is not in the list, so none of its records are aged and none of its jobs
+    are re-decided. There is deliberately no parameter by which a caller could
+    ask for a failed board to be processed anyway — the guard is structural,
+    not a condition someone can forget to write.
+
+    Returns the number of jobs that newly became ``closed``.
+    """
+    if not polled_tokens:
+        return 0
+
+    tokens = list(polled_tokens)
+
+    # A record on a board that answered, which this run did not touch, was not
+    # in the response. `last_seen_at < now` is the test for that: persisting a
+    # posting sets it to `now`, so anything older was absent from the payload.
+    stale_records = (
+        (
+            await session.execute(
+                select(SourceJobRecord).where(
+                    SourceJobRecord.source_id == source.id,
+                    SourceJobRecord.source_company_key.in_(tokens),
+                    SourceJobRecord.last_seen_at < now,
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for record in stale_records:
+        record.consecutive_misses += 1
+        record.source_status = SourceStatus.MISSING
+    await session.flush()
+
+    # Re-decide every job reachable from this source's polled boards, not only
+    # the ones that just went missing: a job whose second source vanished has
+    # not changed itself, but its verdict may have.
+    jobs = (
+        (
+            await session.execute(
+                select(Job)
+                .join(JobSourceLink, JobSourceLink.job_id == Job.id)
+                .join(
+                    SourceJobRecord,
+                    SourceJobRecord.id == JobSourceLink.source_job_record_id,
+                )
+                .where(
+                    SourceJobRecord.source_id == source.id,
+                    SourceJobRecord.source_company_key.in_(tokens),
+                )
+                .distinct()
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    closed = 0
+    for job in jobs:
+        # Every record describing this job, across all sources — not only the
+        # one being polled. A job listed by two boards is missing only when
+        # both stop listing it, and that is decided in freshness.py.
+        observations = (
+            await session.execute(
+                select(SourceJobRecord.consecutive_misses, SourceJobRecord.last_seen_at)
+                .join(
+                    JobSourceLink,
+                    JobSourceLink.source_job_record_id == SourceJobRecord.id,
+                )
+                .where(JobSourceLink.job_id == job.id)
+            )
+        ).all()
+
+        decision = decide_job_status(
+            current=job.status,
+            records=[
+                RecordObservation(consecutive_misses=misses, last_seen_at=last_seen)
+                for misses, last_seen in observations
+            ],
+            board_last_success_at=source.last_success_at,
+            now=now,
+        )
+        if decision.status is job.status:
+            # Not a transition. Writing a row per poll would bury the real
+            # transitions under thousands of no-ops.
+            continue
+
+        session.add(
+            JobStatusEvent(
+                job_id=job.id,
+                from_status=job.status,
+                to_status=decision.status,
+                reason=decision.reason,
+                ingestion_run_id=run.id,
+                observed_misses=min((m for m, _ in observations), default=None),
+            )
+        )
+        job.status = decision.status
+        # The `closed_at_matches_status` check constraint pairs these two, so a
+        # buggy transition is a database error rather than a silent one.
+        job.closed_at = now if decision.status is JobStatus.CLOSED else None
+        if decision.status is JobStatus.CLOSED:
+            closed += 1
+
+    await session.flush()
+    return closed
+
+
 async def ingest_boards(
     session: AsyncSession,
     adapter: JobSourceAdapter,
@@ -378,7 +764,8 @@ async def ingest_boards(
     for board in boards:
         outcome = await adapter.fetch_board(board)
         if not outcome.ok:
-            # I3: we learned nothing. No listing state changes, nothing closes.
+            # I3: we learned nothing. No listing state changes, nothing closes,
+            # and — crucially — no miss counter moves. See apply_freshness.
             stats.boards_failed.append(board.token)
             stats.errors.append(f"{board.ats}:{board.token}: {outcome.error}")
             source.last_failure_at = timestamp
@@ -386,8 +773,16 @@ async def ingest_boards(
             continue
 
         stats.boards_ok.append(board.token)
-        await _persist_outcome(session, adapter, outcome, source=source, stats=stats, now=timestamp)
+        # Set before apply_freshness reads it, or the first poll of a new source
+        # would decide `unverified` on a board that just answered.
         source.last_success_at = timestamp
+        await _persist_outcome(session, adapter, outcome, source=source, stats=stats, now=timestamp)
+
+    # Only the boards that answered. A failed board contributes no evidence and
+    # is not in this list.
+    stats.closed = await apply_freshness(
+        session, source=source, polled_tokens=stats.boards_ok, run=run, now=timestamp
+    )
 
     run.finished_at = utcnow()
     run.status = stats.status

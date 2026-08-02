@@ -22,10 +22,14 @@ dependencies = [
   "httpx>=0.28",
   "pyyaml>=6.0",
   "structlog>=24.4",
+  # AMENDMENTS A5: embeddings run locally. bge-small-en-v1.5 via fastembed —
+  # free, offline, deterministic, no vendor. pgvector is the storage side.
+  # Added at M1b, which is the milestone that first reads them (ADR 0010).
+  "pgvector>=0.3.6",
+  "fastembed>=0.4.2",
 ]
 
 # Deliberately absent until the milestone that needs them, per CLAUDE.md §8:
-#   fastembed / pgvector  -> M1 dedupe + M3 matching (AMENDMENTS A5)
 #   beautifulsoup / lxml  -> only if regex HTML-to-text proves insufficient
 [project.optional-dependencies]
 dev = [
@@ -79,6 +83,7 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["T20"]
 "nightshift/cli.py" = ["T20"]          # a CLI prints; that is its job
+"scripts/*" = ["T20"]                  # so does a script run by a human
 
 # ---------------------------------------------------------------------------
 # mypy
