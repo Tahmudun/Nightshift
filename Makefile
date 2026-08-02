@@ -26,7 +26,8 @@ LOADENV := set -a && source .env && set +a
 
 .PHONY: help setup up down migrate migrate-down seed dev demo test test-py test-web \
         test-e2e check fmt lint typecheck reset-db ingest logs ps clean doctor \
-        verify acceptance test-e2e-seeded browsers
+        verify acceptance test-e2e-seeded browsers \
+        discover registry-validate registry-approve registry-approve-write
 
 help: ## Show available targets
 	@echo "Nightshift — make targets"
@@ -120,6 +121,29 @@ demo: ## up && migrate && seed && dev — fully offline, no network
 
 ingest: setup ## Run one live ingestion pass (requires OUTBOUND_HTTP_ENABLED=true)
 	@$(LOADENV) && $(PY) -m nightshift.cli ingest
+
+# ---------------------------------------------------------------------------
+# Board discovery (M1c)
+#
+# Three targets, run by a human, never scheduled (A1, ADR 0006). They form a
+# chain that only a person can advance: discover writes candidates,
+# registry-validate asks the providers what they are, registry-approve prints
+# what it *would* promote. `registry-approve` is dry-run on purpose — a target
+# that edits a committed file deciding which employers this product can see
+# should need an extra word typed at it.
+# ---------------------------------------------------------------------------
+
+discover: setup ## Harvest board candidates from the committed crawl fixture (offline)
+	@$(LOADENV) && $(PY) -m nightshift.discovery.cli discover --provider ashby
+
+registry-validate: setup ## Probe candidates and classify them (requires OUTBOUND_HTTP_ENABLED=true)
+	@$(LOADENV) && $(PY) -m nightshift.discovery.cli validate
+
+registry-approve: setup ## Show the approval report; nothing is written
+	@$(LOADENV) && $(PY) -m nightshift.discovery.cli approve
+
+registry-approve-write: setup ## Actually promote approved candidates, then commit the diff yourself
+	@$(LOADENV) && $(PY) -m nightshift.discovery.cli approve --write
 
 verify: setup ## Assert the stack actually works, and exit with a status code
 	@$(LOADENV) && $(PY) scripts/verify.py

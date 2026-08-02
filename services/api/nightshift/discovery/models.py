@@ -17,8 +17,20 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 
 class Verdict(StrEnum):
-    """Exactly one applies to every candidate."""
+    """Exactly one applies to every candidate.
 
+    Five of these are *validation outcomes* (board-discovery.md §6) — what the
+    provider said when we asked. The sixth, `UNVALIDATED`, is the state before
+    we asked, and it exists because the alternative was recording a harvested
+    token as `unreachable`: a claim that we tried and failed, made about a
+    board nobody has contacted. The coverage page would then report failures
+    that never happened, which is the reporting version of the mistake I3
+    forbids in the data.
+    """
+
+    #: Harvested from a URL list; no provider has been asked anything yet.
+    #: Never approvable — a token in a crawl index is not evidence of a board.
+    UNVALIDATED = "unvalidated"
     #: 200, at least one posting, and the provider told us the employer's name.
     #: The only verdict eligible for bulk approval (ADR 0005).
     LIVE_NAMED = "live_named"

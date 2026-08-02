@@ -95,6 +95,30 @@ class TestNothingIsEverDiscarded:
         assert file.candidates[0].verdict is Verdict.LIVE_NAMED
 
 
+class TestUnvalidatedIsDistinctFromUnreachable:
+    """A harvested token nobody has probed is not a board we failed to reach.
+
+    Collapsing the two would make the coverage page report failures that never
+    happened — the reporting version of treating absence of data as data.
+    """
+
+    def test_they_are_different_verdicts(self) -> None:
+        assert Verdict.UNVALIDATED is not Verdict.UNREACHABLE
+
+    def test_an_unvalidated_candidate_needs_no_name(self) -> None:
+        candidate = _candidate(verdict=Verdict.UNVALIDATED, company_name=None, posting_count=0)
+        assert candidate.verdict is Verdict.UNVALIDATED
+
+    def test_a_probe_result_replaces_it_rather_than_adding_a_row(self) -> None:
+        file = merge_candidate(
+            CandidateFile(),
+            _candidate(verdict=Verdict.UNVALIDATED, company_name=None, posting_count=0),
+        )
+        file = merge_candidate(file, _candidate(verdict=Verdict.LIVE_NAMED))
+        assert len(file.candidates) == 1
+        assert file.candidates[0].verdict is Verdict.LIVE_NAMED
+
+
 class TestModelRefusesNonsense:
     def test_a_named_verdict_requires_a_name(self) -> None:
         """The whole approval gate rests on this field being trustworthy."""

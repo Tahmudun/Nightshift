@@ -9,4 +9,211 @@
 # no open roles and `unreachable` means we could not check — neither is
 # evidence the board is worthless, and both become approvable the moment they
 # return named postings.
-candidates: []
+candidates:
+- ats: ashby
+  token: 0g
+  verdict: unvalidated
+  posting_count: 0
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '0001-01-01'
+  source: crawl_index
+  notes: harvested from a crawl index; no provider has been asked yet
+- ats: ashby
+  token: 0x
+  verdict: unvalidated
+  posting_count: 0
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '0001-01-01'
+  source: crawl_index
+  notes: harvested from a crawl index; no provider has been asked yet
+- ats: ashby
+  token: 10xteam
+  verdict: unvalidated
+  posting_count: 0
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '0001-01-01'
+  source: crawl_index
+  notes: harvested from a crawl index; no provider has been asked yet
+- ats: ashby
+  token: 1bios
+  verdict: unvalidated
+  posting_count: 0
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '0001-01-01'
+  source: crawl_index
+  notes: harvested from a crawl index; no provider has been asked yet
+- ats: ashby
+  token: 1mind
+  verdict: unvalidated
+  posting_count: 0
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '0001-01-01'
+  source: crawl_index
+  notes: harvested from a crawl index; no provider has been asked yet
+- ats: ashby
+  token: 1password
+  verdict: unvalidated
+  posting_count: 0
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '0001-01-01'
+  source: crawl_index
+  notes: harvested from a crawl index; no provider has been asked yet
+- ats: ashby
+  token: 1x
+  verdict: unvalidated
+  posting_count: 0
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '0001-01-01'
+  source: crawl_index
+  notes: harvested from a crawl index; no provider has been asked yet
+- ats: ashby
+  token: 3imembers
+  verdict: unvalidated
+  posting_count: 0
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '0001-01-01'
+  source: crawl_index
+  notes: harvested from a crawl index; no provider has been asked yet
+- ats: ashby
+  token: 42dot
+  verdict: unvalidated
+  posting_count: 0
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '0001-01-01'
+  source: crawl_index
+  notes: harvested from a crawl index; no provider has been asked yet
+- ats: ashby
+  token: 5bluesoftware
+  verdict: unvalidated
+  posting_count: 0
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '0001-01-01'
+  source: crawl_index
+  notes: harvested from a crawl index; no provider has been asked yet
+- ats: ashby
+  token: 8fleet-inc
+  verdict: unvalidated
+  posting_count: 0
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '0001-01-01'
+  source: crawl_index
+  notes: harvested from a crawl index; no provider has been asked yet
+- ats: ashby
+  token: 8vc
+  verdict: unvalidated
+  posting_count: 0
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '0001-01-01'
+  source: crawl_index
+  notes: harvested from a crawl index; no provider has been asked yet
+- ats: ashby
+  token: 9-mothers
+  verdict: unvalidated
+  posting_count: 0
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '0001-01-01'
+  source: crawl_index
+  notes: harvested from a crawl index; no provider has been asked yet
+- ats: ashby
+  token: 9fin
+  verdict: unvalidated
+  posting_count: 0
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '0001-01-01'
+  source: crawl_index
+  notes: harvested from a crawl index; no provider has been asked yet
+- ats: ashby
+  token: Aaron-School
+  verdict: unvalidated
+  posting_count: 0
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '0001-01-01'
+  source: crawl_index
+  notes: harvested from a crawl index; no provider has been asked yet
+- ats: ashby
+  token: Abridge
+  verdict: unvalidated
+  posting_count: 0
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '0001-01-01'
+  source: crawl_index
+  notes: harvested from a crawl index; no provider has been asked yet
+- ats: ashby
+  token: a-place-for-mom
+  verdict: unvalidated
+  posting_count: 0
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '0001-01-01'
+  source: crawl_index
+  notes: harvested from a crawl index; no provider has been asked yet
+- ats: ashby
+  token: a-team
+  verdict: unvalidated
+  posting_count: 0
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '0001-01-01'
+  source: crawl_index
+  notes: harvested from a crawl index; no provider has been asked yet
+- ats: ashby
+  token: a16z-new-media
+  verdict: unvalidated
+  posting_count: 0
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '0001-01-01'
+  source: crawl_index
+  notes: harvested from a crawl index; no provider has been asked yet
+- ats: ashby
+  token: abacum
+  verdict: unvalidated
+  posting_count: 0
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '0001-01-01'
+  source: crawl_index
+  notes: harvested from a crawl index; no provider has been asked yet
+- ats: ashby
+  token: abe
+  verdict: unvalidated
+  posting_count: 0
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '0001-01-01'
+  source: crawl_index
+  notes: harvested from a crawl index; no provider has been asked yet
+- ats: ashby
+  token: abound
+  verdict: unvalidated
+  posting_count: 0
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '0001-01-01'
+  source: crawl_index
+  notes: harvested from a crawl index; no provider has been asked yet
+- ats: ashby
+  token: abridge
+  verdict: unvalidated
+  posting_count: 0
+  nyc_posting_count: 0
+  first_seen: '2026-08-02'
+  last_validated: '0001-01-01'
+  source: crawl_index
+  notes: harvested from a crawl index; no provider has been asked yet
