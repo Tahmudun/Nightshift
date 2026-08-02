@@ -6,183 +6,59 @@
 **Current milestone: M1 — Employment data spine. M1a + M1b done, M1c next.**
 **M0: COMPLETE — 6 of 6 acceptance criteria verified at commit `4c1643f`.**
 **M1a: COMPLETE, CI-green at `430347a`, merged to `main` as PR #1 (`54ef35a`).**
-**M1b: COMPLETE and reviewed at `eda0297`. Draft PR #2 open, NOT yet merged.**
+**M1b: COMPLETE and reviewed. Merged to `main` as PR #2 (`cf48719`).**
 **Last updated: 2026-08-02**
 
 ---
 
 ## Next exact action
 
-### M1a is merged. The branch and its worktree are gone.
+### Next: execute `docs/plans/2026-08-02-m1c-board-discovery.md`, from Task 1
 
-PR #1 was merged by the human, so `main` is at `54ef35a` and contains all 24
-M1a commits. Verified this session by `git branch -r --contains
-origin/m1a-provider-breadth`, which lists `origin/main`. The worktree at
-`.claude/worktrees/m1a-provider-breadth` was removed and the local branch
-deleted; the remote branch still exists and is harmless.
+**M1b is merged.** `main` is at `cf48719` and contains it; PR #2 was merged by
+the human and both the branch and its worktree are gone.
 
-**Verified at `54ef35a` on this host, from a clean shell:** `make check` →
-`337 passed, 13 skipped` (Python), `35 passed` (web), ruff clean, mypy clean on
-31 source files, eslint clean. Then, once B4 was cleared and Postgres was up,
-`make test-py` → **`350 passed`, zero skipped.**
+The M1c plan was written this session: six tasks, TDD, real code in every step.
+The design it implements already existed in full at
+`docs/architecture/board-discovery.md` — this plan does not re-decide anything,
+it sequences it.
 
-**That settles the question this file had been carrying.** The 13 skips are the
-database-backed tests, and until this session no local run had ever executed
-them — every green `make check` on this host was silent about
-`test_ingestion.py` and `test_routes.py`. CI run #9 was believed to have run
-them, but by inference from the job's step order rather than from reading the
-count. It has now been observed directly, locally, against a real PostGIS
-cluster. See B4.
+**Re-verified before planning, per §3's own instruction** (2026-08-02):
 
-### M1b: all 10 tasks done. **Next: write and execute the M1c plan.**
+- Common Crawl is reachable. `collinfo.json` → HTTP 200, **126 collections**,
+  newest `CC-MAIN-2026-30` — the same crawl §3's 2,605-token count was measured
+  against, so the design's numbers are not stale.
+- The CDX query shape works and returns what the design assumes: newline-
+  delimited JSON, one object per captured URL, token as the **first** path
+  segment. Most captured URLs are job pages *beneath* a board, which is why
+  Task 1's parser takes segment 1 — a last-segment parser would harvest UUIDs.
+- **`0g` is in the live index**, which is the case ADR 0005's approval gate
+  turns on: the token is not the name, and the board page says "0g Labs".
+- `PoliteClient` has only `get_json` (`adapters/http.py:95`), so Task 3 adds
+  `get_text` to that class rather than opening a second HTTP path.
 
-M1b is complete and reviewed. Every task was committed separately with recorded
-evidence and a mutation check; the review is
-`docs/reviews/milestone-1b-review.md`. Board discovery (M1c) is next, and its
-design already exists in full at `docs/architecture/board-discovery.md` — write
-the plan before touching code, as M1a and M1b both did.
+**Two things the plan deliberately does not build**, recorded here so the gap
+is visible rather than discovered later:
 
-**PR #2 is ready for review and green, but NOT merged.** Merging it is the one
-remaining human action before M1c starts on `main`.
-https://github.com/Tahmudun/Nightshift/pull/2
+1. **The careers-page probe for Lever.** It needs a list of employer domains to
+   start from and nothing in the repo has one. Building a domain-guessing
+   heuristic would be exactly the fabrication this milestone exists to prevent.
+   Lever therefore stays undiscovered, and the coverage page is required to say
+   so by name.
+2. **The community-snapshot source**, for the same reason.
 
-**CI green at `c0bf82b`, all five jobs**, counts read from the logs rather than
-inferred: `480 passed` (python, zero skips), `5 passed` (degraded e2e),
-`11 passed` (seeded e2e).
-https://github.com/Tahmudun/Nightshift/actions/runs/30735074717
+### The M1b decisions, kept because M1c and M1d inherit them
 
-**One CI failure on the way there, and it found a real gap in `make check`.**
-The `web` job failed on prettier while `make check` was green: `make lint` ran
-`ruff format --check` for Python but only eslint for the web, so **no local
-command had ever checked TypeScript formatting**. The rule lived in CI alone.
-Fixed in `c0bf82b` by adding `fmt:check` to `make lint`, and the gate was
-verified able to fail — planting badly formatted TypeScript makes `make lint`
-exit non-zero and name the file.
+M1b is done, but two of its rules govern everything downstream and are easier
+to find here than in an ADR:
 
-This is the same lesson M0's CI session cost five defects to learn: every
-defect CI finds lives in a file no local command executes. The asymmetry
-between the two languages' format checks had been sitting there since M0.
-
-| Task | State |
-|---|---|
-| 1 — three tables + append-only triggers | done `dc7bdc3` |
-| 2 — closure decision function (pure) | done `ad606c9` |
-| 3 — closure applied in the pipeline | done `e819d38` |
-| 4 — labelled dedupe fixture set (red) | done |
-| 5 — deterministic dedupe layers | done |
-| 6 — local embedder (A5) | done |
-| 7 — similarity layer, derived threshold | done `b8a2568` |
-| 8 — merging in the pipeline | done `5532abc` |
-| 9 — API surface | done `61bd721` |
-| 10 — web UI, review, PROGRESS | done `0a721f0` |
-
-**Verified at `eda0297`, from a clean shell:**
-
-```
-make check        480 Python tests (0 skipped), 42 web, ruff + mypy clean (34 files)
-make acceptance   18 verify checks + 11 seeded browser tests   (was 6 at M1a)
-migration         down and up on a live cluster: both triggers, the trigger
-                  function and all three tables drop and are restored
-```
-
-**The review found the milestone's worst bug, and reading the code had not.**
-A merge silently dropped locations only the losing posting named — board A says
-"Washington, DC", board B says "Washington, DC" and "Austin, TX", they share a
-location so they merge, and Austin cascaded away with the deleted row. A user
-filtering for Austin would never have seen the role, at the exact moment two
-sources agreed it exists there. Found by probing with a deliberately
-asymmetric pair; every existing merge test used pairs whose location sets were
-identical, so the suite was green and blind. Fixed in `eda0297` with a
-regression test and a control.
-
-**CI green, first try — run #10, all five jobs:**
-https://github.com/Tahmudun/Nightshift/actions/runs/30720960500 — pushed as
-**draft PR #2**, https://github.com/Tahmudun/Nightshift/pull/2.
-
-**And the count was read this time, not inferred.** `gh` is now installed and
-authenticated on this host, so `gh run view --log` works and the python job's
-line was read directly: **`467 passed, 2 warnings in 44.59s`** — the same
-number as local, with no skips. The `Fetch the embedding model` step ran
-(`embedding model ready at /home/runner/.cache/nightshift/fastembed`) and the
-cache saved 60 MB under key `fastembed-bge-small-en-v1.5-v1`, so the
-real-model tests and the similarity half of the dedupe suite genuinely
-executed rather than skipping. That closes the class of gap this file had to
-argue around for M1a.
-
-`gh` had been failing to install because of a dead Homebrew tap
-(`homebrew/cask-versions`, whose repository Homebrew deleted). Every
-`brew install` auto-updates first, that update errored, and the install died
-before starting — so it would have failed for any package. Untapped; `brew
-update` is clean now.
-
-**Every task's guard was mutation-checked, and the results are in the commit
-messages.** The ones worth knowing:
-
-- Making a failed board count as answered fails two closure tests — and
-  **not** the pre-existing `test_a_failed_board_closes_nothing`, because one
-  failed poll never reaches a threshold. That is why the new assertion is on
-  the miss counter rather than on the status.
-- Removing the title guard collapses the nine real postings on the recorded
-  Alloy board into fewer jobs. No synthetic pair caught that; the real board
-  did.
-- Dropping the append-only triggers by hand fails exactly the three tests that
-  exist for them.
-
-**The similarity threshold is 0.85, derived and not chosen.**
-`services/api/scripts/derive_dedupe_threshold.py` scored the labelled set under
-the real model: merges at 0.9693 and 0.9370, the distinct pair at 0.7640. Any
-value in (0.7640, 0.9370] separates the set; 0.85 is the midpoint.
-
-**One real bug was found while wiring dedupe in.** `content_hash(None)` returns
-the sha256 of the empty string — a genuine 64-character digest, equal on both
-sides — so two postings with no description compared equal and merged on
-"identical content" while having no content at all. Fixed and guarded.
-
-### The plan being executed
-
-Written this session, ten ordered TDD tasks with real code in every step.
-Design at `docs/architecture/canonical-spine.md`; the two decisions it turns on
-are **ADR 0009** (closure thresholds) and **ADR 0010** (dedupe layers, and why
-similarity may never merge on its own). Read all three before Task 1.
-
-Two decisions in that design were the human's, not mine, and are recorded as
-theirs:
-
-- **Closure is cautious** — three consecutive misses *and* seven elapsed days.
-  Both required, because a miss count alone stops meaning anything once M1d
-  gives boards different poll rates.
-- **Dedupe includes embedding similarity.** I recommended deterministic rules
-  only; the human chose to include similarity. ADR 0010 records the
-  disagreement and the constraint that makes it safe — similarity is reachable
-  only after company, employment type, title and location already agree, so it
-  breaks ties and never matches on its own.
-
-M1 was split into four plans, because `CLAUDE.md` §6 lists four independent
-subsystems under one milestone and a single plan for all of them would not
-produce working software until the end:
-
-| Plan | Contents | Status |
-|---|---|---|
-| **M1a — provider breadth** | Lever + Ashby adapters, location fixtures and parser breadth, upserts, ingestion + route tests | **COMPLETE — merged at `54ef35a`** |
-| M1b — canonical spine | Dedupe, freshness, closure state machine, admin job table, source health page | **In progress — 8 of 10 tasks** |
-| M1c — board discovery | `nightshift/discovery/`, Common Crawl, validation, batch approval, coverage page | Not written |
-| M1d — polling | Two-phase conditional polling, hot/warm tiers, queue-driven ARQ | Not written |
-
-M1a is first because `board-discovery.md` §14 names its first two items as hard
-prerequisites of the discovery design, and §8 makes NYC-ness — which drives tier
-membership in M1d — a function of the parser M1a widens.
-
-**Read before writing any M1 code**, in this order:
-
-1. The plan above.
-2. `docs/architecture/board-discovery.md` — the approved design for the registry
-   and polling. **This is the M1 registry deliverable**, and it is the only place
-   the design exists in full.
-3. ADRs **0005** (batch approval, overrides A1's per-entry review), **0006**
-   (Common Crawl discovery, and why it cannot see Lever), **0007** (two-phase
-   conditional polling).
-4. `docs/spec/AMENDMENTS.md` — skim, per CLAUDE.md §5. A1 still governs the
-   registry except where ADR 0005 says otherwise.
+- **Closure is cautious** — three consecutive misses *and* seven elapsed days,
+  both required (ADR 0009). M1d's tiers change the poll rate, and the elapsed
+  condition is what stops that changing what closure *means*.
+- **Similarity may never merge on its own** (ADR 0010). It is reachable only
+  after company, employment type, title and location already agree. M1c's
+  validator reuses `normalize_company_name` for the `name_collision` verdict
+  and must not quietly widen that.
 
 ### Findings from writing the plan — read these before M1d
 
