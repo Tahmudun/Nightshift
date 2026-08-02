@@ -3,42 +3,81 @@
 > Read this first, every session. If the repo state does not match what this
 > file claims, fix this file before writing code.
 
-**Current milestone: M1 — Employment data spine. M1a + M1b done, M1c next.**
+**Current milestone: M1 — Employment data spine. M1a + M1b + M1c done, M1d next.**
 **M0: COMPLETE — 6 of 6 acceptance criteria verified at commit `4c1643f`.**
 **M1a: COMPLETE, CI-green at `430347a`, merged to `main` as PR #1 (`54ef35a`).**
 **M1b: COMPLETE and reviewed. Merged to `main` as PR #2 (`cf48719`).**
+**M1c: COMPLETE and reviewed (`docs/reviews/milestone-1c-review.md`). Not yet merged; CI has not seen the branch.**
 **Last updated: 2026-08-02**
 
 ---
 
 ## Next exact action
 
-### Next: execute `docs/plans/2026-08-02-m1c-board-discovery.md`, from Task 4
+### Next: push `m1c-board-discovery`, open a PR, watch CI. Then write the M1d plan.
 
-Branch `m1c-board-discovery`. **Tasks 1, 2 and 3 are done and committed:**
+**M1c is finished locally and has never been near CI.** Six tasks, all six
+acceptance-relevant criteria evidenced below, review written. Branch head
+`152d920`. Every claim in this file for M1c was verified on this laptop —
+which M0's record says is exactly the state in which CI finds defects, because
+every defect it has ever found lived in a file no local command runs.
 
-- Task 1 (`1723d65`) — `discovery/sources/crawl_index.py`, token harvesting
-  from a recorded Common Crawl slice.
-- Task 2 (`b907b85`) — `discovery/models.py`, `discovery/candidates.py`, and
-  the committed (currently empty) `data/board-candidates.yaml`. 14 tests.
-- Task 3 (`287a209`) — `discovery/validate.py`, the five verdicts, plus
-  `PoliteClient.get_text` and six recorded discovery fixtures. 25 tests.
-  `make check` green: **546 Python** / 42 web, zero skips.
+After the PR is green and merged, M1d is the last piece of M1: two-phase
+conditional polling (ADR 0007), hot/warm tiers, queue-driven ARQ. No plan file
+exists for it yet. **Read the four items below before writing that plan** —
+they are M1c's output and they change what M1d has to do.
 
-Task 4 is approval + the CLI. It is pure file work and needs no network.
+### What M1d must not inherit unnoticed
 
-**Two plan defects found and fixed rather than copied.**
+1. **No mass-failure signal in a discovery sweep.** A provider that changes its
+   payload envelope classifies *every* board `unreachable`, and nothing says so
+   louder than a per-candidate note. A sweep should refuse to persist, or at
+   minimum shout, when the unreachable rate crosses a threshold. This is I3's
+   "a source outage is not evidence" one level up, and it is unimplemented.
+2. **`cmd_validate` rewrites the whole candidate file after every board.**
+   Correct and interruption-safe at 23 candidates; O(n²) at 2,605.
+3. **`merge_jobs` still has no row lock** — carried from M1b, and M1d's
+   queue-driven polling is exactly what makes it reachable.
+4. **ADR 0007's phase-2 diff has no timestamp on two of three providers** —
+   carried from M1a, still true, still the most consequential of these.
 
-1. Task 2's draft computed the repo root as `parents[3]`, which from
-   `nightshift/discovery/` is `services/`, not the root — it would have written
-   `services/data/board-candidates.yaml` while the approval step later read an
-   empty file from the correct path. A silent split, not a crash.
-   `domain/registry.py` uses `parents[4]` from the same depth; so does this.
-2. Task 3's `test_validation_never_raises` was **vacuous as written**. Its stub
-   route was keyed `"anything"`, which appears in no URL, so the stub raised
-   `SourceUnavailableError` for a missing route and the test passed without
-   ever reaching the unexpected-exception branch it exists to cover. Re-keyed
-   to a fragment that actually matches.
+### The M1c pipeline, run end to end on 2026-08-02
+
+Real network, real providers, `SOURCE_REQUESTS_PER_SECOND=0.8`:
+
+```
+make discover          400 crawl rows -> 23 distinct tokens; 23 new candidates
+registry-validate      validated 23: live_named 21, empty 2      (0 failures)
+make registry-approve  21 eligible -> 19 offered, 2 withheld (name collision)
+                       Dry run. Nothing was written.
+```
+
+**`data/board-registry.yaml` is byte-identical to its state at branch start.**
+Verified: `git diff cf48719..HEAD -- data/board-registry.yaml` is empty.
+Promoting 19 employers is a product decision for the human; the plan's job was
+to prove the pipeline works. `make registry-approve-write` is the command that
+would do it.
+
+Six of the 21 live boards produce NYC postings: a16z New Media (13 of 25), 9fin
+(12 of 40), 3i Members (5 of 8), Abacum (5 of 18), Aaron School (2 of 2),
+1Password (1 of 68).
+
+### Plan defects found and fixed rather than copied
+
+Four, all in the plan's own code or tests:
+
+1. **Repo-root arithmetic off by one** in Tasks 2 and 4 (`parents[3]` is
+   `services/`, not the root). Would have written
+   `services/data/board-candidates.yaml` while approval read an empty file from
+   the correct path — a silent split, not a crash.
+2. **`test_validation_never_raises` was vacuous.** Its stub route key matched no
+   URL, so the stub raised "no route" and the test passed without ever reaching
+   the unexpected-exception branch it exists to cover.
+3. **Task 4's test violated Task 2's own model rule** (`nyc_posting_count=7`
+   against the default `posting_count=3`). The invariant catching the plan that
+   specified it is the system working.
+4. **`approval_report` promised an ordering it did not apply** — it rendered in
+   the order given while its header said "NYC-producing first".
 
 ### M1c findings — measured 2026-08-02, all against live sources
 
@@ -315,14 +354,15 @@ rather than omitting them is the point of this table.
 | 7 | Ingestion failures are visible in the UI, not just logs | **VERIFIED** | `/operate` shows per-source last success, last failure, last run error and a job breakdown by closure state; `/operate/jobs` shows every job's state with a permanent legend. 5 seeded browser tests, including one asserting the status is readable as a word rather than only a colour (§12.4) |
 | 8 | Freshness + closure state machine | **VERIFIED** | 22 pure decision tests + 11 pipeline tests against a real database. Both ADR 0009 thresholds asserted, and `test_unverified_never_becomes_closed_however_long_it_lasts` runs the outage out to ten years |
 | 9 | Admin job table, source health page | **VERIFIED** | `/operate/jobs` and the grown `/operate`. `job_status_counts` was added to the source route because `job_count` cannot move when a job closes — asserted directly: three empty-but-live polls take a source from 9 open to 9 stale while its total stays 9 |
-| 10 | Discovery yields candidates from a committed crawl fixture, deterministically | **NOT CLAIMED** | M1c. Design exists at `docs/architecture/board-discovery.md`; no code |
-| 11 | A live-but-unnameable board cannot reach bulk approval | **NOT CLAIMED** | M1c |
-| 12 | The coverage page names what is *not* covered | **NOT CLAIMED** | M1c |
+| 10 | Discovery yields candidates from a committed crawl fixture, deterministically | **VERIFIED** (M1c) | `tokens_from_cdx` over the committed 400-row Ashby crawl slice → 23 distinct tokens. `test_is_deterministic_and_sorted` asserts same input → same sorted output twice; `make discover` run twice leaves the candidate file byte-identical (`test_is_idempotent`). Ran for real: `400 crawl rows -> 23 distinct tokens` |
+| 11 | A live-but-unnameable board cannot reach bulk approval | **VERIFIED** (M1c) | Asserted at both layers — `test_a_live_but_unnameable_board_cannot_be_bulk_approved` on the verdict, and `test_an_unnameable_board_is_not_promoted_even_with_write` through the command a human types. **Mutation-checked twice**: making the Ashby name fall back to the token classifies the board `live_named` with `company_name='0g'` (the I2 fabrication) and fails exactly that test; dropping the verdict filter in `approvable` fails 8 tests |
+| 12 | The coverage page names what is *not* covered | **VERIFIED** (M1c) | `/analyze/coverage`, four structural blind spots by id (`lever_undiscovered`, `workday_icims_taleo`, `no_public_board`, `aggregator_only`), each with its reason in plain language. 5 seeded browser tests, including one asserting the section holds no `<details>` and its text is visible unexpanded, and one asserting **no percent sign appears anywhere on the page** — there is no denominator, so a coverage percentage would be invented. `count=null` renders "unknown", mutation-checked by typing the field `int = 0`, which fails the route test |
 | 13 | A `304 Not Modified` produces zero writes and closes zero jobs | **NOT CLAIMED** | M1d. ADR 0007's design is written; conditional requests are not implemented |
 | 14 | Greenhouse + Lever + Ashby behind one interface | **VERIFIED** (M1a) | Three adapters on the unchanged `JobSourceAdapter` Protocol |
 | 15 | `source_job_records` preserving raw payloads | **VERIFIED** (M0/M1a) | Asserted again in M1b: a merge collapses the canonical view and leaves both raw records untouched |
 
-**M1 is not complete.** M1a and M1b are; M1c and M1d are not started.
+**M1 is not complete.** M1a, M1b and M1c are; M1d is not started. Twelve of the
+fifteen criteria are verified; 13 (`304 Not Modified`) is M1d's.
 
 ---
 
@@ -404,21 +444,21 @@ These ran on this machine and passed:
 | Python format | `ruff format --check services/api` | 45 files already formatted |
 | Python lint | `ruff check services/api` | All checks passed |
 | Python types | `mypy nightshift` | Success: no issues found in 31 source files (strict) |
-| Python tests | `pytest -q` | **480 passed**, zero skipped, ~85s (the embedding model now loads during ingestion tests) |
+| Python tests | `pytest -q` | **600 passed**, zero skipped, ~100s (measured 2026-08-02 at `152d920`; 480 before M1c) |
 | Web types | `tsc --noEmit` | clean, `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes` |
 | Web lint | `eslint . --max-warnings 0` | clean |
 | Web tests | `vitest run` | **42 passed** (5 files) |
 | Colour contrast | `vitest run colour-contrast` | 16 assertions on measured WCAG 2.1 ratios |
 | Web build | `next build` | compiled, 7 static routes, 102 kB shared JS |
 | E2E — degraded (no API) | `make test-e2e` | **5 passed** in 15.0s |
-| E2E — seeded corpus | `make test-e2e-seeded` | **11 passed**, 44.5s — 5 new on the admin job table and the closure vocabulary |
+| E2E — seeded corpus | `make test-e2e-seeded` | **16 passed**, 29.9s — 5 new on the coverage page, incl. one asserting no percentage reaches the screen |
 | Migration renders | `alembic upgrade head --sql` | full DDL emitted, 8 tables, 8 enums |
 | Migration round trip | `make migrate-down && make migrate` | 8 tables + 8 enum types dropped and restored, live cluster |
-| Whole-stack acceptance | `make acceptance` | **18 checks + 11 browser tests**, seeded corpus 31 jobs / 3 companies / 62 locations across greenhouse + lever + ashby |
+| Whole-stack acceptance | `make acceptance` | **18 checks + 16 browser tests**, re-run 2026-08-02 at `152d920`; seeded corpus 31 jobs / 3 companies / 62 locations across greenhouse + lever + ashby |
 | Live source reachable | `GET /v1/boards/datadog/jobs` | HTTP 200, 426 postings |
 
-**Total: 538 automated tests passing** (480 Python, 42 web unit, 5 degraded e2e,
-11 seeded e2e), plus the 18 assertions in `scripts/verify.py`, which are not
+**Total: 663 automated tests passing** (600 Python, 42 web unit, 5 degraded e2e,
+16 seeded e2e), plus the 18 assertions in `scripts/verify.py`, which are not
 pytest tests but do gate `make acceptance` with an exit code. Of the 480
 Python tests, **55** are database-backed
 (`requires_db`/`pytest.mark.integration` in `tests/conftest.py`) — up from 13
@@ -635,7 +675,12 @@ presented to a user as working.
 | `normalize_title` | Whitespace and dash folding only. Deliberately does **not** attempt role-family normalization — asserted by `test_does_not_attempt_role_family_normalisation` | M3 |
 | `jobs.role_family`, `jobs.seniority` | Columns exist, always NULL. NULL means "not classified", never a guessed default | M3 |
 | Stripe board registry entry | Verified live (HTTP 200) but `status: disabled`. Polling more boards before the closure machine exists would mean ingesting jobs the system cannot honestly age out | M1 |
-| `/registry` route | Still true after M1a: read-only view of the YAML. The token *resolution* pipeline (probe a careers page, emit a candidate for review) does not exist | M1c |
+| `/registry` route | Still read-only. The *crawl-index* half of the resolution pipeline now exists (M1c) and fills `data/board-candidates.yaml`; the careers-page probe does not | M1c partly, careers probe unscheduled |
+| Lever board discovery | **Does not exist and cannot, from the crawl archive.** `jobs.lever.co/robots.txt` disallows CCBot, so no Lever page is in Common Crawl (ADR 0006). `sources/careers_probe.py` is designed but not built: it needs a list of employer domains and nothing in the repo has one, and guessing domains would be the fabrication this milestone exists to prevent. Named as the first blind spot on `/analyze/coverage`, with the structural reason, and a browser test asserts it reaches the screen. **Lever boards enter the registry only by hand** | No milestone. Needs a domain source first |
+| Community-snapshot discovery source | Designed in `board-discovery.md` §4, not built, same reason as the careers probe | No milestone |
+| Discovery beyond Ashby | `PROVIDER_PATTERNS` includes both Greenhouse board domains and the code paths work, but **no Greenhouse crawl fixture is recorded**, so `make discover --provider greenhouse` has never run against real data. Greenhouse *validation* is tested, on the recorded `6sense` board | M1d |
+| The 2,605-token figure | Not re-measured by M1c and never claimed by it. The committed slice is **400 rows → 23 tokens**, the alphabetical head of one provider (`0g`…`abridge`). Common Crawl's index 504s at `limit=6000`, so a full harvest needs paging that does not exist | M1d |
+| Discovered boards in the registry | **Zero.** `data/board-registry.yaml` is byte-identical to its state at branch start (`git diff cf48719..HEAD` is empty for that file). 19 candidates are eligible and `make registry-approve` prints them; promoting them is a product decision for the human, not something this plan does | Whenever the human approves a batch |
 | Ashby's `address.postalAddress` | Structured (`addressLocality`/`addressRegion`/`addressCountry`), recorded verbatim in every raw payload, and better geocoding input than the free-text `location`/`secondaryLocations` strings — but deliberately unread by `AshbyAdapter.normalize`. Feeding a second location source into `job_locations` before geocoding has its own fixtures would mean two code paths writing the same table | M1, at the geocoding stage |
 | 3D city, map, MapLibre, Three.js | Not started, not scaffolded, no dependency added. Explore is a list and says so | M4 |
 | Auth | None. Single seeded `dev_user`, id in config (A3). Every user-owned table will still carry a real `user_id` FK from its first migration | M5 |
@@ -644,6 +689,84 @@ presented to a user as working.
 ---
 
 ## Session log
+
+### 2026-08-02 — M1c: board discovery
+
+Six tasks, seven commits. The registry stops being a hand-written list and
+becomes the reviewed output of a pipeline — and the pipeline's own output is
+what found most of what was wrong.
+
+**The design's central example board is dead.** `a3c41b8b71eff8c4` is the
+live-but-unnameable board the entire approval gate is built around; the plan
+says deleting its fixture "would hollow out the whole design". Probing it
+before recording returned **404**, and it is absent from the July 2026 crawl
+index in a range the committed slice covers (`a-place-for-mom` … `abridge`
+brackets it), so it is gone rather than transiently missing.
+
+What replaced it is stronger, and finding it was the useful part: **Ashby
+serves HTTP 200 with `<title>Jobs</title>` for any token that does not
+exist** — verified against both the dead token and a made-up one, byte-identical
+7,128-byte pages. So "a live page that names no employer" is now a committed
+recording rather than the hand-written stub the plan specified. The plan's own
+test synthesised that HTML; a recording is strictly better evidence.
+
+**Four defects, three of them found by running something rather than reading
+it.** That is the same pattern M1a and M1b recorded — three milestones running.
+
+1. **Two candidates naming one employer both reached the approval report.**
+   `Abridge` and `abridge`: two live Ashby tokens, one employer, 42 postings
+   each. Found by `make registry-approve` on real validated data. The
+   `name_collision` verdict compares against names already in the *registry*,
+   so it is structurally unable to see a collision inside a single batch.
+   Approving would have written two rows for one company, polled the same board
+   twice, and handed dedupe 42 duplicate jobs. Fixed: both held, neither wins,
+   and the report names what it withheld — an operator reading a report these
+   were merely absent from would conclude the boards were never discovered.
+2. **Harvested tokens were recorded as `unreachable`.** Found by reading the
+   first real `make discover` output. That claims we tried and failed, about
+   boards nobody had contacted, and the coverage page would have reported 23
+   failures that never happened. Fixed by adding a sixth verdict,
+   `unvalidated`, with `last_validated = date.min` so nothing downstream reads
+   a never-contacted board as freshly checked.
+3. **`test_validation_never_raises` was vacuous** — the one caught by reading.
+   Its stub route key matched no URL, so the stub raised "no route" and the
+   test passed without ever entering the branch it exists to cover.
+4. **The plan's repo-root arithmetic was off by one** in two tasks.
+
+**The token is not the name, about half the time.** Measured across the 23
+Ashby tokens in the committed slice: 21 boards live, and **10 have a name that
+differs from the token** — `0g`→"0g Labs", `a-place-for-mom`→"A Place for Mom",
+`a-team`→"A.Team", `8fleet-inc`→"8Fleet Inc.". Deriving an employer name from a
+token would be wrong roughly half the time, always in the direction of
+inventing an employer. That is a far stronger basis for I2's rule here than the
+design's single `0g` anecdote.
+
+**Two gates, both mutation-checked rather than merely tested.** Making the
+Ashby name fall back to the token classifies the junk board `live_named` with
+`company_name='0g'` — the exact I2 fabrication — and exactly one test fails.
+Dropping the verdict filter in `approvable` fails eight, including one that
+drives the command a human actually types. Typing the coverage `count` field as
+`int = 0` instead of `int | None` fails the route test, which is what keeps
+"we cannot know" from silently becoming "there is no gap".
+
+**The coverage page reports no percentage anywhere, and says why.** There is no
+denominator — nobody knows how many tech roles open in New York — so a figure
+like "we cover 73%" would be arithmetic on a number nobody has. Asserted three
+ways: in the summary, in the text report, and in a browser test that fails if
+any percent sign reaches the page.
+
+**Deliberately not built: the careers-page probe, so Lever stays
+undiscoverable.** It needs a list of employer domains and nothing in the repo
+has one; guessing them would be the fabrication this milestone exists to
+prevent. Carried honestly instead — `lever_undiscovered` is the first blind
+spot on `/analyze/coverage`, it states the structural reason (Lever's own
+robots.txt disallows CCBot), and a browser test asserts it reaches the screen.
+
+**Also recorded:** `scripts/record_crawl_fixture.py` (Task 1) cannot run on
+this host — it uses `urllib`, which has no certifi bundle here and fails TLS
+verification. Task 3's recorder goes through `PoliteClient` and works. Common
+Crawl's index 504s at `limit=6000` for `jobs.ashbyhq.com/*` while `limit=400`
+succeeds, so any bulk harvest needs paging that does not exist yet.
 
 ### 2026-08-01/02 — M1b: the canonical spine
 
