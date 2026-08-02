@@ -18,9 +18,9 @@ export default function OperateJobsPage() {
         </Link>
         <h1 className="mt-2 text-[22px] font-medium tracking-tight text-paper">Job table</h1>
         <p className="mt-1 max-w-2xl text-[14px] leading-relaxed text-paper-dim">
-          Every role the pipeline has ever seen, including the ones it has closed. A job leaves
-          this list only if a company is deleted — closure is a state, not a deletion, so its
-          history stays readable afterwards.
+          Every role the pipeline has ever seen, including the ones it has closed. A job leaves this
+          list only if a company is deleted — closure is a state, not a deletion, so its history
+          stays readable afterwards.
         </p>
       </section>
 

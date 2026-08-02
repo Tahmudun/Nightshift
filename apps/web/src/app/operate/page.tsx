@@ -29,8 +29,8 @@ export default function OperatePage() {
           Job table
         </h2>
         <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-paper-dim">
-          Every canonical role, its closure state, and how many sources describe it — including
-          the roles that have closed.
+          Every canonical role, its closure state, and how many sources describe it — including the
+          roles that have closed.
         </p>
         <Link
           href="/operate/jobs"

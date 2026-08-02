@@ -45,11 +45,7 @@ function StatusTag({ status }: { readonly status: JobStatus }) {
  * legend at /explore — §12.4 again: no essential information available only
  * through hover.
  */
-function StatusLegend({
-  counts,
-}: {
-  readonly counts: Record<JobStatus, number>;
-}) {
+function StatusLegend({ counts }: { readonly counts: Record<JobStatus, number> }) {
   return (
     <section
       aria-label="What each job status means"
@@ -62,18 +58,14 @@ function StatusLegend({
         {JOB_STATUS_SCALE.map((meta) => (
           <div key={meta.value} className="flex flex-col gap-1 sm:flex-row sm:gap-4">
             <dt className="flex shrink-0 items-baseline gap-2 sm:w-40">
-              <span
-                className={`font-mono text-[10px] uppercase tracking-[0.14em] ${meta.tone}`}
-              >
+              <span className={`font-mono text-[10px] uppercase tracking-[0.14em] ${meta.tone}`}>
                 {meta.label}
               </span>
               <span className="tnum font-mono text-[10px] text-paper-faint">
                 {counts[meta.value]}
               </span>
             </dt>
-            <dd className="max-w-2xl text-[13px] leading-relaxed text-paper-dim">
-              {meta.meaning}
-            </dd>
+            <dd className="max-w-2xl text-[13px] leading-relaxed text-paper-dim">{meta.meaning}</dd>
           </div>
         ))}
       </dl>
@@ -201,9 +193,7 @@ export function JobAdminTable() {
                   <td className="px-4 py-3 font-mono text-[11px] text-paper-dim tnum">
                     {formatWhen(job.last_seen_at)}
                   </td>
-                  <td className="px-4 py-3 text-[13px] text-paper-dim tnum">
-                    {job.source_count}
-                  </td>
+                  <td className="px-4 py-3 text-[13px] text-paper-dim tnum">{job.source_count}</td>
                   <td className="px-4 py-3 text-[13px] tnum">
                     <span className={job.merge_count > 0 ? 'text-signal-400' : 'text-paper-faint'}>
                       {job.merge_count}

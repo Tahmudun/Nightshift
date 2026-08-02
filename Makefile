@@ -149,6 +149,12 @@ fmt: setup ## Format both languages
 lint: setup ## Lint both languages
 	@$(RUFF) format --check $(API_DIR)
 	@$(RUFF) check $(API_DIR)
+# The web formatter is checked here, not only in CI. Until M1b it was not, so
+# `make check` passed on unformatted TypeScript and the `web` job failed on the
+# push: the Python side had `ruff format --check` and the web side had only
+# eslint. A formatting rule no local command runs is a rule CI enforces alone,
+# which is the exact gap M0's CI session cost five defects to learn about.
+	@cd $(WEB_DIR) && npm run --silent fmt:check
 	@cd $(WEB_DIR) && npm run --silent lint
 
 typecheck: setup ## mypy + tsc

@@ -67,9 +67,7 @@ function StatusBreakdown({ counts }: { readonly counts: SourceHealth['job_status
   if (counts.possibly_stale > 0) parts.push(`${counts.possibly_stale} stale`);
   if (counts.unverified > 0) parts.push(`${counts.unverified} unverified`);
   if (counts.closed > 0) parts.push(`${counts.closed} closed`);
-  return (
-    <span className="font-mono text-[10px] tnum text-paper-dim">{parts.join(' · ')}</span>
-  );
+  return <span className="font-mono text-[10px] tnum text-paper-dim">{parts.join(' · ')}</span>;
 }
 
 export function SourceHealthTable() {
@@ -118,17 +116,23 @@ export function SourceHealthTable() {
         <caption className="sr-only">Job source health and last ingestion run</caption>
         <thead>
           <tr className="border-b border-ink-700">
-            {['Source', 'Kind', 'Roles', 'By status', 'Last run', 'Last success', 'Last failure'].map(
-              (heading) => (
-                <th
-                  key={heading}
-                  scope="col"
-                  className="px-4 py-2 font-mono text-[9px] font-normal uppercase tracking-[0.16em] text-paper-faint"
-                >
-                  {heading}
-                </th>
-              ),
-            )}
+            {[
+              'Source',
+              'Kind',
+              'Roles',
+              'By status',
+              'Last run',
+              'Last success',
+              'Last failure',
+            ].map((heading) => (
+              <th
+                key={heading}
+                scope="col"
+                className="px-4 py-2 font-mono text-[9px] font-normal uppercase tracking-[0.16em] text-paper-faint"
+              >
+                {heading}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
