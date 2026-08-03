@@ -9,14 +9,14 @@
 **M1b: COMPLETE and reviewed. Merged to `main` as PR #2 (`cf48719`).**
 **M1c: COMPLETE, reviewed, CI-green at `19236f5`, merged to `main` as PR #3 (`f377303`).**
 **M1d: COMPLETE, reviewed, CI-green at `75d9ab7`, merged to `main` as PR #4 (`044189e`).**
-**Current milestone: M2 — the functional command center. M2a COMPLETE and locally green; CI not yet run. M2b/c/d not started.**
+**Current milestone: M2 — the functional command center. M2a COMPLETE, reviewed, CI-green at `76190c8`. PR #5 open, awaiting the human's merge. M2b/c/d not started.**
 **Last updated: 2026-08-03**
 
 ---
 
 ## Next exact action
 
-### Next: open the M2a PR, get CI green, merge. Then M2b — save, apply, track.
+### Next: merge PR #5. Then M2b — save, apply, track.
 
 **M2a is complete. The first CI run failed and it caught a real defect no local
 command had run** — see item 4 below. Fixed, and the second run is what the
@@ -29,10 +29,36 @@ make test-e2e     5 degraded-path tests          <- the suite CI caught, run sep
 alembic check     no drift, all three migrations applied
 ```
 
-**Run 30788290888 at `1aabc58`:** `python`, `web`, `migrations` and `secret
-scan` all passed; `e2e` failed. That is now four of five green on the first
-attempt with one honest failure, which is a better outcome than M0's first two
-runs and worse than M1d's clean first pass.
+**CI is green.** Run
+[30788730379](https://github.com/Tahmudun/Nightshift/actions/runs/30788730379)
+at `76190c8` — **all five jobs**, counts read from the job logs rather than
+inferred:
+
+```
+python       232s   856 passed, zero skipped
+e2e          164s   5 degraded + 27 seeded passed, 1 skipped
+migrations    77s   up, down, up, and no drift
+web           55s
+secret scan    8s
+```
+
+`headSha` on the run is `76190c88657f8a6a1d4883ef3a469a0501a41bac`, checked
+against the branch head rather than assumed. **856 in CI matches 856 locally**,
+so the database-backed tests really ran there too. The single e2e skip is the
+pre-existing honest one: `an unchanged board is not presented as a problem`
+needs a board that has answered `304`, and the seeded stack has polled nothing.
+
+**The first run failed, and it earned its keep.** Run
+[30788290888](https://github.com/Tahmudun/Nightshift/actions/runs/30788290888)
+at `1aabc58`: four of five green, `e2e` red — item 4 below. Four CI runs across
+this project have now failed, and every one found something no local command
+had executed.
+
+The M1d invariant still applies and is still cheap to check before merging:
+
+```
+git diff 76190c8..HEAD --stat    # must list nothing outside docs/
+```
 
 Ten tasks, ten commits, branch `m2a-search-and-detail`.
 
