@@ -8,16 +8,52 @@
 **M1a: COMPLETE, CI-green at `430347a`, merged to `main` as PR #1 (`54ef35a`).**
 **M1b: COMPLETE and reviewed. Merged to `main` as PR #2 (`cf48719`).**
 **M1c: COMPLETE, reviewed, CI-green at `19236f5`, merged to `main` as PR #3 (`f377303`).**
-**M1d: COMPLETE, reviewed, and CI-green at `75d9ab7` — the PR head. PR #4 open, awaiting the human's merge.**
+**M1d: COMPLETE, reviewed, CI-green at `75d9ab7`, merged to `main` as PR #4 (`044189e`).**
+**Current milestone: M2 — the functional command center. Scoping in progress; no plan written yet.**
 **Last updated: 2026-08-03**
 
 ---
 
 ## Next exact action
 
-### Next: merge PR #4. Then M2 — the functional command center.
+### Next: write the M2a plan, then build search, filters and detail pages.
 
-**M1d is complete, M1 with it, and CI is green.**
+**M1 is closed. All four PRs are merged, `main` is at `044189e`, and every
+milestone branch is deleted both locally and on the remote.** The `git diff
+75d9ab7..HEAD` check below was performed before merging and listed nothing
+outside `docs/`, so the recorded CI result covered the branch.
+
+**M2 is scoped and its design is written: `docs/architecture/command-center.md`.**
+Read it before any M2 work; `CLAUDE.md`'s read-order table now requires it.
+
+Three decisions the human made on 2026-08-03, all recorded in that document:
+
+| Decision | Where |
+|---|---|
+| Slice order: search → track → resume → queue, so the loop criterion is earned at M2b | §1 |
+| Resume extraction is rules-based with a character span per proposal — not an LLM, not a bare form | §6.1 |
+| The daily queue ships its four honest rows and names the four that need M3 | §7 |
+
+**Two things the design corrected against the code rather than the spec**, both
+found by reading the schema instead of trusting the plan:
+
+1. **A borough or neighborhood filter cannot be built in M2, and it is an I1
+   problem rather than a scheduling one.** `job_locations` has `city`, `state`
+   and `country` and no borough column, because a posting saying `"New York,
+   NY"` does not say which borough it is in. Deriving one is interpolation. A
+   **city** filter is honest today because it matches what the source wrote;
+   boroughs arrive with the geocoder at M4.
+2. **A stage machine must not block a stage change.** §10.2 requires the user
+   can always correct a stage, and `saved → offer` is real — referrals happen.
+   The machine classifies each transition (`advance` / `correction` / `reopen`)
+   and records it, instead of refusing it. What it *does* enforce is I5: a
+   stage change requires an actor of `user`, so a closing listing writes a
+   `listing_closed` event and a prompt, and never moves the stage itself.
+
+M2's acceptance criteria are not yet claimed. Nothing below this line describes
+M2 work — the tables in this file are still M1's and M0's.
+
+**M1d is complete, M1 with it, and CI was green.**
 [PR #4](https://github.com/Tahmudun/Nightshift/pull/4), run
 [30783504694](https://github.com/Tahmudun/Nightshift/actions/runs/30783504694)
 at `75d9ab7` — **all five jobs green**:
