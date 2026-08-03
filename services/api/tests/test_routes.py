@@ -73,8 +73,12 @@ class _StubAdapter:
         self._outcome = outcome
         self.source_name = inner.source_name
         self.source_type = inner.source_type
+        self.parser_version = inner.parser_version
+        # Lever: one request returns every posting in full, so there is no
+        # second phase and fetch_postings is never reached.
+        self.is_two_phase = False
 
-    async def fetch_board(self, board: BoardRef) -> FetchOutcome:
+    async def fetch_board(self, board: BoardRef, *, etag: str | None = None) -> FetchOutcome:
         return self._outcome
 
     def normalize(self, raw_job: RawJob, board: BoardRef) -> Any:

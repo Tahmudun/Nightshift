@@ -70,8 +70,12 @@ class _StubAdapter:
         self._postings = postings
         self.source_name = self._inner.source_name
         self.source_type = self._inner.source_type
+        self.parser_version = self._inner.parser_version
+        # Lever: one request returns every posting in full, so there is no
+        # second phase and fetch_postings is never reached.
+        self.is_two_phase = False
 
-    async def fetch_board(self, board: BoardRef) -> FetchOutcome:
+    async def fetch_board(self, board: BoardRef, *, etag: str | None = None) -> FetchOutcome:
         return FetchOutcome(
             board=board,
             ok=True,

@@ -12,6 +12,7 @@ outside this package imports ``httpx`` (CLAUDE.md §7).
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Any, Protocol, Self, runtime_checkable
 
@@ -153,6 +154,36 @@ class FetchOutcome(BaseModel):
             raise ValueError("not_modified=True cannot carry jobs or listed postings")
         return self
 
+    @model_validator(mode="after")
+    def _fetched_implies_listed(self) -> Self:
+        """A posting we hold the content of was, self-evidently, on the board.
+
+        So ``listed`` defaults to being derived from ``jobs`` rather than
+        defaulting to empty. This is a safety default, not a convenience one.
+
+        Forgetting to populate ``listed`` produces the single most destructive
+        outcome available here: freshness reads it as a board that listed
+        nothing, ages every record, and closes the whole board three polls
+        later without an error anywhere. That mistake was made three separate
+        times while building M1d — in the fixture adapters that make
+        ``make demo`` work, and in two pipeline test stubs — which is three
+        times too many for a rule that can simply be true by construction.
+
+        A two-phase provider is unaffected: it passes ``listed`` explicitly and
+        carries no ``jobs`` at all in phase 1, so there is nothing to derive
+        and nothing to override.
+        """
+        if self.jobs and not self.listed:
+            object.__setattr__(
+                self,
+                "listed",
+                tuple(
+                    ListedPosting(source_job_id=job.source_job_id, source_updated_at=None)
+                    for job in self.jobs
+                ),
+            )
+        return self
+
     @property
     def listed_source_job_ids(self) -> tuple[str, ...]:
         """Every posting id the board listed, in the order the board gave them.
@@ -231,5 +262,42 @@ class JobSourceAdapter(Protocol):
         Synchronous and pure: same input, same output, no I/O. That is what
         makes M1's "same fixture in, byte-identical output, twice" criterion
         testable.
+        """
+        ...
+
+
+@runtime_checkable
+class TwoPhaseJobSourceAdapter(JobSourceAdapter, Protocol):
+    """A provider whose listing carries no posting content (ADR 0007).
+
+    Separate from :class:`JobSourceAdapter` rather than folded into it, because
+    only Greenhouse is one. Adding these methods to the base Protocol would make
+    Lever and Ashby fail a ``runtime_checkable`` conformance check for methods
+    they have no reason to implement, and the pipeline narrows to this type with
+    ``isinstance`` exactly where it needs the extra behaviour.
+
+    ``is_two_phase`` is the flag; this is the capability. They are kept
+    consistent by the pipeline asserting the narrowing rather than trusting the
+    flag.
+    """
+
+    async def fetch_postings(
+        self, board: BoardRef, source_job_ids: Sequence[str]
+    ) -> tuple[tuple[RawJob, ...], list[str]]:
+        """Phase 2: full content for the postings named, and the ids that failed.
+
+        Returns failures rather than raising. One posting 404-ing mid-poll must
+        not cost the rest of the board, and must not read as that posting being
+        gone — a caller that saw an exception could not tell the difference (I3).
+        """
+        ...
+
+    async def fetch_full_board(self, board: BoardRef) -> FetchOutcome:
+        """The whole board with content, in one request. First ingestion only.
+
+        Reserved by ADR 0007 for a board nobody has polled before, where the
+        alternative is one phase-2 request per posting — 429 of them on Datadog,
+        against a provider that has been generous with unauthenticated access.
+        Using it on a routine poll is a bug.
         """
         ...

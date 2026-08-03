@@ -108,8 +108,41 @@ class TestListedVersusFetched:
         outcome = FetchOutcome(board=BOARD, ok=True, jobs=(), listed=(_listed("1"),))
         assert outcome.is_authoritative_empty is False
 
-    def test_listed_defaults_to_empty(self) -> None:
+    def test_listed_defaults_to_empty_when_nothing_was_fetched(self) -> None:
         assert FetchOutcome(board=BOARD, ok=True).listed == ()
+
+    def test_fetching_a_posting_implies_the_board_listed_it(self) -> None:
+        """The safety default. A caller that supplies jobs and forgets `listed`
+        gets the only coherent answer rather than the catastrophic one.
+
+        Omitting it used to mean "the board listed nothing", which ages every
+        record and closes the board three polls later with no error anywhere.
+        That mistake was made three times while building M1d, so the rule is now
+        true by construction instead of by remembering.
+        """
+        outcome = FetchOutcome(board=BOARD, ok=True, jobs=(_raw("1"), _raw("2")))
+
+        assert outcome.listed_source_job_ids == ("1", "2")
+        assert outcome.is_authoritative_empty is False
+
+    def test_an_explicit_listed_is_never_overridden(self) -> None:
+        """Two-phase providers list more than they fetch, and the derivation
+        must not quietly shrink that back down to what was fetched."""
+        outcome = FetchOutcome(
+            board=BOARD,
+            ok=True,
+            jobs=(_raw("1"),),
+            listed=(_listed("1"), _listed("2"), _listed("3")),
+        )
+
+        assert outcome.listed_source_job_ids == ("1", "2", "3")
+
+    def test_a_derived_listing_carries_no_invented_timestamp(self) -> None:
+        """`jobs` holds payloads, not listing metadata. Deriving an updated-at
+        from one would be inventing the field the phase-2 diff turns on."""
+        outcome = FetchOutcome(board=BOARD, ok=True, jobs=(_raw("1"),))
+
+        assert outcome.listed[0].source_updated_at is None
 
     def test_listed_preserves_the_order_the_board_gave(self) -> None:
         """Not sorted here. Determinism is the adapter's job and is asserted on

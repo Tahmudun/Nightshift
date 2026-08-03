@@ -154,6 +154,17 @@ class SourceJobRecord(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # sha256 of the normalized description text. Cheap change detection that
     # does not require diffing two JSON blobs.
     description_hash: Mapped[str | None] = mapped_column(String(64))
+    #: The provider's own last-modified stamp for *this* posting on *this*
+    #: board, when it publishes one. Greenhouse does; Lever and Ashby do not
+    #: (measured 2026-08-02) and leave it NULL.
+    #:
+    #: Deliberately duplicated from ``jobs.source_updated_at`` rather than read
+    #: from there. After a merge one canonical job carries records from several
+    #: boards, and its timestamp reflects whichever wrote last — so comparing a
+    #: board's listing against it would refetch postings that had not changed
+    #: and skip ones that had. The record is the per-board fact, and the
+    #: phase-2 diff is a per-board question.
+    source_updated_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
 
     first_seen_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
     last_seen_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)

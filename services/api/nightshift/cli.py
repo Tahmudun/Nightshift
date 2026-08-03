@@ -26,7 +26,7 @@ from pathlib import Path
 from sqlalchemy import func, select
 
 from nightshift.adapters.ashby import AshbyAdapter
-from nightshift.adapters.base import BoardRef, FetchOutcome, ListedPosting, RawJob
+from nightshift.adapters.base import BoardRef, FetchOutcome, RawJob
 from nightshift.adapters.greenhouse import GreenhouseAdapter
 from nightshift.adapters.http import PoliteClient
 from nightshift.adapters.lever import LeverAdapter
@@ -46,24 +46,6 @@ LEVER_FIXTURE_SOURCE_NAME = "lever_fixture"
 ASHBY_FIXTURE_SOURCE_NAME = "ashby_fixture"
 
 
-def _listed_from(jobs: tuple[RawJob, ...]) -> tuple[ListedPosting, ...]:
-    """Every posting in a fixture is a posting the "board" listed.
-
-    Load-bearing rather than cosmetic. From M1d, ``apply_freshness`` ages
-    records against ``FetchOutcome.listed`` rather than against what the run
-    persisted. A fixture adapter that returned jobs but no ``listed`` would look
-    to freshness like a board that listed nothing at all — so every seeded
-    posting would take a miss on each ``make seed``, and the offline demo corpus
-    would close itself out from under the Operate page.
-
-    These adapters are single-phase by definition: the recording is the whole
-    board, so everything present is both listed and fetched.
-    """
-    return tuple(
-        ListedPosting(source_job_id=job.source_job_id, source_updated_at=None) for job in jobs
-    )
-
-
 class FixtureGreenhouseAdapter(GreenhouseAdapter):
     """Greenhouse adapter that reads a committed fixture instead of the network.
 
@@ -76,6 +58,14 @@ class FixtureGreenhouseAdapter(GreenhouseAdapter):
 
     source_name = "greenhouse_fixture"
     source_type = SourceType.FIXTURE
+    #: **Not inherited.** The real Greenhouse adapter is two-phase, and this one
+    #: must not be: the committed recording *is* the whole board, descriptions
+    #: included, so there is no second phase to run. Left inherited, the
+    #: pipeline would take the two-phase branch, find nothing stored, and call
+    #: the inherited `fetch_full_board` — which reaches for an HTTP client this
+    #: adapter deliberately does not have. `make seed` would crash, and
+    #: `make demo`'s offline guarantee with it.
+    is_two_phase = False
 
     def __init__(self, fixture_path: Path) -> None:
         # No HTTP client: this adapter must not be able to make a request even
@@ -99,7 +89,7 @@ class FixtureGreenhouseAdapter(GreenhouseAdapter):
             for entry in payload.get("jobs", [])
             if entry.get("id") is not None
         )
-        return FetchOutcome(board=board, ok=True, jobs=jobs, listed=_listed_from(jobs))
+        return FetchOutcome(board=board, ok=True, jobs=jobs)
 
 
 class FixtureLeverAdapter(LeverAdapter):
@@ -131,9 +121,7 @@ class FixtureLeverAdapter(LeverAdapter):
             for job in payload
             if isinstance(job, dict) and job.get("id") is not None
         )
-        return FetchOutcome(
-            board=board, ok=True, jobs=jobs, listed=_listed_from(jobs), http_status=200
-        )
+        return FetchOutcome(board=board, ok=True, jobs=jobs, http_status=200)
 
 
 class FixtureAshbyAdapter(AshbyAdapter):
@@ -158,9 +146,7 @@ class FixtureAshbyAdapter(AshbyAdapter):
             for job in payload.get("jobs", [])
             if isinstance(job, dict) and job.get("id") is not None
         )
-        return FetchOutcome(
-            board=board, ok=True, jobs=jobs, listed=_listed_from(jobs), http_status=200
-        )
+        return FetchOutcome(board=board, ok=True, jobs=jobs, http_status=200)
 
 
 async def cmd_seed(args: argparse.Namespace) -> int:
