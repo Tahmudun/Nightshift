@@ -21,7 +21,7 @@ What *is* here is shaped correctly for what comes later:
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from geoalchemy2 import Geometry
@@ -29,9 +29,11 @@ from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     CheckConstraint,
     Computed,
+    Date,
     ForeignKey,
     Index,
     Integer,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
@@ -52,16 +54,25 @@ from nightshift.db.base import (
     BoardTier,
     EmploymentType,
     EventActor,
+    ExtractionKind,
+    ExtractionStatus,
     IngestionRunStatus,
     JobStatus,
     LocationConfidence,
+    ProficiencyLevel,
+    ProjectStatus,
     RemotePolicy,
+    RemotePreference,
     ResolutionMethod,
+    ResumeSourceKind,
+    ResumeVariant,
+    SkillSourceType,
     SourceStatus,
     SourceType,
     TimestampMixin,
     TransitionClass,
     UUIDPrimaryKeyMixin,
+    WorkAuthorization,
     pg_enum_values,
 )
 from nightshift.db.types import UTCDateTime
@@ -85,10 +96,252 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """
 
     __tablename__ = "users"
+    __table_args__ = (
+        CheckConstraint(
+            "graduation_month IS NULL OR graduation_year IS NOT NULL",
+            name="graduation_month_needs_a_year",
+        ),
+        CheckConstraint(
+            "graduation_month IS NULL OR graduation_month BETWEEN 1 AND 12",
+            name="graduation_month_is_a_month",
+        ),
+    )
 
     email: Mapped[str] = mapped_column(String(320), nullable=False, unique=True)
     display_name: Mapped[str | None] = mapped_column(String(200))
     timezone: Mapped[str] = mapped_column(String(64), nullable=False, default="America/New_York")
+
+    # -- Confirmed profile (M2c) --------------------------------------------
+    #
+    # Every column below holds a fact a human confirmed. Nothing outside
+    # `domain/profile.py` writes any of them, and `tests/test_nothing_infers.py`
+    # is what keeps that true (invariant I2).
+    #
+    #: A resume says "May 2027". It does not say a day, and inventing one to
+    #: fill a DATE column is exactly the fabrication I1 forbids — the same
+    #: reasoning that moved location off `jobs` in AMENDMENTS A2. M3's
+    #: eligibility window needs a month and a year, which is what a resume
+    #: actually says. ADR 0013.
+    graduation_year: Mapped[int | None] = mapped_column(SmallInteger)
+    graduation_month: Mapped[int | None] = mapped_column(SmallInteger)
+    degree: Mapped[str | None] = mapped_column(String(200))
+    school: Mapped[str | None] = mapped_column(String(300))
+    work_authorization: Mapped[WorkAuthorization] = mapped_column(
+        _enum(WorkAuthorization, "work_authorization"),
+        nullable=False,
+        server_default=text("'unspecified'"),
+    )
+    #: Free text, as the person wrote it. Not geocoded — M4 owns coordinates,
+    #: and a home address is the last thing that should be resolved early.
+    home_location_text: Mapped[str | None] = mapped_column(String(300))
+    remote_preference: Mapped[RemotePreference] = mapped_column(
+        _enum(RemotePreference, "remote_preference"),
+        nullable=False,
+        server_default=text("'no_preference'"),
+    )
+    minimum_salary: Mapped[int | None] = mapped_column(Integer)
+    #: JSONB arrays of strings rather than tables: nothing filters on them in
+    #: M2, so a table would be shape with no use (command-center.md §2.3).
+    preferred_roles: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    preferred_locations: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+
+    skills: Mapped[list[UserSkill]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    projects: Mapped[list[UserProject]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class UserSkill(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """A skill the user **confirmed**. Never a proposal (invariant I2).
+
+    ``skill_id`` from §6.2 is deliberately absent: the taxonomy is M3's, and
+    this table stores the canonical name from ``data/skills.yaml`` along with
+    the vocabulary version that produced it, so a rename there is traceable.
+
+    ``confidence`` from §6.2 is also absent. A confirmed skill has no confidence
+    score — a person said yes — and a column that stays NULL until M3 is shape
+    with no use. I4 forbids surfacing a number with no breakdown behind it.
+    """
+
+    __tablename__ = "user_skills"
+    __table_args__ = (
+        UniqueConstraint("user_id", "normalized_name", name="uq_user_skills_user_id_name"),
+        # This table is the confirmed side of the boundary. A pending fact
+        # belongs in `resume_extractions`, so the value is refused here rather
+        # than merely avoided by convention.
+        CheckConstraint(
+            "source_type <> 'inferred_pending_confirmation'",
+            name="confirmed_only",
+        ),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    #: Casefolded, for the uniqueness constraint. "PostgreSQL" and "postgresql"
+    #: are one skill.
+    normalized_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    proficiency_level: Mapped[ProficiencyLevel] = mapped_column(
+        _enum(ProficiencyLevel, "proficiency_level"),
+        nullable=False,
+        server_default=text("'unspecified'"),
+    )
+    source_type: Mapped[SkillSourceType] = mapped_column(
+        _enum(SkillSourceType, "skill_source_type"), nullable=False
+    )
+    #: Where it came from, in a form a human can follow back:
+    #: ``resume:<uuid>#214-229``, or ``manual``.
+    source_reference: Mapped[str | None] = mapped_column(String(200))
+    vocabulary_version: Mapped[str | None] = mapped_column(String(40))
+
+    user: Mapped[User] = relationship(back_populates="skills")
+
+
+class UserProject(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """PRODUCT-SPEC §6.3. ``evidence`` is the text M3's evidence graph cites."""
+
+    __tablename__ = "user_projects"
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_user_projects_user_id_name"),)
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    summary: Mapped[str | None] = mapped_column(Text)
+    repository_url: Mapped[str | None] = mapped_column(String(500))
+    demo_url: Mapped[str | None] = mapped_column(String(500))
+    technologies: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    #: The literal bullets the claim rests on. M3 cites this rather than
+    #: re-deriving anything, which is how a match explanation stays honest.
+    evidence: Mapped[str | None] = mapped_column(Text)
+    start_date: Mapped[date | None] = mapped_column(Date)
+    end_date: Mapped[date | None] = mapped_column(Date)
+    status: Mapped[ProjectStatus] = mapped_column(
+        _enum(ProjectStatus, "project_status"),
+        nullable=False,
+        server_default=text("'completed'"),
+    )
+
+    user: Mapped[User] = relationship(back_populates="projects")
+
+
+class Resume(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """PRODUCT-SPEC §6.4, minus the file.
+
+    **The uploaded bytes are never stored.** An upload is read in memory, its
+    text extracted, and the bytes discarded; what survives is the filename, a
+    hash of the *text*, and the text itself. This is the most personal data the
+    project holds (§13) and the smallest honest footprint for it.
+
+    ``content_hash`` is over ``parsed_text``, not over the file, so a PDF and a
+    paste of the same content are one resume rather than two.
+
+    ``structured_profile`` from §6.4 is deliberately absent: the proposals in
+    ``resume_extractions`` *are* the structure, and they carry spans. A second
+    denormalised copy could disagree with them.
+    """
+
+    __tablename__ = "resumes"
+    __table_args__ = (
+        UniqueConstraint("user_id", "content_hash", name="uq_resumes_user_id_content_hash"),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    variant_type: Mapped[ResumeVariant] = mapped_column(
+        _enum(ResumeVariant, "resume_variant"),
+        nullable=False,
+        server_default=text("'custom'"),
+    )
+    source_kind: Mapped[ResumeSourceKind] = mapped_column(
+        _enum(ResumeSourceKind, "resume_source_kind"), nullable=False
+    )
+    #: Null for a paste, which has no file and should not pretend to.
+    original_filename: Mapped[str | None] = mapped_column(String(300))
+    parsed_text: Mapped[str] = mapped_column(Text, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    is_default: Mapped[bool] = mapped_column(nullable=False, server_default=text("false"))
+
+    extractions: Mapped[list[ResumeExtraction]] = relationship(
+        back_populates="resume", cascade="all, delete-orphan"
+    )
+
+
+class ResumeExtraction(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """A proposal awaiting a human decision. The pending side of invariant I2.
+
+    Not in PRODUCT-SPEC. Justified by I2 and by ``command-center.md`` §2.2:
+    keeping proposals in a different table from confirmed facts makes "no bug in
+    the extractor can produce a confirmed fact" a property of the schema rather
+    than a claim about every write path.
+
+    Every row carries the span it came from, and a trigger
+    (``resume_extractions_span_must_quote``) refuses any row whose span does not
+    literally quote ``resumes.parsed_text``. So the highlight on the screen and
+    the claim in the row cannot disagree — not by policy, by wiring.
+    """
+
+    __tablename__ = "resume_extractions"
+    __table_args__ = (
+        CheckConstraint("char_start >= 0", name="span_starts_in_the_text"),
+        # "A proposal with no span is unrepresentable" (command-center.md §6.1).
+        CheckConstraint("char_end > char_start", name="span_is_not_empty"),
+        CheckConstraint(
+            "(status = 'pending') = (decided_at IS NULL)",
+            name="decided_rows_carry_a_time",
+        ),
+        Index("ix_resume_extractions_resume_id_status", "resume_id", "status"),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    resume_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("resumes.id", ondelete="CASCADE"), nullable=False
+    )
+    kind: Mapped[ExtractionKind] = mapped_column(
+        _enum(ExtractionKind, "extraction_kind"), nullable=False
+    )
+    #: The proposed fact, shaped by kind: ``{"name": "Python"}`` for a skill,
+    #: ``{"year": 2027, "month": 5}`` for a graduation.
+    value: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    char_start: Mapped[int] = mapped_column(Integer, nullable=False)
+    char_end: Mapped[int] = mapped_column(Integer, nullable=False)
+    #: The literal words. Redundant with the span on purpose: the trigger
+    #: compares the two, which is what makes a fabricated quote impossible.
+    quoted_text: Mapped[str] = mapped_column(Text, nullable=False)
+    extractor_version: Mapped[str] = mapped_column(String(40), nullable=False)
+    status: Mapped[ExtractionStatus] = mapped_column(
+        _enum(ExtractionStatus, "extraction_status"),
+        nullable=False,
+        server_default=text("'pending'"),
+    )
+    decided_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+
+    resume: Mapped[Resume] = relationship(back_populates="extractions")
 
 
 class Company(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -690,8 +943,9 @@ class Application(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     ``note_added`` event, which makes note history free and unrewritable
     (M2 design §2.4).
 
-    ``selected_resume_id`` from §6.11 arrives in M2c, with the ``resumes`` table
-    it points at. A nullable UUID with no foreign key is a dangling reference.
+    ``selected_resume_id`` from §6.11 arrived in M2c, with the ``resumes`` table
+    it points at — M2b deferred it because a nullable UUID with no foreign key
+    is a dangling reference (CLAUDE.md §7: FKs everywhere).
     """
 
     __tablename__ = "applications"
@@ -730,6 +984,12 @@ class Application(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # Archive is the only removal there is — see the model comment on
     # ApplicationEvent, and test_an_application_cannot_be_deleted_either.
     archived_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    # SET NULL, not CASCADE: deleting a resume must not delete the application
+    # it was attached to. The person keeps the application and loses only the
+    # pointer, which is the honest outcome of removing the file.
+    selected_resume_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("resumes.id", ondelete="SET NULL")
+    )
 
     job: Mapped[Job] = relationship()
     events: Mapped[list[ApplicationEvent]] = relationship(
