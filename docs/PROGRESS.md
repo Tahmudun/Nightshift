@@ -18,16 +18,21 @@
 
 ### Next: open the M2a PR, get CI green, merge. Then M2b — save, apply, track.
 
-**M2a is complete and locally green. CI has not run against it yet** — that is
-the one outstanding step, and the M1 record below is the reason not to skip it:
-three CI runs were needed at M0, and the two failures found five defects every
-local command had passed over.
+**M2a is complete. The first CI run failed and it caught a real defect no local
+command had run** — see item 4 below. Fixed, and the second run is what the
+merge decision should rest on.
 
 ```
 make check        856 Python, 63 web, ruff/mypy/eslint/tsc clean   (read, not inferred)
 make acceptance   18 verify checks + 27 seeded browser tests, 1 skip
+make test-e2e     5 degraded-path tests          <- the suite CI caught, run separately
 alembic check     no drift, all three migrations applied
 ```
+
+**Run 30788290888 at `1aabc58`:** `python`, `web`, `migrations` and `secret
+scan` all passed; `e2e` failed. That is now four of five green on the first
+attempt with one honest failure, which is a better outcome than M0's first two
+runs and worse than M1d's clean first pass.
 
 Ten tasks, ten commits, branch `m2a-search-and-detail`.
 
@@ -65,9 +70,9 @@ filter is servable by an index, which is what stays true as the corpus grows.
 
 ### What M2a found that the plan did not predict
 
-Eight defects, **six in code that reported success** — the same pattern M1a,
+Nine defects, **seven in code that reported success** — the same pattern M1a,
 M1b, M1c and M1d each recorded, now five milestones running. Full detail in
-`docs/reviews/milestone-2a-review.md`; the three worth reading here:
+`docs/reviews/milestone-2a-review.md`; the four worth reading here:
 
 1. **Searching descriptions by default made the search box useless.**
    `q=developer` matched all nine recorded Alloy postings, because it stems to
@@ -87,6 +92,14 @@ M1b, M1c and M1d each recorded, now five milestones running. Full detail in
    `JobSearchQuery.include_description` failed nothing, because the FastAPI
    route re-declares its own default and that is what governs. Found by
    mutation testing — the guard looked present and was not.
+4. **`make check` and `make acceptance` both miss the degraded e2e suite, and
+   CI caught what they missed.** The new remote-policy filter added a second
+   "Remote" to `/explore`, breaking a page-wide text assertion in
+   `make test-e2e`. Neither aggregate target runs that suite and neither can —
+   it needs the API *down*, which is the opposite stack state from acceptance.
+   **`make test-e2e` is a third command and must be run before pushing.** This
+   is the fifth time in this project that a defect lived somewhere no local
+   command looks.
 
 ### Two corrections M2a made to its own plan
 

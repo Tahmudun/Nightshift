@@ -13,7 +13,7 @@ as a zero, numbers presented as scores, and tests that cannot fail.
 
 ## 1. What was found
 
-**Eight defects. Six were in code that reported success**, which is the same
+**Nine defects. Seven were in code that reported success**, which is the same
 pattern M1a, M1b, M1c and M1d each recorded — now five milestones running.
 
 ### 1.1 Searching descriptions by default made the search box useless
@@ -128,6 +128,41 @@ directly rather than theorising.
 Both worth recording because the tempting diagnosis — "the link is broken" —
 was wrong, and a fix aimed at it would have changed working code.
 
+### 1.9 `make check` does not run the degraded e2e suite, and CI caught what it missed
+
+**Found by:** CI, on the first run against this branch.
+
+The filter panel added a remote-policy `<select>` whose options include
+**"Remote"**. The degraded suite's `the confidence legend documents all five
+levels without an API` asserted a page-wide
+`getByText('Remote', { exact: true })`, which now resolves to two elements —
+a Playwright strict-mode violation.
+
+**Why it escaped locally is the part worth recording.** `make check` runs
+format, lint, typecheck and unit tests. `make acceptance` runs the *seeded*
+browser suite. **Neither runs `make test-e2e`**, and they cannot: the degraded
+suite exists to test the product with no API behind it, so it needs the
+opposite stack state from acceptance. Both were green locally while this was
+broken.
+
+This is the fifth time in this project that a defect lived somewhere no local
+command looks — after the `python` job with no Postgres (M1a), the unanchored
+`.gitignore` pattern that swallowed a whole route (M1c), and two others.
+
+**The rule going forward: `make test-e2e` is a third command, and it must be
+run before pushing.** It is in `CLAUDE.md` §4 already; what was missing is that
+neither aggregate target includes it.
+
+**Fixed** by scoping the assertion to the legend, which is what the test is
+named for. The page-wide lookup was asserting incidental uniqueness of a word,
+and "Remote" legitimately means two different things on `/explore` now: a
+location-confidence level (there is no building to place this job on) and a
+remote-work policy (how the job is worked). `ConfidenceLegend` gained
+`aria-label="Location confidence legend"` to make the scope addressable.
+
+**Mutation-checked**: removing `remote` from the confidence scale fails the
+scoped test, so it is narrower rather than weaker.
+
 ---
 
 ## 2. Deliberate decisions a reviewer should check
@@ -211,6 +246,7 @@ block, in both vitest and Playwright.
 |---|---|
 | `make check` | green — **856 Python**, **63 web**, ruff/mypy/eslint/tsc clean |
 | `make acceptance` | green — **18 verify checks**, **27 seeded browser tests**, 1 skip |
+| `make test-e2e` | green — **5 degraded-path tests**. Run separately, because it needs the API *down*; see §1.9 |
 | `alembic check` | no drift, with all three migrations applied |
 | Migration round trip | `0005`–`0007` down and up; both generated columns and all five indexes confirmed absent then present, read from `pg_indexes` |
 | Filter latency, 31 jobs | worst of five per query: 31.6 / 40.1 / 36.1 / 42.7 / 53.4 ms — all inside the 200ms criterion |

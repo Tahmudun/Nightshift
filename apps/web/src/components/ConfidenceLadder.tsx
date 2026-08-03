@@ -76,7 +76,11 @@ export function ConfidenceLadder({ confidence, showLabel = true }: ConfidenceLad
  */
 export function ConfidenceLegend() {
   return (
-    <dl className="space-y-3">
+    // Labelled so a test can scope to the legend rather than to the page. The
+    // word "Remote" is not unique on /explore any more — it is a
+    // location-confidence level here and a remote-work policy in the filter
+    // panel, and those are genuinely two different things.
+    <dl aria-label="Location confidence legend" className="space-y-3">
       {[...CONFIDENCE_SCALE].reverse().map((step) => (
         <div key={step.value} className="flex gap-3">
           <dt className="w-[136px] shrink-0">
