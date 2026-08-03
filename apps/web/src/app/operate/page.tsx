@@ -4,11 +4,11 @@ import { BoardPollTable } from '@/components/BoardPollTable';
 import { SourceHealthTable } from '@/components/SourceHealthTable';
 
 /**
- * Operate, M0 form: source health.
+ * Operate: your pipeline first, then the state of the machinery behind it.
  *
- * Application tracking is M2. What Operate can honestly show today is the state
- * of the ingestion pipeline, which §2.6 requires to be visible anyway. Shipping
- * the real thing that exists beats shipping a mock of the thing that does not.
+ * Source health came first through M0 and M1 because tracking did not exist
+ * yet. It does now (M2b), and §2.2 is clear that tracking is what Operate is
+ * for — so the pipeline leads and ingestion health sits underneath it.
  */
 export default function OperatePage() {
   return (
@@ -21,6 +21,21 @@ export default function OperatePage() {
           older than they look. A board that answered and had nothing on it is a different fact
           entirely, and it does count against the roles it stopped listing.
         </p>
+      </section>
+
+      <section className="border border-ink-700 bg-ink-900/40 p-5">
+        <h2 className="font-mono text-[10px] uppercase tracking-[0.16em] text-paper-faint">
+          Pipeline
+        </h2>
+        <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-paper-dim">
+          Every role you have saved, and where it got to. Nothing moves on its own.
+        </p>
+        <Link
+          href="/operate/pipeline"
+          className="mt-3 inline-block border border-ink-700 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-signal-400 hover:border-signal-400"
+        >
+          Open the pipeline
+        </Link>
       </section>
 
       <SourceHealthTable />
