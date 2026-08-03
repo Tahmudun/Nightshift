@@ -10,7 +10,7 @@
 **M1c: COMPLETE, reviewed, CI-green at `19236f5`, merged to `main` as PR #3 (`f377303`).**
 **M1d: COMPLETE, reviewed, CI-green at `75d9ab7`, merged to `main` as PR #4 (`044189e`).**
 **M2a: COMPLETE, reviewed, CI-green at `76190c8`, merged to `main` as PR #5 (`910027a`).**
-**Current milestone: M2 — the functional command center. M2b COMPLETE and reviewed on branch `m2b-the-loop`; CI not yet run. M2c/d not started.**
+**Current milestone: M2 — the functional command center. M2b COMPLETE, reviewed, CI-green at `6a10bb6`. PR #6 open, awaiting the human's merge. M2c/d not started.**
 **Last updated: 2026-08-03**
 
 ---
@@ -35,12 +35,33 @@ which is the evidence for the idempotency claim rather than a hope about it.
 The single e2e skip is the pre-existing honest one: `an unchanged board is not
 presented as a problem` needs a board that has answered `304`.
 
-**CI has not run on this branch yet.** Do that before asking for a merge, then
-record the run URL and per-job counts here from the job logs. The invariant
-this project has learned twice still applies:
+**CI is green, on the first attempt.** Run
+[30797523109](https://github.com/Tahmudun/Nightshift/actions/runs/30797523109)
+at `6a10bb6` — **all five jobs**, counts read from the job logs rather than
+inferred:
 
 ```
-git diff <ci-sha>..HEAD --stat    # must list nothing outside docs/
+python       241s   992 passed, zero skipped
+e2e          164s   5 degraded + 31 seeded passed, 1 skipped
+migrations    79s   up, down, up, and no drift
+web           63s   11 files, 84 tests
+secret scan   47s
+```
+
+`headSha` on the run is `6a10bb67d5172ef615816d9e75a16f3f33bcfa6a`, checked
+against the branch head rather than assumed. **992 in CI matches 992 locally**,
+so the database-backed tests really ran there too. The single e2e skip is the
+pre-existing honest one.
+
+Five CI runs across this project have failed and every one found something no
+local command had executed. This is the second first-try pass; it is recorded
+precisely because it is not the usual outcome.
+
+The invariant this project has learned twice still applies before merging —
+`6a10bb6` is the last commit CI has seen:
+
+```
+git diff 6a10bb6..HEAD --stat    # must list nothing outside docs/
 ```
 
 Eight tasks, eight commits, branch `m2b-the-loop`.
