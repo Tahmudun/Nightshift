@@ -20,6 +20,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from nightshift.db.base import (
+    BoardTier,
     EmploymentType,
     IngestionRunStatus,
     JobStatus,
@@ -174,6 +175,41 @@ class SourceHealthOut(BaseModel):
     # stale looks identical to a healthy one — the job_count above does not
     # move when a job closes, because the provenance link survives closure.
     job_status_counts: JobStatusCounts = Field(default_factory=lambda: JobStatusCounts())
+
+
+class BoardPollStateOut(BaseModel):
+    """One board's polling state (M1d, ADR 0007).
+
+    **`last_success_at` here, not a posting's `last_seen_at`, is what "fresh"
+    means for a board.** A board answering `304` for sixty days leaves its
+    postings' timestamps sixty days old while those postings are open and
+    correctly so — no misses were taken, because a 304 ages nothing. A UI
+    computing staleness from posting timestamps would report a perfectly
+    healthy board as rotten.
+
+    `last_status` is carried so a `304` is distinguishable from a `200`. They
+    are both success, and a surface that renders "no new jobs" as a warning
+    trains people to ignore warnings.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    ats: str
+    token: str
+    tier: BoardTier
+    #: 200, 304, or an error status. None until the board has ever been polled.
+    last_status: int | None
+    last_polled_at: datetime | None
+    #: Only a 200 or a 304 moves this; a failure does not. That is what makes
+    #: "how long since this board actually answered" answerable.
+    last_success_at: datetime | None
+    last_error: str | None
+    consecutive_failures: int
+    next_poll_at: datetime
+    #: Whether a stored ETag exists, not the ETag itself. The value is an opaque
+    #: provider string of no use to a reader, and printing it invites treating
+    #: it as an identifier rather than a cache token.
+    has_etag: bool
 
 
 class IngestionRunOut(BaseModel):

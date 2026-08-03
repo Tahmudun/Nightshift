@@ -1,5 +1,6 @@
 import Link from 'next/link';
 
+import { BoardPollTable } from '@/components/BoardPollTable';
 import { SourceHealthTable } from '@/components/SourceHealthTable';
 
 /**
@@ -23,6 +24,8 @@ export default function OperatePage() {
       </section>
 
       <SourceHealthTable />
+
+      <BoardPollTable />
 
       <section className="border border-ink-700 bg-ink-900/40 p-5">
         <h2 className="font-mono text-[10px] uppercase tracking-[0.16em] text-paper-faint">

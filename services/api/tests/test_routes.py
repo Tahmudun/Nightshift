@@ -35,14 +35,17 @@ from typing import Any
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nightshift.adapters.base import BoardRef, FetchOutcome, RawJob
 from nightshift.adapters.lever import LeverAdapter
 from nightshift.api.main import create_app
 from nightshift.db.base import SourceType
+from nightshift.db.models import BoardPollState
 from nightshift.db.session import get_db_session
 from nightshift.domain.ingestion import get_or_create_source, ingest_boards
+from nightshift.domain.polling import sync_board_poll_state
 from tests.conftest import requires_db
 
 # db_session binds its asyncpg connection to conftest's session-scoped event
@@ -370,3 +373,121 @@ async def test_source_health_breaks_its_jobs_down_by_status(
     assert lever["job_status_counts"]["possibly_stale"] == 9
     # The headline total is unchanged — which is exactly the point.
     assert lever["job_count"] == 9
+
+
+class TestBoardPollStateRoute:
+    """M1d: per-board polling state on the operational surface.
+
+    The ordering assertion is the one that matters. "Which boards have we not
+    heard from" is the operational question, and a list sorted by name makes an
+    operator scan for trouble instead of being shown it.
+    """
+
+    async def test_it_returns_every_board_with_a_poll_state_row(
+        self, client: AsyncClient, db_session: AsyncSession
+    ) -> None:
+        await sync_board_poll_state(db_session, now=SEED_NOW)
+        await db_session.flush()
+
+        response = await client.get("/boards")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert len(body) >= 3
+        assert {"greenhouse", "lever", "ashby"} & {row["ats"] for row in body}
+
+    async def test_a_never_polled_board_says_so_rather_than_guessing(
+        self, client: AsyncClient, db_session: AsyncSession
+    ) -> None:
+        """Null, not a fabricated timestamp and not zero. "We have never heard
+        from this board" is a real state and the page has to be able to say it.
+        """
+        await sync_board_poll_state(db_session, now=SEED_NOW)
+        await db_session.flush()
+
+        row = (await client.get("/boards")).json()[0]
+
+        assert row["last_success_at"] is None
+        assert row["last_polled_at"] is None
+        assert row["last_status"] is None
+        assert row["has_etag"] is False
+        assert row["consecutive_failures"] == 0
+
+    async def test_boards_we_have_heard_from_least_recently_come_first(
+        self, client: AsyncClient, db_session: AsyncSession
+    ) -> None:
+        await sync_board_poll_state(db_session, now=SEED_NOW)
+        rows = (await db_session.execute(select(BoardPollState))).scalars().all()
+        assert len(rows) >= 3
+        # Newest first in the database, so a route that preserved insertion
+        # order would fail this.
+        for offset, row in enumerate(rows):
+            row.last_success_at = SEED_NOW - timedelta(hours=offset)
+        await db_session.flush()
+
+        body = (await client.get("/boards")).json()
+
+        stamps = [r["last_success_at"] for r in body]
+        assert stamps == sorted(stamps), "least-recently-heard-from must come first"
+
+    async def test_a_never_polled_board_sorts_ahead_of_a_healthy_one(
+        self, client: AsyncClient, db_session: AsyncSession
+    ) -> None:
+        """Nulls first. A board nobody has ever reached is the most urgent row
+        on the page, and SQL's default puts nulls last on an ascending sort —
+        which would bury it below every healthy board."""
+        await sync_board_poll_state(db_session, now=SEED_NOW)
+        rows = (await db_session.execute(select(BoardPollState))).scalars().all()
+        for row in rows[1:]:
+            row.last_success_at = SEED_NOW
+        await db_session.flush()
+
+        body = (await client.get("/boards")).json()
+
+        assert body[0]["last_success_at"] is None
+
+    async def test_the_etag_value_itself_is_not_exposed(
+        self, client: AsyncClient, db_session: AsyncSession
+    ) -> None:
+        """Whether one exists is operationally interesting; the opaque provider
+        string is not, and printing it invites reading it as an identifier."""
+        await sync_board_poll_state(db_session, now=SEED_NOW)
+        rows = (await db_session.execute(select(BoardPollState))).scalars().all()
+        rows[0].etag = 'W/"secret-looking-token"'
+        await db_session.flush()
+
+        body = (await client.get("/boards")).json()
+
+        assert any(r["has_etag"] for r in body)
+        assert "secret-looking-token" not in (await client.get("/boards")).text
+
+    async def test_a_304_is_reported_as_success_not_as_a_warning(
+        self, client: AsyncClient, db_session: AsyncSession
+    ) -> None:
+        """A board answering 304 is healthy. Carrying the status distinctly is
+        what lets the UI avoid rendering "no new jobs" as a problem — which is
+        how people learn to ignore warnings."""
+        await sync_board_poll_state(db_session, now=SEED_NOW)
+        rows = (await db_session.execute(select(BoardPollState))).scalars().all()
+        rows[0].last_status = 304
+        rows[0].last_success_at = SEED_NOW
+        rows[0].last_polled_at = SEED_NOW
+        await db_session.flush()
+
+        body = (await client.get("/boards")).json()
+        board = next(r for r in body if r["last_status"] == 304)
+
+        assert board["last_success_at"] is not None
+        assert board["last_error"] is None
+        assert board["consecutive_failures"] == 0
+
+    async def test_every_board_reports_a_tier_as_a_word(
+        self, client: AsyncClient, db_session: AsyncSession
+    ) -> None:
+        """§12.4: no essential information available only through colour."""
+        await sync_board_poll_state(db_session, now=SEED_NOW)
+        await db_session.flush()
+
+        body = (await client.get("/boards")).json()
+
+        assert all(row["tier"] in {"hot", "warm"} for row in body)

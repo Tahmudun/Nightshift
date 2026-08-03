@@ -3,38 +3,90 @@
 > Read this first, every session. If the repo state does not match what this
 > file claims, fix this file before writing code.
 
-**Current milestone: M1 — Employment data spine. M1a + M1b + M1c done, M1d designed and planned, not started.**
+**Current milestone: M1 — Employment data spine. COMPLETE. All four parts done; 15 of 15 criteria verified.**
 **M0: COMPLETE — 6 of 6 acceptance criteria verified at commit `4c1643f`.**
 **M1a: COMPLETE, CI-green at `430347a`, merged to `main` as PR #1 (`54ef35a`).**
 **M1b: COMPLETE and reviewed. Merged to `main` as PR #2 (`cf48719`).**
 **M1c: COMPLETE, reviewed, CI-green at `19236f5`, merged to `main` as PR #3 (`f377303`).**
-**Last updated: 2026-08-02**
+**M1d: COMPLETE and reviewed. Branch `m1d-conditional-polling`, not yet CI-verified or merged.**
+**Last updated: 2026-08-03**
 
 ---
 
 ## Next exact action
 
-### Next: M1d Task 6 — the `board_poll_state` table.
+### Next: push the branch, get CI green, open the PR for the human to merge.
 
-Branch `m1d-conditional-polling`, off `main` at `f377303`. Design
-`docs/architecture/conditional-polling.md` (`856ad62`); plan
-`docs/plans/2026-08-02-m1d-conditional-polling.md` (`f7a3bcd`), eleven tasks.
+**M1d is complete and M1 with it.** Eleven tasks, eleven commits, on branch
+`m1d-conditional-polling` off `main` at `f377303`. Design
+`docs/architecture/conditional-polling.md`; plan
+`docs/plans/2026-08-02-m1d-conditional-polling.md`; review
+`docs/reviews/milestone-1d-review.md`; ADR 0011 records the scheduling decision.
 
-**Tasks 1–5 are done and committed. 723 Python tests pass, zero skipped**
-(607 at branch start). `make check` green; `make seed` verified twice over
-against a real database.
+**Not yet done: the branch has never run in CI.** Every check below is local.
+M0's acceptance row 2 is the standing reminder that CI is the only thing that
+runs the migration up→down→up sequence, the drift probe and the secret scan on
+every change — and it has caught five defects that every local command passed
+over. Do not treat this as verified until the Actions tab is green.
 
 | Task | Commit | What it did |
 |---|---|---|
 | 1 | `6e516cf` | `PoliteClient.get_json_conditional`; `304` returned as data |
-| 2 | `8d5f5c5` | `FetchOutcome` separates *listed* from *fetched*; `304` can no longer read as an empty board |
-| 3 | `4106ed0` | All three adapters revalidate; one `ConditionalJsonClient` Protocol |
+| 2 | `8d5f5c5` | `FetchOutcome` separates *listed* from *fetched* |
+| 3 | `4106ed0` | All three adapters revalidate |
 | 4 | `6a5757b` | Greenhouse two-phase, plus `fetch_full_board` for first ingestion |
-| 5 | `dd9e62a` | **Freshness ages against the listed set** — the milestone's central guard |
+| 5 | `dd9e62a` | **Freshness ages against the listed set** — the central guard |
+| 6 | `f356a0e` | `board_poll_state`, `board_tier`, migration `0004` |
+| 7 | `6230bd8` | Poll cycle and `next_poll_at` scheduler |
+| 8 | `51c7627` | Hot/warm tiers derived from postings |
+| 9 | `408c768` | Row lock in `merge_jobs`, in primary-key order |
+| 10 | `d3738b6` | `promote` appends; **the 19 boards are in the registry** |
+| 11 | this | `GET /boards`, the Operate table, ADR 0011, review |
 
-Remaining: 6 (`board_poll_state`), 7 (poll cycle + scheduler), 8 (tiers),
-9 (`merge_jobs` row lock), 10 (`promote` + the 19 boards), 11 (surface, ADR
-0011, review, PR).
+### Criterion 13, verified against a live provider
+
+Two consecutive polls of `datadog` through `nightshift poll`, 2026-08-03:
+
+```
+poll 1   HTTP 200   created=429   ~16 min   (first ingestion, one request)
+poll 2   HTTP 304   created=0     0.009 s
+```
+
+Job state either side of the `304`, byte-identical:
+
+```
+before   460 records | 446 jobs | 676 locations | 460 links | 0 events | 446 embeddings | 0 misses | 0 closed
+after    460 records | 446 jobs | 676 locations | 460 links | 0 events | 446 embeddings | 0 misses | 0 closed
+```
+
+The ETag stored on poll 1 is the one sent on poll 2, and the same one Greenhouse
+served when the design was being measured. The dev database was reset to its
+documented 31-job corpus afterwards.
+
+**"Zero writes" is claimed precisely.** A `304` *does* write one row — the
+board's own `board_poll_state` bookkeeping, which is the point of polling and
+not a claim about any job. What is asserted is zero writes to **job state**: no
+insert or update against `source_job_records`, `jobs`, `job_locations`,
+`job_source_links`, `job_status_events` or `job_embeddings`; no miss-counter
+movement; no closure. `_job_state_snapshot` is that assertion, and it includes
+the miss sum and the closed count because a regression that increments every
+miss counter changes no row count at all.
+
+### The 19 boards are in the registry
+
+`make registry-approve-write` with the fixed `promote`: **4 boards → 23**, git
+reports **171 insertions and 0 deletions**, no existing board lost or modified,
+and `after.startswith(before)` is true — the old file is a strict byte prefix of
+the new one. The note on the `Stripe` entry reading *"enable once the freshness
+and closure state machine lands"* survived; under the old `promote` it would
+have been deleted by the act of approving nineteen unrelated boards.
+
+Two `Abridge` candidates stay withheld — one employer, two live Ashby tokens —
+and the two `empty` boards stay held. Both are a human's call under ADR 0005.
+
+**Stripe is still `disabled`.** M1d is the milestone its note was waiting for,
+and enabling it is a decision for the human rather than a side effect of the
+work finishing. A test now asserts it by name.
 
 ### What Tasks 1–5 found that the plan did not predict
 
@@ -201,26 +253,43 @@ conditional polling (ADR 0007), hot/warm tiers, queue-driven ARQ. No plan file
 exists for it yet. **Read the four items below before writing that plan** —
 they are M1c's output and they change what M1d has to do.
 
-### What M1d must not inherit unnoticed
+### What M1d inherited, and what it did about it
 
 1. **No mass-failure signal in a discovery sweep.** A provider that changes its
    payload envelope classifies *every* board `unreachable`, and nothing says so
-   louder than a per-candidate note. A sweep should refuse to persist, or at
-   minimum shout, when the unreachable rate crosses a threshold. This is I3's
-   "a source outage is not evidence" one level up, and it is unimplemented.
+   louder than a per-candidate note. **Still open** — explicitly out of M1d's
+   scope by the human's decision, not by oversight.
 2. **`cmd_validate` rewrites the whole candidate file after every board.**
-   Correct and interruption-safe at 23 candidates; O(n²) at 2,605.
-3. **`merge_jobs` still has no row lock** — carried from M1b, and M1d's
-   queue-driven polling is exactly what makes it reachable. **In M1d's scope**
-   (plan Task 9); items 1 and 2 are explicitly out of it.
+   Correct at 23 candidates; O(n²) at 2,605. **Still open**, same reason.
+3. ~~**`merge_jobs` has no row lock**~~ — **fixed in M1d** (`408c768`), and the
+   deadlock was reproduced from Postgres before being fixed rather than argued
+   about. See the review §3.4.
 4. ~~**ADR 0007's phase-2 diff has no timestamp on two of three providers**~~ —
-   **resolved 2026-08-02 by measurement, not by code.** Lever and Ashby return
-   every posting in full from the board endpoint, so there is no phase 2 on
-   those providers and no timestamp for it to need. Greenhouse, the only
-   two-phase provider, publishes `updated_at` on its listing. This had been
-   recorded three times as the most consequential item here; it was never
-   re-checked against a live board until M1d was planned. See "What was measured
-   before planning" above.
+   **resolved by measurement.** Lever and Ashby return every posting in full
+   from the board endpoint, so there is no phase 2 on those providers and
+   nothing for a timestamp to gate. Greenhouse, the only two-phase provider,
+   publishes `updated_at` on its listing. This file had recorded it three times
+   as the most consequential item here and it had never been re-checked against
+   a live board since M1a.
+
+### What M1 leaves for M2 and beyond
+
+Ranked, from `docs/reviews/milestone-1d-review.md` §4:
+
+1. **`max_jobs` is still 1, and raising it is not free.** `PoliteClient`'s rate
+   limiter is per process, so two concurrent jobs against one provider halve the
+   spacing it enforces. Queue-driven polling makes raising it a config change
+   rather than a rewrite — but the limiter must become per-host and shared
+   first. Recorded as a comment on the line somebody would change.
+2. **The ARQ scheduler has never run for real.** `enqueue_due_boards` and its
+   parts are tested, but no worker has executed a tick against Redis. The poll
+   cycle itself has run live twice, through the CLI.
+3. **Only `datadog` has been polled conditionally against a live provider.**
+   Lever and Ashby were measured serving `304` during design; their adapters'
+   conditional path has been exercised only against fixtures.
+4. **`nyc_presence` is now decorative.** Nothing in the polling path reads it —
+   asserted by a test that inspects code with docstrings stripped — so deleting
+   it is a cleanup rather than a behaviour change.
 
 ### The M1c pipeline, run end to end on 2026-08-02
 
@@ -538,12 +607,22 @@ rather than omitting them is the point of this table.
 | 10 | Discovery yields candidates from a committed crawl fixture, deterministically | **VERIFIED** (M1c) | `tokens_from_cdx` over the committed 400-row Ashby crawl slice → 23 distinct tokens. `test_is_deterministic_and_sorted` asserts same input → same sorted output twice; `make discover` run twice leaves the candidate file byte-identical (`test_is_idempotent`). Ran for real: `400 crawl rows -> 23 distinct tokens` |
 | 11 | A live-but-unnameable board cannot reach bulk approval | **VERIFIED** (M1c) | Asserted at both layers — `test_a_live_but_unnameable_board_cannot_be_bulk_approved` on the verdict, and `test_an_unnameable_board_is_not_promoted_even_with_write` through the command a human types. **Mutation-checked twice**: making the Ashby name fall back to the token classifies the board `live_named` with `company_name='0g'` (the I2 fabrication) and fails exactly that test; dropping the verdict filter in `approvable` fails 8 tests |
 | 12 | The coverage page names what is *not* covered | **VERIFIED** (M1c) | `/analyze/coverage`, four structural blind spots by id (`lever_undiscovered`, `workday_icims_taleo`, `no_public_board`, `aggregator_only`), each with its reason in plain language. 5 seeded browser tests, including one asserting the section holds no `<details>` and its text is visible unexpanded, and one asserting **no percent sign appears anywhere on the page** — there is no denominator, so a coverage percentage would be invented. `count=null` renders "unknown", mutation-checked by typing the field `int = 0`, which fails the route test |
-| 13 | A `304 Not Modified` produces zero writes and closes zero jobs | **NOT CLAIMED** | M1d. ADR 0007's design is written; conditional requests are not implemented |
+| 13 | A `304 Not Modified` produces zero writes and closes zero jobs | **VERIFIED** (M1d) | Two consecutive live polls of `datadog`: `200`/429 created, then `304`/0 created in 0.009s, with job state byte-identical across all eight measures. Plus `test_a_304_writes_no_job_state` at pipeline and poll-cycle level. Claimed as *zero writes to job state* — the board's own bookkeeping row does move, which is the point of polling. Mutation-checked: ageing `304` boards fails exactly that test |
 | 14 | Greenhouse + Lever + Ashby behind one interface | **VERIFIED** (M1a) | Three adapters on the unchanged `JobSourceAdapter` Protocol |
 | 15 | `source_job_records` preserving raw payloads | **VERIFIED** (M0/M1a) | Asserted again in M1b: a merge collapses the canonical view and leaves both raw records untouched |
 
-**M1 is not complete.** M1a, M1b and M1c are; M1d is not started. Twelve of the
-fifteen criteria are verified; 13 (`304 Not Modified`) is M1d's.
+**M1 is complete.** All fifteen criteria are verified with recorded evidence.
+
+Criterion 13 was the last, and it is the one worth reading the evidence for
+rather than the claim: a `304` from a real provider, with eight independent
+measures of job state identical either side of it.
+
+Two criteria were re-earned rather than merely inherited. Criterion 3 (a source
+outage closes zero jobs) now also holds for a board that answers `304`, which is
+a new way to learn nothing and would have closed every posting on every
+unchanged board. Criterion 2 (re-ingestion is idempotent) now covers a
+two-phase poll, where "unchanged" means a posting is deliberately never
+refetched — the case that made the freshness fix necessary.
 
 ---
 
@@ -625,26 +704,39 @@ These ran on this machine and passed:
 | Python format | `ruff format --check services/api` | 45 files already formatted |
 | Python lint | `ruff check services/api` | All checks passed |
 | Python types | `mypy nightshift` | Success: no issues found in 31 source files (strict) |
-| Python tests | `pytest -q` | **607 passed**, zero skipped (CI run 30764366853 at `19236f5`, read from the log; 480 before M1c) |
+| Python tests | `pytest -q` | **804 passed**, zero skipped (local, 2026-08-03; 607 at M1c). Read from the output rather than computed — the first draft of this line said 797, a real measurement taken before the `/boards` tests existed |
 | Web types | `tsc --noEmit` | clean, `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes` |
 | Web lint | `eslint . --max-warnings 0` | clean |
 | Web tests | `vitest run` | **42 passed** (5 files) |
 | Colour contrast | `vitest run colour-contrast` | 16 assertions on measured WCAG 2.1 ratios |
 | Web build | `next build` | compiled, 7 static routes, 102 kB shared JS |
 | E2E — degraded (no API) | `make test-e2e` | **5 passed** in 15.0s |
-| E2E — seeded corpus | `make test-e2e-seeded` | **16 passed**, 29.9s — 5 new on the coverage page, incl. one asserting no percentage reaches the screen |
+| E2E — seeded corpus | `make test-e2e-seeded` | **20 passed, 1 skipped**, 28.1s — 5 new on the board table. The skip is honest: `an unchanged board is not presented as a problem` needs a board that has answered `304`, and the seeded stack has polled nothing |
 | Migration renders | `alembic upgrade head --sql` | full DDL emitted, 8 tables, 8 enums |
 | Migration round trip | `make migrate-down && make migrate` | 8 tables + 8 enum types dropped and restored, live cluster |
-| Whole-stack acceptance | `make acceptance` | **18 checks + 16 browser tests**, re-run 2026-08-02 at `152d920`; seeded corpus 31 jobs / 3 companies / 62 locations across greenhouse + lever + ashby |
+| Whole-stack acceptance | `make acceptance` | **18 checks + 20 browser tests**, re-run 2026-08-03 at `d3738b6`; seeded corpus 31 jobs / 3 companies / 62 locations, plus **22 board poll schedules, none polled** |
+| Migration round trip (M1d) | `make migrate-down && make migrate` | `0003` and `0004` both reversible against the live cluster. `board_tier` confirmed absent from `pg_type` after the downgrade and present after the upgrade — checked directly rather than inferred from a clean exit |
+| Model/migration drift | `alembic check` | No new upgrade operations detected |
+| Conditional poll, live | `nightshift poll --ats greenhouse --token datadog` ×2 | `200` then **`304` in 0.009s**, job state byte-identical across eight measures |
 | Live source reachable | `GET /v1/boards/datadog/jobs` | HTTP 200, 426 postings |
 
-**Total: 670 automated tests passing** (607 Python, 42 web unit, 5 degraded e2e,
-16 seeded e2e), plus the 18 assertions in `scripts/verify.py`, which are not
-pytest tests but do gate `make acceptance` with an exit code. Of the 480
-Python tests, **55** are database-backed
-(`requires_db`/`pytest.mark.integration` in `tests/conftest.py`) — up from 13
-at M1a, because closure, merging and the admin routes are all transactional
-and cannot be exercised honestly against a fake session.
+**Total: 871 automated tests passing** (804 Python, 42 web unit, 5 degraded e2e,
+20 seeded e2e), plus the 18 assertions in `scripts/verify.py`, which are not
+pytest tests but do gate `make acceptance` with an exit code.
+
+M1d added 197 Python tests. The ones that carry the milestone are small in
+number: `test_an_unchanged_posting_takes_no_miss_when_it_is_not_refetched`,
+`test_a_304_writes_no_job_state`, and
+`test_two_workers_merging_the_same_pair_leave_one_survivor`. Each was
+mutation-checked, and the last was run eight times because one green run proves
+nothing about a race.
+
+**`tests/test_merge_concurrency.py` deliberately does not use the `db_session`
+fixture.** That fixture holds one transaction and rolls it back, which is
+correct isolation for every other test in the suite and precisely wrong for a
+race: two sessions inside one transaction cannot contend, so the defect under
+test could not occur. Those three tests commit, contend for real against
+Postgres, and truncate after themselves.
 
 **That gap is now closed, and it was closed by reading rather than by
 inferring.** At M1a those tests skipped in CI (no `postgres` service) and the
@@ -849,8 +941,8 @@ presented to a user as working.
 |---|---|---|
 | `FixtureGreenhouseAdapter` (`cli.py`) | Subclasses the real adapter, overrides only `fetch_board` to read a committed JSON file. Constructed with no HTTP client, so it cannot make a request. Attributed to source `greenhouse_fixture` with `source_type='fixture'`, badged **"committed fixture"** in the Operate UI. ADR 0004 | Permanent — this is the offline demo path, not a stopgap |
 | Geocoding | **Does not exist.** No coordinate has ever been written. Every location is `city_only`, `remote`, or `unknown`; `mappable_locations` reads 0 and the UI says "nothing geocoded yet" | M1 (NYC GeoSearch, A4) |
-| Dedupe similarity threshold | **Real, but thinly calibrated.** `SIMILARITY_THRESHOLD = 0.85` was derived by `services/api/scripts/derive_dedupe_threshold.py` from the labelled set, not chosen — and only **three** labelled pairs carry descriptions, so three points define it. The separation is wide (0.7640 distinct / 0.9370 merge) but it is the number most likely to be wrong in a way no current test can see. Re-derive as the fixture set grows | Re-derive at M1c, when real cross-posted boards arrive |
-| Merge concurrency | `merge_jobs` has no row lock. Unreachable at `max_jobs=1`; the day ADR 0007 makes polling queue-driven, two workers can each decide A and B are duplicates and each try to delete the other's winner. `get_or_create_company` was made an upsert in M1a for exactly this reason and merging has no equivalent | M1d — named in the M1b review as the thing that milestone must not inherit unnoticed |
+| Dedupe similarity threshold | **Real, thinly calibrated, and now with one real-world data point.** `SIMILARITY_THRESHOLD = 0.85` was derived from three labelled pairs. M1d's live Datadog poll merged two genuine postings on `similar_description` at **0.864** — the first evidence from outside the labelled set, and it landed close to the line. One observation is not a calibration and nothing was changed on the strength of it, but it is the first sign the number is doing real work at a real boundary. Re-derive as the fixture set grows | Unscheduled; revisit when more live boards are polled |
+| ~~Merge concurrency~~ | **Fixed in M1d** (`408c768`). The defect was reproduced before being fixed — Postgres reported a real `DeadlockDetectedError` between two workers merging the same pair in opposite directions. Both rows are now locked in primary-key order, as two statements rather than one `IN` clause, because a single statement's lock acquisition follows the query plan rather than the sort. Mutation-checked: the caller's order deadlocks on 3 of 3 runs; the fix passed 8 consecutive | Done |
 | Later-arising duplicates | Dedupe runs only on creation, deliberately: re-running the matcher every poll is how a settled merge starts oscillating. The consequence is that two jobs which become duplicates *later* — a title corrected on one board to match the other — never merge, and nothing reconciles them | No milestone. Revisit if visible duplicates are reported |
 | `job_locations.geom` | Column and GiST index exist; always NULL | M1 |
 | `normalize_title` | Whitespace and dash folding only. Deliberately does **not** attempt role-family normalization — asserted by `test_does_not_attempt_role_family_normalisation` | M3 |
@@ -861,15 +953,88 @@ presented to a user as working.
 | Community-snapshot discovery source | Designed in `board-discovery.md` §4, not built, same reason as the careers probe | No milestone |
 | Discovery beyond Ashby | `PROVIDER_PATTERNS` includes both Greenhouse board domains and the code paths work, but **no Greenhouse crawl fixture is recorded**, so `make discover --provider greenhouse` has never run against real data. Greenhouse *validation* is tested, on the recorded `6sense` board | M1d |
 | The 2,605-token figure | Not re-measured by M1c and never claimed by it. The committed slice is **400 rows → 23 tokens**, the alphabetical head of one provider (`0g`…`abridge`). Common Crawl's index 504s at `limit=6000`, so a full harvest needs paging that does not exist | M1d |
-| Discovered boards in the registry | **Zero.** `data/board-registry.yaml` is byte-identical to its state at branch start (`git diff cf48719..HEAD` is empty for that file). 19 candidates are eligible and `make registry-approve` prints them; promoting them is a product decision for the human, not something this plan does | Whenever the human approves a batch |
+| ~~Discovered boards in the registry~~ | **19 promoted in M1d** (`d3738b6`), on the human's decision. 4 boards → 23, 171 insertions and 0 deletions, nothing lost or modified. Two `Abridge` candidates and two `empty` boards remain withheld for individual review under ADR 0005 | Done |
 | Ashby's `address.postalAddress` | Structured (`addressLocality`/`addressRegion`/`addressCountry`), recorded verbatim in every raw payload, and better geocoding input than the free-text `location`/`secondaryLocations` strings — but deliberately unread by `AshbyAdapter.normalize`. Feeding a second location source into `job_locations` before geocoding has its own fixtures would mean two code paths writing the same table | M1, at the geocoding stage |
 | 3D city, map, MapLibre, Three.js | Not started, not scaffolded, no dependency added. Explore is a list and says so | M4 |
 | Auth | None. Single seeded `dev_user`, id in config (A3). Every user-owned table will still carry a real `user_id` FK from its first migration | M5 |
-| Live polling of Lever/Ashby | `data/board-registry.yaml` marks `lever:alloy` and `ashby:ramp` `status: active`, and the registry test pins them into the pollable set — but `workers/tasks.py:33` and `cli.py:251` both hard-filter `pollable(ats="greenhouse")`. **Nothing polls the Lever or Ashby boards.** Their jobs enter the corpus only via `make seed`'s committed fixtures. An operator reading `active` in the registry would reasonably assume otherwise; it means "eligible once M1d ships a poller for this ATS," not "currently polled" | M1d |
+| Live polling of Lever/Ashby | **Fixed in M1d.** `ADAPTERS` in `domain/polling.py` covers all three providers, `sync_board_poll_state` gives every pollable registry board a schedule, and `nightshift poll --ats lever --token alloy` works. `active` in the registry now means what an operator would assume. **Caveat:** only `greenhouse:datadog` has actually been polled live end to end. Lever and Ashby were measured serving `304` during design, but their conditional path has been exercised only against fixtures | Polled path proven on one provider; the other two are wired and fixture-tested |
 
 ---
 
 ## Session log
+
+### 2026-08-03 — M1d: conditional polling, and the close of M1
+
+Eleven tasks, eleven commits. A `304` now costs one request and writes nothing,
+which closes the last M1 criterion.
+
+**Fourteen defects. Ten were in code that reported success** — the same pattern
+M1a, M1b and M1c each recorded, four milestones running. This time the sharpest
+was self-inflicted and worth stating plainly.
+
+**The pipeline had never been tested against Greenhouse.** After Task 4 made it
+two-phase, live Greenhouse ingestion produced **zero jobs** and the suite stayed
+green. Every ingestion, closure, merge and route test drove a stub wrapping
+*Lever*, handed a `FetchOutcome` the test built itself — so the pipeline had
+never seen a Greenhouse-shaped response, and outcomes constructed by tests
+cannot disagree with what adapters actually return. I predicted the suite would
+fail; it did not; the green run was the finding.
+
+**ADR 0007's own optimisation creates a silent mass-closure bug.**
+`apply_freshness` ages a record whose `last_seen_at` predates the run. Phase 2
+deliberately never refetches an unchanged posting. Wire those together literally
+and every unchanged posting on every Greenhouse board takes a miss per poll and
+closes on the third — no error, damage landing three polls after the cause.
+`FetchOutcome` now separates *listed* from *fetched*, and both halves of the
+guard are mutation-checked.
+
+**The same footgun appeared three times, so the type changed rather than the
+call sites.** A `FetchOutcome` with postings but no `listed` set reads as a
+board that listed nothing. It now derives one — a posting we hold the content
+of was self-evidently on the board.
+
+**`make seed` would have crashed.** `FixtureGreenhouseAdapter` inherited
+`is_two_phase = True` from the real adapter, along with a `fetch_full_board`
+that needs an HTTP client the fixture adapter deliberately lacks. The fixture
+adapters — the thing that makes `make demo` work offline — **had no tests at
+all**. There are now 24, and two consecutive `make seed` runs were verified to
+leave 31 jobs open with zero misses.
+
+**A real deadlock, reproduced before fixing.** The M1b review named the missing
+`merge_jobs` row lock as the one thing M1d must not inherit. Postgres reported
+it directly. Locking both rows in primary-key order fixes it, as two statements
+rather than one `IN` clause, because a single statement's lock acquisition
+follows the query plan rather than the sort. The mutation deadlocks on 3 of 3
+runs; the fix passed 8 consecutive.
+
+**`promote` was destructive in everything a human had written.** Found by
+running `--write` for the first time in the project's history — it deleted ten
+lines of rationale between entries, including the `Stripe` note addressed to
+this very milestone. Now literally appended, asserted as
+`after.startswith(before)`.
+
+**Structural typing did the wrong thing quietly.** `isinstance` against a
+runtime-checkable Protocol matches method *names*, so a single-phase Lever stub
+that implemented them for convenience got pulled into a phase Lever has no
+endpoint for. The pipeline gates on the flag and *then* narrows.
+
+**Existing guards that earned their keep:** `test_repo_integrity` (added in M1c
+after `.gitignore` swallowed a route) caught two new modules before they were
+staged; `conftest`'s no-CASCADE truncate refused `board_poll_state` until it was
+listed; the `job_merge_events` append-only trigger refused a test's cleanup
+`DELETE`; the `jobs` check constraint refused a `closed` job with no
+`closed_at`; and the registry closed-set test refused all 19 new boards until
+deliberately reshaped.
+
+**Two of my own tests were badly written and got stronger.** They grepped module
+source for `nyc_presence` and borough names, and failed on the docstrings
+explaining why neither belongs in the code. A test that greps prose punishes
+documenting the rule. They now parse the module and strip docstrings.
+
+**Two things written down turned out to be wrong**, corrected in place: phase 2
+is Greenhouse-only, and the "no `updated_at` on Lever and Ashby" problem this
+file recorded three times as M1d's most consequential inheritance dissolved once
+someone measured the payloads.
 
 ### 2026-08-02 — M1c: board discovery
 

@@ -211,6 +211,33 @@ export const sourceHealthSchema = z.object({
 export type SourceHealth = z.infer<typeof sourceHealthSchema>;
 
 /**
+ * One board's polling state (M1d, ADR 0007).
+ *
+ * `last_success_at` — not any posting's timestamp — is what "fresh" means for a
+ * board. A board answering 304 for sixty days leaves its postings' timestamps
+ * sixty days old while those postings are open and correctly so, because a 304
+ * ages nothing. Computing staleness from posting timestamps would report a
+ * perfectly healthy board as rotten.
+ *
+ * `last_status` is carried so 304 stays distinguishable from 200. Both are
+ * success, and a surface that renders "nothing changed" as a warning teaches
+ * people to ignore warnings.
+ */
+export const boardPollStateSchema = z.object({
+  ats: z.string(),
+  token: z.string(),
+  tier: z.enum(['hot', 'warm']),
+  last_status: z.number().int().nullable(),
+  last_polled_at: z.string().nullable(),
+  last_success_at: z.string().nullable(),
+  last_error: z.string().nullable(),
+  consecutive_failures: z.number().int(),
+  next_poll_at: z.string(),
+  has_etag: z.boolean(),
+});
+export type BoardPollState = z.infer<typeof boardPollStateSchema>;
+
+/**
  * One thing this system cannot see, and why.
  *
  * `count` is nullable and null is the common case: for most of these gaps the

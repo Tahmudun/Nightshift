@@ -246,6 +246,14 @@ async def cmd_seed(args: argparse.Namespace) -> int:
             f"({ashby_run.status.value})"
         )
 
+        # M1d: give every registry board its polling schedule, so `make demo`
+        # shows the board table populated rather than empty. Every row reads
+        # "never polled", which is the truth — seeding loads committed fixtures
+        # and contacts nothing. An empty table would look like a broken page;
+        # a table of honest "never" is the actual state.
+        created = await sync_board_poll_state(session, now=utcnow())
+        print(f"  board poll schedules: {created} created (none polled yet)")
+
     await _print_summary()
     print("\nseed complete. `make dev` then open http://localhost:3000")
     return 0
