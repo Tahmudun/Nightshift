@@ -10,14 +10,38 @@
 **M1c: COMPLETE, reviewed, CI-green at `19236f5`, merged to `main` as PR #3 (`f377303`).**
 **M1d: COMPLETE, reviewed, CI-green at `75d9ab7`, merged to `main` as PR #4 (`044189e`).**
 **M2a: COMPLETE, reviewed, CI-green at `76190c8`, merged to `main` as PR #5 (`910027a`).**
-**Current milestone: M2 — the functional command center. M2b COMPLETE, reviewed, CI-green at `6a10bb6`. PR #6 open, awaiting the human's merge. M2c/d not started.**
+**M2b: COMPLETE, reviewed, CI-green at `6a10bb6`, merged to `main` as PR #6 (`2f984f3`).**
+**Current milestone: M2 — the functional command center. M2c IN PROGRESS on `m2c-profile-and-resume`. M2d not started.**
 **Last updated: 2026-08-03**
 
 ---
 
 ## Next exact action
 
-### Next: run CI on `m2b-the-loop`, then merge. Then M2c — profile and resume.
+### Next: execute the M2c plan, `docs/plans/2026-08-03-m2c-profile-and-resume.md`.
+
+**M2b is merged and its branch is gone.** PR #6 merged at `2f984f3` with head
+`40d7dd8`, checked against the PR rather than assumed; `m2b-the-loop` is deleted
+locally and on the remote. The pre-merge invariant held — `git diff
+6a10bb6..HEAD --stat` listed one file, `docs/PROGRESS.md`, so the recorded CI
+result covered every line of code on the branch.
+
+**M2c is the slice with the most invariant risk in M2**, which is why
+`command-center.md` §1 put it third. Everything a resume says is a claim about a
+person, and I2 forbids storing any of it as fact without an explicit click. The
+enforcement is structural: proposals live in `resume_extractions`, confirmed
+facts live in `users` / `user_skills` / `user_projects`, and one module may
+write the second set.
+
+**One decision the human made on 2026-08-03, before planning:** resume input is
+**paste, PDF, and `.txt`**. PDF costs one dependency (`pypdf` — pure Python,
+MIT, no native libraries, no key, so `make demo` stays offline). `.docx` is not
+supported and the upload control says so by name. The confirmation screen shows
+the text the extractor actually read, which is what makes PDF safe to accept: a
+scrambled two-column extraction is visible rather than hidden behind a tidy
+form.
+
+### The M2b record, kept below
 
 **M2b is complete and M2's headline criterion is earned.** All three commands
 were run at the branch head and their counts are read from the output, not
