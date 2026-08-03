@@ -1,3 +1,5 @@
+import { Suspense } from 'react';
+
 import { ConfidenceLegend } from '@/components/ConfidenceLadder';
 import { CorpusReadout } from '@/components/CorpusReadout';
 import { JobList } from '@/components/JobList';
@@ -23,9 +25,17 @@ export default function ExplorePage() {
 
       <CorpusReadout />
 
-      <section className="border border-ink-700 bg-ink-900/40">
+      {/* JobList reads filter state from the URL via useSearchParams, which
+          requires a Suspense boundary — without one, `next build` fails. */}
+      <Suspense
+        fallback={
+          <p className="px-5 py-8 font-mono text-[11px] uppercase tracking-[0.14em] text-paper-faint">
+            Loading filters…
+          </p>
+        }
+      >
         <JobList />
-      </section>
+      </Suspense>
 
       <section className="border border-ink-700 bg-ink-900/40 p-5">
         <h2 className="font-mono text-[10px] uppercase tracking-[0.16em] text-paper-faint">
