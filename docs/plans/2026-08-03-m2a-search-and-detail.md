@@ -168,15 +168,24 @@ Extend `Job.__table_args__` with the new indexes (keep the existing entries):
         Index("ix_jobs_salary_max", "salary_max"),
 ```
 
-**Do not add the city index to the model.** `ix_job_locations_city_lower` is an
-index on the *expression* `lower(city)`, and Alembic's autogenerate does not
-reflect expression indexes — declaring it on `JobLocation.__table_args__` makes
-`alembic check` report a phantom diff on every subsequent run, and the usual
-reaction to that is a migration that drops and recreates it forever.
+**CORRECTED DURING EXECUTION, 2026-08-03.** This step originally said *"do not
+add the city index to the model"*, on the theory that Alembic cannot reflect
+expression indexes and would report a phantom diff. Measured, the opposite is
+true: with the index in the database and absent from the model, `alembic check`
+reports `remove_index` and **fails**, because autogenerate compares against a
+model that never mentions it.
 
-The migration owns this index outright (Step 4 creates it with raw SQL), and
-`test_index_exists` is what stops it silently disappearing. That test is the
-reason it is safe to keep the index out of the model.
+So declare it. Add to `JobLocation.__table_args__`:
+
+```python
+        # Expression index: the city filter compares lower(city), and a plain
+        # btree on `city` cannot serve that.
+        Index("ix_job_locations_city_lower", text("lower(city)")),
+```
+
+`text` is already imported in `models.py`. The migration still creates it with
+raw SQL (Step 4) because `op.create_index` has no clean expression form — both
+halves are needed, and `alembic check` is what proves they agree.
 
 - [ ] **Step 4: Write the migration**
 
