@@ -464,3 +464,65 @@ async def _job_state_snapshot(session: AsyncSession) -> tuple[int, ...]:
         )
     )
     return tuple(counts)
+
+
+@requires_db
+@pytest.mark.asyncio(loop_scope="session")
+class TestTierIsRecomputedByThePoll:
+    """The tier has to be updated by something, and the poll is the only thing
+    that knows the postings just changed."""
+
+    async def test_a_304_does_not_recompute_the_tier(self, db_session: AsyncSession) -> None:
+        """Nothing changed, so the postings the tier derives from cannot have
+        changed either. Recomputing would be a join per board per poll, bought
+        for no possible difference in the answer."""
+        await _a_board(db_session, token="datadog", tier=BoardTier.HOT)
+        await db_session.flush()
+
+        result = await poll_one_board(
+            db_session,
+            _adapter_returning(_not_modified()),
+            ats="greenhouse",
+            token="datadog",
+            now=utcnow(),
+        )
+
+        assert result.tier is BoardTier.HOT, "a 304 must leave the tier alone"
+
+    async def test_a_200_recomputes_the_tier(self, db_session: AsyncSession) -> None:
+        """A board with no NYC postings demotes on its next real poll, even if
+        it was hot before — which is the direction that keeps the hot tier from
+        growing to contain everything."""
+        await _a_board(db_session, token="datadog", tier=BoardTier.HOT)
+        await db_session.flush()
+
+        result = await poll_one_board(
+            db_session,
+            _adapter_returning(_listing()),
+            ats="greenhouse",
+            token="datadog",
+            now=utcnow(),
+        )
+
+        assert result.tier is BoardTier.WARM
+
+    async def test_the_new_tier_decides_the_next_interval(self, db_session: AsyncSession) -> None:
+        """Recomputed *before* next_poll_at, so a board promoted by this poll
+        starts behaving like a hot board now rather than a day from now."""
+        await _a_board(db_session, token="datadog", tier=BoardTier.HOT)
+        await db_session.flush()
+
+        now = utcnow()
+        result = await poll_one_board(
+            db_session,
+            _adapter_returning(_listing()),
+            ats="greenhouse",
+            token="datadog",
+            now=now,
+        )
+
+        assert result.tier is BoardTier.WARM
+        assert result.next_poll_at == now + next_interval(BoardTier.WARM), (
+            "the interval must follow the tier this poll just derived, not the one "
+            "the board arrived with"
+        )

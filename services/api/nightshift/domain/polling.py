@@ -42,6 +42,7 @@ from nightshift.db.base import BoardTier, SourceType
 from nightshift.db.models import BoardPollState
 from nightshift.domain.ingestion import get_or_create_source, ingest_boards
 from nightshift.domain.registry import get_registry
+from nightshift.domain.tiers import derive_tier
 
 log = structlog.get_logger(__name__)
 
@@ -275,13 +276,25 @@ async def poll_one_board(
         state.last_success_at = now
         state.consecutive_failures = 0
         state.last_error = None
-        state.last_status = 304 if token in stats.not_modified else 200
+        not_modified = token in stats.not_modified
+        state.last_status = 304 if not_modified else 200
         # A 304 carries no new ETag, so keep the one that earned it.
         served = stats.etags.get(token)
         if served is not None:
             state.etag = served
         # Only now is the stored ETag known to belong to this parser.
         state.parser_version = adapter.parser_version
+
+        if not not_modified:
+            # Recomputed before `next_poll_at`, so a board promoted by this very
+            # poll gets its hourly interval immediately rather than waiting a
+            # day to start behaving like a hot board.
+            #
+            # Deliberately skipped on a 304: nothing changed, so the postings
+            # this is derived from cannot have changed either, and the query is
+            # not free at scale.
+            state.tier = await derive_tier(session, source_id=source.id, token=token, now=now)
+
         state.next_poll_at = now + next_interval(state.tier)
 
     await session.flush()
