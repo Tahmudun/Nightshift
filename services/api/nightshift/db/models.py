@@ -799,8 +799,16 @@ class ApplicationEvent(UUIDPrimaryKeyMixin, Base):
     payload: Mapped[dict[str, Any]] = mapped_column(
         JSONB, nullable=False, server_default=text("'{}'::jsonb")
     )
+    #: `clock_timestamp()`, not `now()`. `now()` is the *transaction* timestamp
+    #: and is identical for every row written in one transaction, so two events
+    #: from a single request would be indistinguishable in write order and the
+    #: timeline would fall back to ordering by a random UUID. Measured: three
+    #: inserts in one transaction produce 1 distinct `now()` and 3 distinct
+    #: `clock_timestamp()`. Every other table in this schema keeps `now()`,
+    #: which is correct for them — this is the only append-only log where the
+    #: order rows were written is itself the data.
     created_at: Mapped[datetime] = mapped_column(
-        UTCDateTime, nullable=False, server_default=text("now()")
+        UTCDateTime, nullable=False, server_default=text("clock_timestamp()")
     )
 
     application: Mapped[Application] = relationship(back_populates="events")

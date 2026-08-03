@@ -164,10 +164,13 @@ def upgrade() -> None:
             server_default=sa.text("'{}'::jsonb"),
             nullable=False,
         ),
+        # clock_timestamp(), not now(). See the model comment: now() is the
+        # transaction timestamp, so events written in one transaction would be
+        # indistinguishable in write order.
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
+            server_default=sa.text("clock_timestamp()"),
             nullable=False,
         ),
         sa.Column("id", sa.UUID(), server_default=sa.text("gen_random_uuid()"), nullable=False),
