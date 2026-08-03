@@ -60,6 +60,7 @@ from nightshift.db.models import (
     SourceJobRecord,
 )
 from nightshift.db.types import utcnow
+from nightshift.domain.applications import record_listing_closed
 from nightshift.domain.companies import normalize_company_name
 from nightshift.domain.dedupe import (
     DEDUPE_RULESET_VERSION,
@@ -898,6 +899,10 @@ async def apply_freshness(
         job.closed_at = now if decision.status is JobStatus.CLOSED else None
         if decision.status is JobStatus.CLOSED:
             closed += 1
+            # I5: the person tracking this role finds out; the system does not
+            # decide for them. `record_listing_closed` writes an event with a
+            # `system` actor, which the database will not let carry a stage.
+            await record_listing_closed(session, job_id=job.id, now=now, reason=decision.reason)
 
     await session.flush()
     return closed

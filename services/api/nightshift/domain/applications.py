@@ -315,3 +315,43 @@ async def set_archived(
     session.add(event)
     await session.flush()
     return event
+
+
+async def record_listing_closed(
+    session: AsyncSession, *, job_id: UUID, now: datetime, reason: str
+) -> int:
+    """Tell every live application tracking this job that its listing closed.
+
+    A fact about the world, recorded with a ``system`` actor. The stage does not
+    move, and cannot: ``application_events`` has a check constraint refusing a
+    ``to_stage`` from any actor but ``user`` (invariant I5). The UI surfaces a
+    prompt; the person decides.
+
+    Archived applications are skipped — a notification about a role somebody put
+    away is noise, and noise is what makes real prompts get ignored.
+
+    Returns how many applications were notified, so the caller can report it.
+    """
+    applications = (
+        (
+            await session.execute(
+                select(Application).where(
+                    Application.job_id == job_id, Application.archived_at.is_(None)
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for application in applications:
+        session.add(
+            _event(
+                application,
+                event_type=ApplicationEventType.LISTING_CLOSED,
+                actor=EventActor.SYSTEM,
+                occurred_at=now,
+                body=f"the source stopped listing this role: {reason}",
+            )
+        )
+    await session.flush()
+    return len(applications)
