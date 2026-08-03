@@ -48,23 +48,56 @@ class TestTheCommittedRegistry:
         registry = load_registry()
         assert len(registry.boards) >= 1
 
-    def test_the_pollable_set_is_exactly_these_three_boards(self) -> None:
-        """Closed-set check: nothing may become pollable except by editing this line.
+    #: The boards a human wrote by hand, before discovery existed. The closed
+    #: set below covers exactly these, and nothing else, on purpose.
+    CURATED = frozenset(
+        {
+            ("greenhouse", "datadog"),
+            ("greenhouse", "stripe"),
+            ("lever", "alloy"),
+            ("ashby", "ramp"),
+        }
+    )
 
-        Replaces the old M0-era `len(pollable) == 1` (that count was the milestone
-        constraint this task lifts), but keeps its real property — a board flipped
-        to `active` in the registry without a matching edit here must fail loudly.
-        Stripe in particular sits at `status: disabled` pending the closure state
-        machine; if this test does not catch it turning `active`, nothing else in
-        this file will (`TestPollability` only exercises synthetic registries).
+    def test_the_hand_curated_boards_are_exactly_these(self) -> None:
+        """Closed-set check over the boards a human wrote by hand.
+
+        This used to enumerate *every* pollable board. That stopped scaling the
+        moment the registry began being filled by a pipeline (ADR 0005): at a
+        few hundred entries the list is a rubber stamp, and a control nobody
+        performs is worse than a weaker one that runs.
+
+        What still matters is that a board a human deliberately turned off
+        cannot come back silently. `Stripe` sits at `status: disabled` and
+        nothing else in this file would catch it turning `active`.
         """
-        expected = {("greenhouse", "datadog"), ("lever", "alloy"), ("ashby", "ramp")}
-        actual = {(entry.ats, entry.token) for entry in load_registry().pollable()}
-        assert actual == expected, (
-            f"pollable set changed: gained {actual - expected}, "
-            f"lost {expected - actual}. If this is intentional (a board was "
-            f"added/removed/re-enabled), update `expected` above to match."
-        )
+        pollable = {(e.ats, e.token) for e in load_registry().pollable()}
+        assert pollable & self.CURATED == {
+            ("greenhouse", "datadog"),
+            ("lever", "alloy"),
+            ("ashby", "ramp"),
+        }, "a hand-curated board changed status without this test being updated"
+
+    def test_every_other_pollable_board_records_how_it_got_there(self) -> None:
+        """A board that reached `active` without going through ADR 0005's
+        approval gate has no audit trail, and a hand-added one is exactly what
+        the gate exists to prevent. The provenance is in `notes`, written by
+        `promote`, so this fails for a board somebody typed in directly."""
+        for entry in load_registry().pollable():
+            if (entry.ats, entry.token) in self.CURATED:
+                continue
+            assert entry.notes and "ADR 0005" in entry.notes, (
+                f"{entry.ats}:{entry.token} is pollable but records no approval"
+            )
+
+    def test_stripe_is_still_disabled(self) -> None:
+        """Named separately from the set check above, because this is the case
+        that motivated having one: its note reads "enable once the freshness and
+        closure state machine lands", and M1d is that milestone. Enabling it is
+        a human's decision, not a side effect of finishing the work."""
+        stripe = load_registry().by_token("greenhouse", "stripe")
+        assert stripe is not None
+        assert stripe.status is BoardStatus.DISABLED
 
     def test_datadogs_m0_board_is_still_pollable(self) -> None:
         """A6: M0's one board must keep resolving as M1 adds breadth around it."""

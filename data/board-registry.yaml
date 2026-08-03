@@ -88,3 +88,174 @@ boards:
       NOT in the API response — it comes from this entry, per ADR 0005 and
       board-discovery.md §3. Also the source of the project's first real
       internship postings; the Datadog board had none.
+
+  - company: a16z New Media
+    ats: ashby
+    token: a16z-new-media
+    added: '2026-08-03'
+    verified_at: '2026-08-02'
+    status: active
+    nyc_presence: true
+    notes: Discovered by crawl_index and approved in bulk on 2026-08-03 (ADR 0005). 25 posting(s) at validation, 13 naming NYC.
+
+  - company: 9fin
+    ats: ashby
+    token: 9fin
+    added: '2026-08-03'
+    verified_at: '2026-08-02'
+    status: active
+    nyc_presence: true
+    notes: Discovered by crawl_index and approved in bulk on 2026-08-03 (ADR 0005). 40 posting(s) at validation, 12 naming NYC.
+
+  - company: 3i Members
+    ats: ashby
+    token: 3imembers
+    added: '2026-08-03'
+    verified_at: '2026-08-02'
+    status: active
+    nyc_presence: true
+    notes: Discovered by crawl_index and approved in bulk on 2026-08-03 (ADR 0005). 8 posting(s) at validation, 5 naming NYC.
+
+  - company: Abacum
+    ats: ashby
+    token: abacum
+    added: '2026-08-03'
+    verified_at: '2026-08-02'
+    status: active
+    nyc_presence: true
+    notes: Discovered by crawl_index and approved in bulk on 2026-08-03 (ADR 0005). 18 posting(s) at validation, 5 naming NYC.
+
+  - company: Aaron School
+    ats: ashby
+    token: Aaron-School
+    added: '2026-08-03'
+    verified_at: '2026-08-02'
+    status: active
+    nyc_presence: true
+    notes: Discovered by crawl_index and approved in bulk on 2026-08-03 (ADR 0005). 2 posting(s) at validation, 2 naming NYC.
+
+  - company: 1Password
+    ats: ashby
+    token: 1password
+    added: '2026-08-03'
+    verified_at: '2026-08-02'
+    status: active
+    nyc_presence: true
+    notes: Discovered by crawl_index and approved in bulk on 2026-08-03 (ADR 0005). 68 posting(s) at validation, 1 naming NYC.
+
+  - company: 0g Labs
+    ats: ashby
+    token: 0g
+    added: '2026-08-03'
+    verified_at: '2026-08-02'
+    status: active
+    nyc_presence: false
+    notes: Discovered by crawl_index and approved in bulk on 2026-08-03 (ADR 0005). 3 posting(s) at validation, 0 naming NYC.
+
+  - company: 10x Team
+    ats: ashby
+    token: 10xteam
+    added: '2026-08-03'
+    verified_at: '2026-08-02'
+    status: active
+    nyc_presence: false
+    notes: Discovered by crawl_index and approved in bulk on 2026-08-03 (ADR 0005). 133 posting(s) at validation, 0 naming NYC.
+
+  - company: 1X
+    ats: ashby
+    token: 1x
+    added: '2026-08-03'
+    verified_at: '2026-08-02'
+    status: active
+    nyc_presence: false
+    notes: Discovered by crawl_index and approved in bulk on 2026-08-03 (ADR 0005). 81 posting(s) at validation, 0 naming NYC.
+
+  - company: 1bios
+    ats: ashby
+    token: 1bios
+    added: '2026-08-03'
+    verified_at: '2026-08-02'
+    status: active
+    nyc_presence: false
+    notes: Discovered by crawl_index and approved in bulk on 2026-08-03 (ADR 0005). 2 posting(s) at validation, 0 naming NYC.
+
+  - company: 1mind
+    ats: ashby
+    token: 1mind
+    added: '2026-08-03'
+    verified_at: '2026-08-02'
+    status: active
+    nyc_presence: false
+    notes: Discovered by crawl_index and approved in bulk on 2026-08-03 (ADR 0005). 9 posting(s) at validation, 0 naming NYC.
+
+  - company: 42dot
+    ats: ashby
+    token: 42dot
+    added: '2026-08-03'
+    verified_at: '2026-08-02'
+    status: active
+    nyc_presence: false
+    notes: Discovered by crawl_index and approved in bulk on 2026-08-03 (ADR 0005). 114 posting(s) at validation, 0 naming NYC.
+
+  - company: 5Blue Software
+    ats: ashby
+    token: 5bluesoftware
+    added: '2026-08-03'
+    verified_at: '2026-08-02'
+    status: active
+    nyc_presence: false
+    notes: Discovered by crawl_index and approved in bulk on 2026-08-03 (ADR 0005). 5 posting(s) at validation, 0 naming NYC.
+
+  - company: 8Fleet Inc.
+    ats: ashby
+    token: 8fleet-inc
+    added: '2026-08-03'
+    verified_at: '2026-08-02'
+    status: active
+    nyc_presence: false
+    notes: Discovered by crawl_index and approved in bulk on 2026-08-03 (ADR 0005). 29 posting(s) at validation, 0 naming NYC.
+
+  - company: 8VC
+    ats: ashby
+    token: 8vc
+    added: '2026-08-03'
+    verified_at: '2026-08-02'
+    status: active
+    nyc_presence: false
+    notes: Discovered by crawl_index and approved in bulk on 2026-08-03 (ADR 0005). 4 posting(s) at validation, 0 naming NYC.
+
+  - company: 9 Mothers
+    ats: ashby
+    token: 9-mothers
+    added: '2026-08-03'
+    verified_at: '2026-08-02'
+    status: active
+    nyc_presence: false
+    notes: Discovered by crawl_index and approved in bulk on 2026-08-03 (ADR 0005). 13 posting(s) at validation, 0 naming NYC.
+
+  - company: A Place for Mom
+    ats: ashby
+    token: a-place-for-mom
+    added: '2026-08-03'
+    verified_at: '2026-08-02'
+    status: active
+    nyc_presence: false
+    notes: Discovered by crawl_index and approved in bulk on 2026-08-03 (ADR 0005). 56 posting(s) at validation, 0 naming NYC.
+
+  - company: A.Team
+    ats: ashby
+    token: a-team
+    added: '2026-08-03'
+    verified_at: '2026-08-02'
+    status: active
+    nyc_presence: false
+    notes: Discovered by crawl_index and approved in bulk on 2026-08-03 (ADR 0005). 3 posting(s) at validation, 0 naming NYC.
+
+  - company: Abound
+    ats: ashby
+    token: abound
+    added: '2026-08-03'
+    verified_at: '2026-08-02'
+    status: active
+    nyc_presence: false
+    notes: Discovered by crawl_index and approved in bulk on 2026-08-03 (ADR 0005). 27 posting(s) at validation, 0 naming NYC.
