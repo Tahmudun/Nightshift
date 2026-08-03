@@ -177,6 +177,32 @@ class JobStatusCounts(BaseModel):
     closed: int = 0
 
 
+class CompanyRowOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    canonical_name: str
+    website: str | None
+    job_count: int
+
+
+class CompanyListOut(BaseModel):
+    items: list[CompanyRowOut]
+    total: int
+    limit: int
+    offset: int
+
+
+class CompanyDetailOut(BaseModel):
+    id: UUID
+    canonical_name: str
+    website: str | None
+    job_status_counts: JobStatusCounts
+    # Ours, not the source's. This is when *we* first saw a role from this
+    # employer, and it is never presented as when they started hiring (A10).
+    first_seen_at: datetime | None
+
+
 class SourceHealthOut(BaseModel):
     """§2.6: source reliability must be visible, and visible on the bad days."""
 
