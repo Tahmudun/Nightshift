@@ -33,15 +33,28 @@ secret scan    11s
 `headSha` on the run is `75d9ab798a46b1a49602adacffe3575fbe862b87`, checked
 against the PR head rather than assumed.
 
-**That check found something worth keeping.** The first green run was at
-`4106072`, and two docs commits landed after it — so for a while this file
-claimed "CI-green" beside a SHA that was no longer the head of the branch a
-human would merge. The claim was literally true and specific, which is exactly
-why it was survivable; a bare "CI is green" would have been quietly wrong. The
-diff was documentation only and the re-run was green, but the general rule
-stands and this project has been bitten by its stronger form before: PROGRESS
-once carried a CI-green line that predated twenty-one commits of real work.
-**Name the commit, and check the commit you named is the one being merged.**
+**That check found something worth keeping, and then a regress worth naming.**
+The first green run was at `4106072`; two docs commits landed after it, so this
+file briefly claimed "CI-green" beside a SHA that was no longer the branch head.
+Re-running fixed that — and the commit recording the re-run moved the head past
+the SHA *it* recorded. Chasing this converges on nothing: **any commit that
+writes down a CI result invalidates its own claim.**
+
+So the invariant is stated rather than chased. `75d9ab7` is **the last commit
+containing anything CI executes.** Every commit after it on this branch touches
+`docs/` only, which is verifiable in one command:
+
+```
+git diff --stat 75d9ab7..HEAD    # must list nothing outside docs/
+```
+
+If that shows a file under `apps/`, `services/`, `infra/`, `data/` or the
+Makefile, the recorded result does not cover the branch and CI must run again.
+That is the check to perform before merging, and it is cheap.
+
+The stronger form of this mistake has bitten this project before: PROGRESS once
+carried a CI-green line that predated twenty-one commits of real work. The rule
+that prevents it is **name the commit, and say what may follow it.**
 
 **804 in CI matches 804 locally**, so the database-backed tests really ran there
 too. The single e2e skip is honest: `an unchanged board is not presented as a
