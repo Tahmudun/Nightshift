@@ -210,6 +210,11 @@ class Job(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Index("ix_jobs_remote_policy", "remote_policy"),
         Index("ix_jobs_first_seen_at", "first_seen_at"),
         Index("ix_jobs_salary_max", "salary_max"),
+        # Both bounds, because the salary floor is an OR across the pair and
+        # Postgres needs an index on each side to build a BitmapOr. With only
+        # salary_max indexed the whole filter falls back to a sequential scan —
+        # found by tests/test_query_plans.py, not by reading the code.
+        Index("ix_jobs_salary_min", "salary_min"),
         CheckConstraint(
             "salary_min IS NULL OR salary_max IS NULL OR salary_min <= salary_max",
             name="salary_range_ordered",

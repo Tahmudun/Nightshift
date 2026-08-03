@@ -16,19 +16,23 @@ from tests.conftest import requires_db
 pytestmark = [requires_db, pytest.mark.asyncio(loop_scope="session")]
 
 
-async def test_search_vector_column_exists_and_is_generated(db_session: AsyncSession) -> None:
+@pytest.mark.parametrize("column", ["search_vector", "title_vector"])
+async def test_search_vector_column_exists_and_is_generated(
+    db_session: AsyncSession, column: str
+) -> None:
     row = (
         await db_session.execute(
             text(
                 """
                 SELECT data_type, is_generated
                 FROM information_schema.columns
-                WHERE table_name = 'jobs' AND column_name = 'search_vector'
+                WHERE table_name = 'jobs' AND column_name = :column
                 """
-            )
+            ),
+            {"column": column},
         )
     ).one_or_none()
-    assert row is not None, "jobs.search_vector is missing"
+    assert row is not None, f"jobs.{column} is missing"
     data_type, is_generated = row
     assert data_type == "tsvector"
     # ALWAYS, not NEVER: a column the application has to remember to update is
@@ -40,10 +44,14 @@ async def test_search_vector_column_exists_and_is_generated(db_session: AsyncSes
     "index_name",
     [
         "ix_jobs_search_vector",
+        "ix_jobs_title_vector",
         "ix_jobs_employment_type",
         "ix_jobs_remote_policy",
         "ix_jobs_first_seen_at",
         "ix_jobs_salary_max",
+        # Both salary bounds: the floor is an OR across the pair, and Postgres
+        # needs an index on each side to build a BitmapOr rather than scanning.
+        "ix_jobs_salary_min",
         "ix_job_locations_city_lower",
     ],
 )
