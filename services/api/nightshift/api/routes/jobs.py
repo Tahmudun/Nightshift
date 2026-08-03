@@ -1,9 +1,13 @@
 """Job read routes.
 
 Routes validate and delegate (CLAUDE.md §3). The mapping from ORM rows to
-response models lives in ``_to_summary`` / ``_to_detail`` here because it is
+response models lives in ``to_summary`` / ``_to_detail`` here because it is
 serialisation, not domain logic; anything that makes a *decision* about a job
 belongs in ``nightshift.domain``.
+
+``to_summary`` is public rather than underscored because
+``routes/applications.py`` reuses it: one row, one serialiser. Two mappings of
+the same row drift, and they drift silently.
 """
 
 from __future__ import annotations
@@ -86,7 +90,7 @@ def _to_location(row: JobLocation) -> JobLocationOut:
     )
 
 
-def _to_summary(job: Job) -> JobSummaryOut:
+def to_summary(job: Job) -> JobSummaryOut:
     return JobSummaryOut(
         id=job.id,
         title=job.title,
@@ -187,7 +191,7 @@ async def list_jobs(
     )
 
     return JobListOut(
-        items=[_to_summary(job) for job in rows],
+        items=[to_summary(job) for job in rows],
         total=total,
         limit=limit,
         offset=offset,
@@ -333,7 +337,7 @@ async def get_job(
         .all()
     )
 
-    summary = _to_summary(job)
+    summary = to_summary(job)
     return JobDetailOut(
         **summary.model_dump(),
         description_text=job.description_text,
