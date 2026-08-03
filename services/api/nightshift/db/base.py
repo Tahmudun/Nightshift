@@ -109,6 +109,24 @@ class SourceStatus(enum.StrEnum):
     REMOVED = "removed"
 
 
+class BoardTier(enum.StrEnum):
+    """How often a board is polled (ADR 0007).
+
+    Derived from ingested postings, never hand-set: a board is ``hot`` because
+    of what its postings said, not because someone ticked a flag in the
+    registry YAML.
+
+    **A weekly tier was considered and rejected**, and this closed set is where
+    that decision lives. Daily on the long tail is what keeps "the day of" true
+    for a company posting its first NYC role; at weekly, that role could sit
+    unseen for six days, which breaks the one promise the product makes. Adding
+    a third member should mean reopening ADR 0007.
+    """
+
+    HOT = "hot"
+    WARM = "warm"
+
+
 class SourceType(enum.StrEnum):
     ATS_GREENHOUSE = "ats_greenhouse"
     ATS_LEVER = "ats_lever"

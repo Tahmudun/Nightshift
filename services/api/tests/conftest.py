@@ -124,6 +124,11 @@ _INGESTION_TABLES = (
     "job_locations",
     "ingestion_runs",
     "source_job_records",
+    # M1d. Added because the no-CASCADE choice below refused to truncate the
+    # moment this table started referencing `sources` — which is the third
+    # milestone running that this list has been kept correct by the database
+    # rather than by somebody remembering.
+    "board_poll_state",
     "jobs",
     "companies",
     "sources",

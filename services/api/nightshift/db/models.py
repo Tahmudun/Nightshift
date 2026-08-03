@@ -45,6 +45,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from nightshift.db.base import (
     Base,
+    BoardTier,
     EmploymentType,
     IngestionRunStatus,
     JobStatus,
@@ -536,3 +537,84 @@ class JobMergeEvent(UUIDPrimaryKeyMixin, Base):
     created_at: Mapped[datetime] = mapped_column(
         UTCDateTime, nullable=False, server_default=text("now()")
     )
+
+
+class BoardPollState(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """What polling knows about one board. M1d, ADR 0007.
+
+    ``data/board-registry.yaml`` stays the declarative source of *which* boards
+    exist; this is runtime knowledge *about* them. Two separate tables of
+    knowledge, and the name is chosen so they cannot be mistaken for each other:
+    nothing here decides whether a board should be polled, only when it was and
+    when it is next due.
+
+    **Freshness for display reads from here, not from each posting.** A board
+    that answers ``304`` for sixty days leaves its postings' ``last_seen_at``
+    sixty days old while those postings are open and correctly so — no misses
+    were taken. "How long since we actually heard from this board" is
+    ``last_success_at`` on this row, and computing it from posting timestamps
+    would report a healthy board as stale.
+    """
+
+    __tablename__ = "board_poll_state"
+    __table_args__ = (
+        # One row per board. Two would mean two schedules, double the requests
+        # against one provider, and — once polling is queue-driven — two workers
+        # writing the same ETag over each other. On the pair, not the token:
+        # `ramp` on Ashby and `ramp` on Greenhouse are different employers.
+        UniqueConstraint("ats", "token", name="uq_board_poll_state_ats_token"),
+        # The scheduler's only query (design §7).
+        Index("ix_board_poll_state_next_poll_at", "next_poll_at"),
+    )
+
+    source_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("sources.id", ondelete="RESTRICT"), nullable=False
+    )
+    ats: Mapped[str] = mapped_column(String(50), nullable=False)
+    token: Mapped[str] = mapped_column(String(200), nullable=False)
+
+    #: The last ETag the provider served for this board's listing. NULL means
+    #: "never polled", which is different from "polled and served none" only in
+    #: that both poll unconditionally — so one column says both honestly.
+    #:
+    #: 500 chars because the three providers measured 36, 37 and 78 (2026-08-02)
+    #: and Ashby's is content-addressed, so it grows with whatever it hashes. A
+    #: truncated ETag never matches, which means every poll is a full fetch and
+    #: nothing anywhere says why.
+    etag: Mapped[str | None] = mapped_column(String(500))
+    #: ADR 0007: a stored ETag is only valid for the parser that earned it. When
+    #: this differs from the adapter's current `parser_version` the ETag is
+    #: discarded and the poll proceeds unconditionally — otherwise a parser
+    #: change plus a provider that keeps answering 304 means the new parser
+    #: never sees the payload it was written for, silently and indefinitely.
+    parser_version: Mapped[str] = mapped_column(String(20), nullable=False)
+
+    tier: Mapped[BoardTier] = mapped_column(
+        _enum(BoardTier, "board_tier"),
+        nullable=False,
+        # Warm by default. Hot is earned from ingested postings; defaulting to
+        # hourly would poll every discovered board 24x more than ADR 0007
+        # budgeted for, against providers who have been generous with
+        # unauthenticated access.
+        server_default=BoardTier.WARM.value,
+    )
+    next_poll_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+
+    #: Every poll, including the ones that failed and the ones that 304'd.
+    last_polled_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    #: Only a 200 or a 304 moves this. Kept separate from `last_polled_at`
+    #: because a failing board is still polled, and collapsing the two makes
+    #: "how long since this board actually answered" unanswerable — which is
+    #: the one question the source health page exists to answer.
+    last_success_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    last_status: Mapped[int | None] = mapped_column(Integer)
+    #: Cleared on success, so a stale error cannot outlive the failure.
+    last_error: Mapped[str | None] = mapped_column(Text)
+    #: Drives per-board backoff. A dead board pushes itself out and stops
+    #: costing requests without anyone having to disable it — and keeps its
+    #: registry entry, because A1 deletes nothing.
+    consecutive_failures: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("0")
+    )
+
+    source: Mapped[Source] = relationship()
