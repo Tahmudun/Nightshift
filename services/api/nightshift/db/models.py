@@ -205,6 +205,7 @@ class Job(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         # M2a's filter set. Every one of these is a sequential scan without an
         # index, and `tests/test_query_plans.py` asserts each stays servable.
         Index("ix_jobs_search_vector", "search_vector", postgresql_using="gin"),
+        Index("ix_jobs_title_vector", "title_vector", postgresql_using="gin"),
         Index("ix_jobs_employment_type", "employment_type"),
         Index("ix_jobs_remote_policy", "remote_policy"),
         Index("ix_jobs_first_seen_at", "first_seen_at"),
@@ -284,6 +285,23 @@ class Job(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             "to_tsvector('english', coalesce(title, '') || ' ' || coalesce(description_text, ''))",
             persisted=True,
         ),
+        nullable=False,
+    )
+
+    # Title only, and it is the *default* search target. Measured on the
+    # recorded Alloy board: searching the description for "developer" returns
+    # all nine postings, because it stems to 'develop' and every description
+    # says "business development" or "professional development" somewhere.
+    #
+    # That is not a bug in the index — it is what full-text search over long
+    # documents does without relevance ranking to sort the noise down. Ranking
+    # is M3 (PRODUCT-SPEC §24), so until it exists the honest default is the
+    # field a person means when they type a job title, and `search_vector`
+    # above is opt-in for the case where they want to find a rare term like
+    # "Kubernetes" that only ever appears in the body.
+    title_vector: Mapped[Any] = mapped_column(
+        TSVECTOR,
+        Computed("to_tsvector('english', coalesce(title, ''))", persisted=True),
         nullable=False,
     )
 

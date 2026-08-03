@@ -491,3 +491,181 @@ class TestBoardPollStateRoute:
         body = (await client.get("/boards")).json()
 
         assert all(row["tier"] in {"hot", "warm"} for row in body)
+
+
+# --- M2a: search and filters -------------------------------------------------
+#
+# The seeded board is Alloy (Lever), nine postings: Customer Success Manager,
+# Account Executive and one Software Developer, in Denver / Vancouver /
+# Washington / Remote. There is deliberately no "engineer" in this corpus —
+# these tests derive their expectations from what is actually ingested rather
+# than from a title somebody hoped would be there.
+
+
+async def test_text_search_matches_a_title_word(seeded_client: AsyncClient) -> None:
+    response = await seeded_client.get("/jobs", params={"q": "developer"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] >= 1
+    for item in body["items"]:
+        assert "developer" in item["title"].lower()
+
+
+async def test_text_search_narrows_rather_than_returning_everything(
+    seeded_client: AsyncClient,
+) -> None:
+    """The failure this catches is a filter silently ignored by the route,
+    which looks like a working search returning suspiciously good results."""
+    everything = (await seeded_client.get("/jobs")).json()["total"]
+    narrowed = (await seeded_client.get("/jobs", params={"q": "developer"})).json()["total"]
+    assert 0 < narrowed < everything
+
+
+async def test_searching_descriptions_is_opt_in_and_much_wider(
+    seeded_client: AsyncClient,
+) -> None:
+    """The measurement that decided the default, pinned so it cannot drift back.
+
+    'developer' stems to 'develop', and every one of the nine recorded Alloy
+    descriptions contains "business development" or "professional development".
+    So the description-wide search returns the whole board while the title
+    search returns one posting. Without relevance ranking (M3) a
+    description-wide *default* is a search box that does nothing, which is why
+    it is opt-in.
+    """
+    title_only = (await seeded_client.get("/jobs", params={"q": "developer"})).json()
+    widened = (
+        await seeded_client.get("/jobs", params={"q": "developer", "include_description": "true"})
+    ).json()
+
+    assert title_only["total"] == 1
+    assert widened["total"] == 9
+    assert title_only["items"][0]["title"] == "Software Developer, Full Stack"
+
+
+async def test_a_body_only_term_is_findable_when_you_ask_for_it(
+    seeded_client: AsyncClient,
+) -> None:
+    """The reason the wide search still exists: a term that appears only in the
+    description is unreachable from the title index, and sometimes that term is
+    exactly what you are looking for."""
+    # Appears in three of the nine recorded descriptions and in none of the
+    # titles, measured from the fixture rather than guessed.
+    body_term = "playbooks"
+    title_only = (await seeded_client.get("/jobs", params={"q": body_term})).json()
+    widened = (
+        await seeded_client.get("/jobs", params={"q": body_term, "include_description": "true"})
+    ).json()
+    assert title_only["total"] == 0
+    assert widened["total"] >= 1
+
+
+async def test_a_blank_query_returns_the_corpus(seeded_client: AsyncClient) -> None:
+    """An empty search box is not a filter. This is the regression that turns
+    a search page into a permanently empty one."""
+    everything = (await seeded_client.get("/jobs")).json()["total"]
+    blank = (await seeded_client.get("/jobs", params={"q": "   "})).json()["total"]
+    assert blank == everything
+
+
+async def test_text_search_does_not_raise_on_punctuation_a_person_typed(
+    seeded_client: AsyncClient,
+) -> None:
+    """websearch_to_tsquery tolerates this; plainto_tsquery would not."""
+    for typed in ['"customer success"', "manager -senior", "c++", "&&&"]:
+        response = await seeded_client.get("/jobs", params={"q": typed})
+        assert response.status_code == 200, f"{typed!r} produced {response.status_code}"
+
+
+async def test_the_city_filter_matches_what_the_source_wrote(
+    seeded_client: AsyncClient,
+) -> None:
+    """Derived from the corpus: whatever city the first located job names, a
+    filter on it must return only jobs naming that city."""
+    listing = (await seeded_client.get("/jobs")).json()["items"]
+    cities = [loc["city"] for job in listing for loc in job["locations"] if loc["city"]]
+    assert cities, "no located job in the seed — this test would pass vacuously"
+    target = cities[0]
+
+    body = (await seeded_client.get("/jobs", params={"city": target})).json()
+    assert body["total"] >= 1
+    for item in body["items"]:
+        assert target.lower() in {(loc["city"] or "").lower() for loc in item["locations"]}
+
+
+async def test_the_city_filter_is_case_insensitive(seeded_client: AsyncClient) -> None:
+    listing = (await seeded_client.get("/jobs")).json()["items"]
+    cities = [loc["city"] for job in listing for loc in job["locations"] if loc["city"]]
+    target = cities[0]
+    upper = (await seeded_client.get("/jobs", params={"city": target.upper()})).json()
+    lower = (await seeded_client.get("/jobs", params={"city": target.lower()})).json()
+    assert upper["total"] == lower["total"] >= 1
+
+
+async def test_a_salary_floor_reports_what_it_hid(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """A10: most postings state no salary, so a floor that silently removed
+    them would misrepresent the corpus. The count is the honesty.
+
+    Seeds its own corpus rather than using ``seeded_client``: every one of the
+    nine recorded Alloy postings carries a ``salaryRange``, so against that
+    board the excluded count is legitimately zero and the assertion could never
+    fail. Half the postings here have the field stripped.
+    """
+    payload = json.loads((FIXTURES / "lever" / "alloy_board.json").read_text())
+    for entry in payload[:4]:
+        entry.pop("salaryRange", None)
+    await _ingest_alloy(db_session, jobs=payload)
+    await db_session.flush()
+
+    body = (await client.get("/jobs", params={"salary_at_least": 1})).json()
+    assert body["excluded_no_salary"] == 4
+    assert body["total"] == 5
+    for item in body["items"]:
+        assert item["salary"]["provided"] is True
+
+
+async def test_no_salary_filter_means_no_exclusion_count(seeded_client: AsyncClient) -> None:
+    body = (await seeded_client.get("/jobs")).json()
+    assert body["excluded_no_salary"] == 0
+
+
+async def test_filters_compose(seeded_client: AsyncClient) -> None:
+    """Two filters must intersect, not union — the classic and silent bug."""
+    open_only = (await seeded_client.get("/jobs", params={"status": "open"})).json()["total"]
+    both = (await seeded_client.get("/jobs", params={"status": "open", "q": "developer"})).json()[
+        "total"
+    ]
+    assert both <= open_only
+
+
+async def test_the_response_names_the_filters_it_will_not_fake(
+    seeded_client: AsyncClient,
+) -> None:
+    body = (await seeded_client.get("/jobs")).json()
+    names = {entry["name"] for entry in body["deferred_filters"]}
+    assert "match_score" in names
+    assert "borough" in names
+    borough = next(e for e in body["deferred_filters"] if e["name"] == "borough")
+    assert borough["blocked_on"] == "M4"
+
+
+async def test_an_unknown_employment_type_is_rejected_not_ignored(
+    seeded_client: AsyncClient,
+) -> None:
+    """A typo'd filter that returns everything is worse than an error: it looks
+    like an answer."""
+    response = await seeded_client.get("/jobs", params={"employment_type": "part_time_ish"})
+    assert response.status_code == 422
+
+
+async def test_the_source_filter_reaches_through_provenance(
+    seeded_client: AsyncClient,
+) -> None:
+    """The seed ingests under a source named 'lever_test'."""
+    body = (await seeded_client.get("/jobs", params={"source": "lever"})).json()
+    assert body["total"] == (await seeded_client.get("/jobs")).json()["total"]
+    assert (await seeded_client.get("/jobs", params={"source": "nosuchsource"})).json()[
+        "total"
+    ] == 0

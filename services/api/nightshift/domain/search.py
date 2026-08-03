@@ -46,6 +46,14 @@ class JobSearchQuery(BaseModel):
     """Everything M2a can filter on, and nothing it cannot."""
 
     q: str | None = None
+    # Widens `q` from the title to the title-plus-description vector. Off by
+    # default, and the reason is measured rather than assumed: on the recorded
+    # Alloy board `q=developer` matches all nine postings through the
+    # description, because it stems to 'develop' and every description says
+    # "business development" somewhere. Without relevance ranking (M3,
+    # PRODUCT-SPEC §24) a description-wide default returns the corpus in
+    # recency order, which is a search box that does nothing.
+    include_description: bool = False
     company: str | None = None
     city: str | None = None
     employment_type: EmploymentType | None = None
@@ -119,9 +127,9 @@ def build_filters(query: JobSearchQuery) -> list[ColumnElement[bool]]:
         # websearch_to_tsquery, not plainto_tsquery: it understands quoted
         # phrases and a leading '-' for exclusion, and it never raises on
         # syntax a person typed. plainto_ would treat a quote as a word.
-        filters.append(
-            Job.search_vector.op("@@")(func.websearch_to_tsquery("english", query.q.strip()))
-        )
+        tsquery = func.websearch_to_tsquery("english", query.q.strip())
+        target = Job.search_vector if query.include_description else Job.title_vector
+        filters.append(target.op("@@")(tsquery))
 
     if query.company and query.company.strip():
         needle = query.company.strip().lower()

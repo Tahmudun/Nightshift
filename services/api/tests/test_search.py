@@ -38,6 +38,28 @@ def test_each_field_contributes_one_filter() -> None:
     assert len(build_filters(query)) == 9
 
 
+def test_the_description_search_is_off_by_default() -> None:
+    """Guarded at the model as well as the route.
+
+    Found by mutation: flipping this default alone failed nothing, because the
+    route re-declares its own default in the FastAPI signature. Two defaults
+    govern one behaviour, so both need a test — otherwise whichever one is
+    unguarded can drift and the other quietly covers for it.
+    """
+    assert JobSearchQuery().include_description is False
+
+
+def test_the_default_search_target_is_the_title() -> None:
+    """The measured reason: on the recorded Alloy board, searching descriptions
+    for 'developer' matches all nine postings because it stems to 'develop'.
+    Without relevance ranking (M3) that default is a search box that does
+    nothing."""
+    title_filters = build_filters(JobSearchQuery(q="developer"))
+    wide_filters = build_filters(JobSearchQuery(q="developer", include_description=True))
+    assert "title_vector" in str(title_filters[0])
+    assert "search_vector" in str(wide_filters[0])
+
+
 def test_blank_text_is_not_a_filter() -> None:
     """An empty search box must return the corpus, not zero rows."""
     for blank in ("", "   ", "\t"):
