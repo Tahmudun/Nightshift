@@ -281,9 +281,13 @@ Ranked, from `docs/reviews/milestone-1d-review.md` §4:
    spacing it enforces. Queue-driven polling makes raising it a config change
    rather than a rewrite — but the limiter must become per-host and shared
    first. Recorded as a comment on the line somebody would change.
-2. **The ARQ scheduler has never run for real.** `enqueue_due_boards` and its
-   parts are tested, but no worker has executed a tick against Redis. The poll
-   cycle itself has run live twice, through the CLI.
+2. **The ARQ *worker* has never consumed a queued job.** The scheduler half is
+   now verified against live Redis (2026-08-03): `enqueue_due_boards` synced 22
+   boards and queued 22 `poll_board` jobs with correct arguments, and a second
+   tick enqueued zero — the double-enqueue guard holding, because `next_poll_at`
+   moves forward before the jobs run. What is untested is a worker process
+   dequeuing them; the poll cycle they invoke has run live twice through the CLI.
+   The queue was drained and the schedules reset afterwards.
 3. **Only `datadog` has been polled conditionally against a live provider.**
    Lever and Ashby were measured serving `304` during design; their adapters'
    conditional path has been exercised only against fixtures.

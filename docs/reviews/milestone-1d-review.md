@@ -213,9 +213,13 @@ Ranked.
    spacing it enforces. The queue-driven design makes raising it a config change
    rather than a rewrite, but the limiter must become per-host and shared first.
    Recorded as a comment on the line somebody would change.
-2. **The scheduler has never run for real.** `enqueue_due_boards` is tested and
-   its parts are tested, but no ARQ worker has executed a tick against Redis in
-   this session. The poll cycle itself *has* run live, twice, through the CLI.
+2. ~~**The scheduler has never run for real.**~~ **Verified after this review
+   was first drafted.** `enqueue_due_boards` was run against the live Redis:
+   22 boards synced, 22 `poll_board` jobs on the queue with correct arguments,
+   and a second tick immediately afterwards enqueued **zero** — which is the
+   double-enqueue guard working, since `next_poll_at` moves forward before the
+   jobs run. What remains unexercised is an ARQ *worker* consuming those jobs;
+   the poll cycle they invoke has run live twice through the CLI.
 3. **No mass-failure signal**, deliberately out of scope. A provider changing its
    envelope classifies every board `unreachable` and nothing shouts. Carried from
    M1c.
