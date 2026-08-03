@@ -71,7 +71,7 @@ Pure functions over `bytes` and `str`. No database, no ORM, no HTTP. This task a
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `ResumeFormat = Literal["paste", "txt", "pdf"]`; `format_for_filename(filename: str) -> ResumeFormat`; `read_resume_bytes(*, data: bytes, filename: str) -> str`; `normalize_text(raw: str) -> str`; `ResumeTextError(ValueError)` with `.user_message: str`; `UnsupportedResumeFormat(ResumeTextError)`; `MAX_UPLOAD_BYTES: int`; `MAX_PDF_PAGES: int`.
+- Produces: `ResumeFormat = Literal["paste", "txt", "pdf"]`; `format_for_filename(filename: str) -> ResumeFormat`; `read_resume_bytes(*, data: bytes, filename: str) -> str`; `normalize_text(raw: str) -> str`; `ResumeTextError(ValueError)` with `.user_message: str`; `UnsupportedResumeFormatError(ResumeTextError)`; `MAX_UPLOAD_BYTES: int`; `MAX_PDF_PAGES: int`.
 
 - [ ] **Step 1: Add the dependencies**
 
@@ -280,7 +280,7 @@ import pytest
 from nightshift.domain.resume_text import (
     MAX_UPLOAD_BYTES,
     ResumeTextError,
-    UnsupportedResumeFormat,
+    UnsupportedResumeFormatError,
     format_for_filename,
     normalize_text,
     read_resume_bytes,
@@ -329,7 +329,7 @@ def test_an_encrypted_pdf_fails_whole_and_names_the_reason() -> None:
 
 
 def test_a_docx_is_refused_by_name_rather_than_mangled() -> None:
-    with pytest.raises(UnsupportedResumeFormat) as caught:
+    with pytest.raises(UnsupportedResumeFormatError) as caught:
         read_resume_bytes(data=b"PK\x03\x04anything", filename="resume.docx")
     message = caught.value.user_message.lower()
     assert ".docx" in message and "paste" in message
@@ -430,7 +430,7 @@ class ResumeTextError(ValueError):
         self.user_message = user_message
 
 
-class UnsupportedResumeFormat(ResumeTextError):
+class UnsupportedResumeFormatError(ResumeTextError):
     """A format this project does not read. Named, not mangled."""
 
 
@@ -463,11 +463,11 @@ def format_for_filename(filename: str) -> ResumeFormat:
     if suffix in (".txt", ".text"):
         return "txt"
     if suffix in _NAMED_UNSUPPORTED:
-        raise UnsupportedResumeFormat(
+        raise UnsupportedResumeFormatError(
             f"{suffix} files are not supported. Save the file as a PDF, or paste "
             "the text of your resume instead."
         )
-    raise UnsupportedResumeFormat(
+    raise UnsupportedResumeFormatError(
         "Upload a PDF or a .txt file, or paste the text of your resume instead."
     )
 
@@ -2250,7 +2250,7 @@ async def upload_resume(
     data = await file.read()
     try:
         text = read_resume_bytes(data=data, filename=file.filename or "")
-    except UnsupportedResumeFormat as exc:
+    except UnsupportedResumeFormatError as exc:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail=exc.user_message
         ) from exc
