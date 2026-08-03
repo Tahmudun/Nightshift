@@ -107,11 +107,39 @@ export const jobSummarySchema = z.object({
 });
 export type JobSummary = z.infer<typeof jobSummarySchema>;
 
+/** A filter the spec asks for that this milestone will not fake. */
+export const deferredFilterSchema = z.object({
+  name: z.string(),
+  blocked_on: z.string(),
+  reason: z.string(),
+});
+export type DeferredFilter = z.infer<typeof deferredFilterSchema>;
+
+export const jobSourceSchema = z.object({
+  source_name: z.string(),
+  source_job_id: z.string(),
+  canonical_url: z.string().nullable(),
+  first_seen_at: z.string().datetime({ offset: true }),
+  last_seen_at: z.string().datetime({ offset: true }),
+});
+export type JobSource = z.infer<typeof jobSourceSchema>;
+
+export const jobDetailSchema = jobSummarySchema.extend({
+  description_text: z.string().nullable(),
+  description_html: z.string().nullable(),
+  sources: z.array(jobSourceSchema),
+});
+export type JobDetail = z.infer<typeof jobDetailSchema>;
+
 export const jobListSchema = z.object({
   items: z.array(jobSummarySchema),
   total: z.number().int(),
   limit: z.number().int(),
   offset: z.number().int(),
+  // Defaulted so a response from an API that predates these fields still
+  // parses rather than throwing at the boundary.
+  excluded_no_salary: z.number().int().default(0),
+  deferred_filters: z.array(deferredFilterSchema).default([]),
 });
 export type JobList = z.infer<typeof jobListSchema>;
 
@@ -165,6 +193,32 @@ export const jobStatusCountsSchema = z.object({
   closed: z.number().int().nonnegative(),
 });
 export type JobStatusCounts = z.infer<typeof jobStatusCountsSchema>;
+
+export const companyRowSchema = z.object({
+  id: z.string().uuid(),
+  canonical_name: z.string(),
+  website: z.string().nullable(),
+  job_count: z.number().int(),
+});
+export type CompanyRow = z.infer<typeof companyRowSchema>;
+
+export const companyListSchema = z.object({
+  items: z.array(companyRowSchema),
+  total: z.number().int(),
+  limit: z.number().int(),
+  offset: z.number().int(),
+});
+export type CompanyList = z.infer<typeof companyListSchema>;
+
+export const companyDetailSchema = z.object({
+  id: z.string().uuid(),
+  canonical_name: z.string(),
+  website: z.string().nullable(),
+  job_status_counts: jobStatusCountsSchema,
+  // Ours, not the employer's. Never rendered as "hiring since".
+  first_seen_at: z.string().datetime({ offset: true }).nullable(),
+});
+export type CompanyDetail = z.infer<typeof companyDetailSchema>;
 
 export const jobAdminRowSchema = z.object({
   id: z.string().uuid(),

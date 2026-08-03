@@ -8,6 +8,7 @@ belongs in ``nightshift.domain``.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
@@ -18,6 +19,7 @@ from sqlalchemy.orm import selectinload
 
 from nightshift.api.schemas import (
     CompanyOut,
+    DeferredFilterOut,
     JobAdminListOut,
     JobAdminRowOut,
     JobDetailOut,
@@ -29,7 +31,7 @@ from nightshift.api.schemas import (
     JobSummaryOut,
     SalaryOut,
 )
-from nightshift.db.base import JobStatus, LocationConfidence
+from nightshift.db.base import EmploymentType, JobStatus, LocationConfidence, RemotePolicy
 from nightshift.db.models import (
     Company,
     Job,
@@ -40,6 +42,12 @@ from nightshift.db.models import (
     SourceJobRecord,
 )
 from nightshift.db.session import get_db_session
+from nightshift.domain.search import (
+    DEFERRED_FILTERS,
+    JobSearchQuery,
+    build_filters,
+    salary_excluded_filter,
+)
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -105,31 +113,60 @@ async def list_jobs(
     session: Annotated[AsyncSession, Depends(get_db_session)],
     limit: Annotated[int, Query(ge=1, le=MAX_LIMIT)] = 25,
     offset: Annotated[int, Query(ge=0)] = 0,
-    job_status: Annotated[JobStatus | None, Query(alias="status")] = None,
+    q: Annotated[str | None, Query(description="Full-text search over the job title")] = None,
+    include_description: Annotated[
+        bool, Query(description="Widen `q` to search descriptions as well as titles")
+    ] = False,
     company: Annotated[str | None, Query(description="Filter by company name substring")] = None,
+    city: Annotated[str | None, Query(description="City exactly as the source wrote it")] = None,
+    employment_type: Annotated[EmploymentType | None, Query()] = None,
+    remote_policy: Annotated[RemotePolicy | None, Query()] = None,
+    job_status: Annotated[JobStatus | None, Query(alias="status")] = None,
     confidence: Annotated[
         LocationConfidence | None,
         Query(description="Only jobs with at least one location at this confidence"),
     ] = None,
+    source: Annotated[str | None, Query(description="Source name substring")] = None,
+    first_seen_after: Annotated[datetime | None, Query()] = None,
+    salary_at_least: Annotated[float | None, Query(ge=0)] = None,
 ) -> JobListOut:
-    """List canonical jobs, newest-seen first."""
-    filters = []
-    if job_status is not None:
-        filters.append(Job.status == job_status)
-    if company:
-        filters.append(
-            Job.company.has(func.lower(Company.canonical_name).contains(company.lower()))
-        )
-    if confidence is not None:
-        filters.append(
-            Job.id.in_(
-                select(JobLocation.job_id).where(JobLocation.location_confidence == confidence)
-            )
-        )
+    """Search canonical jobs, most-recently-seen first.
+
+    Ordering is recency, not relevance. PRODUCT-SPEC §24's ranking is M3 work
+    and depends on the match score, so ranking by a relevance number here would
+    be inventing half of it.
+    """
+    query = JobSearchQuery(
+        q=q,
+        include_description=include_description,
+        company=company,
+        city=city,
+        employment_type=employment_type,
+        remote_policy=remote_policy,
+        job_status=job_status,
+        confidence=confidence,
+        source=source,
+        first_seen_after=first_seen_after,
+        salary_at_least=salary_at_least,
+    )
+    filters = build_filters(query)
 
     total = (
         await session.execute(select(func.count()).select_from(Job).where(*filters))
     ).scalar_one()
+
+    # What the salary floor necessarily removed, counted against the *other*
+    # filters so the number describes this result set rather than the corpus.
+    excluded_no_salary = 0
+    if query.salary_at_least is not None:
+        without_salary = build_filters(query.model_copy(update={"salary_at_least": None}))
+        excluded_no_salary = (
+            await session.execute(
+                select(func.count())
+                .select_from(Job)
+                .where(*without_salary, salary_excluded_filter())
+            )
+        ).scalar_one()
 
     rows = (
         (
@@ -150,7 +187,15 @@ async def list_jobs(
     )
 
     return JobListOut(
-        items=[_to_summary(job) for job in rows], total=total, limit=limit, offset=offset
+        items=[_to_summary(job) for job in rows],
+        total=total,
+        limit=limit,
+        offset=offset,
+        excluded_no_salary=excluded_no_salary,
+        deferred_filters=[
+            DeferredFilterOut(name=e.name, blocked_on=e.blocked_on, reason=e.reason)
+            for e in DEFERRED_FILTERS
+        ],
     )
 
 

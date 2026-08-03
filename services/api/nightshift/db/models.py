@@ -28,6 +28,7 @@ from geoalchemy2 import Geometry
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     CheckConstraint,
+    Computed,
     ForeignKey,
     Index,
     Integer,
@@ -39,7 +40,7 @@ from sqlalchemy import (
 from sqlalchemy import (
     Enum as SAEnum,
 )
-from sqlalchemy.dialects.postgresql import JSONB, NUMERIC
+from sqlalchemy.dialects.postgresql import JSONB, NUMERIC, TSVECTOR
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -201,6 +202,19 @@ class Job(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Index("ix_jobs_company_id", "company_id"),
         Index("ix_jobs_status_last_seen_at", "status", "last_seen_at"),
         Index("ix_jobs_normalized_title", "normalized_title"),
+        # M2a's filter set. Every one of these is a sequential scan without an
+        # index, and `tests/test_query_plans.py` asserts each stays servable.
+        Index("ix_jobs_search_vector", "search_vector", postgresql_using="gin"),
+        Index("ix_jobs_title_vector", "title_vector", postgresql_using="gin"),
+        Index("ix_jobs_employment_type", "employment_type"),
+        Index("ix_jobs_remote_policy", "remote_policy"),
+        Index("ix_jobs_first_seen_at", "first_seen_at"),
+        Index("ix_jobs_salary_max", "salary_max"),
+        # Both bounds, because the salary floor is an OR across the pair and
+        # Postgres needs an index on each side to build a BitmapOr. With only
+        # salary_max indexed the whole filter falls back to a sequential scan —
+        # found by tests/test_query_plans.py, not by reading the code.
+        Index("ix_jobs_salary_min", "salary_min"),
         CheckConstraint(
             "salary_min IS NULL OR salary_max IS NULL OR salary_min <= salary_max",
             name="salary_range_ordered",
@@ -260,6 +274,42 @@ class Job(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     canonical_description_hash: Mapped[str | None] = mapped_column(String(64))
 
+    # Full-text search, computed by Postgres rather than by us. STORED means it
+    # is written on insert and update and read straight off the heap; the GIN
+    # index in __table_args__ is what makes `@@` cheap.
+    #
+    # The regconfig is the literal 'english' rather than a column, because
+    # to_tsvector is only IMMUTABLE — and therefore only legal in a generated
+    # column — when the configuration is fixed at definition time.
+    #
+    # Typed Any, matching `geom` below: TSVECTOR has no Python equivalent and
+    # annotating it `str` makes mypy strict reject the mapping.
+    search_vector: Mapped[Any] = mapped_column(
+        TSVECTOR,
+        Computed(
+            "to_tsvector('english', coalesce(title, '') || ' ' || coalesce(description_text, ''))",
+            persisted=True,
+        ),
+        nullable=False,
+    )
+
+    # Title only, and it is the *default* search target. Measured on the
+    # recorded Alloy board: searching the description for "developer" returns
+    # all nine postings, because it stems to 'develop' and every description
+    # says "business development" or "professional development" somewhere.
+    #
+    # That is not a bug in the index — it is what full-text search over long
+    # documents does without relevance ranking to sort the noise down. Ranking
+    # is M3 (PRODUCT-SPEC §24), so until it exists the honest default is the
+    # field a person means when they type a job title, and `search_vector`
+    # above is opt-in for the case where they want to find a rare term like
+    # "Kubernetes" that only ever appears in the body.
+    title_vector: Mapped[Any] = mapped_column(
+        TSVECTOR,
+        Computed("to_tsvector('english', coalesce(title, ''))", persisted=True),
+        nullable=False,
+    )
+
     primary_location_id: Mapped[uuid.UUID | None] = mapped_column(
         PGUUID(as_uuid=True),
         # SET NULL rather than CASCADE: losing the pointer must never delete the
@@ -294,6 +344,9 @@ class JobLocation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "job_locations"
     __table_args__ = (
         Index("ix_job_locations_job_id", "job_id"),
+        # Expression index: the city filter compares lower(city), and a plain
+        # btree on `city` cannot serve that.
+        Index("ix_job_locations_city_lower", text("lower(city)")),
         Index("ix_job_locations_geom", "geom", postgresql_using="gist"),
         Index("ix_job_locations_location_confidence", "location_confidence"),
         # I1, at the database level: coordinates and a precision claim travel

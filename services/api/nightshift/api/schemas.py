@@ -137,11 +137,29 @@ class JobDetailOut(JobSummaryOut):
     sources: list[JobSourceOut]
 
 
+class DeferredFilterOut(BaseModel):
+    """A filter the spec asks for that this milestone will not fake.
+
+    Serialised so the panel renders it disabled with its reason visible. An
+    omitted filter is an invisible gap; a named one is a decision a reader can
+    check. Same move as `/analyze/coverage` makes for source coverage.
+    """
+
+    name: str
+    blocked_on: str
+    reason: str
+
+
 class JobListOut(BaseModel):
     items: list[JobSummaryOut]
     total: int
     limit: int
     offset: int
+    # A10: how many jobs the salary floor necessarily hid, because they state
+    # no salary at all. Zero when no floor was given. Without this number a
+    # salary filter silently removes most of the corpus and looks like a result.
+    excluded_no_salary: int = 0
+    deferred_filters: list[DeferredFilterOut] = []
 
 
 class JobStatusCounts(BaseModel):
@@ -157,6 +175,32 @@ class JobStatusCounts(BaseModel):
     possibly_stale: int = 0
     unverified: int = 0
     closed: int = 0
+
+
+class CompanyRowOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    canonical_name: str
+    website: str | None
+    job_count: int
+
+
+class CompanyListOut(BaseModel):
+    items: list[CompanyRowOut]
+    total: int
+    limit: int
+    offset: int
+
+
+class CompanyDetailOut(BaseModel):
+    id: UUID
+    canonical_name: str
+    website: str | None
+    job_status_counts: JobStatusCounts
+    # Ours, not the source's. This is when *we* first saw a role from this
+    # employer, and it is never presented as when they started hiring (A10).
+    first_seen_at: datetime | None
 
 
 class SourceHealthOut(BaseModel):

@@ -34,8 +34,16 @@ test('a missing API is reported, not hidden', async ({ page }) => {
 
 test('the confidence legend documents all five levels without an API', async ({ page }) => {
   await page.goto('/explore');
+  // Scoped to the legend rather than the whole page. "Remote" stopped being
+  // unique on /explore when the filter panel landed: it is a
+  // location-confidence level in this legend and a remote-work policy in the
+  // filter, which are two different claims that happen to share a word. The
+  // page-wide lookup was asserting incidental uniqueness, not the thing this
+  // test is named for.
+  const legend = page.getByLabel('Location confidence legend');
+  await expect(legend).toBeVisible();
   for (const label of ['Verified', 'Approximate', 'City only', 'Remote', 'Unknown']) {
-    await expect(page.getByText(label, { exact: true })).toBeVisible();
+    await expect(legend.getByText(label, { exact: true })).toBeVisible();
   }
 });
 

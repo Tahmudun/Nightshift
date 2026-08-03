@@ -8,16 +8,185 @@
 **M1a: COMPLETE, CI-green at `430347a`, merged to `main` as PR #1 (`54ef35a`).**
 **M1b: COMPLETE and reviewed. Merged to `main` as PR #2 (`cf48719`).**
 **M1c: COMPLETE, reviewed, CI-green at `19236f5`, merged to `main` as PR #3 (`f377303`).**
-**M1d: COMPLETE, reviewed, and CI-green at `75d9ab7` — the PR head. PR #4 open, awaiting the human's merge.**
+**M1d: COMPLETE, reviewed, CI-green at `75d9ab7`, merged to `main` as PR #4 (`044189e`).**
+**Current milestone: M2 — the functional command center. M2a COMPLETE, reviewed, CI-green at `76190c8`. PR #5 open, awaiting the human's merge. M2b/c/d not started.**
 **Last updated: 2026-08-03**
 
 ---
 
 ## Next exact action
 
-### Next: merge PR #4. Then M2 — the functional command center.
+### Next: merge PR #5. Then M2b — save, apply, track.
 
-**M1d is complete, M1 with it, and CI is green.**
+**M2a is complete. The first CI run failed and it caught a real defect no local
+command had run** — see item 4 below. Fixed, and the second run is what the
+merge decision should rest on.
+
+```
+make check        856 Python, 63 web, ruff/mypy/eslint/tsc clean   (read, not inferred)
+make acceptance   18 verify checks + 27 seeded browser tests, 1 skip
+make test-e2e     5 degraded-path tests          <- the suite CI caught, run separately
+alembic check     no drift, all three migrations applied
+```
+
+**CI is green.** Run
+[30788730379](https://github.com/Tahmudun/Nightshift/actions/runs/30788730379)
+at `76190c8` — **all five jobs**, counts read from the job logs rather than
+inferred:
+
+```
+python       232s   856 passed, zero skipped
+e2e          164s   5 degraded + 27 seeded passed, 1 skipped
+migrations    77s   up, down, up, and no drift
+web           55s
+secret scan    8s
+```
+
+`headSha` on the run is `76190c88657f8a6a1d4883ef3a469a0501a41bac`, checked
+against the branch head rather than assumed. **856 in CI matches 856 locally**,
+so the database-backed tests really ran there too. The single e2e skip is the
+pre-existing honest one: `an unchanged board is not presented as a problem`
+needs a board that has answered `304`, and the seeded stack has polled nothing.
+
+**The first run failed, and it earned its keep.** Run
+[30788290888](https://github.com/Tahmudun/Nightshift/actions/runs/30788290888)
+at `1aabc58`: four of five green, `e2e` red — item 4 below. Four CI runs across
+this project have now failed, and every one found something no local command
+had executed.
+
+The M1d invariant still applies and is still cheap to check before merging:
+
+```
+git diff 76190c8..HEAD --stat    # must list nothing outside docs/
+```
+
+Ten tasks, ten commits, branch `m2a-search-and-detail`.
+
+| Task | Commit | What it did |
+|---|---|---|
+| 1–2 | `4120415` | `search_vector`, the filter indexes, `domain/search.py` |
+| 3 | `0eed338` | `/jobs` filters on text, city, type, source, date, salary |
+| 4 | `0c30d2c` | The query-plan guard — and the defect it immediately found |
+| 5 | `69fdd89` | `/companies` and `/companies/{id}` |
+| 6 | `3920b9d` | Zod schemas and the API client |
+| 7 | `7d42ceb` | The filter panel, state in the URL |
+| 8–9 | `1df5156` | Job and company detail pages |
+| 10 | this | Seeded browser tests, review, this entry |
+
+### Criterion: filters return in <200ms on seeded data
+
+Measured against the 31-job seeded corpus, worst of five requests each:
+
+```
+q=engineer&status=open                        9 hits    31.6 ms
+q=engineer&include_description=true          21 hits    40.1 ms
+city=New York&employment_type=full_time      15 hits    36.1 ms
+salary_at_least=90000                        27 hits    42.7 ms
+(no filter)                                  31 hits    53.4 ms
+```
+
+**The first attempt at this measurement was wrong and looked right.** Run
+straight after `make check`, it produced five plausible figures of 12–23 ms —
+against a corpus of **zero jobs**, because the Python test fixtures truncate
+the dev database. It was caught only because the corpus size was printed
+beside the timings. Any future measurement must print what it measured against.
+
+The number is not the guard. `tests/test_query_plans.py` is: it asserts every
+filter is servable by an index, which is what stays true as the corpus grows.
+
+### What M2a found that the plan did not predict
+
+Nine defects, **seven in code that reported success** — the same pattern M1a,
+M1b, M1c and M1d each recorded, now five milestones running. Full detail in
+`docs/reviews/milestone-2a-review.md`; the four worth reading here:
+
+1. **Searching descriptions by default made the search box useless.**
+   `q=developer` matched all nine recorded Alloy postings, because it stems to
+   `develop` and every description says "business development" somewhere. Not
+   an index bug — it is what full-text search over long documents does with no
+   relevance ranking to sort the noise down, and ranking is M3. The tempting
+   fix was to change the test, which would have shipped a search box where
+   typing a job title returns the corpus. Fixed with a title-only vector
+   (migration `0006`) and `include_description` as an opt-in.
+2. **The salary floor could not be served by an index**, found by the
+   query-plan test on its first run. The floor is an `OR` across both bounds
+   and Postgres needs an index on each side to build a BitmapOr; only
+   `salary_max` had one. **The wrong plan returns exactly the right rows**, so
+   this is invisible in the code, in the response, and in every correctness
+   test. Migration `0007`.
+3. **Two defaults governed one behaviour and only one was guarded.** Flipping
+   `JobSearchQuery.include_description` failed nothing, because the FastAPI
+   route re-declares its own default and that is what governs. Found by
+   mutation testing — the guard looked present and was not.
+4. **`make check` and `make acceptance` both miss the degraded e2e suite, and
+   CI caught what they missed.** The new remote-policy filter added a second
+   "Remote" to `/explore`, breaking a page-wide text assertion in
+   `make test-e2e`. Neither aggregate target runs that suite and neither can —
+   it needs the API *down*, which is the opposite stack state from acceptance.
+   **`make test-e2e` is a third command and must be run before pushing.** This
+   is the fifth time in this project that a defect lived somewhere no local
+   command looks.
+
+### Two corrections M2a made to its own plan
+
+- **`ix_job_locations_city_lower` must be declared on the model.** The plan
+  said the opposite. Measured: with the index in the database and absent from
+  the model, `alembic check` reports `remove_index` and fails.
+- **Two Playwright failures were harness, not product.** `.check()` on a
+  URL-controlled checkbox catches the input mid-revert, and the first
+  navigation into a dynamic route pays `next dev`'s on-demand compile. Both
+  diagnosed by probing the browser rather than by assuming the link was broken.
+
+### What M2a deliberately did not build
+
+Save, apply, tracking, notes, stage history (M2b); profile and resume (M2c);
+the daily queue (M2d); match score, eligibility, skill and internship-season
+filters (M3); boroughs and any coordinate (M4).
+
+**None of these are stubbed.** Where the spec asks for them, the UI names them
+and says what they are waiting for — the filter panel renders five disabled
+filters with their reasons, and the job page lists seven uncomputed fields.
+
+---
+
+### The M1 record, kept below
+
+**M1 is closed. All four PRs are merged, `main` is at `044189e`, and every
+milestone branch is deleted both locally and on the remote.** The `git diff
+75d9ab7..HEAD` check below was performed before merging and listed nothing
+outside `docs/`, so the recorded CI result covered the branch.
+
+**M2 is scoped and its design is written: `docs/architecture/command-center.md`.**
+Read it before any M2 work; `CLAUDE.md`'s read-order table now requires it.
+
+Three decisions the human made on 2026-08-03, all recorded in that document:
+
+| Decision | Where |
+|---|---|
+| Slice order: search → track → resume → queue, so the loop criterion is earned at M2b | §1 |
+| Resume extraction is rules-based with a character span per proposal — not an LLM, not a bare form | §6.1 |
+| The daily queue ships its four honest rows and names the four that need M3 | §7 |
+
+**Two things the design corrected against the code rather than the spec**, both
+found by reading the schema instead of trusting the plan:
+
+1. **A borough or neighborhood filter cannot be built in M2, and it is an I1
+   problem rather than a scheduling one.** `job_locations` has `city`, `state`
+   and `country` and no borough column, because a posting saying `"New York,
+   NY"` does not say which borough it is in. Deriving one is interpolation. A
+   **city** filter is honest today because it matches what the source wrote;
+   boroughs arrive with the geocoder at M4.
+2. **A stage machine must not block a stage change.** §10.2 requires the user
+   can always correct a stage, and `saved → offer` is real — referrals happen.
+   The machine classifies each transition (`advance` / `correction` / `reopen`)
+   and records it, instead of refusing it. What it *does* enforce is I5: a
+   stage change requires an actor of `user`, so a closing listing writes a
+   `listing_closed` event and a prompt, and never moves the stage itself.
+
+M2's acceptance criteria are not yet claimed. Nothing below this line describes
+M2 work — the tables in this file are still M1's and M0's.
+
+**M1d is complete, M1 with it, and CI was green.**
 [PR #4](https://github.com/Tahmudun/Nightshift/pull/4), run
 [30783504694](https://github.com/Tahmudun/Nightshift/actions/runs/30783504694)
 at `75d9ab7` — **all five jobs green**:
@@ -745,14 +914,14 @@ These ran on this machine and passed:
 | Python format | `ruff format --check services/api` | 45 files already formatted |
 | Python lint | `ruff check services/api` | All checks passed |
 | Python types | `mypy nightshift` | Success: no issues found in 31 source files (strict) |
-| Python tests | `pytest -q` | **804 passed**, zero skipped (local, 2026-08-03; 607 at M1c). Read from the output rather than computed — the first draft of this line said 797, a real measurement taken before the `/boards` tests existed |
+| Python tests | `pytest -q` | **856 passed**, zero skipped (local, 2026-08-03; 804 at M1 close, 607 at M1c). Read from the output rather than computed — an earlier draft of this line said 797, a real measurement taken before the `/boards` tests existed |
 | Web types | `tsc --noEmit` | clean, `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes` |
 | Web lint | `eslint . --max-warnings 0` | clean |
-| Web tests | `vitest run` | **42 passed** (5 files) |
+| Web tests | `vitest run` | **63 passed** (8 files; 42 at M1 close) |
 | Colour contrast | `vitest run colour-contrast` | 16 assertions on measured WCAG 2.1 ratios |
 | Web build | `next build` | compiled, 7 static routes, 102 kB shared JS |
 | E2E — degraded (no API) | `make test-e2e` | **5 passed** in 15.0s |
-| E2E — seeded corpus | `make test-e2e-seeded` | **20 passed, 1 skipped**, 28.1s — 5 new on the board table. The skip is honest: `an unchanged board is not presented as a problem` needs a board that has answered `304`, and the seeded stack has polled nothing |
+| E2E — seeded corpus | `make test-e2e-seeded` | **27 passed, 1 skipped**, 53.3s — 7 new on search and the detail pages (20 at M1 close). The skip is honest: `an unchanged board is not presented as a problem` needs a board that has answered `304`, and the seeded stack has polled nothing |
 | Migration renders | `alembic upgrade head --sql` | full DDL emitted, 8 tables, 8 enums |
 | Migration round trip | `make migrate-down && make migrate` | 8 tables + 8 enum types dropped and restored, live cluster |
 | Whole-stack acceptance | `make acceptance` | **18 checks + 20 browser tests**, re-run 2026-08-03 at `d3738b6`; seeded corpus 31 jobs / 3 companies / 62 locations, plus **22 board poll schedules, none polled** |
@@ -761,9 +930,10 @@ These ran on this machine and passed:
 | Conditional poll, live | `nightshift poll --ats greenhouse --token datadog` ×2 | `200` then **`304` in 0.009s**, job state byte-identical across eight measures |
 | Live source reachable | `GET /v1/boards/datadog/jobs` | HTTP 200, 426 postings |
 
-**Total: 871 automated tests passing** (804 Python, 42 web unit, 5 degraded e2e,
-20 seeded e2e), plus the 18 assertions in `scripts/verify.py`, which are not
-pytest tests but do gate `make acceptance` with an exit code.
+**Total: 951 automated tests passing** (856 Python, 63 web unit, 5 degraded e2e,
+27 seeded e2e), plus the 18 assertions in `scripts/verify.py`, which are not
+pytest tests but do gate `make acceptance` with an exit code. Was 871 at the
+close of M1.
 
 M1d added 197 Python tests. The ones that carry the milestone are small in
 number: `test_an_unchanged_posting_takes_no_miss_when_it_is_not_refetched`,
