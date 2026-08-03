@@ -591,7 +591,41 @@ async def merge_jobs(
     verbatim, so any merge can be undone by re-deriving. The event exists to
     make the decision auditable and an un-merge cheap — not because the data
     could otherwise be lost.
+
+    **Both rows are locked first, in primary-key order.** M1d makes this
+    reachable: ADR 0007 gives every board its own job, so two polls can run at
+    once and each can decide that postings A and B are the same opening —
+    typically in *opposite* directions, because each worker names the winner
+    from its own board's perspective. Unlocked, they interleave and each deletes
+    the other's winner.
+
+    The ordering is what prevents a deadlock rather than merely detecting one.
+    Locking in the order the caller happened to pass means two workers can each
+    hold the row the other is waiting for; sorting by primary key means whoever
+    gets there first holds both, and the other simply queues. Verified: without
+    it, ``tests/test_merge_concurrency.py`` reproduces a real
+    ``DeadlockDetectedError`` from Postgres.
+
+    Acquired as two statements rather than one ``IN`` clause with ``ORDER BY``,
+    because a single statement's lock acquisition order follows the query plan
+    and is not guaranteed to follow the sort.
     """
+    for job_id in sorted([winner.id, loser.id]):
+        still_there = (
+            await session.execute(select(Job).where(Job.id == job_id).with_for_update())
+        ).scalar_one_or_none()
+        if still_there is None:
+            # Another worker merged this pair and deleted one of them while we
+            # were queueing for the lock. Nothing to do, and emphatically not an
+            # error: the outcome we wanted has already happened.
+            log.info(
+                "merge_already_applied",
+                winner=str(winner.id),
+                loser=str(loser.id),
+                missing=str(job_id),
+            )
+            return
+
     session.add(
         JobMergeEvent(
             winner_job_id=winner.id,
