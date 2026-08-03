@@ -9,6 +9,10 @@
 import type { z } from 'zod';
 
 import {
+  applicationDetailSchema,
+  applicationEventSchema,
+  applicationListSchema,
+  applicationSchema,
   companyDetailSchema,
   companyListSchema,
   coverageSchema,
@@ -31,6 +35,12 @@ import {
   type BoardPollState,
   type SourceHealth,
   type Stats,
+  type Application,
+  type ApplicationDetail,
+  type ApplicationEvent,
+  type ApplicationList,
+  type ApplicationPriority,
+  type ApplicationStage,
 } from './schemas';
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000';
@@ -213,4 +223,93 @@ export function fetchJobHistory(jobId: string): Promise<JobStatusEvent[]> {
 /** What is covered and — the reason the endpoint exists — what is not. */
 export function fetchCoverage(): Promise<Coverage> {
   return request('/coverage', coverageSchema);
+}
+
+/**
+ * Mutations go through the same `request()` as every read, so a failed write
+ * carries the API's own message rather than an unparsed Response.
+ */
+async function send<T>(
+  path: string,
+  schema: z.ZodType<T, z.ZodTypeDef, unknown>,
+  method: 'POST' | 'PATCH',
+  body?: unknown,
+): Promise<T> {
+  // The key is omitted rather than set to `undefined`: this project runs
+  // `exactOptionalPropertyTypes`, under which `body: undefined` is not the same
+  // as no body and does not typecheck.
+  const init: RequestInit = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body !== undefined) init.body = JSON.stringify(body);
+  return request(path, schema, init);
+}
+
+export interface ApplicationQuery {
+  stage?: ApplicationStage;
+  archived?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
+export function fetchApplications(query: ApplicationQuery = {}): Promise<ApplicationList> {
+  const params = new URLSearchParams();
+  if (query.stage) params.set('stage', query.stage);
+  if (query.archived) params.set('archived', 'true');
+  params.set('limit', String(query.limit ?? 100));
+  params.set('offset', String(query.offset ?? 0));
+  return request(`/applications?${params.toString()}`, applicationListSchema);
+}
+
+export function fetchApplication(id: string): Promise<ApplicationDetail> {
+  return request(`/applications/${id}`, applicationDetailSchema);
+}
+
+/** Save a job. Idempotent — the API answers 200 if it was already saved. */
+export function saveJob(jobId: string): Promise<Application> {
+  return send('/applications', applicationSchema, 'POST', { job_id: jobId });
+}
+
+export interface StageChange {
+  to_stage: ApplicationStage;
+  note?: string;
+  applied_at?: string;
+  application_url?: string;
+}
+
+export function changeStage(id: string, change: StageChange): Promise<ApplicationDetail> {
+  return send(`/applications/${id}/stage`, applicationDetailSchema, 'PATCH', change);
+}
+
+export function addNote(id: string, body: string): Promise<ApplicationEvent> {
+  return send(`/applications/${id}/notes`, applicationEventSchema, 'POST', { body });
+}
+
+export function scheduleInterview(id: string, scheduledFor: string): Promise<ApplicationEvent> {
+  return send(`/applications/${id}/interviews`, applicationEventSchema, 'POST', {
+    scheduled_for: scheduledFor,
+  });
+}
+
+/**
+ * Only the keys present in `changes` are sent, so an explicit `null` clears a
+ * field and an omitted key leaves it alone — matching `ApplicationPatchIn`.
+ */
+export function patchApplication(
+  id: string,
+  changes: Partial<{
+    priority: ApplicationPriority;
+    next_action_at: string | null;
+    application_url: string | null;
+    source_of_application: string | null;
+    applied_at: string | null;
+  }>,
+): Promise<ApplicationDetail> {
+  return send(`/applications/${id}`, applicationDetailSchema, 'PATCH', changes);
+}
+
+export function setArchived(id: string, archived: boolean): Promise<ApplicationDetail> {
+  return send(
+    `/applications/${id}/${archived ? 'archive' : 'restore'}`,
+    applicationDetailSchema,
+    'POST',
+  );
 }

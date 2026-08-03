@@ -320,3 +320,121 @@ export const coverageSchema = z.object({
   blind_spots: z.array(blindSpotSchema).min(1, 'a coverage report with no named gaps is a bug'),
 });
 export type Coverage = z.infer<typeof coverageSchema>;
+
+export const applicationStageSchema = z.enum([
+  'discovered',
+  'saved',
+  'preparing',
+  'applied',
+  'assessment',
+  'interview',
+  'offer',
+  'rejected',
+  'withdrawn',
+  'closed',
+]);
+export type ApplicationStage = z.infer<typeof applicationStageSchema>;
+
+export const applicationPrioritySchema = z.enum(['high', 'normal', 'low']);
+export type ApplicationPriority = z.infer<typeof applicationPrioritySchema>;
+
+export const transitionClassSchema = z.enum(['advance', 'correction', 'reopen']);
+export type TransitionClass = z.infer<typeof transitionClassSchema>;
+
+export const applicationEventTypeSchema = z.enum([
+  'saved',
+  'stage_changed',
+  'note_added',
+  'detail_updated',
+  'interview_scheduled',
+  'archived',
+  'restored',
+  'listing_closed',
+]);
+export type ApplicationEventType = z.infer<typeof applicationEventTypeSchema>;
+
+export const applicationEventSchema = z
+  .object({
+    id: z.string().uuid(),
+    event_type: applicationEventTypeSchema,
+    actor: z.enum(['user', 'system']),
+    occurred_at: z.string().datetime({ offset: true }),
+    from_stage: applicationStageSchema.nullable(),
+    to_stage: applicationStageSchema.nullable(),
+    transition_class: transitionClassSchema.nullable(),
+    body: z.string().nullable(),
+    payload: z.record(z.unknown()),
+    created_at: z.string().datetime({ offset: true }),
+  })
+  .superRefine((event, ctx) => {
+    // The two database check constraints, restated where the UI can see them.
+    // Duplicating them here means a bug in the API cannot render a stage badge
+    // with no classification behind it, or one the user never asked for.
+    if (event.to_stage !== null && event.transition_class === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'a stage change must carry its classification',
+        path: ['transition_class'],
+      });
+    }
+    if (event.to_stage !== null && event.actor !== 'user') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'invariant I5: only a user moves a stage',
+        path: ['actor'],
+      });
+    }
+  });
+export type ApplicationEvent = z.infer<typeof applicationEventSchema>;
+
+export const applicationSchema = z.object({
+  id: z.string().uuid(),
+  job: jobSummarySchema,
+  current_stage: applicationStageSchema,
+  priority: applicationPrioritySchema,
+  applied_at: z.string().datetime({ offset: true }).nullable(),
+  next_action_at: z.string().datetime({ offset: true }).nullable(),
+  application_url: z.string().nullable(),
+  source_of_application: z.string().nullable(),
+  archived_at: z.string().datetime({ offset: true }).nullable(),
+  created_at: z.string().datetime({ offset: true }),
+  updated_at: z.string().datetime({ offset: true }),
+});
+export type Application = z.infer<typeof applicationSchema>;
+
+export const applicationDetailSchema = applicationSchema.extend({
+  events: applicationEventSchema.array(),
+});
+export type ApplicationDetail = z.infer<typeof applicationDetailSchema>;
+
+export const applicationStageCountsSchema = z.object({
+  discovered: z.number(),
+  saved: z.number(),
+  preparing: z.number(),
+  applied: z.number(),
+  assessment: z.number(),
+  interview: z.number(),
+  offer: z.number(),
+  rejected: z.number(),
+  withdrawn: z.number(),
+  closed: z.number(),
+});
+export type ApplicationStageCounts = z.infer<typeof applicationStageCountsSchema>;
+
+export const deferredApplicationFieldSchema = z.object({
+  name: z.string(),
+  blocked_on: z.string(),
+  reason: z.string(),
+});
+export type DeferredApplicationField = z.infer<typeof deferredApplicationFieldSchema>;
+
+export const applicationListSchema = z.object({
+  items: applicationSchema.array(),
+  total: z.number(),
+  limit: z.number(),
+  offset: z.number(),
+  stage_counts: applicationStageCountsSchema,
+  archived_count: z.number(),
+  deferred_fields: deferredApplicationFieldSchema.array(),
+});
+export type ApplicationList = z.infer<typeof applicationListSchema>;
