@@ -1,0 +1,122 @@
+# Every ordered pair of distinct stages, and how the machine must classify it.
+#
+# Rules this encodes (docs/architecture/command-center.md §3):
+#   reopen      leaving a terminal stage (rejected / withdrawn / closed)
+#   advance     exactly one step forward along STAGE_ORDER, or entering a
+#               terminal stage from a non-terminal one (an outcome is the
+#               natural end of any stage, not a skipped step)
+#   correction  backward, or forward by more than one step
+#
+# `saved -> offer` is a correction, not an advance. That is deliberate and it
+# is the example the design uses: referrals happen, the jump is real, and the
+# machine records it as the skip it was rather than refusing it.
+
+discovered:
+  saved: advance
+  preparing: correction
+  applied: correction
+  assessment: correction
+  interview: correction
+  offer: correction
+  rejected: advance
+  withdrawn: advance
+  closed: advance
+
+saved:
+  discovered: correction
+  preparing: advance
+  applied: correction
+  assessment: correction
+  interview: correction
+  offer: correction
+  rejected: advance
+  withdrawn: advance
+  closed: advance
+
+preparing:
+  discovered: correction
+  saved: correction
+  applied: advance
+  assessment: correction
+  interview: correction
+  offer: correction
+  rejected: advance
+  withdrawn: advance
+  closed: advance
+
+applied:
+  discovered: correction
+  saved: correction
+  preparing: correction
+  assessment: advance
+  interview: correction
+  offer: correction
+  rejected: advance
+  withdrawn: advance
+  closed: advance
+
+assessment:
+  discovered: correction
+  saved: correction
+  preparing: correction
+  applied: correction
+  interview: advance
+  offer: correction
+  rejected: advance
+  withdrawn: advance
+  closed: advance
+
+interview:
+  discovered: correction
+  saved: correction
+  preparing: correction
+  applied: correction
+  assessment: correction
+  offer: advance
+  rejected: advance
+  withdrawn: advance
+  closed: advance
+
+offer:
+  discovered: correction
+  saved: correction
+  preparing: correction
+  applied: correction
+  assessment: correction
+  interview: correction
+  rejected: advance
+  withdrawn: advance
+  closed: advance
+
+rejected:
+  discovered: reopen
+  saved: reopen
+  preparing: reopen
+  applied: reopen
+  assessment: reopen
+  interview: reopen
+  offer: reopen
+  withdrawn: reopen
+  closed: reopen
+
+withdrawn:
+  discovered: reopen
+  saved: reopen
+  preparing: reopen
+  applied: reopen
+  assessment: reopen
+  interview: reopen
+  offer: reopen
+  rejected: reopen
+  closed: reopen
+
+closed:
+  discovered: reopen
+  saved: reopen
+  preparing: reopen
+  applied: reopen
+  assessment: reopen
+  interview: reopen
+  offer: reopen
+  rejected: reopen
+  withdrawn: reopen
