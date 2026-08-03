@@ -45,9 +45,13 @@ from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from nightshift.db.base import (
+    ApplicationEventType,
+    ApplicationPriority,
+    ApplicationStage,
     Base,
     BoardTier,
     EmploymentType,
+    EventActor,
     IngestionRunStatus,
     JobStatus,
     LocationConfidence,
@@ -56,6 +60,7 @@ from nightshift.db.base import (
     SourceStatus,
     SourceType,
     TimestampMixin,
+    TransitionClass,
     UUIDPrimaryKeyMixin,
     pg_enum_values,
 )
@@ -671,3 +676,131 @@ class BoardPollState(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
     source: Mapped[Source] = relationship()
+
+
+class Application(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """One row per (user, job). Saving and tracking are the same object.
+
+    PRODUCT-SPEC §10.1 lists ``saved`` as a stage, so there is no separate
+    ``saved_jobs`` table: clicking Save creates this row at stage ``saved``.
+    One row, one history, and no migration on the day a saved job becomes a
+    real application.
+
+    ``notes`` from §6.11 is deliberately **not** a column here. A note is a
+    ``note_added`` event, which makes note history free and unrewritable
+    (M2 design §2.4).
+
+    ``selected_resume_id`` from §6.11 arrives in M2c, with the ``resumes`` table
+    it points at. A nullable UUID with no foreign key is a dangling reference.
+    """
+
+    __tablename__ = "applications"
+    __table_args__ = (
+        # A3: the key is (user, job), not job. Nothing here assumes one user.
+        UniqueConstraint("user_id", "job_id", name="uq_applications_user_id_job_id"),
+        Index("ix_applications_user_id_current_stage", "user_id", "current_stage"),
+        # M2d's daily queue reads this column across the whole table.
+        Index("ix_applications_next_action_at", "next_action_at"),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    # RESTRICT, not CASCADE: a job in somebody's pipeline must not vanish
+    # because of a data-cleanup script. Jobs close; they are not deleted.
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False
+    )
+    current_stage: Mapped[ApplicationStage] = mapped_column(
+        _enum(ApplicationStage, "application_stage"),
+        nullable=False,
+        server_default=text("'saved'"),
+    )
+    priority: Mapped[ApplicationPriority] = mapped_column(
+        _enum(ApplicationPriority, "application_priority"),
+        nullable=False,
+        server_default=text("'normal'"),
+    )
+    # Set by the user recording that they applied. Never set by the system.
+    applied_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    next_action_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    # Where the user actually applied, which is not always our canonical_url.
+    application_url: Mapped[str | None] = mapped_column(String(1000))
+    source_of_application: Mapped[str | None] = mapped_column(String(200))
+    # Archive is the only removal there is — see the model comment on
+    # ApplicationEvent, and test_an_application_cannot_be_deleted_either.
+    archived_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+
+    job: Mapped[Job] = relationship()
+    events: Mapped[list[ApplicationEvent]] = relationship(
+        back_populates="application", order_by="ApplicationEvent.occurred_at"
+    )
+
+
+class ApplicationEvent(UUIDPrimaryKeyMixin, Base):
+    """Append-only history of one application (§6.12).
+
+    Enforced by trigger, per CLAUDE.md §7. Because the trigger fires on a
+    cascading delete too, the parent application cannot be deleted either —
+    which is the behaviour we want and is asserted by name.
+
+    ``occurred_at`` is when the thing happened in the world and may be in the
+    future: an ``interview_scheduled`` event carries the interview's time, which
+    is what M2d's "interviews approaching" row reads. ``created_at`` is when we
+    wrote the row. They are never merged.
+
+    The column the spec calls ``metadata`` is named ``payload`` here.
+    ``metadata`` is reserved on SQLAlchemy's declarative base and cannot be a
+    mapped attribute.
+    """
+
+    __tablename__ = "application_events"
+    __table_args__ = (
+        Index(
+            "ix_application_events_application_id_occurred_at",
+            "application_id",
+            "occurred_at",
+        ),
+        # Invariant I5, at the lowest level available. A system actor may record
+        # a fact about the world; it may never move a stage.
+        CheckConstraint(
+            "to_stage IS NULL OR actor = 'user'",
+            name="only_a_user_moves_a_stage",
+        ),
+        # A destination with no classification is half a transition.
+        CheckConstraint(
+            "(to_stage IS NULL AND transition_class IS NULL)"
+            " OR (to_stage IS NOT NULL AND transition_class IS NOT NULL)",
+            name="stage_fields_travel_together",
+        ),
+    )
+
+    application_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("applications.id", ondelete="CASCADE"), nullable=False
+    )
+    event_type: Mapped[ApplicationEventType] = mapped_column(
+        _enum(ApplicationEventType, "application_event_type"), nullable=False
+    )
+    actor: Mapped[EventActor] = mapped_column(_enum(EventActor, "event_actor"), nullable=False)
+    occurred_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    # Null on the first stage change of an application's life for the same
+    # reason JobStatusEvent.from_status is: it came from nothing.
+    from_stage: Mapped[ApplicationStage | None] = mapped_column(
+        _enum(ApplicationStage, "application_stage")
+    )
+    to_stage: Mapped[ApplicationStage | None] = mapped_column(
+        _enum(ApplicationStage, "application_stage")
+    )
+    transition_class: Mapped[TransitionClass | None] = mapped_column(
+        _enum(TransitionClass, "transition_class")
+    )
+    # The note, or the sentence explaining a system-recorded fact.
+    body: Mapped[str | None] = mapped_column(Text)
+    payload: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, nullable=False, server_default=text("now()")
+    )
+
+    application: Mapped[Application] = relationship(back_populates="events")
