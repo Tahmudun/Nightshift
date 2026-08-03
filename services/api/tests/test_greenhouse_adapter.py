@@ -13,7 +13,9 @@ Two things these tests are careful about:
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -27,7 +29,9 @@ from nightshift.adapters.base import (
     SourceUnavailableError,
 )
 from nightshift.adapters.greenhouse import (
-    BOARD_URL,
+    FULL_BOARD_URL,
+    JOB_URL,
+    LISTING_URL,
     GreenhouseAdapter,
     _extract_employment_type,
     content_hash,
@@ -44,7 +48,24 @@ from nightshift.db.base import EmploymentType, LocationConfidence, SourceType
 from tests.conftest import make_settings
 
 BOARD = BoardRef(company="Datadog", ats="greenhouse", token="datadog", nyc_presence=True)
-BOARD_ENDPOINT = BOARD_URL.format(token="datadog")
+
+#: The endpoint a routine poll hits from M1d: the listing, without content.
+#: 33 KB against 499 KB for the same board with content (measured 2026-08-02).
+BOARD_ENDPOINT = LISTING_URL.format(token="datadog")
+#: Reserved for a board's first ingestion (ADR 0007). Using it on a routine poll
+#: is a bug, and `test_a_routine_poll_never_asks_for_content` is what says so.
+FULL_BOARD_ENDPOINT = FULL_BOARD_URL.format(token="datadog")
+
+LISTING_FIXTURE = Path(__file__).parent / "fixtures" / "greenhouse" / "datadog_listing.json"
+SINGLE_FIXTURE = Path(__file__).parent / "fixtures" / "greenhouse" / "datadog_single_job.json"
+
+
+def _listing() -> dict[str, Any]:
+    return json.loads(LISTING_FIXTURE.read_text())
+
+
+def _single() -> dict[str, Any]:
+    return json.loads(SINGLE_FIXTURE.read_text())
 
 
 def adapter_for(settings: Settings) -> tuple[GreenhouseAdapter, PoliteClient]:
@@ -62,6 +83,14 @@ def test_adapter_satisfies_the_protocol() -> None:
     assert not hasattr(adapter, "discover_companies")
 
 
+def test_the_adapter_declares_a_parser_version() -> None:
+    """ADR 0007: a stored ETag is only valid for the parser that earned it, so
+    the version has to be readable off the adapter rather than hard-coded where
+    the ETag is stored."""
+    adapter, _ = adapter_for(make_settings())
+    assert adapter.parser_version
+
+
 # ---------------------------------------------------------------------------
 # Fetching
 # ---------------------------------------------------------------------------
@@ -75,8 +104,9 @@ async def test_fetch_board_returns_every_job(greenhouse_board_payload: dict[str,
         outcome = await adapter.fetch_board(BOARD)
 
     assert outcome.ok
-    assert len(outcome.jobs) == len(greenhouse_board_payload["jobs"])
-    assert all(job.source_company_key == "datadog" for job in outcome.jobs)
+    # Phase 1 names every posting and fetches no content (ADR 0007).
+    assert len(outcome.listed) == len(greenhouse_board_payload["jobs"])
+    assert outcome.jobs == ()
 
 
 @respx.mock
@@ -171,6 +201,289 @@ class TestInvariantI3:
         async with client:
             outcome = await adapter.fetch_board(BOARD)  # must not raise
         assert outcome.ok is False
+
+
+class TestConditionalFetch:
+    """M1d: Greenhouse revalidates. ADR 0007 verified this provider; M1d's
+    measurements confirmed the other two do the same.
+
+    Greenhouse stays on `content=true` in this task. Task 4 moves it to the
+    cheap listing plus per-posting fetches — doing both at once would mean a
+    failing test could be either change.
+    """
+
+    @respx.mock
+    async def test_a_304_yields_not_modified_and_describes_no_postings(self) -> None:
+        respx.get(BOARD_ENDPOINT).mock(return_value=httpx.Response(304))
+        adapter, client = adapter_for(make_settings(outbound_http_enabled=True))
+        async with client:
+            outcome = await adapter.fetch_board(BOARD, etag='W/"abc"')
+
+        assert outcome.ok is True
+        assert outcome.not_modified is True
+        assert outcome.jobs == ()
+        assert outcome.listed == ()
+        assert outcome.is_authoritative_empty is False
+
+    @respx.mock
+    async def test_the_stored_etag_reaches_the_provider(self) -> None:
+        route = respx.get(BOARD_ENDPOINT).mock(return_value=httpx.Response(304))
+        adapter, client = adapter_for(make_settings(outbound_http_enabled=True))
+        async with client:
+            await adapter.fetch_board(BOARD, etag='W/"abc"')
+
+        assert route.calls[0].request.headers["if-none-match"] == 'W/"abc"'
+
+    @respx.mock
+    async def test_no_etag_is_sent_on_a_first_poll(self) -> None:
+        route = respx.get(BOARD_ENDPOINT).mock(return_value=httpx.Response(200, json={"jobs": []}))
+        adapter, client = adapter_for(make_settings(outbound_http_enabled=True))
+        async with client:
+            await adapter.fetch_board(BOARD)
+
+        assert "if-none-match" not in route.calls[0].request.headers
+
+    @respx.mock
+    async def test_a_200_reports_the_new_etag_for_storage(
+        self, greenhouse_board_payload: dict[str, Any]
+    ) -> None:
+        respx.get(BOARD_ENDPOINT).mock(
+            return_value=httpx.Response(
+                200, json=greenhouse_board_payload, headers={"ETag": 'W/"fresh"'}
+            )
+        )
+        adapter, client = adapter_for(make_settings(outbound_http_enabled=True))
+        async with client:
+            outcome = await adapter.fetch_board(BOARD)
+
+        assert outcome.not_modified is False
+        assert outcome.etag == 'W/"fresh"'
+
+    # `listed == fetched` held while this adapter was single-phase and is now
+    # deliberately false: phase 1 lists everything and fetches nothing. The
+    # equivalent assertions live in TestTwoPhase, and the single-phase version
+    # of this test survives on Lever and Ashby, where it is still true.
+
+    @respx.mock
+    async def test_listed_postings_carry_the_providers_updated_at(
+        self, greenhouse_board_payload: dict[str, Any]
+    ) -> None:
+        """Greenhouse is the only one of the three that publishes this, and it
+        is what makes the Task 4 diff possible. Timezone-aware, because a naive
+        comparison against a stored TIMESTAMPTZ raises rather than mis-answers.
+        """
+        respx.get(BOARD_ENDPOINT).mock(
+            return_value=httpx.Response(200, json=greenhouse_board_payload)
+        )
+        adapter, client = adapter_for(make_settings(outbound_http_enabled=True))
+        async with client:
+            outcome = await adapter.fetch_board(BOARD)
+
+        stamped = [p for p in outcome.listed if p.source_updated_at is not None]
+        assert stamped, "the recorded board publishes updated_at on every posting"
+        assert all(p.source_updated_at.tzinfo is not None for p in stamped)  # type: ignore[union-attr]
+
+    @respx.mock
+    async def test_a_failure_still_reports_ok_false(self) -> None:
+        respx.get(BOARD_ENDPOINT).mock(return_value=httpx.Response(503))
+        adapter, client = adapter_for(make_settings(outbound_http_enabled=True, http_max_retries=0))
+        async with client:
+            outcome = await adapter.fetch_board(BOARD, etag='W/"abc"')
+
+        assert outcome.ok is False
+        assert outcome.not_modified is False
+        assert outcome.is_authoritative_empty is False
+
+
+class TestTwoPhase:
+    """ADR 0007's two phases, against the recorded listing and posting.
+
+    Greenhouse is the only provider where this applies: its listing carries no
+    descriptions, and it is the only one publishing a per-posting `updated_at`
+    to decide which postings need a second request. Lever and Ashby return every
+    posting in full from the board endpoint, so they have no phase 2 at all.
+    """
+
+    @respx.mock
+    async def test_a_routine_poll_never_asks_for_content(self) -> None:
+        """The 499 KB path is reserved for a board's first ingestion. Using it
+        on a routine poll is the bug ADR 0007 names, and it is invisible from
+        the outside — the data would be correct and the bandwidth ruinous."""
+        route = respx.get(BOARD_ENDPOINT).mock(return_value=httpx.Response(200, json=_listing()))
+        full = respx.get(FULL_BOARD_ENDPOINT).mock(
+            return_value=httpx.Response(200, json={"jobs": []})
+        )
+        adapter, client = adapter_for(make_settings(outbound_http_enabled=True))
+        async with client:
+            await adapter.fetch_board(BOARD)
+
+        assert route.call_count == 1
+        assert full.call_count == 0
+        assert "content=true" not in str(route.calls[0].request.url)
+
+    @respx.mock
+    async def test_phase_one_lists_without_fetching_content(self) -> None:
+        respx.get(BOARD_ENDPOINT).mock(return_value=httpx.Response(200, json=_listing()))
+        adapter, client = adapter_for(make_settings(outbound_http_enabled=True))
+        async with client:
+            outcome = await adapter.fetch_board(BOARD)
+
+        assert outcome.ok is True
+        assert outcome.jobs == ()
+        assert len(outcome.listed) == 25
+        assert outcome.is_authoritative_empty is False
+
+    @respx.mock
+    async def test_the_listing_carries_an_aware_updated_at_per_posting(self) -> None:
+        """The field the phase-2 diff turns on. Timezone-aware because comparing
+        a naive datetime against a stored TIMESTAMPTZ raises rather than
+        quietly answering wrong — which is the better failure, but only if the
+        value is aware to begin with."""
+        respx.get(BOARD_ENDPOINT).mock(return_value=httpx.Response(200, json=_listing()))
+        adapter, client = adapter_for(make_settings(outbound_http_enabled=True))
+        async with client:
+            outcome = await adapter.fetch_board(BOARD)
+
+        assert all(p.source_updated_at is not None for p in outcome.listed)
+        assert all(
+            p.source_updated_at.tzinfo is not None  # type: ignore[union-attr]
+            for p in outcome.listed
+        )
+
+    @respx.mock
+    async def test_the_recorded_listing_really_has_no_descriptions(self) -> None:
+        """Guards the fixture, not the adapter. If a re-recording ever captured
+        content, every saving this milestone claims would be imaginary and every
+        other test here would still pass."""
+        assert all(not job.get("content") for job in _listing()["jobs"])
+
+    @respx.mock
+    async def test_phase_two_returns_full_payloads(self) -> None:
+        job_id = str(_single()["id"])
+        respx.get(JOB_URL.format(token="datadog", job_id=job_id)).mock(
+            return_value=httpx.Response(200, json=_single())
+        )
+        adapter, client = adapter_for(make_settings(outbound_http_enabled=True))
+        async with client:
+            fetched, failed = await adapter.fetch_postings(BOARD, [job_id])
+
+        assert failed == []
+        assert len(fetched) == 1
+        assert fetched[0].source_job_id == job_id
+        assert fetched[0].source_company_key == "datadog"
+        assert fetched[0].payload["content"]
+
+    @respx.mock
+    async def test_phase_two_fetches_only_what_it_was_asked_for(self) -> None:
+        """The entire point of the diff. Asking for one posting must not walk
+        the board."""
+        job_id = str(_single()["id"])
+        route = respx.get(JOB_URL.format(token="datadog", job_id=job_id)).mock(
+            return_value=httpx.Response(200, json=_single())
+        )
+        listing = respx.get(BOARD_ENDPOINT).mock(return_value=httpx.Response(200, json=_listing()))
+        adapter, client = adapter_for(make_settings(outbound_http_enabled=True))
+        async with client:
+            await adapter.fetch_postings(BOARD, [job_id])
+
+        assert route.call_count == 1
+        assert listing.call_count == 0
+
+    @respx.mock
+    async def test_one_failing_posting_does_not_cost_the_others(self) -> None:
+        """A 404 mid-poll must not lose the rest of the board, and must not read
+        as those postings being gone (I3)."""
+        good = str(_single()["id"])
+        respx.get(JOB_URL.format(token="datadog", job_id=good)).mock(
+            return_value=httpx.Response(200, json=_single())
+        )
+        respx.get(JOB_URL.format(token="datadog", job_id="999")).mock(
+            return_value=httpx.Response(404)
+        )
+        adapter, client = adapter_for(make_settings(outbound_http_enabled=True))
+        async with client:
+            fetched, failed = await adapter.fetch_postings(BOARD, [good, "999"])
+
+        assert [j.source_job_id for j in fetched] == [good]
+        assert failed == ["999"]
+
+    @respx.mock
+    async def test_phase_two_asked_for_nothing_makes_no_request(self) -> None:
+        """The common case on a healthy board: the listing changed, but none of
+        the postings we care about did."""
+        route = respx.get(url__regex=r".*").mock(return_value=httpx.Response(200, json={}))
+        adapter, client = adapter_for(make_settings(outbound_http_enabled=True))
+        async with client:
+            fetched, failed = await adapter.fetch_postings(BOARD, [])
+
+        assert fetched == ()
+        assert failed == []
+        assert route.call_count == 0
+
+    def test_a_phase_two_payload_normalizes_like_a_content_true_item(self) -> None:
+        """Measured byte-identical on 2026-08-02 — every key, every value — which
+        is why `normalize` is reused for both rather than duplicated. A second
+        normalization path is a second place for the location parser to drift,
+        and I1 failures have come from exactly that three times in this project.
+
+        The provenance file records the comparison; this asserts the consequence
+        still holds, so a future divergence fails here instead of quietly
+        producing two different canonical jobs for one posting.
+        """
+        adapter, _ = adapter_for(make_settings())
+        single = _single()
+        raw = RawJob(
+            source_job_id=str(single["id"]),
+            source_company_key="datadog",
+            canonical_url=single.get("absolute_url"),
+            payload=single,
+        )
+        normalized = adapter.normalize(raw, BOARD)
+
+        assert normalized.title == single["title"]
+        assert normalized.description_hash
+        assert normalized.source_updated_at is not None
+        assert normalized.company_name == BOARD.company
+
+    def test_the_adapter_declares_itself_two_phase(self) -> None:
+        adapter, _ = adapter_for(make_settings())
+        assert adapter.is_two_phase is True
+
+
+class TestFirstIngestion:
+    """ADR 0007 reserves `content=true` for a board nobody has polled before.
+
+    Without it, a first poll of Datadog would be 429 individual requests at the
+    configured rate — nine minutes and 429 requests against one provider, to
+    fetch what one request returns. The reservation is the whole reason the
+    expensive endpoint still exists in this module.
+    """
+
+    @respx.mock
+    async def test_it_fetches_the_whole_board_in_one_request(
+        self, greenhouse_board_payload: dict[str, Any]
+    ) -> None:
+        route = respx.get(FULL_BOARD_ENDPOINT).mock(
+            return_value=httpx.Response(200, json=greenhouse_board_payload)
+        )
+        adapter, client = adapter_for(make_settings(outbound_http_enabled=True))
+        async with client:
+            outcome = await adapter.fetch_full_board(BOARD)
+
+        assert route.call_count == 1
+        assert outcome.ok is True
+        assert len(outcome.jobs) == len(greenhouse_board_payload["jobs"])
+        assert outcome.listed_source_job_ids == tuple(j.source_job_id for j in outcome.jobs)
+
+    @respx.mock
+    async def test_a_failure_is_still_not_an_empty_board(self) -> None:
+        respx.get(FULL_BOARD_ENDPOINT).mock(return_value=httpx.Response(503))
+        adapter, client = adapter_for(make_settings(outbound_http_enabled=True, http_max_retries=0))
+        async with client:
+            outcome = await adapter.fetch_full_board(BOARD)
+
+        assert outcome.ok is False
+        assert outcome.is_authoritative_empty is False
 
 
 class TestPoliteClient:

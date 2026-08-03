@@ -34,7 +34,14 @@ from nightshift.config import get_settings
 from nightshift.db.base import JobStatus, LocationConfidence, SourceType
 from nightshift.db.models import Company, Job, JobLocation, Source, SourceJobRecord, User
 from nightshift.db.session import dispose_engine, session_scope
+from nightshift.db.types import utcnow
 from nightshift.domain.ingestion import get_or_create_source, ingest_boards
+from nightshift.domain.polling import (
+    ADAPTERS,
+    adapter_for,
+    poll_one_board,
+    sync_board_poll_state,
+)
 from nightshift.domain.registry import get_registry
 from nightshift.logging import configure_logging
 
@@ -58,6 +65,14 @@ class FixtureGreenhouseAdapter(GreenhouseAdapter):
 
     source_name = "greenhouse_fixture"
     source_type = SourceType.FIXTURE
+    #: **Not inherited.** The real Greenhouse adapter is two-phase, and this one
+    #: must not be: the committed recording *is* the whole board, descriptions
+    #: included, so there is no second phase to run. Left inherited, the
+    #: pipeline would take the two-phase branch, find nothing stored, and call
+    #: the inherited `fetch_full_board` — which reaches for an HTTP client this
+    #: adapter deliberately does not have. `make seed` would crash, and
+    #: `make demo`'s offline guarantee with it.
+    is_two_phase = False
 
     def __init__(self, fixture_path: Path) -> None:
         # No HTTP client: this adapter must not be able to make a request even
@@ -65,7 +80,7 @@ class FixtureGreenhouseAdapter(GreenhouseAdapter):
         super().__init__(client=None)  # type: ignore[arg-type]
         self._fixture_path = fixture_path
 
-    async def fetch_board(self, board: BoardRef) -> FetchOutcome:
+    async def fetch_board(self, board: BoardRef, *, etag: str | None = None) -> FetchOutcome:
         try:
             payload = json.loads(self._fixture_path.read_text())
         except (OSError, ValueError) as exc:
@@ -101,7 +116,7 @@ class FixtureLeverAdapter(LeverAdapter):
         super().__init__(client=None)
         self._fixture = fixture
 
-    async def fetch_board(self, board: BoardRef) -> FetchOutcome:
+    async def fetch_board(self, board: BoardRef, *, etag: str | None = None) -> FetchOutcome:
         payload = json.loads(self._fixture.read_text())
         jobs = tuple(
             RawJob(
@@ -126,7 +141,7 @@ class FixtureAshbyAdapter(AshbyAdapter):
         super().__init__(client=None)
         self._fixture = fixture
 
-    async def fetch_board(self, board: BoardRef) -> FetchOutcome:
+    async def fetch_board(self, board: BoardRef, *, etag: str | None = None) -> FetchOutcome:
         payload = json.loads(self._fixture.read_text())
         jobs = tuple(
             RawJob(
@@ -230,6 +245,14 @@ async def cmd_seed(args: argparse.Namespace) -> int:
             f"updated, {ashby_stats.unchanged} unchanged, {ashby_stats.failed} failed "
             f"({ashby_run.status.value})"
         )
+
+        # M1d: give every registry board its polling schedule, so `make demo`
+        # shows the board table populated rather than empty. Every row reads
+        # "never polled", which is the truth — seeding loads committed fixtures
+        # and contacts nothing. An empty table would look like a broken page;
+        # a table of honest "never" is the actual state.
+        created = await sync_board_poll_state(session, now=utcnow())
+        print(f"  board poll schedules: {created} created (none polled yet)")
 
     await _print_summary()
     print("\nseed complete. `make dev` then open http://localhost:3000")
@@ -344,9 +367,53 @@ async def _print_summary() -> None:
         print(f"    {source.name:<20} {label}")
 
 
+async def cmd_poll(args: argparse.Namespace) -> int:
+    """Poll one board through the full M1d cycle, conditionally.
+
+    Exists so a human can run a single board's poll without waiting for a cron,
+    and — the reason it was written — so M1 criterion 13 can be demonstrated
+    against a real provider rather than only in fixtures: run it twice and the
+    second run reports ``304`` and writes nothing.
+
+    Goes through ``poll_one_board``, so it reads and writes the same
+    ``board_poll_state`` row the scheduler does. A command that polled some
+    other way would prove nothing about the thing that actually runs.
+    """
+    settings = get_settings()
+    if not settings.outbound_http_enabled:
+        print(
+            "error: outbound HTTP is disabled.\n"
+            "       Set OUTBOUND_HTTP_ENABLED=true in .env to poll live boards.",
+            file=sys.stderr,
+        )
+        return 1
+
+    async with session_scope() as session:
+        await sync_board_poll_state(session, now=utcnow())
+
+    async with PoliteClient() as client, session_scope() as session:
+        try:
+            adapter = adapter_for(args.ats, client)
+            state = await poll_one_board(
+                session, adapter, ats=args.ats, token=args.token, now=utcnow()
+            )
+        except LookupError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+
+        print(f"  {args.ats}:{args.token}")
+        print(f"    http status         {state.last_status}")
+        print(f"    tier                {state.tier.value}")
+        print(f"    etag                {state.etag or '(none served)'}")
+        print(f"    consecutive fails   {state.consecutive_failures}")
+        print(f"    next poll at        {state.next_poll_at.isoformat()}")
+    return 0
+
+
 COMMANDS = {
     "seed": cmd_seed,
     "ingest": cmd_ingest,
+    "poll": cmd_poll,
     "enqueue": cmd_enqueue,
     "stats": cmd_stats,
 }
@@ -357,6 +424,11 @@ def main(argv: list[str] | None = None) -> int:
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("seed", help="load dev user + committed fixture board (offline)")
     subparsers.add_parser("ingest", help="poll live boards from the registry")
+    poll = subparsers.add_parser(
+        "poll", help="poll one board conditionally, through board_poll_state"
+    )
+    poll.add_argument("--ats", required=True, choices=sorted(ADAPTERS))
+    poll.add_argument("--token", required=True)
     subparsers.add_parser("enqueue", help="queue the ingestion task for the worker")
     subparsers.add_parser("stats", help="print corpus counts")
     args = parser.parse_args(argv)

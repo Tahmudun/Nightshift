@@ -156,12 +156,25 @@ def promote(
 ) -> tuple[int, list[Candidate]]:
     """Append approved candidates to the registry. Additive, never destructive.
 
-    Existing entries are read and rewritten unchanged, including `dead` and
-    `disabled` ones — A1 keeps those in the file so they surface on the source
-    health page. Rebuilding the registry from candidates alone would delete
-    curated history and silently un-disable boards a human had turned off; and
-    because an existing `(ats, token)` is treated as already present, discovery
-    re-finding a disabled board adds nothing rather than overruling the human.
+    **Literally appended**, not rewritten. Existing bytes are untouched, so the
+    old file is a prefix of the new one and the diff a human reviews is pure
+    additions — which is what ADR 0005's batch approval assumes it is reviewing.
+
+    That wording used to be aspirational. Until M1d this function rebuilt the
+    document with ``yaml.safe_dump``, which cannot round-trip comments: it was
+    additive in the *data* and destructive of everything a human had written
+    down. The first real ``--write`` in this project's history deleted ten lines
+    of rationale from between the entries, including a note on the ``Stripe``
+    entry reading "enable once the freshness and closure state machine lands" —
+    a message to the milestone that eventually read it, deleted by approving
+    nineteen unrelated boards. ``_leading_comment`` had saved the header, so the
+    limitation was known; only the consequence was not.
+
+    ``dead`` and ``disabled`` entries survive for free now, rather than by being
+    carefully re-serialised — A1 keeps those in the file so they surface on the
+    source health page. An existing ``(ats, token)`` still counts as present, so
+    discovery re-finding a disabled board adds nothing rather than overruling
+    the human who disabled it.
 
     Writes nothing at all when there is nothing to approve, so the working tree
     stays clean after a no-op run and nobody is asked to review an empty diff.
@@ -176,29 +189,96 @@ def promote(
     if not approved:
         return 0, []
 
-    for candidate in approved:
-        boards.append(
-            {
-                "company": candidate.company_name,
-                "ats": candidate.ats,
-                "token": candidate.token,
-                "added": today.isoformat(),
-                "verified_at": candidate.last_validated.isoformat(),
-                "status": "active",
-                # Derived from the postings the validator actually parsed, not
-                # asserted by hand. board-discovery.md §16 expects this field to
-                # be deleted once M1d computes tiers from the database.
-                "nyc_presence": candidate.nyc_posting_count > 0,
-                "notes": (
-                    f"Discovered by {candidate.source} and approved in bulk on "
-                    f"{today.isoformat()} (ADR 0005). {candidate.posting_count} posting(s) "
-                    f"at validation, {candidate.nyc_posting_count} naming NYC."
-                ),
-            }
-        )
-
-    target.write_text(
-        _leading_comment(text)
-        + yaml.safe_dump({"boards": boards}, sort_keys=False, allow_unicode=True, width=88)
+    indent = _sequence_indent(text)
+    rendered = "".join(
+        _render_entry(_entry_for(candidate, today), indent) for candidate in approved
     )
+
+    if not boards:
+        # An empty or absent registry. There is nothing between entries to
+        # preserve, and appending block items after `boards: []` — the shape
+        # `yaml.safe_dump` writes for an empty list — is not valid YAML. So this
+        # one case writes the file rather than extending it, keeping whatever
+        # header comment was there.
+        target.write_text(_leading_comment(text) + "boards:\n" + rendered.lstrip("\n"))
+        return len(approved), approved
+
+    with target.open("a", encoding="utf-8") as handle:
+        # An editor that strips the final newline would otherwise run the last
+        # existing line into the first new one.
+        if text and not text.endswith("\n"):
+            handle.write("\n")
+        handle.write(rendered)
+
     return len(approved), approved
+
+
+def _entry_for(candidate: Candidate, today: date) -> dict[str, Any]:
+    """One registry entry, in the field order the file already uses."""
+    return {
+        "company": candidate.company_name,
+        "ats": candidate.ats,
+        "token": candidate.token,
+        "added": today.isoformat(),
+        "verified_at": candidate.last_validated.isoformat(),
+        "status": "active",
+        # Derived from the postings the validator actually parsed, not asserted
+        # by hand. board-discovery.md §16 expects this field to be deleted now
+        # that M1d computes tiers from the database; nothing in the polling path
+        # reads it, and a test asserts that.
+        "nyc_presence": candidate.nyc_posting_count > 0,
+        "notes": (
+            f"Discovered by {candidate.source} and approved in bulk on "
+            f"{today.isoformat()} (ADR 0005). {candidate.posting_count} posting(s) "
+            f"at validation, {candidate.nyc_posting_count} naming NYC."
+        ),
+    }
+
+
+def _sequence_indent(text: str) -> str:
+    """How far the existing file indents its list items, verbatim.
+
+    YAML accepts both ``- company:`` at column zero and ``  - company:`` under
+    the key, but **not both in one sequence** — mixing them is a parse error.
+    The hand-written registry uses two spaces; ``yaml.safe_dump`` writes zero.
+    Rather than pick one and corrupt whichever file disagrees, match what is
+    already there.
+
+    Two spaces when the file has no list items yet to copy from, because that is
+    what the committed registry uses and what a human editing it will expect.
+    """
+    for line in text.splitlines():
+        stripped = line.lstrip()
+        if stripped.startswith("- ") and not stripped.startswith("- #"):
+            return line[: len(line) - len(stripped)]
+    return "  "
+
+
+def _render_entry(entry: dict[str, Any], indent: str = "  ") -> str:
+    """Render one board as YAML text, to be appended to the file as it stands.
+
+    **Appending rather than re-dumping the document is the whole point.**
+    ``yaml.safe_dump`` cannot round-trip comments, and the registry's rationale
+    lives in them — including, when this was written, a note on the ``Stripe``
+    entry addressed to the milestone that eventually read it. Rewriting the file
+    deleted that quietly, on the first real run, while the docstring above still
+    said "additive, never destructive". It was additive in the data and
+    destructive in everything a human had written down.
+
+    The cost of appending is that quoting becomes this function's problem, so
+    every scalar goes through ``yaml.safe_dump`` rather than an f-string. A
+    company name is provider-supplied text: an apostrophe, a colon, a leading
+    dash or a ``#`` must not be able to corrupt the file that decides which
+    boards get polled.
+    """
+    lines = ["\n"]
+    for index, (key, value) in enumerate(entry.items()):
+        scalar = yaml.safe_dump(
+            value, default_flow_style=True, width=10**6, allow_unicode=True
+        ).strip()
+        if scalar.endswith("..."):
+            # safe_dump of a bare scalar can append a document-end marker.
+            scalar = scalar[:-3].strip()
+        prefix = f"{indent}- " if index == 0 else f"{indent}  "
+        lines.append(f"{prefix}{key}: {scalar}\n")
+    return "".join(lines)

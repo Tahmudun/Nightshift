@@ -18,6 +18,7 @@ from sqlalchemy.orm import selectinload
 from nightshift.api.schemas import (
     BlindSpotOut,
     BoardCoverageOut,
+    BoardPollStateOut,
     CoverageOut,
     IngestionRunOut,
     JobStatusCounts,
@@ -27,6 +28,7 @@ from nightshift.api.schemas import (
 )
 from nightshift.db.base import JobStatus, LocationConfidence
 from nightshift.db.models import (
+    BoardPollState,
     Company,
     IngestionRun,
     Job,
@@ -112,6 +114,50 @@ async def list_source_health(
             )
         )
     return out
+
+
+@router.get("/boards", response_model=list[BoardPollStateOut])
+async def list_board_poll_state(
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+) -> list[BoardPollStateOut]:
+    """Per-board polling state (M1d, ADR 0007).
+
+    Ordered by ``last_success_at`` ascending, **nulls first**: the boards we
+    have heard from least recently, and boards we have never heard from at all,
+    come first. That is the operational question — a list sorted by name makes
+    an operator scan for trouble instead of being shown it.
+    """
+    rows = (
+        (
+            await session.execute(
+                select(BoardPollState).order_by(
+                    BoardPollState.last_success_at.asc().nullsfirst(),
+                    BoardPollState.ats,
+                    BoardPollState.token,
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    return [
+        BoardPollStateOut(
+            ats=row.ats,
+            token=row.token,
+            tier=row.tier,
+            last_status=row.last_status,
+            last_polled_at=row.last_polled_at,
+            last_success_at=row.last_success_at,
+            last_error=row.last_error,
+            consecutive_failures=row.consecutive_failures,
+            next_poll_at=row.next_poll_at,
+            # The stored ETag is an opaque provider string. Whether one exists
+            # is operationally interesting; its value is not, and printing it
+            # invites reading it as an identifier.
+            has_etag=row.etag is not None,
+        )
+        for row in rows
+    ]
 
 
 @router.get("/ingestion-runs", response_model=list[IngestionRunOut])

@@ -19,7 +19,13 @@ Field shapes were read off two real boards rather than from documentation:
   its interval, so unlike Greenhouse `salary_period` can be set honestly.
 * `createdAt` is **epoch milliseconds**.
 * There is **no updated/modified field**, so `source_updated_at` stays null and
-  change detection falls back to the description hash.
+  change detection falls back to the description hash. M1d measured why this
+  costs nothing: the board response already carries every posting in full
+  (6,373 characters of `description` on the first `alloy` posting), so there is
+  no second fetch here for a timestamp to gate. `is_two_phase` is False.
+* It serves an **ETag and honours `If-None-Match`** (measured 2026-08-02),
+  which matters more here than anywhere else — Lever is the one provider of the
+  three that does **not** compress, so the 200 a 304 replaces is 232 KB.
 * There is **no company name**. It comes from the registry entry a human
   approved; deriving it from the token would be the I2 failure ADR 0005 and
   `board-discovery.md` §6 both turn on.
@@ -28,24 +34,31 @@ Field shapes were read off two real boards rather than from documentation:
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Any, Final, Protocol
+from typing import Any, Final
 
 import structlog
 
 from nightshift.adapters.base import (
     BoardRef,
     FetchOutcome,
+    ListedPosting,
     NormalizedSourceJob,
     RawJob,
     SourceUnavailableError,
 )
 from nightshift.adapters.greenhouse import content_hash, normalize_title
+from nightshift.adapters.http import ConditionalJsonClient
 from nightshift.db.base import EmploymentType, SourceType
 from nightshift.domain.locations import infer_remote_policy, parse_location_list
 
 log = structlog.get_logger(__name__)
 
 BOARD_URL: Final = "https://api.lever.co/v0/postings/{token}?mode=json"
+
+#: Bumped when normalization changes, so a stored ETag earned by the old parser
+#: is discarded rather than letting the new parser never see the payload it was
+#: written for (ADR 0007).
+PARSER_VERSION: Final = "1"
 
 # Lever's own vocabulary, mapped explicitly. Anything unlisted is `unknown`
 # rather than a plausible default — A13 is emphatic that eligibility is M3's
@@ -71,10 +84,6 @@ _SALARY_INTERVALS: Final[dict[str, str]] = {
     "per-day-salary": "day",
     "per-hour-wage": "hour",
 }
-
-
-class _JsonClient(Protocol):
-    async def get_json(self, url: str) -> Any: ...
 
 
 def _epoch_millis_to_datetime(value: object) -> datetime | None:
@@ -158,11 +167,16 @@ class LeverAdapter:
 
     source_name = "lever"
     source_type = SourceType.ATS_LEVER
+    parser_version = PARSER_VERSION
+    #: Lever's board response carries every posting in full — 6,373 characters
+    #: of `description` on the first alloy posting, measured 2026-08-02 — so a
+    #: second phase would be a request that could add nothing.
+    is_two_phase = False
 
-    def __init__(self, client: _JsonClient | None) -> None:
+    def __init__(self, client: ConditionalJsonClient | None) -> None:
         self._client = client
 
-    async def fetch_board(self, board: BoardRef) -> FetchOutcome:
+    async def fetch_board(self, board: BoardRef, *, etag: str | None = None) -> FetchOutcome:
         """Poll one board. Never raises for a source failure.
 
         I3 lives or dies on this method: a bad response, timeout, or
@@ -177,7 +191,7 @@ class LeverAdapter:
             raise RuntimeError("LeverAdapter needs a client to fetch")
         url = BOARD_URL.format(token=board.token)
         try:
-            payload = await self._client.get_json(url)
+            response = await self._client.get_json_conditional(url, etag=etag)
         except SourceUnavailableError as exc:
             log.warning(
                 "lever_board_unavailable",
@@ -188,6 +202,15 @@ class LeverAdapter:
             )
             return FetchOutcome(board=board, ok=False, http_status=exc.http_status, error=str(exc))
 
+        if response.not_modified:
+            # Zero writes downstream. The board is byte-identical to the copy we
+            # already parsed, so every posting we know about is still listed and
+            # none of them needs re-reading. Worth most on this provider: Lever
+            # is the one of the three that does not compress, so the 200 it
+            # replaces is 232 KB on the wire (measured 2026-08-02).
+            return FetchOutcome(board=board, ok=True, not_modified=True, etag=etag, http_status=304)
+
+        payload = response.payload
         if not isinstance(payload, list):
             # An unknown token 404s and never reaches here. A 200 with the
             # wrong shape is a source problem, and "no jobs" is the one
@@ -215,7 +238,22 @@ class LeverAdapter:
             )
 
         log.info("lever_board_fetched", board=board.token, jobs=len(jobs))
-        return FetchOutcome(board=board, ok=True, jobs=tuple(jobs), http_status=200)
+        return FetchOutcome(
+            board=board,
+            ok=True,
+            jobs=tuple(jobs),
+            # Single-phase: everything fetched is everything listed. Lever
+            # publishes `createdAt` and no updated-at field, and needs none —
+            # there is no second fetch here for a timestamp to gate, and
+            # promoting a creation date to a modification date would make every
+            # posting look changed once and then never again.
+            listed=tuple(
+                ListedPosting(source_job_id=job.source_job_id, source_updated_at=None)
+                for job in jobs
+            ),
+            etag=response.etag,
+            http_status=response.http_status,
+        )
 
     def normalize(self, raw_job: RawJob, board: BoardRef) -> NormalizedSourceJob:
         """Normalize, taking the employer name from the approved registry entry.

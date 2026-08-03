@@ -22,12 +22,13 @@ there is no argument by which a caller can ask for the others.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any, cast
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy import CursorResult, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -37,6 +38,7 @@ from nightshift.adapters.base import (
     JobSourceAdapter,
     NormalizedSourceJob,
     RawJob,
+    TwoPhaseJobSourceAdapter,
 )
 from nightshift.db.base import (
     EmploymentType,
@@ -95,9 +97,23 @@ class IngestionStats:
     # Jobs that transitioned to `closed` during this run (ADR 0009). Only ever
     # non-zero for boards that answered — see apply_freshness.
     closed: int = 0
+    #: Boards that answered at all, including with a 304. "Did this source
+    #: respond" is what this measures, and it is what `status` is derived from.
     boards_ok: list[str] = field(default_factory=list)
+    #: Boards that answered with an actual listing. **Only these may age
+    #: records.** A 304 board is in `boards_ok` but not here: it responded
+    #: successfully and described nothing, so ageing its records against a run
+    #: it never enumerated would close every posting on it.
+    boards_listed: list[str] = field(default_factory=list)
+    #: Boards that answered 304. Polled successfully, wrote nothing, cost one
+    #: request and no body.
+    not_modified: list[str] = field(default_factory=list)
     boards_failed: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    #: The ETag each board served, for the caller to store against it. Carried
+    #: on the stats rather than returned separately because the caller already
+    #: has to hold these, and a second return value is a second thing to forget.
+    etags: dict[str, str | None] = field(default_factory=dict)
 
     @property
     def status(self) -> IngestionRunStatus:
@@ -277,6 +293,7 @@ async def persist_source_job(
             raw_payload=raw_job.payload,
             raw_text=normalized.description_text,
             description_hash=normalized.description_hash,
+            source_updated_at=normalized.source_updated_at,
             first_seen_at=now,
             last_seen_at=now,
             last_verified_at=now,
@@ -335,6 +352,7 @@ async def persist_source_job(
     record.raw_payload = raw_job.payload
     record.raw_text = normalized.description_text
     record.description_hash = normalized.description_hash
+    record.source_updated_at = normalized.source_updated_at
 
     job = await _canonical_job_for(session, record)
     job.last_seen_at = now
@@ -573,7 +591,41 @@ async def merge_jobs(
     verbatim, so any merge can be undone by re-deriving. The event exists to
     make the decision auditable and an un-merge cheap — not because the data
     could otherwise be lost.
+
+    **Both rows are locked first, in primary-key order.** M1d makes this
+    reachable: ADR 0007 gives every board its own job, so two polls can run at
+    once and each can decide that postings A and B are the same opening —
+    typically in *opposite* directions, because each worker names the winner
+    from its own board's perspective. Unlocked, they interleave and each deletes
+    the other's winner.
+
+    The ordering is what prevents a deadlock rather than merely detecting one.
+    Locking in the order the caller happened to pass means two workers can each
+    hold the row the other is waiting for; sorting by primary key means whoever
+    gets there first holds both, and the other simply queues. Verified: without
+    it, ``tests/test_merge_concurrency.py`` reproduces a real
+    ``DeadlockDetectedError`` from Postgres.
+
+    Acquired as two statements rather than one ``IN`` clause with ``ORDER BY``,
+    because a single statement's lock acquisition order follows the query plan
+    and is not guaranteed to follow the sort.
     """
+    for job_id in sorted([winner.id, loser.id]):
+        still_there = (
+            await session.execute(select(Job).where(Job.id == job_id).with_for_update())
+        ).scalar_one_or_none()
+        if still_there is None:
+            # Another worker merged this pair and deleted one of them while we
+            # were queueing for the lock. Nothing to do, and emphatically not an
+            # error: the outcome we wanted has already happened.
+            log.info(
+                "merge_already_applied",
+                winner=str(winner.id),
+                loser=str(loser.id),
+                missing=str(job_id),
+            )
+            return
+
     session.add(
         JobMergeEvent(
             winner_job_id=winner.id,
@@ -613,6 +665,123 @@ async def merge_jobs(
     await _absorb_locations(session, winner=winner, loser=loser)
     await session.delete(loser)
     await session.flush()
+
+
+async def mark_listed(
+    session: AsyncSession,
+    *,
+    source: Source,
+    token: str,
+    source_job_ids: Sequence[str],
+    now: datetime,
+) -> int:
+    """Record that these postings were on the board, without re-reading them.
+
+    This is the seam between ADR 0007's two phases, and the reason M1d does not
+    close every unchanged posting on every Greenhouse board.
+
+    :func:`apply_freshness` ages any record whose ``last_seen_at`` is older than
+    the run, reasoning that persisting a posting sets it to ``now`` so anything
+    older was absent from the payload. That reasoning holds only while every
+    listed posting is also persisted. Under phase 2 it is false by design: an
+    unchanged posting is deliberately never refetched, so it would look absent
+    and take a miss on every single poll.
+
+    "The board listed it" is the fact that keeps a posting open. "We refetched
+    its content and read it" is a different and stronger fact, and it belongs to
+    ``last_verified_at`` — which this function deliberately does not touch, so
+    the distinction the schema already draws is preserved rather than blurred.
+
+    Returns the number of records updated.
+    """
+    if not source_job_ids:
+        return 0
+
+    # `session.execute` is typed as returning `Result`, but an UPDATE always
+    # yields a `CursorResult`, which is where `rowcount` lives. The cast states
+    # that rather than reaching for `getattr`, which would silently return 0 if
+    # the statement type ever changed.
+    result = cast(
+        "CursorResult[Any]",
+        await session.execute(
+            update(SourceJobRecord)
+            .where(
+                SourceJobRecord.source_id == source.id,
+                SourceJobRecord.source_company_key == token,
+                SourceJobRecord.source_job_id.in_(list(source_job_ids)),
+            )
+            .values(
+                last_seen_at=now,
+                consecutive_misses=0,
+                source_status=SourceStatus.ACTIVE,
+            )
+        ),
+    )
+    return int(result.rowcount or 0)
+
+
+async def _known_posting_count(session: AsyncSession, *, source: Source, token: str) -> int:
+    """How many postings we already hold for this board.
+
+    Zero means this board has never been ingested, which is the one case
+    ADR 0007 lets us use ``content=true`` for. Counting rows rather than
+    consulting a "has this board been polled" flag on purpose: the question is
+    whether there is anything to diff *against*, and an emptied-then-refilled
+    board genuinely has nothing.
+    """
+    return int(
+        (
+            await session.execute(
+                select(func.count())
+                .select_from(SourceJobRecord)
+                .where(
+                    SourceJobRecord.source_id == source.id,
+                    SourceJobRecord.source_company_key == token,
+                )
+            )
+        ).scalar_one()
+    )
+
+
+async def _postings_needing_content(
+    session: AsyncSession, *, source: Source, outcome: FetchOutcome
+) -> list[str]:
+    """Which listed postings must be refetched: new ones, and changed ones.
+
+    Only reached for a two-phase provider. Greenhouse publishes ``updated_at``
+    on its listing, which is what makes this diff possible; Lever and Ashby
+    publish no such field and need none, because their board response already
+    carries every posting in full.
+
+    Every ambiguous case resolves towards refetching. A posting we have never
+    seen, one whose stored timestamp is NULL, and one whose listing carries no
+    timestamp are all refetched, because the cost of being wrong in that
+    direction is one request, while the cost of being wrong in the other is
+    never seeing a change at all.
+    """
+    known = {
+        row.source_job_id: row.source_updated_at
+        for row in (
+            await session.execute(
+                select(
+                    SourceJobRecord.source_job_id,
+                    SourceJobRecord.source_updated_at,
+                ).where(
+                    SourceJobRecord.source_id == source.id,
+                    SourceJobRecord.source_company_key == outcome.board.token,
+                )
+            )
+        ).all()
+    }
+
+    needed: list[str] = []
+    for posting in outcome.listed:
+        stored = known.get(posting.source_job_id)
+        if posting.source_job_id not in known or stored is None:
+            needed.append(posting.source_job_id)
+        elif posting.source_updated_at is None or posting.source_updated_at > stored:
+            needed.append(posting.source_job_id)
+    return needed
 
 
 async def apply_freshness(
@@ -741,6 +910,7 @@ async def ingest_boards(
     *,
     source: Source,
     now: datetime | None = None,
+    etags: Mapping[str, str | None] | None = None,
 ) -> tuple[IngestionRun, IngestionStats]:
     """Poll every board and persist what came back.
 
@@ -748,6 +918,11 @@ async def ingest_boards(
     ingestion that crashes leaves a ``running`` row rather than no evidence at
     all — §2.6 requires source reliability to be visible, which means visible on
     the bad days too.
+
+    ``etags`` maps board token to the ETag last served for it. Absent or None
+    means poll unconditionally, which is right for a board nobody has seen and
+    for a caller that does not track them (``make seed``, the fixture path).
+    Whatever each board serves back comes out on ``stats.etags``.
     """
     timestamp = now or utcnow()
     stats = IngestionStats()
@@ -762,7 +937,7 @@ async def ingest_boards(
     await session.flush()
 
     for board in boards:
-        outcome = await adapter.fetch_board(board)
+        outcome = await adapter.fetch_board(board, etag=etags.get(board.token) if etags else None)
         if not outcome.ok:
             # I3: we learned nothing. No listing state changes, nothing closes,
             # and — crucially — no miss counter moves. See apply_freshness.
@@ -776,12 +951,83 @@ async def ingest_boards(
         # Set before apply_freshness reads it, or the first poll of a new source
         # would decide `unverified` on a board that just answered.
         source.last_success_at = timestamp
+        stats.etags[board.token] = outcome.etag
+
+        if outcome.not_modified:
+            # I3 at the level ADR 0007 introduced. The listing is byte-identical
+            # to the copy we already parsed, so every posting we know about is
+            # still listed and nothing about them has changed. Nothing is
+            # written and — critically — this board is kept out of
+            # `boards_listed`, because ageing its records against a timestamp
+            # the board never wrote would close the whole board.
+            stats.not_modified.append(board.token)
+            log.info("ingest_board_not_modified", board=board.token)
+            continue
+
+        stats.boards_listed.append(board.token)
+
+        # Every posting the board listed is still open, whether or not its
+        # content is refetched below. This is the line that stops phase 2 from
+        # closing every unchanged posting — see mark_listed.
+        await mark_listed(
+            session,
+            source=source,
+            token=board.token,
+            source_job_ids=outcome.listed_source_job_ids,
+            now=timestamp,
+        )
+
+        if adapter.is_two_phase:
+            # The flag declares intent; the Protocol is only structural, so it
+            # answers True for anything that happens to have both method names
+            # — including a single-phase test stub that implements them for
+            # convenience. Gating on the flag and *then* narrowing means a
+            # provider cannot be dragged into phase 2 by accident, and a
+            # provider that claims two phases without implementing them fails
+            # loudly here instead of silently ingesting nothing.
+            if not isinstance(adapter, TwoPhaseJobSourceAdapter):
+                raise TypeError(
+                    f"{type(adapter).__name__} sets is_two_phase but does not implement "
+                    "fetch_postings and fetch_full_board"
+                )
+            known = await _known_posting_count(session, source=source, token=board.token)
+            if known == 0 and outcome.listed:
+                # First ingestion of this board. ADR 0007 reserves content=true
+                # for exactly this: nothing is stored, so every posting counts
+                # as changed, and phase 2 would mean one request each — 429 of
+                # them on Datadog, to fetch what one request returns. The
+                # listing above is not wasted; it is where the ETag future polls
+                # revalidate against comes from, and it costs 33 KB once.
+                full = await adapter.fetch_full_board(board)
+                if full.ok:
+                    outcome = outcome.model_copy(update={"jobs": full.jobs})
+                else:
+                    # I3: the cheap listing succeeded, so the postings are known
+                    # to exist and have already been marked listed. Only their
+                    # content is missing. Nothing closes.
+                    stats.failed += len(outcome.listed)
+                    stats.errors.append(
+                        f"{board.ats}:{board.token}: first ingestion fetch failed: {full.error}"
+                    )
+                    log.warning("first_ingestion_failed", board=board.token, error=full.error)
+                    continue
+            else:
+                changed = await _postings_needing_content(session, source=source, outcome=outcome)
+                fetched, failed_ids = await adapter.fetch_postings(board, changed)
+                for job_id in failed_ids:
+                    # A posting that failed to fetch was still on the listing, so
+                    # it is still open. Counted and surfaced, never aged (I3).
+                    stats.failed += 1
+                    stats.errors.append(f"{board.ats}:{board.token}: fetch posting {job_id}")
+                outcome = outcome.model_copy(update={"jobs": fetched})
+
         await _persist_outcome(session, adapter, outcome, source=source, stats=stats, now=timestamp)
 
-    # Only the boards that answered. A failed board contributes no evidence and
-    # is not in this list.
+    # Only the boards that answered *with a listing*. A failed board contributes
+    # no evidence; a board that answered 304 contributes no *new* evidence, and
+    # ageing its records against a run it never described would close all of them.
     stats.closed = await apply_freshness(
-        session, source=source, polled_tokens=stats.boards_ok, run=run, now=timestamp
+        session, source=source, polled_tokens=stats.boards_listed, run=run, now=timestamp
     )
 
     run.finished_at = utcnow()

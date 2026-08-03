@@ -1,0 +1,13 @@
+{
+  "provenance": {
+    "endpoint": "https://boards-api.greenhouse.io/v1/boards/datadog/jobs/7194969",
+    "recorded_at": "2026-08-02T20:58:31.154968+00:00",
+    "board_token": "datadog",
+    "source_job_id": "7194969",
+    "note": "One posting with content, as ADR 0007's phase 2 fetches it. Recorded verbatim; nothing edited."
+  },
+  "compared_against_content_true": {
+    "identical": true,
+    "why_it_matters": "If this is true, GreenhouseAdapter.normalize can be reused for phase-2 payloads rather than duplicated, and there is no second normalization path for the location parser to drift in. The committed test asserts it, so a future divergence fails loudly instead of producing two different canonical jobs for one posting."
+  }
+}

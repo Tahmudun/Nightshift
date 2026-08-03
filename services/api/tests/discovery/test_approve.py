@@ -356,3 +356,224 @@ class TestTwoCandidatesForOneEmployer:
             )
         )
         assert approvable(file, registry_tokens=frozenset()) == []
+
+
+class TestPromotionPreservesTheFile:
+    """`promote` says "additive, never destructive" and, until M1d, was only
+    additive in the *data*.
+
+    It rebuilt the document with `yaml.safe_dump`, which cannot round-trip
+    comments. `_leading_comment` saved the header — so the author knew — but
+    everything between entries was deleted. The first real `--write` in this
+    project's history removed ten lines of rationale, including the note on the
+    `Stripe` entry reading "enable once the freshness and closure state machine
+    lands", which is a message to the milestone that eventually read it.
+
+    M1c could not have caught this. It deliberately never wrote to the registry
+    and cited byte-identity as evidence of restraint.
+    """
+
+    def _registry_with_comments(self, tmp_path: Path) -> Path:
+        registry = tmp_path / "board-registry.yaml"
+        registry.write_text(
+            "# Header. The schema documentation lives here.\n"
+            "#   status  active | dead | moved | disabled\n"
+            "\n"
+            "boards:\n"
+            "  # Why Datadog: NYC HQ, and its location strings are the messiest\n"
+            "  # available, which is useful for a project whose first invariant\n"
+            "  # is about not fabricating locations.\n"
+            "  - company: Datadog\n"
+            "    ats: greenhouse\n"
+            "    token: datadog\n"
+            "    added: 2026-07-29\n"
+            "    verified_at: 2026-07-29\n"
+            "    status: active\n"
+            "    nyc_presence: true\n"
+            "\n"
+            "  # Disabled until the closure state machine lands.\n"
+            "  - company: Stripe\n"
+            "    ats: greenhouse\n"
+            "    token: stripe\n"
+            "    added: 2026-07-29\n"
+            "    verified_at: 2026-07-29\n"
+            "    status: disabled\n"
+            "    nyc_presence: true\n"
+        )
+        return registry
+
+    def test_every_existing_byte_survives(self, tmp_path: Path) -> None:
+        """The strongest statement of "additive": the old file is a prefix of
+        the new one. Not "the data is equivalent" — identical bytes."""
+        registry = self._registry_with_comments(tmp_path)
+        before = registry.read_text()
+
+        count, _ = promote(
+            CandidateFile(candidates=(_candidate(),)), registry_path=registry, today=TODAY
+        )
+        after = registry.read_text()
+
+        assert count == 1
+        assert after.startswith(before), "promotion must append, never rewrite"
+
+    def test_the_rationale_between_entries_survives(self, tmp_path: Path) -> None:
+        """Named specifically rather than checked by length, so a future
+        renderer that preserves *some* comments still fails here."""
+        registry = self._registry_with_comments(tmp_path)
+        promote(CandidateFile(candidates=(_candidate(),)), registry_path=registry, today=TODAY)
+        after = registry.read_text()
+
+        assert "Why Datadog" in after
+        assert "Disabled until the closure state machine lands." in after
+        assert "not fabricating locations" in after
+
+    def test_existing_dates_are_not_requoted(self, tmp_path: Path) -> None:
+        """A round trip parses `2026-07-29` into a date and dumps it back
+        unquoted, while new entries were written as strings — leaving one file
+        with two conventions and a diff full of unrelated churn."""
+        registry = self._registry_with_comments(tmp_path)
+        promote(CandidateFile(candidates=(_candidate(),)), registry_path=registry, today=TODAY)
+
+        assert "added: 2026-07-29\n" in registry.read_text()
+
+    def test_the_result_still_parses_as_yaml(self, tmp_path: Path) -> None:
+        """Appending text rather than dumping a document means the renderer has
+        to produce valid YAML by itself. Prove it round-trips."""
+        registry = self._registry_with_comments(tmp_path)
+        promote(
+            CandidateFile(candidates=(_candidate(company_name="Acme"),)),
+            registry_path=registry,
+            today=TODAY,
+        )
+
+        loaded = yaml.safe_load(registry.read_text())
+        assert [b["token"] for b in loaded["boards"]] == ["datadog", "stripe", "acme"]
+        assert loaded["boards"][-1]["company"] == "Acme"
+        assert loaded["boards"][-1]["status"] == "active"
+
+    def test_a_disabled_board_stays_disabled(self, tmp_path: Path) -> None:
+        """The property the whole file exists to protect. Appending must not
+        re-enable a board a human turned off."""
+        registry = self._registry_with_comments(tmp_path)
+        promote(CandidateFile(candidates=(_candidate(),)), registry_path=registry, today=TODAY)
+
+        loaded = yaml.safe_load(registry.read_text())
+        stripe = next(b for b in loaded["boards"] if b["token"] == "stripe")
+        assert stripe["status"] == "disabled"
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "O'Reilly Media",
+            "Acme: The Company",
+            'Say "Hello"',
+            "Foo #1",
+            "Bar & Co, Inc.",
+            "Café Ltd",
+            "- leading dash",
+            "{braces}",
+        ],
+    )
+    def test_an_awkward_company_name_cannot_corrupt_the_file(
+        self, tmp_path: Path, name: str
+    ) -> None:
+        """Rendering text by hand makes quoting this function's problem. A
+        company name is provider-supplied data, and a colon or an apostrophe in
+        one must not be able to break the file that decides what gets polled.
+        """
+        registry = self._registry_with_comments(tmp_path)
+        promote(
+            CandidateFile(candidates=(_candidate(company_name=name),)),
+            registry_path=registry,
+            today=TODAY,
+        )
+
+        loaded = yaml.safe_load(registry.read_text())
+        assert loaded["boards"][-1]["company"] == name
+
+    def test_nothing_is_written_when_nothing_is_approved(self, tmp_path: Path) -> None:
+        """A no-op run must leave the working tree clean, so nobody is asked to
+        review an empty diff."""
+        registry = self._registry_with_comments(tmp_path)
+        before = registry.read_text()
+
+        count, _ = promote(
+            CandidateFile(candidates=(_candidate(verdict=Verdict.EMPTY, company_name=None),)),
+            registry_path=registry,
+            today=TODAY,
+        )
+
+        assert count == 0
+        assert registry.read_text() == before
+
+    def test_promoting_twice_adds_the_board_once(self, tmp_path: Path) -> None:
+        """Idempotence across separate invocations: the second run sees the
+        board already present and appends nothing."""
+        registry = self._registry_with_comments(tmp_path)
+        promote(CandidateFile(candidates=(_candidate(),)), registry_path=registry, today=TODAY)
+        after_first = registry.read_text()
+
+        count, _ = promote(
+            CandidateFile(candidates=(_candidate(),)), registry_path=registry, today=TODAY
+        )
+
+        assert count == 0
+        assert registry.read_text() == after_first
+
+    def test_a_file_with_no_trailing_newline_still_appends_cleanly(self, tmp_path: Path) -> None:
+        """An editor that strips the final newline must not produce a file whose
+        last existing line and first new line run together."""
+        registry = tmp_path / "board-registry.yaml"
+        registry.write_text(
+            "boards:\n"
+            "  - company: Datadog\n"
+            "    ats: greenhouse\n"
+            "    token: datadog\n"
+            "    added: 2026-07-29\n"
+            "    status: active\n"
+            "    nyc_presence: true"  # no trailing newline, deliberately
+        )
+        promote(CandidateFile(candidates=(_candidate(),)), registry_path=registry, today=TODAY)
+
+        loaded = yaml.safe_load(registry.read_text())
+        assert len(loaded["boards"]) == 2
+
+    def test_it_matches_the_indentation_the_file_already_uses(self, tmp_path: Path) -> None:
+        """YAML accepts list items at column zero and indented under the key,
+        but not both in one sequence. The committed registry uses two spaces and
+        `yaml.safe_dump` writes zero, so imposing either one corrupts whichever
+        file disagrees."""
+        flush = tmp_path / "flush.yaml"
+        flush.write_text(yaml.safe_dump({"boards": [{"ats": "greenhouse", "token": "datadog"}]}))
+        promote(CandidateFile(candidates=(_candidate(),)), registry_path=flush, today=TODAY)
+        assert len(yaml.safe_load(flush.read_text())["boards"]) == 2
+
+        indented = tmp_path / "indented.yaml"
+        indented.write_text(
+            "boards:\n  - ats: greenhouse\n    token: datadog\n    status: active\n"
+        )
+        promote(CandidateFile(candidates=(_candidate(),)), registry_path=indented, today=TODAY)
+        assert len(yaml.safe_load(indented.read_text())["boards"]) == 2
+
+    def test_an_empty_registry_is_written_rather_than_appended_to(self, tmp_path: Path) -> None:
+        """`boards: []` is a flow sequence, and block items cannot be appended
+        to one. There are no entries to preserve in that case, so writing the
+        file is safe — and it is the only case where that is true."""
+        registry = tmp_path / "empty.yaml"
+        registry.write_text("# Header survives.\nboards: []\n")
+
+        promote(CandidateFile(candidates=(_candidate(),)), registry_path=registry, today=TODAY)
+
+        text = registry.read_text()
+        assert "# Header survives." in text
+        assert [b["token"] for b in yaml.safe_load(text)["boards"]] == ["acme"]
+
+    def test_a_registry_that_does_not_exist_yet_is_created(self, tmp_path: Path) -> None:
+        registry = tmp_path / "brand-new.yaml"
+
+        count, _ = promote(
+            CandidateFile(candidates=(_candidate(),)), registry_path=registry, today=TODAY
+        )
+
+        assert count == 1
+        assert [b["token"] for b in yaml.safe_load(registry.read_text())["boards"]] == ["acme"]

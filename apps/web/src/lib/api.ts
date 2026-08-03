@@ -14,6 +14,7 @@ import {
   jobAdminListSchema,
   jobListSchema,
   jobStatusEventSchema,
+  boardPollStateSchema,
   sourceHealthSchema,
   statsSchema,
   type Coverage,
@@ -21,6 +22,7 @@ import {
   type JobAdminList,
   type JobList,
   type JobStatusEvent,
+  type BoardPollState,
   type SourceHealth,
   type Stats,
 } from './schemas';
@@ -126,6 +128,10 @@ export function fetchStats(): Promise<Stats> {
 
 export function fetchSourceHealth(): Promise<SourceHealth[]> {
   return request('/sources', sourceHealthSchema.array());
+}
+
+export function fetchBoardPollState(): Promise<BoardPollState[]> {
+  return request('/boards', boardPollStateSchema.array());
 }
 
 export interface JobAdminQuery {

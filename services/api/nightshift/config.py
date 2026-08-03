@@ -71,6 +71,26 @@ class Settings(BaseSettings):
     # seconds asleep is a suite people start skipping.
     http_backoff_base_seconds: float = Field(default=1.0, gt=0, le=30)
 
+    # -- Polling (M1d, ADR 0007) --------------------------------------------
+    # Tier intervals. Hot means the board has produced an NYC posting recently;
+    # warm is everything else. ADR 0007 rejected a weekly tier because a
+    # company's first NYC role could then sit unseen for six days.
+    poll_hot_interval_seconds: int = Field(default=3600, ge=60)
+    poll_warm_interval_seconds: int = Field(default=86_400, ge=60)
+    # How many boards one scheduler tick may enqueue. At 22 boards this never
+    # binds. It exists for the recovery case: a scheduler waking after an outage
+    # finds every board overdue, and without a cap it would queue the entire
+    # registry at once — reintroducing exactly the stampede `next_poll_at` was
+    # chosen to avoid.
+    poll_enqueue_batch_limit: int = Field(default=500, ge=1, le=10_000)
+    # Per-board backoff, distinct from `http_backoff_base_seconds` above: that
+    # one handles a single flaky response and is measured in seconds, this one
+    # handles a board that is simply gone. The ceiling matches the warm tier, so
+    # a board that comes back is noticed within a day rather than falling out of
+    # the system entirely.
+    poll_backoff_base_seconds: int = Field(default=900, ge=1)
+    poll_backoff_max_seconds: int = Field(default=86_400, ge=60)
+
     @field_validator("cors_allow_origins", mode="before")
     @classmethod
     def _split_origins(cls, value: object) -> object:

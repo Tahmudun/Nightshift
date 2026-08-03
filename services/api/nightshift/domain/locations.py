@@ -40,6 +40,29 @@ _SEGMENT_SPLIT = re.compile(r"\s*[;|]\s*")
 # "Remote", "Remote - Anywhere", "Remote (US)", "Fully Remote".
 _REMOTE_TOKEN = re.compile(r"^(?:fully\s+|100%\s+)?remote\b", re.IGNORECASE)
 
+#: The five boroughs, casefolded. **The single definition of "is this NYC" in
+#: this codebase**, and it needs to stay single: the coverage page, the
+#: discovery validator and M1d's polling tiers all ask that question, and two
+#: answers means two of them silently disagreeing about the same board.
+#:
+#: Note what this is not. It is not a geocode and never becomes one — I1 is
+#: emphatic that recognising a city name is not knowing where a building is.
+#: This decides how often to poll, never where to draw a point.
+#:
+#: "The Bronx" and "Bronx" are both here because sources write both.
+NYC_CITY_NAMES: frozenset[str] = frozenset(
+    {
+        "new york",
+        "new york city",
+        "manhattan",
+        "brooklyn",
+        "queens",
+        "the bronx",
+        "bronx",
+        "staten island",
+    }
+)
+
 _US_STATES: dict[str, str] = {
     "alabama": "Alabama",
     "al": "Alabama",
@@ -335,16 +358,7 @@ class ParsedLocation:
         """True for the five boroughs. Used to prioritise polling, never to place a point."""
         if self.city is None:
             return False
-        return self.city.casefold() in {
-            "new york",
-            "new york city",
-            "manhattan",
-            "brooklyn",
-            "queens",
-            "the bronx",
-            "bronx",
-            "staten island",
-        }
+        return self.city.casefold() in NYC_CITY_NAMES
 
 
 @dataclass(slots=True)
