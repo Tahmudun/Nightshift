@@ -56,13 +56,36 @@ describe('SaveJobButton', () => {
     vi.mocked(fetchApplications).mockResolvedValue({
       ...EMPTY,
       total: 1,
-      items: [{ id: 'app-1', job: { id: 'job-1' }, current_stage: 'applied' }],
+      items: [{ id: 'app-1', job: { id: 'job-1' }, current_stage: 'applied', archived_at: null }],
     } as never);
     renderButton('job-1');
     // Not "Saved". The control tells the truth about where the role actually
     // is, so a job at `interview` does not read as merely bookmarked.
     expect(await screen.findByText(/applied/i)).toBeVisible();
     expect(screen.queryByRole('button', { name: /^save$/i })).toBeNull();
+  });
+
+  it('still reports an archived application instead of offering to save it again', async () => {
+    // Without `archived: true` on the query the row is invisible here, the
+    // button says "Save", and clicking it returns 200 and changes nothing —
+    // a control that looks broken because it is describing the wrong state.
+    vi.mocked(fetchApplications).mockResolvedValue({
+      ...EMPTY,
+      total: 1,
+      items: [
+        {
+          id: 'app-1',
+          job: { id: 'job-1' },
+          current_stage: 'saved',
+          archived_at: '2026-08-03T00:00:00Z',
+        },
+      ],
+    } as never);
+    renderButton('job-1');
+
+    expect(await screen.findByRole('link')).toHaveTextContent(/archived/i);
+    expect(screen.queryByRole('button', { name: /^save$/i })).toBeNull();
+    expect(vi.mocked(fetchApplications).mock.calls[0]?.[0]).toMatchObject({ archived: true });
   });
 
   it('saves once per click and does not go blank while it waits', async () => {

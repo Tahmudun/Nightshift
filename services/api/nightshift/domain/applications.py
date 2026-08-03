@@ -17,6 +17,7 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nightshift.db.base import (
@@ -118,6 +119,16 @@ def _event(
     )
 
 
+async def _find_application(
+    session: AsyncSession, *, user_id: UUID, job_id: UUID
+) -> Application | None:
+    return (
+        await session.execute(
+            select(Application).where(Application.user_id == user_id, Application.job_id == job_id)
+        )
+    ).scalar_one_or_none()
+
+
 async def save_job(
     session: AsyncSession, *, user_id: UUID, job_id: UUID, now: datetime
 ) -> tuple[Application, bool]:
@@ -126,18 +137,30 @@ async def save_job(
     Idempotent by lookup rather than by exception: a second click is a normal
     thing for a person to do and must not be an error, and must not write a
     second ``saved`` event either.
+
+    The lookup alone is not enough under concurrency, and that was measured
+    rather than assumed: four simultaneous POSTs for one job produce one row
+    and **three HTTP 500s**, because all four read no row and all four insert.
+    The unique constraint is what guarantees the single row; the savepoint
+    below only decides what the losers are told.
     """
-    existing = (
-        await session.execute(
-            select(Application).where(Application.user_id == user_id, Application.job_id == job_id)
-        )
-    ).scalar_one_or_none()
+    existing = await _find_application(session, user_id=user_id, job_id=job_id)
     if existing is not None:
         return existing, False
 
     application = Application(user_id=user_id, job_id=job_id, current_stage=ApplicationStage.SAVED)
-    session.add(application)
-    await session.flush()
+    try:
+        async with session.begin_nested():
+            session.add(application)
+            await session.flush()
+    except IntegrityError:
+        # The winner may still have been mid-commit when we read. Postgres held
+        # our insert on the unique index until it landed, so by now it is there.
+        winner = await _find_application(session, user_id=user_id, job_id=job_id)
+        if winner is None:  # pragma: no cover - some other constraint fired
+            raise
+        return winner, False
+
     session.add(
         _event(
             application,

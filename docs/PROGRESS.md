@@ -9,14 +9,138 @@
 **M1b: COMPLETE and reviewed. Merged to `main` as PR #2 (`cf48719`).**
 **M1c: COMPLETE, reviewed, CI-green at `19236f5`, merged to `main` as PR #3 (`f377303`).**
 **M1d: COMPLETE, reviewed, CI-green at `75d9ab7`, merged to `main` as PR #4 (`044189e`).**
-**Current milestone: M2 — the functional command center. M2a COMPLETE, reviewed, CI-green at `76190c8`. PR #5 open, awaiting the human's merge. M2b/c/d not started.**
+**M2a: COMPLETE, reviewed, CI-green at `76190c8`, merged to `main` as PR #5 (`910027a`).**
+**Current milestone: M2 — the functional command center. M2b COMPLETE and reviewed on branch `m2b-the-loop`; CI not yet run. M2c/d not started.**
 **Last updated: 2026-08-03**
 
 ---
 
 ## Next exact action
 
-### Next: merge PR #5. Then M2b — save, apply, track.
+### Next: run CI on `m2b-the-loop`, then merge. Then M2c — profile and resume.
+
+**M2b is complete and M2's headline criterion is earned.** All three commands
+were run at the branch head and their counts are read from the output, not
+inferred:
+
+```
+make check        992 Python, 84 web, ruff/mypy/eslint/tsc clean
+make acceptance   28 verify checks + 31 seeded browser tests, 1 skip
+make test-e2e     5 degraded-path tests        <- the third command, run separately
+alembic check     no drift, up/down/up clean on migration 0008
+```
+
+**`make acceptance` was run three times back to back and passed all three**,
+which is the evidence for the idempotency claim rather than a hope about it.
+The single e2e skip is the pre-existing honest one: `an unchanged board is not
+presented as a problem` needs a board that has answered `304`.
+
+**CI has not run on this branch yet.** Do that before asking for a merge, then
+record the run URL and per-job counts here from the job logs. The invariant
+this project has learned twice still applies:
+
+```
+git diff <ci-sha>..HEAD --stat    # must list nothing outside docs/
+```
+
+Eight tasks, eight commits, branch `m2b-the-loop`.
+
+| Task | Commit | What it did |
+|---|---|---|
+| 1 | `2c51a16` | The stage machine — 90 ordered pairs, classify never block |
+| 2 | `d02cb08` | `applications`, `application_events`, migration `0008`, the trigger |
+| 3 | `765b792` | The write layer — no change without an event |
+| 4 | `bb09b53` | Nine routes, and the guard that nothing applies |
+| 5 | `aca7957` | A closing listing writes an event, never a stage change |
+| 6 | `00c5ee1` | Zod schemas and the eight client mutations |
+| 7 | `f0a3eaf` | The save control, on the list and the job page |
+| 8 | `e711a45` | The pipeline board and the application page |
+| 9 | this | The browser loop test, `verify.py`, ADR 0012, the review, this entry |
+
+### Acceptance criteria — M2
+
+`CLAUDE.md` §6 gives M2 four. **Three are earned by M2b and verified below.
+One belongs to M2c and is explicitly unclaimed.**
+
+| # | Criterion | Status | Evidence |
+|---|---|---|---|
+| 1 | Full discover→save→apply→track loop works with zero 3D | **VERIFIED** (M2b) | `apps/web/e2e-seeded/pipeline.spec.ts`, `discover, save, apply, track — the whole loop`. Walks a real browser: open a role, save it, assert the control reports a stage, open the application, assert **no control that applies**, record "I applied", write a note, move to `interview`, read the history back with its transition class, archive, restore, and correct the stage back. 15.2 s against the seeded stack. **That test is the criterion, not a proxy for it.** |
+| 2 | Events are append-only, enforced at the DB level, not by convention | **VERIFIED** (M2b) | Trigger `application_events_append_only`, reusing `nightshift_refuse_mutation()` from `0002`. Three tests attempt the violation and catch the error: UPDATE, DELETE, and **deleting the parent application**, which cascades into the trigger. Mutation-checked: dropping the trigger turns exactly those 3 red. An application therefore cannot be deleted at all — archive is the only removal, and that is a property of the schema rather than a UI choice |
+| 3 | No stage moves without a user (invariant I5) | **VERIFIED** (M2b) | Enforced in three places and each proven able to fail. Python: `SystemMayNotSetStageError`. Database: `ck_application_events_only_a_user_moves_a_stage` — neutering it to `true` fails 1 test, and a `system` actor carrying a stage fails 3. Client: `applicationEventSchema`'s `superRefine`. Plus `tests/test_nothing_applies.py`, which asserts `PoliteClient` exposes no write method and that `domain/applications.py` is the only module assigning `current_stage`. A closing listing writes a `listing_closed` event and the stage does not move — asserted end to end through `apply_freshness`, not through the helper |
+| 4 | No parsed resume fact is stored as confirmed without a user action | **UNCLAIMED** | M2c. There is no `resumes` table, no extractor, and nothing to confirm. Named as deferred in the API's own `deferred_fields` and on the application page |
+
+The <200ms filter criterion was earned at M2a and is unchanged.
+
+### What M2b found that the plan did not predict
+
+Ten findings. **Six were in code or tests that reported success** — the sixth
+milestone running to record that pattern. Full detail in
+`docs/reviews/milestone-2b-review.md`; the four worth reading here:
+
+1. **The event timeline could not be ordered, and every row looked present.**
+   `created_at` defaulted to `now()`, copied from every other table. Postgres's
+   `now()` is the *transaction* timestamp — measured: three inserts in one
+   transaction give **1 distinct `now()` and 3 distinct `clock_timestamp()`**.
+   With one value the sort falls through to a random UUID, so the history
+   renders complete, plausible, and in the wrong order. Two of the plan's own
+   tests failed on this before anything was changed. Fixed at the column;
+   every other table keeps `now()`, which is right for them.
+2. **A concurrent save returned HTTP 500, reproduced before being fixed.** Four
+   simultaneous POSTs for one job: `[500, 500, 201, 500]`, one row. Data
+   integrity never broke — that is the unique constraint working — but the
+   loser of the race got a server error for a save that succeeded. Fixed with a
+   savepoint and a re-read; re-measured across six rounds, **zero 500s**.
+3. **A tracked job flashed an actionable Save button, and a browser test landed
+   a click in that window.** `SaveJobButton` rendered the button whenever the
+   query had not answered yet. The flake was the product telling the truth
+   about itself: a person can click that. Fixed with a pending state — which
+   then broke the test in a second way, because the test asked `isVisible()`
+   before the control had settled. Both fixed.
+4. **An archived application looked unsaved, and saving it did nothing.** The
+   control queried without `archived`, so the route filtered the row out, the
+   button said "Save", and the save returned 200 having changed nothing.
+
+Three more, all in tests: a stage-change test asserted on the returned
+in-memory object and could not detect a missing `session.add`; three Zod tests
+passed before the schema existed, because `undefined.parse()` throws; and the
+I5 source guard excluded the stage machine by basename, hiding a substring bug
+where `.current_stage =` also matches `Application.current_stage == stage`.
+
+### Three corrections M2b made to its own plan
+
+- **The plan's browser test could not run twice.** It archived on the way out,
+  and an archived application is excluded from the pipeline and refuses every
+  mutation. Each test now normalises what it finds on entry rather than
+  trusting its own tidy exit.
+- **The posting link could not be built as specified.** The plan said
+  `application_url ?? job.sources[0].canonical_url`; the application's `job` is
+  a `JobSummaryOut` and carries no `sources`. An application with no recorded
+  URL now says so, rather than a fabricated board link (I1).
+- **The plan predicted the wrong test would catch a mutation.** It said that if
+  `test_a_closing_listing_does_not_move_the_stage` did not fail, the test was
+  wrong. It did not fail, and the test is right: the mutation writes a false
+  *event* without touching `current_stage`. Recorded rather than "fixed".
+
+### What M2b deliberately did not build
+
+Profile and resume, with the confirmation step (M2c); the daily queue (M2d);
+match score, eligibility, skill and internship-season filters (M3); boroughs
+and any coordinate (M4). **Contacts** are unscheduled — a contact is a person
+and needs its own table.
+
+**None of these are stubbed.** The application page renders them by name with
+the reason and the milestone, from the API's own `deferred_fields`.
+
+### Not real yet
+
+- **`make acceptance` leaves one archived application behind**, by design and
+  stated in `check_application_tracking`'s docstring. `make reset-db` clears
+  it. Deleting it is impossible — see acceptance criterion 2.
+- **The seeded browser suite leaves two saved applications** in the developer's
+  corpus, for the same reason: it tests the loop against a real stack.
+- **`discovered` is an unreachable stage.** The enum value exists because M3
+  will use it; nothing writes it today.
+
 
 **M2a is complete. The first CI run failed and it caught a real defect no local
 command had run** — see item 4 below. Fixed, and the second run is what the

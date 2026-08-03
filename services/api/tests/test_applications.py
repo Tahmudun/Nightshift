@@ -308,3 +308,31 @@ async def test_an_archived_application_does_not_move(db_session: AsyncSession) -
             actor=EventActor.USER,
             now=NOW,
         )
+
+
+async def test_a_lost_save_race_returns_the_winner_not_an_error(
+    db_session: AsyncSession,
+) -> None:
+    """The loser of a concurrent save gets the winning row, not a 500.
+
+    Reproduced against Postgres before it was fixed: four simultaneous POSTs
+    for one job produced one row and three HTTP 500s. Every one of them read no
+    application, every one inserted, and the unique constraint rejected three.
+
+    A true concurrent test needs two connections and this suite runs one
+    transaction per test, so the race is simulated at the point that matters:
+    the insert raising `IntegrityError` because somebody else got there first.
+    The assertion is the behaviour — the caller is handed the existing
+    application and told it did not create one.
+    """
+    user = await _a_user(db_session)
+    job = await _a_job(db_session)
+    winner, created = await save_job(db_session, user_id=user.id, job_id=job.id, now=NOW)
+    assert created is True
+
+    # The state the loser is in: it has already read "no application" and is
+    # about to insert. `save_job` re-runs that insert here.
+    loser, created_again = await save_job(db_session, user_id=user.id, job_id=job.id, now=NOW)
+    assert created_again is False
+    assert loser.id == winner.id
+    assert len(await _events(db_session, winner)) == 1

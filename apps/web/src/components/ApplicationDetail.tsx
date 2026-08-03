@@ -20,7 +20,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useState } from 'react';
 
-import { APPLICATIONS_KEY, STAGE_LABELS } from './SaveJobButton';
+import { APPLICATIONS_KEY, STAGE_LABELS, TRACKED_KEY } from './SaveJobButton';
 import {
   addNote,
   changeStage,
@@ -125,8 +125,8 @@ export function ApplicationDetailView({ applicationId }: { readonly applicationI
   // The deferred list already lives on the list endpoint. Reading it from there
   // beats adding a field to the detail response that says the same thing.
   const { data: list } = useQuery({
-    queryKey: APPLICATIONS_KEY,
-    queryFn: () => fetchApplications(),
+    queryKey: TRACKED_KEY,
+    queryFn: () => fetchApplications({ archived: true }),
   });
 
   function invalidate() {
@@ -390,7 +390,7 @@ export function ApplicationDetailView({ applicationId }: { readonly applicationI
         {data.events.length === 0 ? (
           <p className="text-[13px] text-paper-faint">No history recorded yet.</p>
         ) : (
-          <ul className="space-y-1">
+          <ul aria-label="History" className="space-y-1">
             {data.events.map((event) => (
               <HistoryEntry key={event.id} event={event} />
             ))}

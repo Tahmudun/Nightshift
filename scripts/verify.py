@@ -71,6 +71,93 @@ def get_json(path: str, timeout: float = 10.0) -> tuple[int, Any]:
             return exc.code, None
 
 
+def send_json(
+    path: str, method: str, payload: Any = None, timeout: float = 10.0
+) -> tuple[int, Any]:
+    """POST/PATCH with the method set explicitly. No new dependency for this."""
+    import json
+
+    body = None if payload is None else json.dumps(payload).encode()
+    headers = {"Accept": "application/json"}
+    if body is not None:
+        headers["Content-Type"] = "application/json"
+    request = urllib.request.Request(
+        f"{BASE}{path}", data=body, headers=headers, method=method
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
+            return response.status, json.loads(response.read())
+    except urllib.error.HTTPError as exc:
+        try:
+            return exc.code, json.loads(exc.read())
+        except ValueError:
+            return exc.code, None
+
+
+def check_application_tracking() -> None:
+    """The loop, over HTTP, exactly as the browser does it.
+
+    Written to be idempotent: `POST /applications` answers 201 the first time
+    and 200 afterwards, and this asserts the resulting state rather than the
+    status code. `make acceptance` runs against the developer's own database
+    and must not fail on its second invocation.
+
+    It leaves one archived application behind. That is stated rather than
+    hidden; `make reset-db` clears it.
+    """
+    print("\napplication tracking")
+    status_code, jobs = get_json("/jobs?limit=1&status=open")
+    if not (status_code == 200 and isinstance(jobs, dict) and jobs.get("items")):
+        check(False, "a job exists to track", f"HTTP {status_code}")
+        return
+    check(True, "a job exists to track")
+    job_id = jobs["items"][0]["id"]
+
+    code, saved = send_json("/applications", "POST", {"job_id": job_id})
+    if code not in (200, 201):
+        check(False, "saving a job succeeds", f"HTTP {code}")
+        return
+    check(True, "saving a job succeeds", f"HTTP {code}")
+    application_id = saved["id"]
+
+    code, detail = get_json(f"/applications/{application_id}")
+    check(detail["job"]["id"] == job_id, "the application carries its job")
+
+    # Restore first: a previous run archived it, and an archived application
+    # refuses every change until somebody puts it back. Idempotence has to
+    # survive this script's own exit state, not just a clean database.
+    if detail.get("archived_at") is not None:
+        send_json(f"/applications/{application_id}/restore", "POST")
+
+    code, _ = send_json(
+        f"/applications/{application_id}/stage", "PATCH", {"to_stage": "preparing"}
+    )
+    check(code in (200, 409), "a stage change is accepted or already there", f"HTTP {code}")
+
+    code, detail = get_json(f"/applications/{application_id}")
+    kinds = [event["event_type"] for event in detail["events"]]
+    check("saved" in kinds, "the history records the save")
+    check(
+        all(event["actor"] == "user" for event in detail["events"] if event["to_stage"]),
+        "invariant I5: no stage in this history was set by the system",
+    )
+    check(
+        detail["current_stage"] == "preparing",
+        "the stage the API reports is the one that was set",
+        detail["current_stage"],
+    )
+
+    code, _ = send_json(f"/applications/{application_id}/archive", "POST")
+    check(code == 200, "archiving succeeds", "leaves 1 archived row; make reset-db clears it")
+
+    code, listed = get_json("/applications")
+    check(
+        all(item["id"] != application_id for item in listed["items"]),
+        "an archived application is out of the default list",
+    )
+    check(listed["archived_count"] >= 1, "and is counted rather than forgotten")
+
+
 def wait_for_api(deadline_seconds: float = 45.0) -> bool:
     started = time.monotonic()
     while time.monotonic() - started < deadline_seconds:
@@ -251,6 +338,7 @@ def main() -> int:
             print(f"  {RED}✗{RESET} API did not start within 45s")
             return 1
         verify_http()
+        check_application_tracking()
         asyncio.run(verify_constraints())
     finally:
         api.terminate()

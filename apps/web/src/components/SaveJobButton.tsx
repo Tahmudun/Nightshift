@@ -22,6 +22,12 @@ import type { ApplicationStage } from '@/lib/schemas';
 
 export const APPLICATIONS_KEY = ['applications'] as const;
 
+/**
+ * Every application, archived included. Invalidating `APPLICATIONS_KEY`
+ * prefix-matches this, so one invalidation still refreshes every list.
+ */
+export const TRACKED_KEY = [...APPLICATIONS_KEY, { archived: true }] as const;
+
 export const STAGE_LABELS: Record<ApplicationStage, string> = {
   discovered: 'Discovered',
   saved: 'Saved',
@@ -42,9 +48,14 @@ export function SaveJobButton({ jobId }: { readonly jobId: string }) {
 
   // One query key for the whole page: TanStack dedupes, so thirty job rows
   // make one request, not thirty.
-  const { data } = useQuery({
-    queryKey: APPLICATIONS_KEY,
-    queryFn: () => fetchApplications(),
+  //
+  // `archived: true` means "do not filter archived out", not "only archived".
+  // Without it an archived application is invisible here, so the control offers
+  // to save a role that is already tracked — and the save succeeds with a 200
+  // that changes nothing, which reads as a dead button.
+  const { data, isPending } = useQuery({
+    queryKey: TRACKED_KEY,
+    queryFn: () => fetchApplications({ archived: true }),
   });
   const tracked = data?.items.find((item) => item.job.id === jobId) ?? null;
 
@@ -53,13 +64,31 @@ export function SaveJobButton({ jobId }: { readonly jobId: string }) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: APPLICATIONS_KEY }),
   });
 
+  // Until the answer is in, this control does not know whether the job is
+  // tracked — and rendering "Save" meanwhile means an already-tracked role
+  // shows an actionable button for a moment and then swaps it out. That is a
+  // click a person can land, and a save they did not mean to make. Found by a
+  // browser test catching the element mid-swap.
+  if (isPending) {
+    return (
+      <span className={`${CHIP} border-ink-700 text-paper-faint`} aria-busy="true">
+        …
+      </span>
+    );
+  }
+
   if (tracked !== null) {
     return (
       <Link
         href={`/operate/applications/${tracked.id}`}
-        className={`${CHIP} border-signal-400/40 text-signal-400 hover:border-signal-400`}
+        className={`${CHIP} ${
+          tracked.archived_at !== null
+            ? 'border-gold-400/40 text-gold-400 hover:border-gold-400'
+            : 'border-signal-400/40 text-signal-400 hover:border-signal-400'
+        }`}
       >
         {STAGE_LABELS[tracked.current_stage]}
+        {tracked.archived_at !== null ? ' · archived' : ''}
       </Link>
     );
   }
