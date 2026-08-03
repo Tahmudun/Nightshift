@@ -1,0 +1,8 @@
+{
+  "provenance": {
+    "derived_from": "nadia_okonkwo.txt",
+    "generated_by": "scripts/make_resume_fixtures.py",
+    "extractor_version": "m2c.1"
+  },
+  "note": "Computed, not recorded. Regenerate by running the generator; a change here means the extraction rules changed."
+}

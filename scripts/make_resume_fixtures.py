@@ -1,9 +1,11 @@
-"""Generate the committed synthetic resume PDFs from the committed .txt.
+"""Generate the committed synthetic resume PDFs, and the golden proposal list.
 
-Run by hand; the outputs are committed. Everything here is byte-deterministic
-except ``encrypted.pdf``: PDF encryption seeds a random file ID, so re-running
-changes that one file and only that one. Nothing else uses a timestamp, a UUID
-or a random value.
+Run by hand; the outputs are committed. Nothing here uses a timestamp, a UUID
+or a random value, and every output was **measured** byte-identical across two
+consecutive runs on 2026-08-03 — including ``encrypted.pdf``, which was
+expected to differ (PDF encryption may seed a random file ID) and did not on
+pypdf 6.14. If a future pypdf makes that file churn, this note is the reason it
+is not a regression to chase.
 
     python scripts/make_resume_fixtures.py
 
@@ -15,11 +17,21 @@ and discarded once its text has been extracted.
 from __future__ import annotations
 
 import io
+import json
+import sys
 from pathlib import Path
 
 from pypdf import PdfReader, PdfWriter
 
-FIXTURES = Path(__file__).resolve().parents[1] / "services/api/tests/fixtures/resumes"
+REPO_ROOT = Path(__file__).resolve().parents[1]
+FIXTURES = REPO_ROOT / "services/api/tests/fixtures/resumes"
+
+sys.path.insert(0, str(REPO_ROOT / "services/api"))
+
+from nightshift.domain.resume_extraction import (  # noqa: E402  (path set above)
+    EXTRACTOR_VERSION,
+    extract_proposals,
+)
 
 
 def _escape(line: str) -> str:
@@ -96,6 +108,36 @@ def main() -> None:
 
     for name in sorted(path.name for path in FIXTURES.glob("*.pdf")):
         print(f"  wrote {name}")
+
+    # The golden proposal list. Derived rather than recorded, so its .meta.json
+    # names the input and this script instead of an endpoint — see
+    # `tests/test_fixture_provenance.py`. Read the diff before committing a
+    # regenerated golden: a golden accepted unread is a rule that says
+    # "whatever the code did that day".
+    source = FIXTURES / "nadia_okonkwo.txt"
+    proposals = [p.as_dict() for p in extract_proposals(source.read_text(encoding="utf-8"))]
+    (FIXTURES / "nadia_okonkwo.proposals.json").write_text(
+        json.dumps(proposals, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    (FIXTURES / "nadia_okonkwo.proposals.meta.json").write_text(
+        json.dumps(
+            {
+                "provenance": {
+                    "derived_from": source.name,
+                    "generated_by": "scripts/make_resume_fixtures.py",
+                    "extractor_version": EXTRACTOR_VERSION,
+                },
+                "note": (
+                    "Computed, not recorded. Regenerate by running the generator; "
+                    "a change here means the extraction rules changed."
+                ),
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    print(f"  wrote nadia_okonkwo.proposals.json ({len(proposals)} proposals)")
 
 
 if __name__ == "__main__":
