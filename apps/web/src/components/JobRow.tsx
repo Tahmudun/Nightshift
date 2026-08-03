@@ -12,6 +12,8 @@
  *   "Published" is the source's claim. They are never merged into "Posted".
  */
 
+import Link from 'next/link';
+
 import { ConfidenceLadder } from './ConfidenceLadder';
 import type { JobSummary } from '@/lib/schemas';
 
@@ -84,10 +86,20 @@ export function JobRow({ job }: { readonly job: JobSummary }) {
       <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-[15px] font-medium tracking-tight text-paper">
-            {job.title}
+            <Link
+              className="underline-offset-2 hover:text-signal-400 hover:underline"
+              href={`/explore/jobs/${job.id}`}
+            >
+              {job.title}
+            </Link>
           </h3>
           <p className="mt-0.5 font-mono text-[11px] uppercase tracking-[0.12em] text-signal-600">
-            {job.company.canonical_name}
+            <Link
+              className="underline-offset-2 hover:underline"
+              href={`/explore/companies/${job.company.id}`}
+            >
+              {job.company.canonical_name}
+            </Link>
           </p>
         </div>
 

@@ -120,7 +120,8 @@ describe('companyDetailSchema', () => {
   it('rejects a response missing a closure state', () => {
     // A missing key and a real zero are different claims. Defaulting here
     // would silently turn "we did not report closed" into "closed: 0".
-    const { closed: _closed, ...partial } = base.job_status_counts;
+    const partial: Record<string, number> = { ...base.job_status_counts };
+    delete partial.closed;
     expect(
       companyDetailSchema.safeParse({ ...base, job_status_counts: partial }).success,
     ).toBe(false);
