@@ -160,6 +160,79 @@ class IngestionRunStatus(enum.StrEnum):
     FAILED = "failed"
 
 
+class ApplicationStage(enum.StrEnum):
+    """PRODUCT-SPEC §10.1's ten stages, in their default order.
+
+    ``discovered`` is unreachable in M2: nothing enters the pipeline without a
+    click, so every application starts at ``saved``. The value exists because
+    M3's matching engine will put roles here on the user's behalf, and adding
+    an enum value later is a migration.
+    """
+
+    DISCOVERED = "discovered"
+    SAVED = "saved"
+    PREPARING = "preparing"
+    APPLIED = "applied"
+    ASSESSMENT = "assessment"
+    INTERVIEW = "interview"
+    OFFER = "offer"
+    REJECTED = "rejected"
+    WITHDRAWN = "withdrawn"
+    CLOSED = "closed"
+
+
+class ApplicationPriority(enum.StrEnum):
+    """The user's own ranking. Never computed — that would be I4's problem."""
+
+    HIGH = "high"
+    NORMAL = "normal"
+    LOW = "low"
+
+
+class TransitionClass(enum.StrEnum):
+    """How a stage change relates to the default order (§3 of the M2 design)."""
+
+    ADVANCE = "advance"
+    CORRECTION = "correction"
+    REOPEN = "reopen"
+
+
+class EventActor(enum.StrEnum):
+    """Who caused an event. Invariant I5 turns on this column.
+
+    A ``system`` actor may record a fact about the world — a listing closed —
+    and may never move a stage. That is a check constraint on
+    ``application_events``, not a convention.
+    """
+
+    USER = "user"
+    SYSTEM = "system"
+
+
+class ApplicationEventType(enum.StrEnum):
+    """The eight kinds of thing M2b actually writes.
+
+    **This deliberately diverges from PRODUCT-SPEC §6.12's example list**, which
+    is mostly stage names (``applied``, ``rejected``, ``offer_received``). A
+    stage change already records ``from_stage``, ``to_stage`` and
+    ``transition_class``, so mirroring each stage as an event type would give
+    two representations of one fact and let them disagree. ADR 0012 records the
+    decision.
+
+    Nothing is listed here that M2b does not write. M7's Gmail classifications
+    add their values with a migration, when there is code to write them.
+    """
+
+    SAVED = "saved"
+    STAGE_CHANGED = "stage_changed"
+    NOTE_ADDED = "note_added"
+    DETAIL_UPDATED = "detail_updated"
+    INTERVIEW_SCHEDULED = "interview_scheduled"
+    ARCHIVED = "archived"
+    RESTORED = "restored"
+    LISTING_CLOSED = "listing_closed"
+
+
 def pg_enum_values(enum_cls: type[enum.Enum]) -> list[str]:
     """``values_callable`` helper: store enum *values*, not member names."""
     return [member.value for member in enum_cls]

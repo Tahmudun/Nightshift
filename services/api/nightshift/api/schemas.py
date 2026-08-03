@@ -15,18 +15,24 @@ is required to say "not provided by source" instead of hiding the row.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from nightshift.db.base import (
+    ApplicationEventType,
+    ApplicationPriority,
+    ApplicationStage,
     BoardTier,
     EmploymentType,
+    EventActor,
     IngestionRunStatus,
     JobStatus,
     LocationConfidence,
     RemotePolicy,
     ResolutionMethod,
+    TransitionClass,
 )
 
 
@@ -382,3 +388,111 @@ class CoverageOut(BaseModel):
     candidates: dict[str, int]
     candidates_total: int
     blind_spots: list[BlindSpotOut]
+
+
+class ApplicationEventOut(BaseModel):
+    """One history row. `occurred_at` is world time; `created_at` is write time."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    event_type: ApplicationEventType
+    actor: EventActor
+    occurred_at: datetime
+    from_stage: ApplicationStage | None
+    to_stage: ApplicationStage | None
+    transition_class: TransitionClass | None
+    body: str | None
+    payload: dict[str, Any]
+    created_at: datetime
+
+
+class ApplicationOut(BaseModel):
+    id: UUID
+    job: JobSummaryOut
+    current_stage: ApplicationStage
+    priority: ApplicationPriority
+    applied_at: datetime | None
+    next_action_at: datetime | None
+    application_url: str | None
+    source_of_application: str | None
+    archived_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ApplicationDetailOut(ApplicationOut):
+    events: list[ApplicationEventOut]
+
+
+class ApplicationStageCounts(BaseModel):
+    """One field per stage, defaulting to zero.
+
+    Same shape as `JobStatusCounts`, and for the same reason: a missing key and
+    a zero must not be told apart by whether the UI happened to check.
+    """
+
+    discovered: int = 0
+    saved: int = 0
+    preparing: int = 0
+    applied: int = 0
+    assessment: int = 0
+    interview: int = 0
+    offer: int = 0
+    rejected: int = 0
+    withdrawn: int = 0
+    closed: int = 0
+
+
+class DeferredApplicationFieldOut(BaseModel):
+    """I7: what tracking cannot yet record, named rather than hidden."""
+
+    name: str
+    blocked_on: str
+    reason: str
+
+
+class ApplicationListOut(BaseModel):
+    items: list[ApplicationOut]
+    total: int
+    limit: int
+    offset: int
+    stage_counts: ApplicationStageCounts
+    archived_count: int
+    deferred_fields: list[DeferredApplicationFieldOut]
+
+
+class SaveJobIn(BaseModel):
+    job_id: UUID
+
+
+class StageChangeIn(BaseModel):
+    to_stage: ApplicationStage
+    note: str | None = Field(default=None, max_length=4000)
+    applied_at: datetime | None = None
+    application_url: str | None = Field(default=None, max_length=1000)
+
+
+class NoteIn(BaseModel):
+    body: str = Field(min_length=1, max_length=4000)
+    occurred_at: datetime | None = None
+
+
+class InterviewIn(BaseModel):
+    scheduled_for: datetime
+    body: str | None = Field(default=None, max_length=4000)
+
+
+class ApplicationPatchIn(BaseModel):
+    """Absent means "leave alone"; explicit null means "clear".
+
+    The route reads `model_fields_set` rather than checking for None, because
+    otherwise there is no way to clear `next_action_at` once it is set — the
+    field would be permanently sticky and the bug would look like a UI problem.
+    """
+
+    priority: ApplicationPriority | None = None
+    next_action_at: datetime | None = None
+    application_url: str | None = Field(default=None, max_length=1000)
+    source_of_application: str | None = Field(default=None, max_length=200)
+    applied_at: datetime | None = None

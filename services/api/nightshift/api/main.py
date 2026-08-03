@@ -9,7 +9,7 @@ import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from nightshift.api.routes import companies, health, jobs, sources
+from nightshift.api.routes import applications, companies, health, jobs, sources
 from nightshift.config import get_settings
 from nightshift.db.session import dispose_engine
 from nightshift.logging import configure_logging
@@ -50,6 +50,7 @@ def create_app() -> FastAPI:
     app.include_router(jobs.router)
     app.include_router(sources.router)
     app.include_router(companies.router)
+    app.include_router(applications.router)
     return app
 
 

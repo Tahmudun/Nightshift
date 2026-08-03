@@ -129,6 +129,11 @@ _INGESTION_TABLES = (
     # milestone running that this list has been kept correct by the database
     # rather than by somebody remembering.
     "board_poll_state",
+    # M2b. `applications` references `jobs`, so TRUNCATE would fail without
+    # these two — which is the fourth milestone running that this list has been
+    # kept correct by the database rather than by somebody remembering.
+    "application_events",
+    "applications",
     "jobs",
     "companies",
     "sources",
