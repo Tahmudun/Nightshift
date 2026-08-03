@@ -9,16 +9,22 @@
 import type { z } from 'zod';
 
 import {
+  companyDetailSchema,
+  companyListSchema,
   coverageSchema,
   healthSchema,
+  jobDetailSchema,
   jobAdminListSchema,
   jobListSchema,
   jobStatusEventSchema,
   boardPollStateSchema,
   sourceHealthSchema,
   statsSchema,
+  type CompanyDetail,
+  type CompanyList,
   type Coverage,
   type Health,
+  type JobDetail,
   type JobAdminList,
   type JobList,
   type JobStatusEvent,
@@ -109,17 +115,63 @@ export async function fetchHealth(): Promise<Health> {
 export interface JobQuery {
   limit?: number;
   offset?: number;
+  /** Searches the job title. Widen it with `include_description`. */
+  q?: string;
+  include_description?: boolean;
+  company?: string;
+  city?: string;
+  employment_type?: string;
+  remote_policy?: string;
   status?: string;
   confidence?: string;
+  source?: string;
+  first_seen_after?: string;
+  salary_at_least?: number;
 }
 
+/**
+ * Only non-empty values become query parameters, so a cleared filter really
+ * clears rather than being sent as an empty string the API would then try to
+ * match against.
+ */
 export function fetchJobs(query: JobQuery = {}): Promise<JobList> {
   const params = new URLSearchParams();
   params.set('limit', String(query.limit ?? 25));
   params.set('offset', String(query.offset ?? 0));
-  if (query.status) params.set('status', query.status);
-  if (query.confidence) params.set('confidence', query.confidence);
+  const optional: ReadonlyArray<[string, string | number | boolean | undefined]> = [
+    ['q', query.q],
+    ['include_description', query.include_description],
+    ['company', query.company],
+    ['city', query.city],
+    ['employment_type', query.employment_type],
+    ['remote_policy', query.remote_policy],
+    ['status', query.status],
+    ['confidence', query.confidence],
+    ['source', query.source],
+    ['first_seen_after', query.first_seen_after],
+    ['salary_at_least', query.salary_at_least],
+  ];
+  for (const [key, value] of optional) {
+    if (value === undefined || value === '' || value === false) continue;
+    params.set(key, String(value));
+  }
   return request(`/jobs?${params.toString()}`, jobListSchema);
+}
+
+/** One job in full, with its provenance. */
+export function fetchJob(jobId: string): Promise<JobDetail> {
+  return request(`/jobs/${jobId}`, jobDetailSchema);
+}
+
+/** Every employer we have ingested a role from. */
+export function fetchCompanies(q?: string): Promise<CompanyList> {
+  const params = new URLSearchParams();
+  if (q) params.set('q', q);
+  return request(`/companies?${params.toString()}`, companyListSchema);
+}
+
+export function fetchCompany(companyId: string): Promise<CompanyDetail> {
+  return request(`/companies/${companyId}`, companyDetailSchema);
 }
 
 export function fetchStats(): Promise<Stats> {
