@@ -131,7 +131,6 @@ export const jobDetailSchema = jobSummarySchema.extend({
 });
 export type JobDetail = z.infer<typeof jobDetailSchema>;
 
-
 export const jobListSchema = z.object({
   items: z.array(jobSummarySchema),
   total: z.number().int(),

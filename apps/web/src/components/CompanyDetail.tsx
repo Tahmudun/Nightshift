@@ -25,11 +25,7 @@ const STATES = [
   ['closed', 'Closed'],
 ] as const;
 
-export function CompanyCounts({
-  counts,
-}: {
-  readonly counts: CompanyDetail['job_status_counts'];
-}) {
+export function CompanyCounts({ counts }: { readonly counts: CompanyDetail['job_status_counts'] }) {
   return (
     <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
       {STATES.map(([state, label]) => (
@@ -113,8 +109,8 @@ export function CompanyDetailView({ companyId }: { readonly companyId: string })
           <CompanyCounts counts={company.data.job_status_counts} />
         </div>
         <p className="mt-4 text-[12px] leading-relaxed text-paper-dim">
-          Closed roles are counted, not hidden. A page that showed only open roles would make
-          the closure machine invisible.
+          Closed roles are counted, not hidden. A page that showed only open roles would make the
+          closure machine invisible.
         </p>
       </section>
 

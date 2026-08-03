@@ -124,9 +124,8 @@ export function JobFacts({ job }: { readonly job: JobDetail }) {
       <section data-testid="deferred-facts">
         <h2 className={TERM}>Not yet computed</h2>
         <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-paper-dim">
-          These arrive with the matching engine at milestone 3. They are listed rather than
-          hidden, because a score with no breakdown behind it is a bug and an invented one is
-          worse.
+          These arrive with the matching engine at milestone 3. They are listed rather than hidden,
+          because a score with no breakdown behind it is a bug and an invented one is worse.
         </p>
         <ul className="mt-3 flex flex-wrap gap-x-6 gap-y-1">
           {DEFERRED_FACTS.map((fact) => (

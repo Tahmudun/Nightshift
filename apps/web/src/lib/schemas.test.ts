@@ -122,9 +122,9 @@ describe('companyDetailSchema', () => {
     // would silently turn "we did not report closed" into "closed: 0".
     const partial: Record<string, number> = { ...base.job_status_counts };
     delete partial.closed;
-    expect(
-      companyDetailSchema.safeParse({ ...base, job_status_counts: partial }).success,
-    ).toBe(false);
+    expect(companyDetailSchema.safeParse({ ...base, job_status_counts: partial }).success).toBe(
+      false,
+    );
   });
 });
 

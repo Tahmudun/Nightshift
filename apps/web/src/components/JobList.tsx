@@ -116,8 +116,8 @@ export function JobList() {
               // every posting that states no salary, and most postings do.
               <p className="border-b border-ink-700 px-5 py-2 text-[12px] text-paper-dim">
                 {data.excluded_no_salary} further{' '}
-                {data.excluded_no_salary === 1 ? 'role states' : 'roles state'} no salary and
-                cannot be compared against a floor.
+                {data.excluded_no_salary === 1 ? 'role states' : 'roles state'} no salary and cannot
+                be compared against a floor.
               </p>
             )}
             {data.items.map((job) => (

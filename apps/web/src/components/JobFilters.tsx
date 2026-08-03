@@ -172,9 +172,8 @@ export function JobFilters({ value, onChange, deferred }: JobFiltersProps) {
         <div className="mt-6 border-t border-ink-700 pt-4">
           <h3 className={LABEL}>Not available yet</h3>
           <p className="mt-2 max-w-2xl text-[12px] leading-relaxed text-paper-dim">
-            These filters are in the spec and are not built. They are shown disabled with the
-            reason rather than left out, because a filter that is simply missing is a gap nobody
-            can see.
+            These filters are in the spec and are not built. They are shown disabled with the reason
+            rather than left out, because a filter that is simply missing is a gap nobody can see.
           </p>
           <ul className="mt-4 grid gap-4 sm:grid-cols-2">
             {deferred.map((entry) => (

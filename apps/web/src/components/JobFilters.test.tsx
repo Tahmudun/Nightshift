@@ -22,9 +22,7 @@ describe('JobFilters', () => {
   });
 
   it('names every deferred filter and shows its reason unexpanded', () => {
-    const { container } = render(
-      <JobFilters value={{}} onChange={vi.fn()} deferred={DEFERRED} />,
-    );
+    const { container } = render(<JobFilters value={{}} onChange={vi.fn()} deferred={DEFERRED} />);
     // Visible without clicking anything. The gap must not be hidden behind a
     // disclosure — the same rule the coverage page is tested against.
     expect(screen.getByText(/which borough it is in/i)).toBeVisible();
