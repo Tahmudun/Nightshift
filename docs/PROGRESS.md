@@ -8,7 +8,7 @@
 **M1a: COMPLETE, CI-green at `430347a`, merged to `main` as PR #1 (`54ef35a`).**
 **M1b: COMPLETE and reviewed. Merged to `main` as PR #2 (`cf48719`).**
 **M1c: COMPLETE, reviewed, CI-green at `19236f5`, merged to `main` as PR #3 (`f377303`).**
-**M1d: COMPLETE, reviewed, and CI-green at `4106072` — PR #4 open, awaiting the human's merge.**
+**M1d: COMPLETE, reviewed, and CI-green at `75d9ab7` — the PR head. PR #4 open, awaiting the human's merge.**
 **Last updated: 2026-08-03**
 
 ---
@@ -19,20 +19,29 @@
 
 **M1d is complete, M1 with it, and CI is green.**
 [PR #4](https://github.com/Tahmudun/Nightshift/pull/4), run
-[30783284568](https://github.com/Tahmudun/Nightshift/actions/runs/30783284568)
-at `4106072` — **all five jobs passed on the first attempt**:
+[30783504694](https://github.com/Tahmudun/Nightshift/actions/runs/30783504694)
+at `75d9ab7` — **all five jobs green**:
 
 ```
-python       3m14s   804 passed, zero skipped   (read from the log, not inferred)
-e2e          2m20s   20 passed, 1 skipped
-migrations   1m11s   up, down, up, and no drift
-web            56s
-secret scan     5s
+python       3m18s   804 passed, zero skipped   (read from the log, not inferred)
+e2e          2m33s   20 passed, 1 skipped
+migrations   1m17s   up, down, up, and no drift
+web            54s
+secret scan    11s
 ```
 
-`headSha` on the run is `41060726168e148a37934657ed16593ed594c05b`, which is
-this branch's HEAD — checked rather than assumed, because a green run against an
-older commit proves nothing about the current one.
+`headSha` on the run is `75d9ab798a46b1a49602adacffe3575fbe862b87`, checked
+against the PR head rather than assumed.
+
+**That check found something worth keeping.** The first green run was at
+`4106072`, and two docs commits landed after it — so for a while this file
+claimed "CI-green" beside a SHA that was no longer the head of the branch a
+human would merge. The claim was literally true and specific, which is exactly
+why it was survivable; a bare "CI is green" would have been quietly wrong. The
+diff was documentation only and the re-run was green, but the general rule
+stands and this project has been bitten by its stronger form before: PROGRESS
+once carried a CI-green line that predated twenty-one commits of real work.
+**Name the commit, and check the commit you named is the one being merged.**
 
 **804 in CI matches 804 locally**, so the database-backed tests really ran there
 too. The single e2e skip is honest: `an unchanged board is not presented as a
