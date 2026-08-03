@@ -10,6 +10,13 @@ At close: **804 Python tests** (from 607 at branch start), 42 web unit, **20
 seeded browser tests** (from 16). `make check` green, `make acceptance` green,
 migrations round-tripped in both directions against a live cluster.
 
+**CI green at `4106072`** — run
+[30783284568](https://github.com/Tahmudun/Nightshift/actions/runs/30783284568),
+all five jobs on the first attempt, `804 passed` read from the log rather than
+inferred and matching the local count exactly. The run's `headSha` was checked
+against the branch HEAD, because a green run against an older commit proves
+nothing about the current one.
+
 This review looks for what the design named — a `304` that writes something, a
 board enqueued twice, a tier that can only be entered, retry storms from the
 scheduler, a stored ETag outliving a parser change, lock ordering — plus what

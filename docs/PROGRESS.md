@@ -8,26 +8,41 @@
 **M1a: COMPLETE, CI-green at `430347a`, merged to `main` as PR #1 (`54ef35a`).**
 **M1b: COMPLETE and reviewed. Merged to `main` as PR #2 (`cf48719`).**
 **M1c: COMPLETE, reviewed, CI-green at `19236f5`, merged to `main` as PR #3 (`f377303`).**
-**M1d: COMPLETE and reviewed. Branch `m1d-conditional-polling`, not yet CI-verified or merged.**
+**M1d: COMPLETE, reviewed, and CI-green at `4106072` — PR #4 open, awaiting the human's merge.**
 **Last updated: 2026-08-03**
 
 ---
 
 ## Next exact action
 
-### Next: push the branch, get CI green, open the PR for the human to merge.
+### Next: merge PR #4. Then M2 — the functional command center.
 
-**M1d is complete and M1 with it.** Eleven tasks, eleven commits, on branch
-`m1d-conditional-polling` off `main` at `f377303`. Design
-`docs/architecture/conditional-polling.md`; plan
-`docs/plans/2026-08-02-m1d-conditional-polling.md`; review
-`docs/reviews/milestone-1d-review.md`; ADR 0011 records the scheduling decision.
+**M1d is complete, M1 with it, and CI is green.**
+[PR #4](https://github.com/Tahmudun/Nightshift/pull/4), run
+[30783284568](https://github.com/Tahmudun/Nightshift/actions/runs/30783284568)
+at `4106072` — **all five jobs passed on the first attempt**:
 
-**Not yet done: the branch has never run in CI.** Every check below is local.
-M0's acceptance row 2 is the standing reminder that CI is the only thing that
-runs the migration up→down→up sequence, the drift probe and the secret scan on
-every change — and it has caught five defects that every local command passed
-over. Do not treat this as verified until the Actions tab is green.
+```
+python       3m14s   804 passed, zero skipped   (read from the log, not inferred)
+e2e          2m20s   20 passed, 1 skipped
+migrations   1m11s   up, down, up, and no drift
+web            56s
+secret scan     5s
+```
+
+`headSha` on the run is `41060726168e148a37934657ed16593ed594c05b`, which is
+this branch's HEAD — checked rather than assumed, because a green run against an
+older commit proves nothing about the current one.
+
+**804 in CI matches 804 locally**, so the database-backed tests really ran there
+too. The single e2e skip is honest: `an unchanged board is not presented as a
+problem` needs a board that has answered `304`, and the seeded stack has polled
+nothing.
+
+M0's acceptance row 2 was the reason to insist on this. Three CI runs were
+needed at M0 and the two failures found five defects that every local command
+had passed over. This time the first attempt was green — which is worth
+recording precisely because it is not the usual outcome.
 
 | Task | Commit | What it did |
 |---|---|---|
