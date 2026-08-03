@@ -15,6 +15,7 @@
 import Link from 'next/link';
 
 import { ConfidenceLadder } from './ConfidenceLadder';
+import { SaveJobButton } from './SaveJobButton';
 import type { JobSummary } from '@/lib/schemas';
 
 const EMPLOYMENT_LABELS: Record<JobSummary['employment_type'], string> = {
@@ -115,6 +116,7 @@ export function JobRow({ job }: { readonly job: JobSummary }) {
               {job.status.replace('_', ' ')}
             </span>
           ) : null}
+          <SaveJobButton jobId={job.id} />
         </div>
       </div>
 

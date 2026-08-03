@@ -17,6 +17,7 @@ import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 
 import { ConfidenceLadder } from './ConfidenceLadder';
+import { SaveJobButton } from './SaveJobButton';
 import { fetchJob } from '@/lib/api';
 import type { JobDetail } from '@/lib/schemas';
 
@@ -215,6 +216,9 @@ export function JobDetailView({ jobId }: { readonly jobId: string }) {
         >
           {data.company.canonical_name}
         </Link>
+        <div className="mt-3">
+          <SaveJobButton jobId={data.id} />
+        </div>
       </header>
       <JobFacts job={data} />
     </div>
