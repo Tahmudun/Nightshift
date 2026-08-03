@@ -34,7 +34,14 @@ from nightshift.config import get_settings
 from nightshift.db.base import JobStatus, LocationConfidence, SourceType
 from nightshift.db.models import Company, Job, JobLocation, Source, SourceJobRecord, User
 from nightshift.db.session import dispose_engine, session_scope
+from nightshift.db.types import utcnow
 from nightshift.domain.ingestion import get_or_create_source, ingest_boards
+from nightshift.domain.polling import (
+    ADAPTERS,
+    adapter_for,
+    poll_one_board,
+    sync_board_poll_state,
+)
 from nightshift.domain.registry import get_registry
 from nightshift.logging import configure_logging
 
@@ -352,9 +359,53 @@ async def _print_summary() -> None:
         print(f"    {source.name:<20} {label}")
 
 
+async def cmd_poll(args: argparse.Namespace) -> int:
+    """Poll one board through the full M1d cycle, conditionally.
+
+    Exists so a human can run a single board's poll without waiting for a cron,
+    and — the reason it was written — so M1 criterion 13 can be demonstrated
+    against a real provider rather than only in fixtures: run it twice and the
+    second run reports ``304`` and writes nothing.
+
+    Goes through ``poll_one_board``, so it reads and writes the same
+    ``board_poll_state`` row the scheduler does. A command that polled some
+    other way would prove nothing about the thing that actually runs.
+    """
+    settings = get_settings()
+    if not settings.outbound_http_enabled:
+        print(
+            "error: outbound HTTP is disabled.\n"
+            "       Set OUTBOUND_HTTP_ENABLED=true in .env to poll live boards.",
+            file=sys.stderr,
+        )
+        return 1
+
+    async with session_scope() as session:
+        await sync_board_poll_state(session, now=utcnow())
+
+    async with PoliteClient() as client, session_scope() as session:
+        try:
+            adapter = adapter_for(args.ats, client)
+            state = await poll_one_board(
+                session, adapter, ats=args.ats, token=args.token, now=utcnow()
+            )
+        except LookupError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+
+        print(f"  {args.ats}:{args.token}")
+        print(f"    http status         {state.last_status}")
+        print(f"    tier                {state.tier.value}")
+        print(f"    etag                {state.etag or '(none served)'}")
+        print(f"    consecutive fails   {state.consecutive_failures}")
+        print(f"    next poll at        {state.next_poll_at.isoformat()}")
+    return 0
+
+
 COMMANDS = {
     "seed": cmd_seed,
     "ingest": cmd_ingest,
+    "poll": cmd_poll,
     "enqueue": cmd_enqueue,
     "stats": cmd_stats,
 }
@@ -365,6 +416,11 @@ def main(argv: list[str] | None = None) -> int:
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("seed", help="load dev user + committed fixture board (offline)")
     subparsers.add_parser("ingest", help="poll live boards from the registry")
+    poll = subparsers.add_parser(
+        "poll", help="poll one board conditionally, through board_poll_state"
+    )
+    poll.add_argument("--ats", required=True, choices=sorted(ADAPTERS))
+    poll.add_argument("--token", required=True)
     subparsers.add_parser("enqueue", help="queue the ingestion task for the worker")
     subparsers.add_parser("stats", help="print corpus counts")
     args = parser.parse_args(argv)
