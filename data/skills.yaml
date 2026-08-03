@@ -1,0 +1,132 @@
+# The skill vocabulary.
+#
+# A resume may propose a skill only if it appears here, by name or by alias
+# (docs/architecture/command-center.md §6.1). Free text is never a skill.
+#
+# `version` is stored on every proposal this file produces, so a proposal can
+# be traced back to the vocabulary that made it. Bump it whenever an entry is
+# added, removed, or renamed — M3 grows this file into the full taxonomy with
+# its evidence graph, and that must stay a data change rather than a migration.
+#
+# `case_sensitive: true` is for names that are also ordinary English words.
+# "Go" and "Rust" name a language; "go" and "rust" name a verb and a colour.
+# Recall is traded for precision on purpose here: a missed skill costs one
+# click on the manual form, and an invented one is invariant I2 failing.
+#
+# Two aliases were deliberately left out and are worth naming so they are not
+# "fixed" later: bare `node` (a tree has nodes) and bare `rest` (the word).
+version: "2026-08-03.1"
+skills:
+  - name: Python
+    aliases: [python3, cpython]
+  - name: TypeScript
+    aliases: [ts]
+  - name: JavaScript
+    aliases: [ecmascript]
+  - name: Java
+  - name: Go
+    case_sensitive: true
+    aliases: [Golang, golang]
+  - name: Rust
+    case_sensitive: true
+  - name: C++
+    aliases: [cpp]
+  - name: C#
+    aliases: [csharp]
+  - name: Swift
+    case_sensitive: true
+  - name: Kotlin
+  - name: Ruby
+    case_sensitive: true
+  - name: PHP
+  - name: Scala
+  - name: SQL
+  - name: HTML
+  - name: CSS
+  - name: React
+    aliases: [react.js, reactjs]
+  - name: Next.js
+    aliases: [nextjs]
+  - name: Vue
+    aliases: [vue.js, vuejs]
+  - name: Angular
+  - name: Svelte
+  - name: Node.js
+    aliases: [nodejs]
+  - name: Django
+  - name: Flask
+  - name: FastAPI
+    aliases: [fast api]
+  - name: Spring Boot
+    aliases: [springboot]
+  - name: Express
+    case_sensitive: true
+  - name: Rails
+    aliases: [ruby on rails]
+  - name: Tailwind CSS
+    aliases: [tailwind, tailwindcss]
+  - name: PostgreSQL
+    aliases: [postgres, psql]
+  - name: MySQL
+  - name: SQLite
+  - name: MongoDB
+    aliases: [mongo]
+  - name: Redis
+  - name: Elasticsearch
+  - name: DynamoDB
+  - name: Snowflake
+  - name: Docker
+  - name: Kubernetes
+    aliases: [k8s]
+  - name: Terraform
+  - name: AWS
+    aliases: [amazon web services]
+  - name: Google Cloud
+    aliases: [gcp, google cloud platform]
+  - name: Azure
+  - name: Linux
+  - name: Git
+  - name: GitHub Actions
+  - name: CI/CD
+  - name: pandas
+  - name: NumPy
+    aliases: [numpy]
+  - name: PyTorch
+    aliases: [pytorch]
+  - name: TensorFlow
+    aliases: [tensorflow]
+  - name: scikit-learn
+    aliases: [sklearn]
+  - name: Jupyter
+  - name: Spark
+    case_sensitive: true
+    aliases: [pyspark, Apache Spark]
+  - name: Airflow
+    aliases: [apache airflow]
+  - name: dbt
+  - name: Tableau
+  - name: GraphQL
+  - name: REST APIs
+    aliases: [rest api, restful]
+  - name: gRPC
+  - name: Kafka
+    aliases: [apache kafka]
+  - name: Figma
+  - name: Playwright
+  - name: Cypress
+  - name: Jest
+    case_sensitive: true
+  - name: pytest
+  - name: Selenium
+  - name: R
+    case_sensitive: true
+    minimum_length_override: true
+  - name: MATLAB
+    aliases: [matlab]
+  - name: Excel
+    case_sensitive: true
+  - name: Data Structures
+    aliases: [data structures and algorithms, dsa]
+  - name: Machine Learning
+    aliases: [ml]
+  - name: Distributed Systems
