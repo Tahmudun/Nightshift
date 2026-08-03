@@ -14,16 +14,80 @@
 
 ## Next exact action
 
-### Next: M1d Task 1 — `PoliteClient` learns `If-None-Match`.
+### Next: M1d Task 6 — the `board_poll_state` table.
 
-Branch `m1d-conditional-polling`, off `main` at `f377303`. The design is
-`docs/architecture/conditional-polling.md` (`856ad62`) and the plan is
-`docs/plans/2026-08-02-m1d-conditional-polling.md` (`f7a3bcd`) — eleven TDD
-tasks. **Read design §4 and §5 before Task 5**; they are where this milestone
-can go wrong invisibly.
+Branch `m1d-conditional-polling`, off `main` at `f377303`. Design
+`docs/architecture/conditional-polling.md` (`856ad62`); plan
+`docs/plans/2026-08-02-m1d-conditional-polling.md` (`f7a3bcd`), eleven tasks.
 
-**No M1d code has been written.** Nothing in `services/api` or `apps/web`
-changed on this branch yet.
+**Tasks 1–5 are done and committed. 723 Python tests pass, zero skipped**
+(607 at branch start). `make check` green; `make seed` verified twice over
+against a real database.
+
+| Task | Commit | What it did |
+|---|---|---|
+| 1 | `6e516cf` | `PoliteClient.get_json_conditional`; `304` returned as data |
+| 2 | `8d5f5c5` | `FetchOutcome` separates *listed* from *fetched*; `304` can no longer read as an empty board |
+| 3 | `4106ed0` | All three adapters revalidate; one `ConditionalJsonClient` Protocol |
+| 4 | `6a5757b` | Greenhouse two-phase, plus `fetch_full_board` for first ingestion |
+| 5 | `dd9e62a` | **Freshness ages against the listed set** — the milestone's central guard |
+
+Remaining: 6 (`board_poll_state`), 7 (poll cycle + scheduler), 8 (tiers),
+9 (`merge_jobs` row lock), 10 (`promote` + the 19 boards), 11 (surface, ADR
+0011, review, PR).
+
+### What Tasks 1–5 found that the plan did not predict
+
+Nine defects. **Seven were in code that reported success**, which is the same
+pattern M1a, M1b and M1c each recorded — now four milestones running.
+
+1. **A `304` currently reads as an authoritative empty board.** `FetchOutcome.
+   is_authoritative_empty` was `ok and not jobs`, and a `304` satisfies it. That
+   is "every posting on this board is gone" for a provider behaving perfectly.
+   Fixed in Task 2, mutation-checked.
+2. **httpx counts only 2xx as success and `304` is not retryable**, so a naive
+   conditional client falls through to the terminal-failure branch and records
+   an outage. The `304` check has to precede both branches.
+3. **The same "jobs without listed" footgun appeared three times** — the fixture
+   adapters, and two pipeline test stubs. Each instance silently means "the
+   board listed nothing", which ages every record. Fixed at the type: a
+   `FetchOutcome` carrying jobs with no listing now derives one.
+4. **`isinstance` against a runtime-checkable Protocol matches method names
+   only.** A single-phase Lever stub that implemented `fetch_postings` for
+   convenience got pulled into a phase Lever has no endpoint for. The pipeline
+   gates on the `is_two_phase` flag and *then* narrows.
+5. **`make seed` would have crashed.** `FixtureGreenhouseAdapter` subclasses the
+   real adapter and inherited `is_two_phase = True`, along with a
+   `fetch_full_board` that needs the HTTP client the fixture adapter
+   deliberately lacks. **The fixture adapters had no tests at all** — the
+   offline demo path, untested. 24 now, plus a real two-seed run.
+6. **Eleven route tests were *errors*, not failures**, on a fourth
+   `_StubAdapter` copy. Errors read as noise; failures read as signal.
+7. **Migration autogenerate emitted `nightshift.db.types.UTCDateTime` with no
+   import** — a `NameError` at upgrade time. Second migration running that the
+   note at the head of `0002` has caught.
+8. **`jobs.source_updated_at` already existed and reusing it would have been
+   wrong.** After a merge one job carries records from several boards and its
+   timestamp reflects whichever wrote last, so the phase-2 diff would refetch
+   what had not changed and skip what had. The new column is on
+   `source_job_records`, because it answers a per-board question.
+9. **The pipeline had never been tested against Greenhouse at all.** Every
+   ingestion, closure, merge and route test drove a stub wrapping *Lever*.
+   After Task 4, live Greenhouse ingestion produced zero jobs and **nothing
+   went red** — a green suite over a provider that had stopped working.
+
+### Two things Tasks 1–5 changed about what is written down
+
+- **ADR 0007's phase 2 is Greenhouse-only, and its "no `updated_at`" problem
+  dissolved.** Lever and Ashby return every posting in full from one request,
+  so there is no second fetch for a timestamp to gate. Recorded in the design;
+  the carried finding below is struck through.
+- **Criterion 13's "zero writes" is claimed precisely.** A `304` does write one
+  row — the board's own poll bookkeeping, which is the point of polling. What is
+  asserted is zero writes to *job state*: no insert or update to
+  `source_job_records`, `jobs`, `job_locations`, `job_source_links`,
+  `job_status_events` or `job_embeddings`, no miss-counter movement, no closure.
+  `_job_state_snapshot` in `tests/test_ingestion.py` is that assertion.
 
 ### What was measured before planning, and what it changed
 
