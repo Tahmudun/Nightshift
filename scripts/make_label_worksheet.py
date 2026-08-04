@@ -253,13 +253,34 @@ _SECTION_CLOSERS = re.compile(
     r"|how to apply|interview process|life at|eeo|in accordance with"
     r"|annual salary range|total (pay|compensation)"
     # Anthropic's closing sections, which name themselves rather than saying
-    # "benefits". Without these its postings had no closer at all and the
-    # window became their only bound — 12 of 18 truncations were cutting real
-    # requirement language, not boilerplate. Measured across the 60: adding
-    # them takes the p90 section from 5,645 characters to 2,860 and truncation
-    # from 18 of 60 to 6.
-    r"|logistics|how we'?re different|come work with us|location-based hybrid"
-    r"|we encourage you to apply|deadline to apply|the salary range|role-specific",
+    # "benefits". Without some of these its postings had no closer at all and
+    # the window became their only bound.
+    #
+    # **Four candidates were measured and rejected**, and the reason is the
+    # most important thing in this file. Anthropic interleaves eligibility
+    # facts with its boilerplate rather than putting them above it:
+    #
+    #     ... Location-based hybrid policy: ...
+    #     Visa sponsorship: We do sponsor visas! ...
+    #     Deadline to apply: None. ...  Annual Salary: $265,000 — $365,000
+    #     Logistics  Minimum education: Bachelor's degree or an equivalent ...
+    #
+    # `Visa sponsorship` and `Minimum education` are two of the nine fields a
+    # human is asked to label. Closing at `logistics`, `deadline to apply`,
+    # `location-based hybrid` or `role-specific` cut them off **without a
+    # truncation marker**, because as far as the code knew the section had
+    # ended — 12 of 60 postings silently lost a degree requirement, a
+    # sponsorship statement, or both.
+    #
+    # Measured across the 60:
+    #     with all eight    truncated  6/60   silent loss 12/60
+    #     with these four   truncated 12/60   silent loss  0/60
+    #
+    # Twelve marked truncations beat six marked plus twelve silent ones. A
+    # labeler can act on "cut off — open the fixture"; they cannot act on a
+    # missing degree requirement that looks like an absent one.
+    r"|how we'?re different|come work with us"
+    r"|we encourage you to apply|the salary range",
     re.I,
 )
 

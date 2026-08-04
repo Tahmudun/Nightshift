@@ -249,6 +249,51 @@ def test_a_closer_word_inside_a_bullet_does_not_end_the_section(
     assert "Familiarity with Rust and Python" in excerpt
 
 
+def test_no_excerpt_silently_drops_eligibility_content(worksheet: Any) -> None:
+    """The guard that caught the worst defect on this task, kept permanently.
+
+    Every other check here asks whether the excerpt *looks* right: does it
+    start at a heading, is it short enough, is it marked when cut. None of them
+    can see the failure that matters most — an excerpt that ends cleanly,
+    carries no marker, and has dropped a requirement the labeler is being asked
+    to record.
+
+    That is not hypothetical. Closing Anthropic's sections at `Logistics` cut
+    "Minimum education: Bachelor's degree or an equivalent combination of
+    education and experience" from twelve postings, and closing at
+    `Location-based hybrid` cut "Visa sponsorship: We do sponsor visas!". Both
+    are among the nine fields being labeled. Every test passed.
+
+    An excerpt may end early only if what follows is genuinely boilerplate. If
+    the dropped text still reads like requirements, either the closer is wrong
+    or the excerpt should have been marked as cut.
+    """
+    import re as _re
+
+    eligibility_language = _re.compile(
+        r"\b(years? of|degree|bachelor|master'?s|phd|proficien|graduat|enrolled"
+        r"|sponsor|work authoriz|minimum education|experience (with|in))\b",
+        _re.I,
+    )
+    offenders = []
+    for board, posting in worksheet.select_for_labeling(worksheet._all_postings()):
+        excerpt = worksheet.requirements_excerpt(posting["text"])
+        if excerpt.startswith(worksheet.NO_HEADING_PREFIX):
+            continue
+        if excerpt.endswith(worksheet.TRUNCATED_SUFFIX):
+            continue  # marked, so the labeler knows to open the fixture
+        positions = worksheet._heading_positions(posting["text"])
+        body = posting["text"][positions[0] :]
+        dropped = body[worksheet._section_end(body) :]
+        hits = eligibility_language.findall(dropped[:1200])
+        if len(hits) >= 3:
+            offenders.append(f"{board}/{posting['id']}: dropped {dropped[:70]!r}")
+    assert offenders == [], (
+        f"{len(offenders)} excerpts ended cleanly while dropping eligibility "
+        f"content: {offenders[:3]}"
+    )
+
+
 def test_no_section_ends_almost_immediately(worksheet: Any) -> None:
     """A closer firing just after the heading would hide everything.
 
