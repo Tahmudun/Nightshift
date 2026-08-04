@@ -7,6 +7,9 @@ import {
   jobDetailSchema,
   jobListSchema,
   jobLocationSchema,
+  extractionSchema,
+  profileSchema,
+  resumeDetailSchema,
   salarySchema,
 } from './schemas';
 
@@ -188,6 +191,7 @@ describe('applicationSchema', () => {
     next_action_at: null,
     application_url: null,
     source_of_application: null,
+    selected_resume_id: null,
     archived_at: null,
     created_at: '2026-08-03T12:00:00Z',
     updated_at: '2026-08-03T12:00:00Z',
@@ -264,5 +268,147 @@ describe('applicationSchema', () => {
       created_at: '2026-08-03T12:00:00Z',
     });
     expect(parsed.actor).toBe('system');
+  });
+});
+
+describe('extractionSchema', () => {
+  const base = {
+    id: '00000000-0000-4000-8000-000000000010',
+    kind: 'skill',
+    value: { name: 'Python' },
+    char_start: 8,
+    char_end: 14,
+    quoted_text: 'Python',
+    status: 'pending',
+    extractor_version: 'm2c.1',
+    decided_at: null,
+  };
+
+  it('accepts a proposal whose quote is as long as its span', () => {
+    // The positive twin. Every negative test below proves nothing without it —
+    // three M2b tests passed against a schema that did not exist, because
+    // `undefined.parse()` throws too.
+    expect(extractionSchema.parse(base).value).toEqual({ name: 'Python' });
+  });
+
+  it('refuses a proposal whose quoted text cannot fit its span', () => {
+    // The client's half of the database trigger. The trigger compares the quote
+    // against the resume text; this compares it against the span it claims, so
+    // a serialisation bug is caught before anything is highlighted.
+    const result = extractionSchema.safeParse({ ...base, quoted_text: 'Rust' });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.path).toEqual(['quoted_text']);
+  });
+
+  it('refuses an empty span', () => {
+    // Mirrors `span_is_not_empty`. A zero-width proposal highlights nothing and
+    // still makes a claim, which is the shape I2 exists to forbid.
+    const result = extractionSchema.safeParse({ ...base, char_end: 8 });
+    expect(result.success).toBe(false);
+  });
+
+  it('refuses a kind the extractor has no rule for', () => {
+    // `work_authorization` is the one that matters: a claim about legal status
+    // is confirmed in a form, never read off a page.
+    const result = extractionSchema.safeParse({ ...base, kind: 'work_authorization' });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('resumeDetailSchema', () => {
+  const text = 'I write Python and some Go.';
+  const base = {
+    id: '00000000-0000-4000-8000-000000000011',
+    name: 'my resume',
+    variant_type: 'custom',
+    source_kind: 'paste',
+    original_filename: null,
+    content_hash: 'a'.repeat(64),
+    is_default: true,
+    extraction_counts: { pending: 1, confirmed: 0, rejected: 0 },
+    created_at: '2026-08-03T12:00:00Z',
+    updated_at: '2026-08-03T12:00:00Z',
+    parsed_text: text,
+    nothing_proven: false,
+    extractions: [
+      {
+        id: '00000000-0000-4000-8000-000000000012',
+        kind: 'skill',
+        value: { name: 'Python' },
+        char_start: 8,
+        char_end: 14,
+        quoted_text: 'Python',
+        status: 'pending',
+        extractor_version: 'm2c.1',
+        decided_at: null,
+      },
+    ],
+  };
+
+  it('accepts a resume whose every span quotes its text', () => {
+    expect(resumeDetailSchema.parse(base).extractions).toHaveLength(1);
+  });
+
+  it('refuses a proposal whose span points at the wrong words', () => {
+    // Same length, so `extractionSchema` alone cannot see it — only the parent
+    // holds the text. This is the check that makes a highlight trustworthy.
+    const result = resumeDetailSchema.safeParse({
+      ...base,
+      extractions: [{ ...base.extractions[0], char_start: 0, char_end: 6 }],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts a resume that proved nothing', () => {
+    // I7's shape on the wire. An empty list with `nothing_proven` is a result,
+    // and the screen says so rather than rendering an empty pane.
+    const parsed = resumeDetailSchema.parse({
+      ...base,
+      extractions: [],
+      extraction_counts: { pending: 0, confirmed: 0, rejected: 0 },
+      nothing_proven: true,
+    });
+    expect(parsed.nothing_proven).toBe(true);
+  });
+});
+
+describe('profileSchema', () => {
+  const base = {
+    id: '00000000-0000-4000-8000-000000000013',
+    email: 'someone@example.test',
+    display_name: null,
+    timezone: 'America/New_York',
+    graduation_year: null,
+    graduation_month: null,
+    degree: null,
+    school: null,
+    work_authorization: 'unspecified',
+    home_location_text: null,
+    remote_preference: 'no_preference',
+    minimum_salary: null,
+    preferred_roles: [],
+    preferred_locations: [],
+    skills: [],
+    projects: [],
+    deferred_fields: [{ name: '.docx upload', blocked_on: 'unscheduled', reason: 'one parser' }],
+  };
+
+  it('accepts a profile that confirms nothing at all', () => {
+    // The starting state, and it must be representable. A schema that required
+    // a graduation year would push the UI toward inventing one.
+    expect(profileSchema.parse(base).skills).toEqual([]);
+  });
+
+  it('accepts a month once there is a year to hang it on', () => {
+    const parsed = profileSchema.parse({ ...base, graduation_year: 2027, graduation_month: 5 });
+    expect(parsed.graduation_month).toBe(5);
+  });
+
+  it('refuses a graduation month with no year', () => {
+    // Mirrors the `graduation_month_needs_a_year` check constraint. "May" with
+    // no year is not a date anyone can act on (I1).
+    const result = profileSchema.safeParse({ ...base, graduation_month: 5 });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.path).toEqual(['graduation_month']);
   });
 });
