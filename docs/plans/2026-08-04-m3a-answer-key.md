@@ -590,18 +590,30 @@ def test_a_capitalised_heading_anchors_even_without_a_colon(worksheet: Any) -> N
     assert worksheet.requirements_excerpt(text).startswith("WHAT YOU'LL NEED")
 
 
-def test_no_selected_excerpt_starts_mid_sentence(worksheet: Any) -> None:
+def test_every_selected_excerpt_starts_at_a_heading_or_says_it_could_not(
+    worksheet: Any,
+) -> None:
     """The property that failed on the first real run: 30 of 60 broken.
 
     Runs over the actual corpus rather than invented strings, because the
     failure was invisible to every invented string in this file.
+
+    Stated as "starts at a known heading" rather than the first version's
+    "does not start with a lowercase letter". That heuristic was a proxy for
+    anchoring mid-prose, and once `_heading_positions` got strict the proxy
+    started firing on genuine lowercase headings — several boards write
+    ``you have:`` in sentence case. Five real headings were being reported as
+    defects. The property below is what the proxy was reaching for.
     """
     offenders = []
     for board, posting in worksheet.select_for_labeling(worksheet._all_postings()):
         excerpt = worksheet.requirements_excerpt(posting["text"])
-        if excerpt[:1].islower():
+        if excerpt.startswith(worksheet.NO_HEADING_NOTICE):
+            continue
+        lowered = excerpt.casefold()
+        if not any(lowered.startswith(h) for h in worksheet._REQUIREMENT_HEADINGS):
             offenders.append(f"{board}/{posting['id']}: {excerpt[:70]}")
-    assert offenders == [], f"{len(offenders)} excerpts anchored mid-sentence"
+    assert offenders == [], f"{len(offenders)} excerpts anchored off-heading"
 
 
 def test_no_selected_excerpt_is_a_wall_of_text(worksheet: Any) -> None:
@@ -812,13 +824,18 @@ _REQUIREMENT_HEADINGS = (
     "minimum qualifications",
     "basic qualifications",
     "qualities that make great candidates",
+    "you may be a good fit if you",
+    "your skills and experience",
     "what we're looking for",
     "who we're looking for",
+    "the ideal candidate is",
     "what you'll need",
     "what you will need",
     "what you'll bring",
     "what we look for",
     "you should have",
+    "who should apply",
+    "you might thrive",
     "who you are",
     "requirements",
     "qualifications",
@@ -827,6 +844,11 @@ _REQUIREMENT_HEADINGS = (
     "bonus points",
     "you have",
     "about you",
+    # Databricks writes a bare "Required:" / "Preferred:" pair. Safe only
+    # because `_heading_positions` demands a colon, capitals, or a sentence
+    # opening — "3 years is required." matches none of the three.
+    "required",
+    "preferred",
 )
 
 _HEADING_ALTERNATION = "|".join(
