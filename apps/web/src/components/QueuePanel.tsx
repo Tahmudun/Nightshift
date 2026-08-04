@@ -65,7 +65,10 @@ function Row({ row }: { readonly row: QueueRow }) {
 function Section({ section }: { readonly section: QueueSection }) {
   const hidden = section.total - section.rows.length;
   return (
-    <section>
+    // The testid is addressable per section so a test can assert that a role
+    // is in *this* list rather than merely somewhere on the page. Asserting
+    // page-wide is how a browser test comes to pass for the wrong reason.
+    <section data-testid={`queue-section-${section.key}`}>
       <h2 className="font-mono text-[10px] uppercase tracking-[0.16em] text-paper-faint">
         {section.title}
       </h2>
