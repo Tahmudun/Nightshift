@@ -3,22 +3,97 @@
 > Read this first, every session. If the repo state does not match what this
 > file claims, fix this file before writing code.
 
-**Current milestone: M1 — Employment data spine. COMPLETE. All four parts done; 15 of 15 criteria verified.**
 **M0: COMPLETE — 6 of 6 acceptance criteria verified at commit `4c1643f`.**
+**M1: COMPLETE — all four parts, 15 of 15 criteria verified.**
 **M1a: COMPLETE, CI-green at `430347a`, merged to `main` as PR #1 (`54ef35a`).**
 **M1b: COMPLETE and reviewed. Merged to `main` as PR #2 (`cf48719`).**
 **M1c: COMPLETE, reviewed, CI-green at `19236f5`, merged to `main` as PR #3 (`f377303`).**
 **M1d: COMPLETE, reviewed, CI-green at `75d9ab7`, merged to `main` as PR #4 (`044189e`).**
 **M2a: COMPLETE, reviewed, CI-green at `76190c8`, merged to `main` as PR #5 (`910027a`).**
 **M2b: COMPLETE, reviewed, CI-green at `6a10bb6`, merged to `main` as PR #6 (`2f984f3`).**
-**Current milestone: M2 — the functional command center. M2c COMPLETE, CI-green at `e63ec2f`, open as PR #7 and unmerged. M2d not started.**
-**Last updated: 2026-08-03**
+**M2c: COMPLETE, reviewed, CI-green at `e63ec2f`, merged to `main` as PR #7 (`e42d612`).**
+**Current milestone: M2 — the functional command center. M2d is planned and not yet started. It is the last slice in M2.**
+**Last updated: 2026-08-04**
 
 ---
 
 ## Next exact action
 
-### Next: merge PR #7 (a human's call), then plan M2d — the daily queue.
+### Next: execute `docs/plans/2026-08-04-m2d-daily-queue.md`, Task 1.
+
+**PR #7 is merged.** `main` is at `e42d612`, merged 2026-08-04 by the human,
+checked against the PR rather than assumed. The pre-merge invariant held: `git
+diff 1fe34ef..HEAD --stat` listed one file, `docs/PROGRESS.md`, so the recorded
+CI result covered every line of code on the branch. `m2c-profile-and-resume` is
+deleted locally.
+
+**Two remote branches are still there and both are fully merged into `main`
+with nothing ahead** — `origin/m2c-profile-and-resume` and, from much longer
+ago, `origin/m1a-provider-breadth`. The M1 record below claims every milestone
+branch was deleted "both locally and on the remote", and for `m1a` that was
+never true. Deleting them needs a permission this session did not have; it is a
+human's `git push origin --delete` and costs nothing to defer.
+
+**Branch `m2d-daily-queue` is open at `0465e63`** with two docs commits on it
+and no code yet.
+
+### What M2d is, and what it earns
+
+Four rows the system can compute honestly — follow up, interviews approaching,
+stale saved, closed while saved — plus the four PRODUCT-SPEC §10.4 asks for
+that need M3, named on the page with their reason rather than rendered as
+empty sections. An empty section claims "you have none of these"; a named
+absence says "this does not exist yet". Only one of those is true.
+
+**M2d earns none of M2's four acceptance criteria, and that is not a gap.** All
+four were verified at M2a, M2b and M2c and are recorded below. What M2d
+completes is M2's *deliverable* list in `CLAUDE.md` §6, of which the daily
+queue is the last item.
+
+### Three decisions taken on 2026-08-04, before planning
+
+All three are recorded in `docs/architecture/command-center.md` §7, which was
+amended rather than left to the plan:
+
+| Decision | Where |
+|---|---|
+| Thresholds: 7 days of silence, 21 days stale, a 14-day interview horizon | §7 |
+| "Assessments due" folds into Follow up rather than getting its own row | §7.1 |
+| The queue writes nothing — no dismiss, no snooze, every row a link | §7.3 |
+
+**The second one was a discrepancy, not a preference.** PRODUCT-SPEC §10.4
+lists nine queue rows. `command-center.md` §7 named eight and had lost
+"Assessments due" without saying so — the exact failure mode that document
+exists to prevent. `applications` carries `next_action_at` and nothing else
+date-shaped, so an assessment with a date already surfaces under Follow up;
+the fold is now written down with its reason instead of being a silent drop.
+
+### What the plan checked against the code rather than assuming
+
+Three things, and all three would have been wrong in the executor's hands:
+
+1. **The query-plan helper is `_plan`, not a new `EXPLAIN` call.** It compiles
+   with `paramstyle="named"` and sets `enable_seqscan = off` inside the
+   transaction; a second copy would not have matched how the existing
+   assertions run.
+2. **There is no shared `client` fixture.** Each route-test file defines its
+   own, because it overrides `current_user_id` as well as the session so the
+   suite does not depend on `make seed` having run. Reproduced in the task.
+3. **M2b's four enums cross the Python/TypeScript boundary unguarded.**
+   `test_enum_parity.py` covers nine, all of them M2c's. The queue's row schema
+   parses `current_stage` through `applicationStageSchema`, so M2d depends on
+   one of them being right. The plan adds all five — the four plus its own
+   `QueueSectionKey` — and predicts at least one will fail on its first run,
+   because hand-transcribed and never machine-checked is the exact condition
+   that produced M2c's defect.
+
+**M2b built for this milestone deliberately** and it shows: `next_action_at` is
+already indexed with a comment naming M2d, and `ApplicationEvent`'s docstring
+already records that `occurred_at` may be in the future because an
+`interview_scheduled` event carries the interview's own time. Neither needed
+changing.
+
+### The M2c record, kept below
 
 **All eleven tasks are done, committed, pushed, and CI-green.** The three
 commands were run locally and their counts are read from the output, not
