@@ -30,13 +30,21 @@ LABELS = CORPUS / "labels.yaml"
 WORKSHEET = ROOT / "docs" / "labeling" / "eligibility-worksheet.md"
 
 #: Longest first, so "preferred qualifications" wins over a bare "qualifications".
+#: Every entry after the first block was found in the recorded corpus, not
+#: imagined — "qualities that make great candidates" is Akuna's, and without it
+#: sixteen of their postings anchored on compensation boilerplate instead.
 _REQUIREMENT_HEADINGS = (
     "preferred qualifications",
     "minimum qualifications",
     "basic qualifications",
+    "qualities that make great candidates",
+    "what we're looking for",
+    "who we're looking for",
     "what you'll need",
     "what you will need",
-    "what we're looking for",
+    "what you'll bring",
+    "what we look for",
+    "you should have",
     "who you are",
     "requirements",
     "qualifications",
@@ -46,6 +54,44 @@ _REQUIREMENT_HEADINGS = (
     "you have",
     "about you",
 )
+
+_HEADING_ALTERNATION = "|".join(
+    re.escape(h) for h in sorted(_REQUIREMENT_HEADINGS, key=len, reverse=True)
+)
+
+
+def _heading_positions(text: str) -> list[int]:
+    """Offsets where a requirement heading genuinely opens a section.
+
+    A bare substring search is not enough, and the corpus proved it on the
+    first real run: **30 of 60 worksheet excerpts anchored inside ordinary
+    prose.** "This role is also eligible for... experience, qualifications, and
+    skill set" is compensation boilerplate; "meet regulatory requirements by
+    translating commitments" is a job duty. Both contain a heading word, and an
+    excerpt anchored on either shows a human none of the posting's actual
+    requirements while looking exactly like one that does. That is the failure
+    this whole function exists to avoid — a label built from wrong evidence is
+    indistinguishable from a good one.
+
+    Once HTML is stripped to a single run, a real heading is one of:
+
+    * followed by a colon      ``Qualities that make great candidates:``
+    * written in capitals      ``WHAT YOU'LL NEED``
+    * opening a sentence       ``... team. Requirements Proficiency in ...``
+
+    A heading word sitting mid-clause after a comma matches none of the three.
+    """
+    positions: list[int] = []
+    for match in re.finditer(_HEADING_ALTERNATION, text, re.I):
+        start, end = match.span()
+        followed_by_colon = text[end : end + 2].lstrip().startswith(":")
+        written_in_capitals = match.group(0).isupper()
+        preceding = text[:start].rstrip()
+        opens_a_sentence = not preceding or preceding[-1] in ".;!?•|"
+        if followed_by_colon or written_in_capitals or opens_a_sentence:
+            positions.append(start)
+    return sorted(positions)
+
 
 _LABEL_FIELDS = (
     "is_internship",
@@ -109,7 +155,8 @@ def _is_about_rather_than_an_instance(reason: str, title: str) -> bool:
     """True when a posting matched its selector by subject, not by being one."""
     lowered = reason.casefold()
     return any(
-        key in lowered and pattern.search(title) for key, pattern in _MISLEADING_FOR_ITS_REASON
+        key in lowered and pattern.search(title)
+        for key, pattern in _MISLEADING_FOR_ITS_REASON
     )
 
 
@@ -118,20 +165,32 @@ def plain_text(raw: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", text)).strip()
 
 
-def requirements_excerpt(text: str, *, window: int = 1200) -> str:
-    """The region where requirements live, or the whole text if none is found.
+#: Marks an excerpt that had no heading to anchor on, so a labeler can see the
+#: tool is guessing rather than quietly reading a guess as evidence.
+NO_HEADING_NOTICE = "[no requirements heading found — showing the end of the posting] "
 
-    Starts at the *earliest* requirement heading and runs `window` characters,
-    which is what keeps the preferred section in frame — it almost always
-    follows the required one, and it is the section that matters most to label.
+
+def requirements_excerpt(text: str, *, window: int = 1200) -> str:
+    """The region where requirements live, capped, never the whole document.
+
+    Starts at the earliest *genuine* heading (see :func:`_heading_positions`)
+    and runs ``window`` characters, which keeps the preferred section in frame —
+    it almost always follows the required one and it is the section that matters
+    most to label.
+
+    With no heading it returns the **tail**, not the whole text. Two reasons,
+    both measured: the first version returned everything and produced excerpts
+    up to 8,000 characters, which nobody reads; and in these postings the
+    requirements sit near the end, after the company blurb. The tail is prefixed
+    with :data:`NO_HEADING_NOTICE` because an unmarked fallback is a silent
+    guess presented as evidence.
     """
-    lowered = text.lower()
-    starts = [lowered.find(h) for h in _REQUIREMENT_HEADINGS]
-    found = [s for s in starts if s >= 0]
-    if not found:
+    positions = _heading_positions(text)
+    if positions:
+        return text[positions[0] : positions[0] + window]
+    if len(text) <= window:
         return text
-    start = min(found)
-    return text[start : start + window]
+    return NO_HEADING_NOTICE + text[-window:]
 
 
 def blank_label(posting_id: str, title: str) -> dict[str, Any]:
@@ -173,7 +232,9 @@ def select_for_labeling(
     for reason, entries in by_reason.items():
         entries.sort(key=lambda bp: (bp[0], bp[1]["id"]))
         keep = [
-            bp for bp in entries if not _is_about_rather_than_an_instance(reason, bp[1]["title"])
+            bp
+            for bp in entries
+            if not _is_about_rather_than_an_instance(reason, bp[1]["title"])
         ]
         if keep:
             entries[:] = keep
@@ -283,7 +344,9 @@ def main() -> int:
         prior = (existing.get("boards") or {}).get(board, {})
         counter += 1
         pid = posting["id"]
-        key["boards"][board][pid] = prior.get(pid) or blank_label(pid, posting["title"])
+        key["boards"][board][pid] = prior.get(pid) or blank_label(
+            pid, posting["title"]
+        )
         lines += [
             f"## [{counter}] {board} — {posting['title']}",
             "",
