@@ -38,13 +38,18 @@ _REQUIREMENT_HEADINGS = (
     "minimum qualifications",
     "basic qualifications",
     "qualities that make great candidates",
+    "you may be a good fit if you",
+    "your skills and experience",
     "what we're looking for",
     "who we're looking for",
+    "the ideal candidate is",
     "what you'll need",
     "what you will need",
     "what you'll bring",
     "what we look for",
     "you should have",
+    "who should apply",
+    "you might thrive",
     "who you are",
     "requirements",
     "qualifications",
@@ -53,6 +58,11 @@ _REQUIREMENT_HEADINGS = (
     "bonus points",
     "you have",
     "about you",
+    # Databricks writes a bare "Required:" / "Preferred:" pair. Safe only
+    # because `_heading_positions` demands a colon, capitals, or a sentence
+    # opening — "3 years is required." matches none of the three.
+    "required",
+    "preferred",
 )
 
 _HEADING_ALTERNATION = "|".join(
@@ -167,7 +177,12 @@ def plain_text(raw: str) -> str:
 
 #: Marks an excerpt that had no heading to anchor on, so a labeler can see the
 #: tool is guessing rather than quietly reading a guess as evidence.
-NO_HEADING_NOTICE = "[no requirements heading found — showing the end of the posting] "
+#:
+#: Two forms, one prefix. The prefix is what tests assert on, so a third form
+#: cannot be added later without the guard noticing.
+NO_HEADING_PREFIX = "[no requirements heading found"
+NO_HEADING_TAIL = NO_HEADING_PREFIX + " — showing the end of the posting] "
+NO_HEADING_WHOLE = NO_HEADING_PREFIX + " — showing the whole posting] "
 
 
 def requirements_excerpt(text: str, *, window: int = 1200) -> str:
@@ -181,16 +196,23 @@ def requirements_excerpt(text: str, *, window: int = 1200) -> str:
     With no heading it returns the **tail**, not the whole text. Two reasons,
     both measured: the first version returned everything and produced excerpts
     up to 8,000 characters, which nobody reads; and in these postings the
-    requirements sit near the end, after the company blurb. The tail is prefixed
-    with :data:`NO_HEADING_NOTICE` because an unmarked fallback is a silent
-    guess presented as evidence.
+    requirements sit near the end, after the company blurb.
+
+    **Every no-heading result is marked, including a short one.** The short
+    branch originally returned the text bare, on the reasoning that a reader
+    can see a whole short posting for themselves. That was wrong, and one real
+    posting shows why: Akuna's "Talent Community" blurb is 523 characters with
+    no requirements section at all. Unmarked, it reads as though the blurb *is*
+    the requirements — which is the precise failure this function exists to
+    prevent, just at a smaller size. A short posting with nothing to find is
+    exactly where a labeler most needs to be told nothing was found.
     """
     positions = _heading_positions(text)
     if positions:
         return text[positions[0] : positions[0] + window]
     if len(text) <= window:
-        return text
-    return NO_HEADING_NOTICE + text[-window:]
+        return NO_HEADING_WHOLE + text
+    return NO_HEADING_TAIL + text[-window:]
 
 
 def blank_label(posting_id: str, title: str) -> dict[str, Any]:

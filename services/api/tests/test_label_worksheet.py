@@ -53,9 +53,19 @@ def test_the_excerpt_keeps_the_preferred_section(worksheet: Any) -> None:
     assert "Flask" in excerpt
 
 
-def test_a_short_text_with_no_heading_is_returned_whole(worksheet: Any) -> None:
+def test_a_short_text_with_no_heading_is_returned_whole_but_marked(
+    worksheet: Any,
+) -> None:
+    """Marked even though it is short.
+
+    Akuna's "Talent Community" blurb is 523 characters with no requirements at
+    all. Unmarked, it reads as though the blurb *is* the requirements — the
+    same failure as a bad anchor, at a smaller size.
+    """
     text = "We want someone who can write Kotlin and has shipped an app."
-    assert worksheet.requirements_excerpt(text) == text
+    excerpt = worksheet.requirements_excerpt(text)
+    assert excerpt == worksheet.NO_HEADING_WHOLE + text
+    assert excerpt.startswith(worksheet.NO_HEADING_PREFIX)
 
 
 def test_a_long_text_with_no_heading_returns_a_marked_tail(worksheet: Any) -> None:
@@ -63,9 +73,9 @@ def test_a_long_text_with_no_heading_returns_a_marked_tail(worksheet: Any) -> No
     excerpts, and an unmarked fallback reads as evidence rather than a guess."""
     text = "Company blurb. " * 400 + "You will write Kotlin."
     excerpt = worksheet.requirements_excerpt(text, window=200)
-    assert excerpt.startswith(worksheet.NO_HEADING_NOTICE)
+    assert excerpt.startswith(worksheet.NO_HEADING_TAIL)
     assert "You will write Kotlin." in excerpt
-    assert len(excerpt) <= 200 + len(worksheet.NO_HEADING_NOTICE)
+    assert len(excerpt) <= 200 + len(worksheet.NO_HEADING_TAIL)
 
 
 def test_a_heading_word_inside_prose_is_not_an_anchor(worksheet: Any) -> None:
@@ -97,18 +107,30 @@ def test_a_capitalised_heading_anchors_even_without_a_colon(worksheet: Any) -> N
     assert worksheet.requirements_excerpt(text).startswith("WHAT YOU'LL NEED")
 
 
-def test_no_selected_excerpt_starts_mid_sentence(worksheet: Any) -> None:
+def test_every_selected_excerpt_starts_at_a_heading_or_says_it_could_not(
+    worksheet: Any,
+) -> None:
     """The property that failed on the first real run: 30 of 60 broken.
 
     Runs over the actual corpus rather than invented strings, because the
     failure was invisible to every invented string in this file.
+
+    Stated as "starts at a known heading" rather than the first version's
+    "does not start with a lowercase letter". That heuristic was a proxy for
+    anchoring mid-prose, and once `_heading_positions` got strict the proxy
+    started firing on genuine lowercase headings — several boards write
+    ``you have:`` in sentence case. Five real headings were being reported as
+    defects. The property below is what the proxy was reaching for.
     """
     offenders = []
     for board, posting in worksheet.select_for_labeling(worksheet._all_postings()):
         excerpt = worksheet.requirements_excerpt(posting["text"])
-        if excerpt[:1].islower():
+        if excerpt.startswith(worksheet.NO_HEADING_PREFIX):
+            continue
+        lowered = excerpt.casefold()
+        if not any(lowered.startswith(h) for h in worksheet._REQUIREMENT_HEADINGS):
             offenders.append(f"{board}/{posting['id']}: {excerpt[:70]}")
-    assert offenders == [], f"{len(offenders)} excerpts anchored mid-sentence"
+    assert offenders == [], f"{len(offenders)} excerpts anchored off-heading"
 
 
 def test_no_selected_excerpt_is_a_wall_of_text(worksheet: Any) -> None:
@@ -130,7 +152,7 @@ def test_most_selected_excerpts_find_a_real_heading(worksheet: Any) -> None:
     """
     picked = worksheet.select_for_labeling(worksheet._all_postings())
     fell_back = sum(
-        worksheet.requirements_excerpt(p["text"]).startswith(worksheet.NO_HEADING_NOTICE)
+        worksheet.requirements_excerpt(p["text"]).startswith(worksheet.NO_HEADING_PREFIX)
         for _, p in picked
     )
     assert fell_back <= len(picked) // 4, (
