@@ -15,6 +15,7 @@ from nightshift.api.routes import (
     health,
     jobs,
     profile,
+    queue,
     resumes,
     sources,
 )
@@ -61,6 +62,7 @@ def create_app() -> FastAPI:
     app.include_router(applications.router)
     app.include_router(profile.router)
     app.include_router(resumes.router)
+    app.include_router(queue.router)
     return app
 
 
