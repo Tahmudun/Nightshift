@@ -260,6 +260,16 @@ def select_for_labeling(
         ]
         if keep:
             entries[:] = keep
+        # Within a reason, prefer postings whose requirements can actually be
+        # shown. The corpus holds 153 postings and the worksheet asks for 60,
+        # so there is no reason to spend one of those 60 on a posting whose
+        # excerpt is a marked "could not find it" — measured at 15 of 60 before
+        # this line existed, a quarter of a person's time spent reading legal
+        # boilerplate about returning laptops.
+        #
+        # A stable sort, so a reason with no excerptable posting still yields
+        # its best available one rather than dropping the shape entirely.
+        entries.sort(key=lambda bp: not _heading_positions(bp[1]["text"]))
 
     picked: list[tuple[str, dict[str, Any]]] = []
     seen: set[tuple[str, str]] = set()

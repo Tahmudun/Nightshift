@@ -146,18 +146,45 @@ def test_no_selected_excerpt_is_a_wall_of_text(worksheet: Any) -> None:
 def test_most_selected_excerpts_find_a_real_heading(worksheet: Any) -> None:
     """The fallback is honest, but it is still a fallback.
 
-    If most of the corpus lands on it, `_REQUIREMENT_HEADINGS` is missing the
-    vocabulary these boards actually use, and the right fix is to add it rather
-    than to accept tails.
+    Two things keep this number down and they fail differently. If
+    `_REQUIREMENT_HEADINGS` is missing vocabulary these boards use, the fix is
+    to add it. If selection stops preferring excerptable postings, the fix is
+    there. Either way a person is reading boilerplate instead of requirements.
     """
     picked = worksheet.select_for_labeling(worksheet._all_postings())
     fell_back = sum(
         worksheet.requirements_excerpt(p["text"]).startswith(worksheet.NO_HEADING_PREFIX)
         for _, p in picked
     )
-    assert fell_back <= len(picked) // 4, (
+    assert fell_back <= len(picked) // 10, (
         f"{fell_back} of {len(picked)} excerpts had no heading to anchor on"
     )
+
+
+def test_selection_prefers_a_posting_whose_requirements_can_be_shown(
+    worksheet: Any,
+) -> None:
+    """Given two postings under one reason, take the one with a heading."""
+    headless = _posting("1", "Engineer A", "internship")
+    headless["text"] = "We are a great company with a strong culture. " * 40
+    excerptable = _posting("2", "Engineer B", "internship")
+    excerptable["text"] = "About us. REQUIREMENTS Proficiency in Kotlin."
+    picked = worksheet.select_for_labeling([("b1", headless), ("b1", excerptable)], target=1)
+    assert [p["id"] for _, p in picked] == ["2"]
+
+
+def test_a_reason_with_only_headless_postings_still_contributes(
+    worksheet: Any,
+) -> None:
+    """Preferring excerptable postings must not delete a shape.
+
+    A marked "could not find it" is worse than a real excerpt and far better
+    than a missing eligibility shape.
+    """
+    headless = _posting("1", "Engineer", "doctorate")
+    headless["text"] = "We are a great company with a strong culture. " * 40
+    picked = worksheet.select_for_labeling([("b1", headless)], target=5)
+    assert len(picked) == 1
 
 
 def _posting(pid: str, title: str, reason: str) -> dict[str, Any]:
