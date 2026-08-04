@@ -38,6 +38,22 @@ export default function OperatePage() {
         </Link>
       </section>
 
+      <section className="border border-ink-700 bg-ink-900/40 p-5">
+        <h2 className="font-mono text-[10px] uppercase tracking-[0.16em] text-paper-faint">
+          Profile
+        </h2>
+        <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-paper-dim">
+          Your skills, your schooling, your resumes. A resume is quoted back to you before any of it
+          is believed.
+        </p>
+        <Link
+          href="/operate/profile"
+          className="mt-3 inline-block border border-ink-700 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-signal-400 hover:border-signal-400"
+        >
+          Open your profile
+        </Link>
+      </section>
+
       <SourceHealthTable />
 
       <BoardPollTable />
