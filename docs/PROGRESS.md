@@ -12,7 +12,7 @@
 **M2a: COMPLETE, reviewed, CI-green at `76190c8`, merged to `main` as PR #5 (`910027a`).**
 **M2b: COMPLETE, reviewed, CI-green at `6a10bb6`, merged to `main` as PR #6 (`2f984f3`).**
 **M2c: COMPLETE, reviewed, CI-green at `e63ec2f`, merged to `main` as PR #7 (`e42d612`).**
-**M2d: COMPLETE and reviewed, on branch `m2d-daily-queue`. CI has not run yet.**
+**M2d: COMPLETE, reviewed, CI-green at `c6e5a97`, open as PR #8 and unmerged.**
 **Current milestone: M2 — the functional command center. M2d was the last slice; M2's deliverable list is complete.**
 **Last updated: 2026-08-04**
 
@@ -20,10 +20,11 @@
 
 ## Next exact action
 
-### Next: push `m2d-daily-queue`, open the PR, and read CI.
+### Next: merge PR #8 (a human's call), then plan M3 — explainable matching.
 
-All seven tasks are done and committed. The three commands were run at the
-branch head and their counts are read from the output, not inferred:
+All seven tasks are done, committed, pushed, and CI-green. The three commands
+were run locally at the branch head and their counts are read from the output,
+not inferred:
 
 ```
 make check        1136 Python, 144 web, ruff/mypy/eslint/tsc clean
@@ -36,6 +37,40 @@ alembic check     no drift; 0010 up, down, up clean
 which is the idempotency evidence rather than a hope about it. The single e2e
 skip is the pre-existing honest one: `an unchanged board is not presented as a
 problem` needs a board that has answered `304`.
+
+**CI is green, on the first attempt.** [PR #8](https://github.com/Tahmudun/Nightshift/pull/8),
+run [30884388243](https://github.com/Tahmudun/Nightshift/actions/runs/30884388243)
+— **all five jobs**, counts read from the job logs rather than inferred:
+
+```
+python       257s   1136 passed, zero skipped
+e2e          187s   5 degraded + 37 seeded passed, 1 skipped
+migrations    80s   up, down, up, and no drift
+web           63s   17 files, 144 tests
+secret scan   10s
+```
+
+`headSha` on the run is `c6e5a977225884c84cd69ea47adbbc24cf43108f`, checked
+against the branch head rather than assumed. **1136 in CI matches 1136
+locally**, so the database-backed tests really ran there too. No retries and no
+flakes are recorded in the logs — worth checking explicitly, because the review
+below marks a test `test.slow()` for parallel-load reasons and a silent retry
+would have hidden whether that worked.
+
+Six CI runs across this project have failed and every one found something no
+local command had executed. This is the fourth first-try pass; it is recorded
+precisely because it is not the usual outcome.
+
+**`a6c4ead` is the last commit containing anything CI executes** — everything
+after it touches `docs/` only, which is one command:
+
+```
+git diff a6c4ead..HEAD --stat    # must list nothing outside docs/
+```
+
+If that shows a file under `apps/`, `services/`, `infra/`, `data/` or the
+Makefile, the recorded results do not cover the branch and the three commands
+must run again.
 
 **M2d earns none of M2's four acceptance criteria, and that is not a gap.** All
 four were verified at M2a, M2b and M2c and are recorded below, unchanged. What
