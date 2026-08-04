@@ -25,6 +25,20 @@ from tests.conftest import requires_db
 pytestmark = [requires_db, pytest.mark.asyncio(loop_scope="session")]
 
 
+async def _requirement_count(session: AsyncSession, job_id: object) -> int:
+    from sqlalchemy import func, select
+
+    return int(
+        (
+            await session.execute(
+                select(func.count())
+                .select_from(JobRequirement)
+                .where(JobRequirement.job_id == job_id)
+            )
+        ).scalar_one()
+    )
+
+
 async def _job_with_text(session: AsyncSession, text: str) -> Job:
     """Build a canonical job carrying `text` as its description.
 
@@ -119,6 +133,101 @@ async def test_a_span_running_past_the_description_is_refused(
     )
     with pytest.raises(DBAPIError, match="runs past"):
         await db_session.flush()
+
+
+async def test_rewriting_the_description_clears_its_requirements(
+    db_session: AsyncSession,
+) -> None:
+    """The span trigger cannot see the parent change. This is what does.
+
+    Reproduced before it was fixed: a requirement quoting "Kotlin" at the right
+    offsets, then a description rewrite, and the row pointed at ``'ent wo'``
+    while still claiming ``raw_text='Kotlin'``. Ingestion rewrites this column
+    on every re-poll of a known job, so it is a live path, not a dormant one.
+    """
+    text = "You will need Kotlin and an Android SDK background."
+    job = await _job_with_text(db_session, text)
+    start = text.index("Kotlin")
+    db_session.add(
+        JobRequirement(
+            job_id=job.id,
+            kind=RequirementKind.TECHNOLOGY,
+            value="Kotlin",
+            raw_text="Kotlin",
+            char_start=start,
+            char_end=start + len("Kotlin"),
+            necessity=RequirementNecessity.REQUIRED,
+            has_equivalence=False,
+            extractor_version="m3a.1",
+        )
+    )
+    await db_session.flush()
+    assert await _requirement_count(db_session, job.id) == 1
+
+    job.description_text = "Totally different words now, no framework named."
+    await db_session.flush()
+
+    assert await _requirement_count(db_session, job.id) == 0
+
+
+async def test_rewriting_an_unrelated_column_keeps_the_requirements(
+    db_session: AsyncSession,
+) -> None:
+    """Only the column the spans point into may clear them."""
+    text = "You will need Kotlin and an Android SDK background."
+    job = await _job_with_text(db_session, text)
+    start = text.index("Kotlin")
+    db_session.add(
+        JobRequirement(
+            job_id=job.id,
+            kind=RequirementKind.TECHNOLOGY,
+            value="Kotlin",
+            raw_text="Kotlin",
+            char_start=start,
+            char_end=start + len("Kotlin"),
+            necessity=RequirementNecessity.REQUIRED,
+            has_equivalence=False,
+            extractor_version="m3a.1",
+        )
+    )
+    await db_session.flush()
+
+    job.title = "A different title entirely"
+    await db_session.flush()
+
+    assert await _requirement_count(db_session, job.id) == 1
+
+
+async def test_rewriting_the_description_to_the_same_text_keeps_them(
+    db_session: AsyncSession,
+) -> None:
+    """Re-ingestion assigns the column whether or not the board changed it.
+
+    ``IS DISTINCT FROM`` is what stops every poll of an unchanged board
+    throwing away work the extractor would only have to redo.
+    """
+    text = "You will need Kotlin and an Android SDK background."
+    job = await _job_with_text(db_session, text)
+    start = text.index("Kotlin")
+    db_session.add(
+        JobRequirement(
+            job_id=job.id,
+            kind=RequirementKind.TECHNOLOGY,
+            value="Kotlin",
+            raw_text="Kotlin",
+            char_start=start,
+            char_end=start + len("Kotlin"),
+            necessity=RequirementNecessity.REQUIRED,
+            has_equivalence=False,
+            extractor_version="m3a.1",
+        )
+    )
+    await db_session.flush()
+
+    job.description_text = text  # the same words, assigned again
+    await db_session.flush()
+
+    assert await _requirement_count(db_session, job.id) == 1
 
 
 async def test_an_inverted_span_is_refused(db_session: AsyncSession) -> None:

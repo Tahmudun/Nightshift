@@ -160,6 +160,13 @@ def test_the_skip_condition_is_honest() -> None:
         pytest.param("boards: {}", id="empty boards"),
         pytest.param("boards: {b: {}}", id="board with no postings"),
         pytest.param("boards: {b: {'1': }}", id="posting with no fields"),
+        pytest.param(
+            "boards: {b: {'1': {is_internship: {nested: TO_LABEL}}}}",
+            id="field value is a mapping",
+        ),
+        pytest.param("boards: {b: {'1': [unterminated", id="invalid YAML syntax"),
+        pytest.param("boards: [a, b]", id="boards is a list"),
+        pytest.param("just a string", id="document is a scalar"),
     ],
 )
 def test_a_broken_key_is_never_reported_as_finished(corrupt: str) -> None:
