@@ -11,17 +11,18 @@
 **M1d: COMPLETE, reviewed, CI-green at `75d9ab7`, merged to `main` as PR #4 (`044189e`).**
 **M2a: COMPLETE, reviewed, CI-green at `76190c8`, merged to `main` as PR #5 (`910027a`).**
 **M2b: COMPLETE, reviewed, CI-green at `6a10bb6`, merged to `main` as PR #6 (`2f984f3`).**
-**Current milestone: M2 — the functional command center. M2c COMPLETE on `m2c-profile-and-resume`, not yet pushed. M2d not started.**
+**Current milestone: M2 — the functional command center. M2c COMPLETE, CI-green at `e63ec2f`, open as PR #7 and unmerged. M2d not started.**
 **Last updated: 2026-08-03**
 
 ---
 
 ## Next exact action
 
-### Next: push `m2c-profile-and-resume`, open the PR, and read the CI job counts.
+### Next: merge PR #7 (a human's call), then plan M2d — the daily queue.
 
-**All eleven tasks are done and committed.** The three commands have been run
-locally and their counts are read from the output, not inferred:
+**All eleven tasks are done, committed, pushed, and CI-green.** The three
+commands were run locally and their counts are read from the output, not
+inferred:
 
 ```
 make check        1093 Python, 129 web, ruff/mypy/eslint/tsc clean
@@ -34,7 +35,26 @@ which is the idempotency evidence rather than a hope about it. The single e2e
 skip is the pre-existing honest one: `an unchanged board is not presented as a
 problem` needs a board that has answered `304`.
 
-**CI has not run yet.** Nothing below claims it has.
+**CI is green, on the first attempt.** [PR #7](https://github.com/Tahmudun/Nightshift/pull/7),
+run [30877140583](https://github.com/Tahmudun/Nightshift/actions/runs/30877140583)
+— **all five jobs**, counts read from the job logs rather than inferred:
+
+```
+python       4m09s   1093 passed, zero skipped
+e2e          2m39s   5 degraded + 34 seeded passed, 1 skipped
+migrations   1m20s   up, down, up, and no drift
+web            55s   16 files, 129 tests
+secret scan     8s
+```
+
+`headSha` on the run is `e63ec2fe525738db7eb8791971a68a59566912fb`, checked
+against the branch head rather than assumed. **1093 in CI matches 1093
+locally**, so the database-backed tests really ran there too. The single e2e
+skip is the pre-existing honest one.
+
+Six CI runs across this project have failed and every one found something no
+local command had executed. This is the third first-try pass; it is recorded
+precisely because it is not the usual outcome.
 
 **`1fe34ef` is the last commit containing anything CI executes** — and it is the
 docs commit, because the review found two defects and fixing them is code
