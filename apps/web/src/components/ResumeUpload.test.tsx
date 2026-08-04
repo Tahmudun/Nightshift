@@ -47,7 +47,9 @@ describe('ResumeUpload', () => {
     expect(pasteResume).not.toHaveBeenCalled();
   });
 
-  it('pastes what was typed', async () => {
+  it('pastes what was typed, unnamed unless a name was given', async () => {
+    // `undefined`, not `''`. An empty string would be stored as the resume's
+    // name and render as a blank row on the profile.
     vi.mocked(pasteResume).mockResolvedValue({ id: 'r-1' } as never);
     renderUpload();
     fireEvent.change(screen.getByLabelText(/paste the text/i), {
@@ -55,6 +57,17 @@ describe('ResumeUpload', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /read this text/i }));
     await waitFor(() => expect(pasteResume).toHaveBeenCalledWith('Python, PostgreSQL', undefined));
+  });
+
+  it('carries the name when one was given', async () => {
+    vi.mocked(pasteResume).mockResolvedValue({ id: 'r-1' } as never);
+    renderUpload();
+    fireEvent.change(screen.getByLabelText(/name this resume/i), {
+      target: { value: '  backend  ' },
+    });
+    fireEvent.change(screen.getByLabelText(/paste the text/i), { target: { value: 'Python' } });
+    fireEvent.click(screen.getByRole('button', { name: /read this text/i }));
+    await waitFor(() => expect(pasteResume).toHaveBeenCalledWith('Python', 'backend'));
   });
 
   it("renders the API's own message when a file cannot be read, and keeps paste available", async () => {

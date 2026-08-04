@@ -22,17 +22,21 @@ import type { ResumeDetail } from '@/lib/schemas';
 export function ResumeUpload() {
   const router = useRouter();
   const [text, setText] = useState('');
+  // Optional. Somebody with a backend resume and a data resume needs to tell
+  // them apart, and the API names an unnamed one for them rather than refusing.
+  const [name, setName] = useState('');
 
   const onRead = (resume: ResumeDetail) => {
     router.push(`/operate/resumes/${resume.id}`);
   };
 
+  const given = name.trim() === '' ? undefined : name.trim();
   const paste = useMutation({
-    mutationFn: () => pasteResume(text.trim(), undefined),
+    mutationFn: () => pasteResume(text.trim(), given),
     onSuccess: onRead,
   });
   const upload = useMutation({
-    mutationFn: (file: File) => uploadResume(file, undefined),
+    mutationFn: (file: File) => uploadResume(file, given),
     onSuccess: onRead,
   });
 
@@ -51,6 +55,19 @@ export function ResumeUpload() {
         — export it as a PDF, or paste the text instead. Nothing you upload is stored as a file: we
         keep the text we could read and throw the bytes away.
       </p>
+
+      <label
+        htmlFor="resume-name"
+        className="block max-w-sm font-mono text-[9px] uppercase tracking-[0.14em] text-paper-faint"
+      >
+        Name this resume (optional)
+        <input
+          id="resume-name"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          className="mt-1 w-full border border-ink-700 bg-ink-900 px-2 py-1.5 font-sans text-[14px] normal-case tracking-normal text-paper"
+        />
+      </label>
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="border border-ink-700 p-4">

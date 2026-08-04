@@ -164,8 +164,13 @@ test('the application page names what tracking cannot record yet', async ({ page
 
   // I7, the same practice /analyze/coverage and the M2a filter panel follow.
   const deferred = page.getByTestId('deferred-tracking');
-  await expect(deferred).toContainText(/resume/i);
-  await expect(deferred).toContainText(/M2c/);
+  await expect(deferred).toContainText(/contacts/i);
+  await expect(deferred).toContainText(/M3/);
+
+  // "Selected resume" left this list when M2c shipped it. A deferred entry for
+  // a feature that exists is the same lie as a hidden one, in reverse — and
+  // this test is what caught the list still claiming it.
+  await expect(deferred).not.toContainText(/resume/i);
 });
 
 test('the pipeline shows the tracked roles and states its archived count', async ({ page }) => {
