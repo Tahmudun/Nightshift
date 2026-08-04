@@ -546,9 +546,19 @@ def test_the_excerpt_keeps_the_preferred_section(worksheet: Any) -> None:
     assert "Flask" in excerpt
 
 
-def test_a_short_text_with_no_heading_is_returned_whole(worksheet: Any) -> None:
+def test_a_short_text_with_no_heading_is_returned_whole_but_marked(
+    worksheet: Any,
+) -> None:
+    """Marked even though it is short.
+
+    Akuna's "Talent Community" blurb is 523 characters with no requirements at
+    all. Unmarked, it reads as though the blurb *is* the requirements — the
+    same failure as a bad anchor, at a smaller size.
+    """
     text = "We want someone who can write Kotlin and has shipped an app."
-    assert worksheet.requirements_excerpt(text) == text
+    excerpt = worksheet.requirements_excerpt(text)
+    assert excerpt == worksheet.NO_HEADING_WHOLE + text
+    assert excerpt.startswith(worksheet.NO_HEADING_PREFIX)
 
 
 def test_a_long_text_with_no_heading_returns_a_marked_tail(worksheet: Any) -> None:
@@ -556,9 +566,9 @@ def test_a_long_text_with_no_heading_returns_a_marked_tail(worksheet: Any) -> No
     excerpts, and an unmarked fallback reads as evidence rather than a guess."""
     text = "Company blurb. " * 400 + "You will write Kotlin."
     excerpt = worksheet.requirements_excerpt(text, window=200)
-    assert excerpt.startswith(worksheet.NO_HEADING_NOTICE)
+    assert excerpt.startswith(worksheet.NO_HEADING_TAIL)
     assert "You will write Kotlin." in excerpt
-    assert len(excerpt) <= 200 + len(worksheet.NO_HEADING_NOTICE)
+    assert len(excerpt) <= 200 + len(worksheet.NO_HEADING_TAIL)
 
 
 def test_a_heading_word_inside_prose_is_not_an_anchor(worksheet: Any) -> None:
@@ -608,7 +618,7 @@ def test_every_selected_excerpt_starts_at_a_heading_or_says_it_could_not(
     offenders = []
     for board, posting in worksheet.select_for_labeling(worksheet._all_postings()):
         excerpt = worksheet.requirements_excerpt(posting["text"])
-        if excerpt.startswith(worksheet.NO_HEADING_NOTICE):
+        if excerpt.startswith(worksheet.NO_HEADING_PREFIX):
             continue
         lowered = excerpt.casefold()
         if not any(lowered.startswith(h) for h in worksheet._REQUIREMENT_HEADINGS):
@@ -635,7 +645,7 @@ def test_most_selected_excerpts_find_a_real_heading(worksheet: Any) -> None:
     """
     picked = worksheet.select_for_labeling(worksheet._all_postings())
     fell_back = sum(
-        worksheet.requirements_excerpt(p["text"]).startswith(worksheet.NO_HEADING_NOTICE)
+        worksheet.requirements_excerpt(p["text"]).startswith(worksheet.NO_HEADING_PREFIX)
         for _, p in picked
     )
     assert fell_back <= len(picked) // 4, (
@@ -962,7 +972,12 @@ def plain_text(raw: str) -> str:
 
 #: Marks an excerpt that had no heading to anchor on, so a labeler can see the
 #: tool is guessing rather than quietly reading a guess as evidence.
-NO_HEADING_NOTICE = "[no requirements heading found — showing the end of the posting] "
+#:
+#: Two forms, one prefix. The prefix is what tests assert on, so a third form
+#: cannot be added later without the guard noticing.
+NO_HEADING_PREFIX = "[no requirements heading found"
+NO_HEADING_TAIL = NO_HEADING_PREFIX + " — showing the end of the posting] "
+NO_HEADING_WHOLE = NO_HEADING_PREFIX + " — showing the whole posting] "
 
 
 def requirements_excerpt(text: str, *, window: int = 1200) -> str:
@@ -976,16 +991,23 @@ def requirements_excerpt(text: str, *, window: int = 1200) -> str:
     With no heading it returns the **tail**, not the whole text. Two reasons,
     both measured: the first version returned everything and produced excerpts
     up to 8,000 characters, which nobody reads; and in these postings the
-    requirements sit near the end, after the company blurb. The tail is prefixed
-    with :data:`NO_HEADING_NOTICE` because an unmarked fallback is a silent
-    guess presented as evidence.
+    requirements sit near the end, after the company blurb.
+
+    **Every no-heading result is marked, including a short one.** The short
+    branch originally returned the text bare, on the reasoning that a reader
+    can see a whole short posting for themselves. That was wrong, and one real
+    posting shows why: Akuna's "Talent Community" blurb is 523 characters with
+    no requirements section at all. Unmarked, it reads as though the blurb *is*
+    the requirements — which is the precise failure this function exists to
+    prevent, just at a smaller size. A short posting with nothing to find is
+    exactly where a labeler most needs to be told nothing was found.
     """
     positions = _heading_positions(text)
     if positions:
         return text[positions[0] : positions[0] + window]
     if len(text) <= window:
-        return text
-    return NO_HEADING_NOTICE + text[-window:]
+        return NO_HEADING_WHOLE + text
+    return NO_HEADING_TAIL + text[-window:]
 
 
 def blank_label(posting_id: str, title: str) -> dict[str, Any]:
