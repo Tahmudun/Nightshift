@@ -547,6 +547,54 @@ async def remove_project(session: AsyncSession, *, user_id: UUID, project_id: UU
     return True
 
 
+async def update_resume(
+    session: AsyncSession,
+    *,
+    resume: Resume,
+    name: str | None = None,
+    variant_type: ResumeVariant | None = None,
+    is_default: bool | None = None,
+) -> Resume:
+    """Rename, retype, or make default. **Never re-reads the text.**
+
+    Re-proposing against an edited row would strand every decision already made
+    against it, and "your confirmed skills quietly reverted to pending" is not a
+    behaviour worth having — the same reason ``propose_from_resume`` is
+    once-only.
+    """
+    if name is not None:
+        cleaned = " ".join(name.split())
+        if not cleaned:
+            raise InvalidProfileError("a resume needs a name")
+        resume.name = cleaned
+    if variant_type is not None:
+        resume.variant_type = variant_type
+    if is_default is True:
+        # One default per user. Demoting the others here rather than by trigger
+        # keeps the rule readable, and there is exactly one writer of it.
+        others = (
+            (
+                await session.execute(
+                    select(Resume).where(
+                        Resume.user_id == resume.user_id,
+                        Resume.id != resume.id,
+                        Resume.is_default.is_(True),
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for other in others:
+            other.is_default = False
+        resume.is_default = True
+    elif is_default is False:
+        resume.is_default = False
+
+    await session.flush()
+    return resume
+
+
 async def delete_resume(session: AsyncSession, *, user_id: UUID, resume_id: UUID) -> bool:
     """Remove a resume and its proposals. **Confirmed facts are untouched.**
 

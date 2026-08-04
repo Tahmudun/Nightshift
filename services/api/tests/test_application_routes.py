@@ -119,7 +119,11 @@ async def test_the_list_counts_by_stage_and_names_what_is_deferred(
     assert body["stage_counts"]["offer"] == 0
     # I7: the fields tracking cannot yet record are named, not hidden.
     names = {entry["name"] for entry in body["deferred_fields"]}
-    assert {"Selected resume", "Contacts"} <= names
+    assert {"Contacts", "Match score and eligibility"} <= names
+    # "Selected resume" left this list when M2c shipped it. A deferred entry
+    # for a feature that exists is the same lie as a hidden one, in reverse —
+    # `test_the_deferred_list_no_longer_names_the_resume` is its counterpart.
+    assert "Selected resume" not in names
 
 
 async def test_archived_applications_are_excluded_by_default(client: AsyncClient, job: Job) -> None:

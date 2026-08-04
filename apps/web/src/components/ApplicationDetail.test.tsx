@@ -45,9 +45,9 @@ const DEFERRED = {
   archived_count: 0,
   deferred_fields: [
     {
-      name: 'Selected resume',
-      blocked_on: 'M2c',
-      reason: 'there is no resumes table yet',
+      name: 'Contacts',
+      blocked_on: 'unscheduled',
+      reason: 'a contact is a person and needs its own table',
     },
   ],
 };
@@ -223,7 +223,7 @@ describe('ApplicationDetailView', () => {
     renderDetail();
     // I7: listed rather than hidden, for the same reason JobDetail lists its
     // seven uncomputed fields.
-    expect(await screen.findByTestId('deferred-tracking')).toHaveTextContent(/resume/i);
+    expect(await screen.findByTestId('deferred-tracking')).toHaveTextContent(/contacts/i);
   });
 
   it('labels a system-recorded event so nobody thinks they did it', async () => {
