@@ -1,0 +1,1233 @@
+{
+  "jobs": [
+    {
+      "absolute_url": "https://boards.greenhouse.io/point72/jobs/8423978002?gh_jid=8423978002",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_required",
+      "internal_job_id": 6364663002,
+      "location": {
+        "name": "Warsaw, Poland"
+      },
+      "metadata": [
+        {
+          "id": 4076300002,
+          "name": "Time Type",
+          "value": "Full Time",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 8423978002,
+      "updated_at": "2026-08-03T20:06:28-04:00",
+      "requisition_id": "2074",
+      "title": "2026 Warsaw MI Data – Web Scraping Internship ",
+      "company_name": "Point72 ",
+      "first_published": "2026-02-17T18:49:02-05:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;h2&gt;2026 Warsaw MI Data – Web Scraping Internship&lt;/h2&gt;\n&lt;h3&gt;A career with Point72’s Market Intelligence team&lt;/h3&gt;\n&lt;p&gt;On our proprietary research team—&lt;strong&gt;Market Intelligence (MI)&lt;/strong&gt;—you’ll partner with our investment professionals and&amp;nbsp;Compliance&amp;nbsp;team to work with alternative data to uncover insights about companies, industries, and the broader economy through deep fundamental research and the application of data science and engineering techniques. You’ll work alongside a talented team with diverse skills, backgrounds, and perspectives. Our sector data analysts, data scientists, data managers, and engineers work together to build compliant research products that are incorporated into the research process of our investment professionals. We look for bright, motivated, and collaborative people to join our team and grow with us—a majority of the leaders in our group were promoted from within.&lt;/p&gt;\n&lt;h3&gt;About the Market Intelligence internship&lt;/h3&gt;\n&lt;p&gt;As a Data Engineer Intern focused on web scraping, you will gain exposure to:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Creating web‑scraping pipelines based on customer requests&lt;/li&gt;\n&lt;li&gt;Extracting and ingesting data from websites using Compliance‑approved web crawling tools&lt;/li&gt;\n&lt;li&gt;Developing tools, services, and workflows to enhance the speed, efficiency, and stability of scrape development&lt;/li&gt;\n&lt;li&gt;Testing data and scrapes to ensure accuracy, quality, and compliance&lt;/li&gt;\n&lt;li&gt;Identifying and resolving scraping issues and breakages, as well as scaling scrapes as needed&lt;/li&gt;\n&lt;li&gt;Partnering with&amp;nbsp;Compliance&amp;nbsp;to ensure scraping activities align with firm standards&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h3&gt;Summer internship program at Point72&lt;/h3&gt;\n&lt;p&gt;In addition to the learning and development you’ll receive in your day‑to‑day role with your team, as part of our summer internship program you will:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Work alongside your fellow interns and be mentored by experienced professionals&lt;/li&gt;\n&lt;li&gt;Meet your peers through designated intern programming, volunteer opportunities, and social events&lt;/li&gt;\n&lt;li&gt;Attend sessions with senior leaders discussing their expertise and career paths&lt;/li&gt;\n&lt;li&gt;Get hands‑on access to best‑in‑class tools and resources&lt;/li&gt;\n&lt;li&gt;Gain exposure to groups and functions with unique responsibilities and perspectives on our industry&lt;/li&gt;\n&lt;li&gt;Develop technical, writing, and presentation skills&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h3&gt;What’s required&lt;/h3&gt;\n&lt;ul&gt;\n&lt;li&gt;A bachelor’s degree (or expected completion in 2026) in computer science, engineering, or other quantitative disciplines&lt;/li&gt;\n&lt;li&gt;Experience or demonstrated interest in web scraping&lt;/li&gt;\n&lt;li&gt;Solid understanding of computer science fundamentals (data structures, algorithms, etc.)&lt;/li&gt;\n&lt;li&gt;Strong experience in Python development&lt;/li&gt;\n&lt;li&gt;Interest in working with data, big data problems, and cloud‑based technologies&lt;/li&gt;\n&lt;li&gt;Strong written and verbal communication skills in English&lt;/li&gt;\n&lt;li&gt;Commitment to the highest ethical standards&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h3&gt;About Point72&lt;/h3&gt;\n&lt;p&gt;&lt;strong&gt;Point72&lt;/strong&gt;&amp;nbsp;is a leading global alternative investment firm led by Steven A. Cohen. Building on more than 30 years of investing experience, Point72 seeks to deliver superior returns for its investors through fundamental and systematic investing strategies across asset classes and geographies. We aim to attract and retain the industry’s brightest talent by cultivating an investor‑led culture and committing to our people’s long‑term growth. For more information, visit&amp;nbsp;&lt;a class=&quot;text-[color:var(--primary-accent-text)]&quot; href=&quot;https://point72.com/&quot; target=&quot;_blank&quot;&gt;https://point72.com/&lt;/a&gt;.&lt;/p&gt;\n&lt;p&gt;Our Warsaw office gives us access to world‑class talent with a reputation for excellence and innovation. We’re looking to build an office of subject‑matter experts whose fresh perspectives will help evolve our infrastructure and advance the capabilities of our teams. Learn more at Warsaw Office – Point72.&lt;/p&gt;",
+      "departments": [
+        {
+          "id": 4051269002,
+          "name": "Market Intelligence ",
+          "child_ids": [
+            4062739002,
+            4092524002,
+            4051303002,
+            4055691002,
+            4051277002,
+            4051273002,
+            4062740002,
+            4062741002,
+            4050927002,
+            4051278002,
+            4062732002,
+            4051275002,
+            4051080002,
+            4051274002,
+            4051279002,
+            4062733002,
+            4051276002,
+            4062738002,
+            4078791002,
+            4092525002,
+            4092526002,
+            4092527002,
+            4055695002,
+            4055694002,
+            4055693002,
+            4055692002
+          ],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4035046002,
+          "name": "Poland",
+          "location": "Warsaw, Poland",
+          "child_ids": [],
+          "parent_id": 4041650002
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/point72/jobs/8491055002?gh_jid=8491055002",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_required",
+      "internal_job_id": 6391692002,
+      "location": {
+        "name": "Hong Kong"
+      },
+      "metadata": [
+        {
+          "id": 4076300002,
+          "name": "Time Type",
+          "value": "Part Time",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 8491055002,
+      "updated_at": "2026-08-03T20:06:28-04:00",
+      "requisition_id": "2117",
+      "title": "2027 Point72 Academy Investment Analyst Summer Internship Program - Hong Kong",
+      "company_name": "Point72 ",
+      "first_published": "2026-04-02T06:24:01-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;&lt;strong&gt;The Point72 Academy Summer Internship — Hong Kong&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Are you a student interested in pursuing a career in investing? If you are graduating between December 2027 and July 2028, we invite you to apply for our 8-week summer internship, taking place from June to August 2027.  &amp;nbsp;&lt;/p&gt;\n&lt;p&gt;Launch your investing career&amp;nbsp;in&amp;nbsp;the Point72 Academy, an&amp;nbsp;investment&amp;nbsp;analyst training program that will provide you with the tools and knowledge to build a career in our ever-evolving industry. Since 2015, the Academy has graduated more than 230 analysts onto our platform as of November 2025; some are portfolio managers today.  &amp;nbsp;&lt;/p&gt;\n&lt;p&gt;The Point72 Academy Summer Internship is a combination of classroom instruction, portfolio casework, and mentorship. The program is designed to give you insights into finance, research, and the workings of the public markets and prepare you for a potential opportunity with the full-time Point72 Academy Associate Program.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;During the internship, you will:&lt;/strong&gt;&lt;strong&gt;  &lt;/strong&gt;&lt;strong&gt;&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Acquire fundamental knowledge and skills necessary to contribute as an analyst, alongside your peers.&lt;/li&gt;\n&lt;li&gt;Receive training in accounting, modeling, presenting, and compliance.&lt;/li&gt;\n&lt;li&gt;Collaborate with an investment team, gaining firsthand experience of the daily life of an equities analyst and exposure to one of the sectors covered by our Portfolio Managers.&lt;/li&gt;\n&lt;li&gt;Work closely with Academy coaches, delving deeper into data analysis and preparing a final pitch on an investment idea.&lt;/li&gt;\n&lt;li&gt;Collaborate with Compliance, Information Security and the Office of the Co-CIO to discover efficient ways to harness AI in your investment processes and workflows&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Who We’re Looking For:&lt;/strong&gt;&lt;strong&gt;&amp;nbsp;&amp;nbsp;&lt;/strong&gt;&lt;strong&gt;&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;We welcome students from all academic disciplines. Your field of study or major is not a determining factor; we seek individuals who can effectively manage teamwork, exhibit integrity, possess intellectual curiosity, demonstrate leadership potential, and express a keen interest in the financial markets.&lt;/li&gt;\n&lt;li&gt;Students should have a high enthusiasm for the financial services industry. Interest in analyzing companies and looking at stocks is recommended given the project-based nature of this program.&lt;/li&gt;\n&lt;li&gt;Highly self‑motivated with a high risk appetite and the ability to make decisions in an ambiguous environment.&lt;/li&gt;\n&lt;li&gt;Candidates with excellent communication skills, both written and verbal in an Asian language.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;We Want You to Apply if You Are:&lt;/strong&gt;&lt;strong&gt;&amp;nbsp;&amp;nbsp;&lt;/strong&gt;&lt;strong&gt;&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;A current student who will graduate from university between December 2027 and July 2028.&lt;/li&gt;\n&lt;li&gt;Fascinated by research and problem-solving, relentlessly curious, and constantly expanding your horizons.&lt;/li&gt;\n&lt;li&gt;Committed to continued success in your academic and professional career with the highest levels of professionalism, integrity, and excellence.&lt;/li&gt;\n&lt;li&gt;Commitment to the highest ethical standards.&lt;/li&gt;\n&lt;li&gt;Highly self-driven and motivated to explore a career in finance. &lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;What to Expect:&lt;/strong&gt;&lt;strong&gt;&amp;nbsp;&amp;nbsp;&lt;/strong&gt;&lt;strong&gt;&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Your online application, essays, and resume will serve as an introduction to who you are as a candidate. Once you complete the online application, we will begin reviewing your profile. &lt;/li&gt;\n&lt;li&gt;Selected candidates will then receive an email invitation to participate in a case study, allowing you to showcase your experiences and demonstrate your business acumen.   &lt;/li&gt;\n&lt;li&gt;Following submission and review of your case study, shortlisted candidates will be invited to complete an online assessment and participate in virtual one‑on‑one interviews with various members of the Academy team. Shortlisted candidates will then be invited to attend a half‑day assessment center. There are two application deadlines: one in mid‑May for candidates interested in an early summer assessment center, and another for students applying over the summer to mid Fall, which will lead to a late fall assessment center. We strongly encourage candidates to apply and complete all requirements as soon as they feel ready to begin the hiring process.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;Please note, you may only submit one application to the Academy internship program globally, so only apply to the region you are most interested in.&lt;/p&gt;\n&lt;p&gt;Don&#39;t miss this opportunity to kickstart your career in the world of investing with the Point72 Academy.  &amp;nbsp;&lt;/p&gt;\n&lt;p&gt;Please note that any use of GenAI is strictly prohibited when completing this application. &amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;ABOUT POINT72&lt;/strong&gt;&lt;strong&gt;&amp;nbsp;&lt;/strong&gt;&lt;strong&gt;&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Point72 is a leading global alternative investment firm led by Steven A. Cohen. Building on more than 30 years of investing experience, Point72 seeks to deliver superior returns for its investors through fundamental and systematic investing strategies across asset classes and geographies. We aim to attract and retain the industry’s brightest talent by cultivating an investor-led culture and committing to our people’s long-term growth.&lt;/p&gt;\n&lt;p&gt;We’re a firm that thrives on ideas, and we’ve found that the Point72 Academy has provided us with diverse viewpoints and perspectives, and we are able to offer support in their growth and development as analysts and portfolio managers.&amp;nbsp;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&amp;nbsp;&lt;/p&gt;",
+      "departments": [
+        {
+          "id": 4066834002,
+          "name": "Academy",
+          "child_ids": [
+            4066835002,
+            4066836002
+          ],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4041654002,
+          "name": "Hong Kong",
+          "location": "Hong Kong",
+          "child_ids": [],
+          "parent_id": 4041653002
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/point72/jobs/8491138002?gh_jid=8491138002",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_required",
+      "internal_job_id": 6391717002,
+      "location": {
+        "name": "Japan"
+      },
+      "metadata": [
+        {
+          "id": 4076300002,
+          "name": "Time Type",
+          "value": "Part Time",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 8491138002,
+      "updated_at": "2026-08-03T20:06:28-04:00",
+      "requisition_id": "2119",
+      "title": "2027 Point72 Academy Investment Analyst Summer Internship Program - Japan",
+      "company_name": "Point72 ",
+      "first_published": "2026-04-02T06:37:22-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;&lt;strong&gt;P&lt;/strong&gt;&lt;strong&gt;oint72 Academy 夏季インターンシップ（日本）&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;投資業界でのキャリア形成に関心をお持ちの方を対象に、2027年12月から2028年7月の間に卒業予定の学生向けに、2027年6月から8月にかけて実施される8週間の夏季インターンシップへの応募を受け付けています。&lt;/p&gt;\n&lt;p&gt;Point72 Academyは、変化し続ける投資業界において投資アナリストとして活躍するために必要な知識・スキルの習得を目的とした育成プログラムです。2015年の設立以来、2025年11月時点で230名以上のアナリストを輩出しており、その中には現在ポートフォリオ・マネージャーとして活躍しているメンバーもいます。&lt;/p&gt;\n&lt;p&gt;本インターンシップは、講義形式のトレーニング、投資ケースワーク、メンターシップを組み合わせたプログラムであり、金融およびリサーチの基礎、公開市場の仕組みに対する理解を深めるとともに、将来的にフルタイムの Point72 Academy Associate プログラムに進む可能性も見据えた準備を行います。&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;インターンシップ期間中の主な内容&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;アナリストとして必要な基礎知識・スキルを習得&lt;/li&gt;\n&lt;li&gt;会計・モデリング・プレゼンテーション・コンプライアンス研修&lt;/li&gt;\n&lt;li&gt;投資チームと協力し、株式アナリストの日常業務を直接体験するとともに、当社のポートフォリオマネージャーが担当するセクターの一つについて理解を深める&lt;/li&gt;\n&lt;li&gt;ポートフォリオマネージャーが担当する業界セクターへの理解を深める&lt;/li&gt;\n&lt;li&gt;アカデミーのコーチと密接に連携し、データ分析をさらに深め、投資アイデアに関する最終プレゼンテーションを準備&lt;/li&gt;\n&lt;li&gt;コンプライアンス、情報セキュリティ、および共同CIO室と連携し、投資プロセスやワークフローにおいてAIを効果的に活用する方法を探求&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;求める人物像&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;学問分野不問：あらゆる学問分野の学生を歓迎します。専攻は選考の決定要因ではありません。チーム協働できる力、高い誠実さ、知的好奇心、リーダーシップの素養を備え、金融市場に強い関心を持つ方を求めています。&lt;/li&gt;\n&lt;li&gt;金融サービス業界への高い関心：本プログラムはプロジェクトベースで進行するため、企業分析や株式分析に関心をお持ちの方を歓迎します。&lt;/li&gt;\n&lt;li&gt;主体性と決断力：高い自己管理能力を持ち、不確実性の高い環境下においても自ら考え、判断できる方。&lt;/li&gt;\n&lt;li&gt;語学力：日本語および英語の双方において、口頭・文書ともに円滑なコミュニケーションが可能な方。&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;応募資格&lt;/strong&gt;&lt;strong&gt;&amp;nbsp;&amp;nbsp;&lt;/strong&gt;&lt;strong&gt;&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;2027年12月から2028年7月の間に大学または大学院を卒業予定の方。&lt;/li&gt;\n&lt;li&gt;リサーチや問題解決に強い関心を持ち、知的好奇心を持って学び続けられる方。&lt;/li&gt;\n&lt;li&gt;高いプロフェッショナリズム、誠実さ、卓越性を重視し、学業およびキャリア形成の真摯に取り組める方。&lt;/li&gt;\n&lt;li&gt;最高水準の倫理観を重視できる方。&lt;/li&gt;\n&lt;li&gt;金融業界でのキャリア探索に強い意欲をお持ちの方。&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;選考プロセスについて&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;オンライン応募：オンライン申請、エッセイ、および履歴書は、応募者のご経験やバックグランドを理解するための提出資料となります。オンライン応募を完了次第、書類選考を開始します。&lt;/li&gt;\n&lt;li&gt;ケーススタディ：書類選考を通過された方には、これまでの経験やビジネスに対する考え方を示していただくため、ケーススタディへの参加をご案内します。&lt;/li&gt;\n&lt;li&gt;オンライン・アセスメントおよび面接：ケーススタディの提出および審査後、選考通過者にはオンライン・アセスメントおよびAcademyチームの複数メンバーとのオンライン面接に進んでいただきます。&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;注意事項&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;選考準備が整い次第、早めに応募および必要書類の提出を完了されることを推奨します。&lt;/li&gt;\n&lt;li&gt;Point72 Academyインターンシップ・プログラムへの応募は、グローバル全体を通じてお一人につき1回限りです。応募にあたっては、最も関心のある地域をを選択のうえご応募ください。&lt;/li&gt;\n&lt;li&gt;本プログラムへの応募手続きにおいて、いかなる形であっても生成AI（GenAI）の使用は禁止されています。&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Point72について&lt;/strong&gt;&lt;br&gt;Point72 は、スティーブン・A・コーエン率いるグローバルなオルタナティブ投資会社です。&lt;/p&gt;\n&lt;p&gt;30年以上にわたる投資経験を活かし、私たちは投資プロフェッショナルの戦略的パートナーとして、優れたアイデアの実現を支援しています。現状に甘んじることなく、常に投資プロセスの革新を追求し、魅力的なリスク調整後リターンの創出を目指しています。また、投資家主導のカルチャーを育むとともに、人材一人ひとりの長期的な成長にコミットすることで、業界で最も優秀な人材を惹きつけ、育成・定着させることを重視しています。&lt;/p&gt;\n&lt;p&gt;Point72 Academyは、多様な視点や考え方をもたらす存在としてアナリストやポートフォリオ・マネージャーとしての成長・能力開発を支援しています。&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;The Point72 Academy Summer Internship — Japan&lt;/strong&gt;&lt;strong&gt;&amp;nbsp;&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Are&amp;nbsp;you a student&amp;nbsp;interested in pursuing a career in investing? If you are graduating between December 2027&amp;nbsp;and July 2028, we invite you to apply for our 8-week summer internship, taking place from June to August 2027.  &amp;nbsp;&lt;/p&gt;\n&lt;p&gt;Launch your investing career&amp;nbsp;in&amp;nbsp;the Point72 Academy, an&amp;nbsp;investment&amp;nbsp;analyst training program that will provide you with the tools and knowledge to build a career in our ever-evolving industry. Since 2015, the Academy has graduated more than 230 analysts onto our platform as of November 2025; some are portfolio managers today.  &amp;nbsp;&lt;/p&gt;\n&lt;p&gt;The Point72 Academy Summer Internship is a combination of classroom instruction, portfolio casework, and mentorship. The program is designed to give you insights into finance, research, and the workings of the public markets and prepare you for a potential opportunity with the full-time Point72 Academy Associate Program.   &amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;During the internship, you will:&lt;/strong&gt;&lt;strong&gt;  &lt;/strong&gt;&lt;strong&gt;&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Acquire fundamental knowledge and skills necessary to contribute as an analyst, alongside your peers.&lt;/li&gt;\n&lt;li&gt;Receive training in accounting, modeling, presenting, and compliance.&lt;/li&gt;\n&lt;li&gt;Collaborate with an investment team, gaining firsthand experience of the daily life of an equities analyst and exposure to one of the sectors covered by our Portfolio Managers. &lt;/li&gt;\n&lt;li&gt;Work closely with Academy coaches, delving deeper into data analysis and preparing a final pitch on an investment idea. &lt;/li&gt;\n&lt;li&gt;Collaborate with Compliance, Information Security and the Office of the Co-CIO to discover efficient ways to harness AI in your investment processes and workflows.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Who We’re Looking For:&lt;/strong&gt;&lt;strong&gt;&amp;nbsp;&amp;nbsp;&lt;/strong&gt;&lt;strong&gt;&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;We welcome students from all academic disciplines. Your field of study or major is not a determining factor; we seek individuals who can effectively manage teamwork, exhibit integrity, possess intellectual curiosity, demonstrate leadership potential, and express a keen interest in the financial markets.&lt;/li&gt;\n&lt;li&gt;Students should have a high enthusiasm for the financial services industry. Interest in analyzing companies and looking at stocks is recommended given the project-based nature of this program.&lt;/li&gt;\n&lt;li&gt;Highly self‑motivated with a high risk appetite and the ability to make decisions in an ambiguous environment.&lt;/li&gt;\n&lt;li&gt;Candidates with a high proficiency, written and verbal, in both Japanese and English.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;We Want You to Apply if You Are:&lt;/strong&gt;&lt;strong&gt;&amp;nbsp;&amp;nbsp;&lt;/strong&gt;&lt;strong&gt;&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;A current student who will graduate from university between December 2027 and July 2028.&lt;/li&gt;\n&lt;li&gt;Fascinated by research and problem-solving, relentlessly curious, and constantly expanding your horizons. &lt;/li&gt;\n&lt;li&gt;Committed to continued success in your academic and professional career with the highest levels of professionalism, integrity, and excellence.&lt;/li&gt;\n&lt;li&gt;Commitment to the highest ethical standards.&lt;/li&gt;\n&lt;li&gt;Highly self-driven and motivated to explore a career in finance.  &amp;nbsp;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;What to Expect:&lt;/strong&gt;&lt;strong&gt;&amp;nbsp;&amp;nbsp;&lt;/strong&gt;&lt;strong&gt;&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Your online application, essays, and resume will serve as an introduction to who you are as a candidate. Once you complete the online application, we will begin reviewing your profile. &lt;/li&gt;\n&lt;li&gt;Selected candidates will then receive an email invitation to participate in a case study, allowing you to showcase your experiences and demonstrate your business acumen.&lt;/li&gt;\n&lt;li&gt;Following submission and review of your case study, shortlisted candidates will be invited to complete an online assessment and participate in virtual one‑on‑one interviews with various members of the Academy team.&amp;nbsp;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;Please note, you may only submit one application to the Academy internship program globally, so only apply to the region you are most interested in. &amp;nbsp;&lt;/p&gt;\n&lt;p&gt;Don&#39;t miss this opportunity to kickstart your career in the world of investing with the Point72 Academy.  &amp;nbsp;&lt;/p&gt;\n&lt;p&gt;Please note that any use of GenAI is&amp;nbsp;strictly prohibited&amp;nbsp;when completing this application&lt;em&gt;.&lt;/em&gt; &amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;ABOUT POINT72&lt;/strong&gt;&lt;strong&gt;&amp;nbsp;&lt;/strong&gt;&lt;strong&gt;&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Point72 is a leading global alternative investment firm led by Steven A. Cohen.&amp;nbsp;Building on&amp;nbsp;more than 30 years of investing experience, Point72 seeks to deliver superior returns for its investors through fundamental and systematic investing strategies across asset classes and geographies. We aim to attract and&amp;nbsp;retain&amp;nbsp;the industry’s brightest talent by cultivating an investor-led culture and committing to our people’s long-term growth.&amp;nbsp;&amp;nbsp;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;We’re a firm that thrives on ideas, and we’ve found that the Point72 Academy has provided us with diverse viewpoints and perspectives, and we are able to offer support in their growth and development as analysts and portfolio managers.&amp;nbsp;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;",
+      "departments": [
+        {
+          "id": 4066834002,
+          "name": "Academy",
+          "child_ids": [
+            4066835002,
+            4066836002
+          ],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4041655002,
+          "name": "Japan",
+          "location": "Japan",
+          "child_ids": [],
+          "parent_id": 4041653002
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/point72/jobs/8491128002?gh_jid=8491128002",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_required",
+      "internal_job_id": 6391711002,
+      "location": {
+        "name": "Singapore"
+      },
+      "metadata": [
+        {
+          "id": 4076300002,
+          "name": "Time Type",
+          "value": "Part Time",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 8491128002,
+      "updated_at": "2026-08-03T20:06:28-04:00",
+      "requisition_id": "2118",
+      "title": "2027 Point72 Academy Investment Analyst Summer Internship Program - Singapore",
+      "company_name": "Point72 ",
+      "first_published": "2026-04-02T06:32:50-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;&lt;strong&gt;The Point72 Academy Summer Internship — Singapore&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Are&amp;nbsp;you a student&amp;nbsp;interested in pursuing a career in investing? If you are graduating between December 2027&amp;nbsp;and July 2028, we invite you to apply for our 8-week summer internship, taking place from June to August 2027.  &amp;nbsp;&lt;/p&gt;\n&lt;p&gt;Launch your investing career&amp;nbsp;in&amp;nbsp;the Point72 Academy, an&amp;nbsp;investment&amp;nbsp;analyst training program that will provide you with the tools and knowledge to build a career in our ever-evolving industry. Since 2015, the Academy has graduated more than 230 analysts onto our platform as of November 2025; some are portfolio managers today.  &amp;nbsp;&lt;/p&gt;\n&lt;p&gt;The Point72 Academy Summer Internship is a combination of classroom instruction, portfolio casework, and mentorship. The program is designed to give you insights into finance, research, and the workings of the public markets and prepare you for a potential opportunity with the full-time Point72 Academy Associate Program.   &amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;During the internship, you will:&lt;/strong&gt;&lt;strong&gt;  &lt;/strong&gt;&lt;strong&gt;&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Acquire fundamental knowledge and skills necessary to contribute as an analyst, alongside your peers.&lt;/li&gt;\n&lt;li&gt;Receive training in accounting, modeling, presenting, and compliance.&lt;/li&gt;\n&lt;li&gt;Collaborate with an investment team, gaining firsthand experience of the daily life of an equities analyst and exposure to one of the sectors covered by our Portfolio Managers.&lt;/li&gt;\n&lt;li&gt;Work closely with Academy coaches, delving deeper into data analysis and preparing a final pitch on an investment idea.&lt;/li&gt;\n&lt;li&gt;Collaborate with Compliance, Information Security and the Office of the Co-CIO to discover efficient ways to harness AI in your investment processes and workflows.&amp;nbsp;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Who We’re Looking For:&lt;/strong&gt;&lt;strong&gt;&amp;nbsp;&amp;nbsp;&lt;/strong&gt;&lt;strong&gt;&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;We welcome students from all academic disciplines. Your field of study or major is not a determining factor; we seek individuals who can effectively manage teamwork, exhibit integrity, possess intellectual curiosity, demonstrate leadership potential, and express a keen interest in the financial markets.&lt;/li&gt;\n&lt;li&gt;Students should have a high enthusiasm for the financial services industry. Interest in analyzing companies and looking at stocks is recommended given the project-based nature of this program.&lt;/li&gt;\n&lt;li&gt;Highly self‑motivated with a high risk appetite and the ability to make decisions in an ambiguous environment.&lt;/li&gt;\n&lt;li&gt;Candidates with excellent communication skills, both written and verbal in an Asian language.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;We Want You to Apply if You Are:&lt;/strong&gt;&lt;strong&gt;&amp;nbsp;&amp;nbsp;&lt;/strong&gt;&lt;strong&gt;&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;A current student who will graduate from university between December 2027 and July 2028.&lt;/li&gt;\n&lt;li&gt;Fascinated by research and problem-solving, relentlessly curious, and constantly expanding your horizons.&lt;/li&gt;\n&lt;li&gt;Committed to continued success in your academic and professional career with the highest levels of professionalism, integrity, and excellence.&lt;/li&gt;\n&lt;li&gt;Commitment to the highest ethical standards.&lt;/li&gt;\n&lt;li&gt;Highly self-driven and motivated to explore a career in finance.  &amp;nbsp;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;What to Expect:&lt;/strong&gt;&lt;strong&gt;&amp;nbsp;&amp;nbsp;&lt;/strong&gt;&lt;strong&gt;&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Your online application, essays, and resume will serve as an introduction to who you are as a candidate. Once you complete the online application, we will begin reviewing your profile.&lt;/li&gt;\n&lt;li&gt;Selected candidates will then receive an email invitation to participate in a case study, allowing you to showcase your experiences and demonstrate your business acumen.&lt;/li&gt;\n&lt;li&gt;Following submission and review of your case study, shortlisted candidates will be invited to complete an online assessment and participate in virtual one‑on‑one interviews with various members of the Academy team. Shortlisted candidates will then be invited to attend a half‑day assessment center. There are two application deadlines: one in mid‑May for candidates interested in an early summer assessment center, and another for students applying over the summer to mid Fall, which will lead to a late fall assessment center. We strongly encourage candidates to apply and complete all requirements as soon as they feel ready to begin the hiring process.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;Please note, you may only submit one application to the Academy internship program globally, so only apply to the region you are most interested in. &amp;nbsp;&lt;/p&gt;\n&lt;p&gt;Don&#39;t miss this opportunity to kickstart your career in the world of investing with the Point72 Academy.  &amp;nbsp;&lt;/p&gt;\n&lt;p&gt;Please note that any use of GenAI is&amp;nbsp;strictly prohibited&amp;nbsp;when completing this application. &lt;em&gt;&amp;nbsp;&lt;/em&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;ABOUT POINT72&lt;/strong&gt;&lt;strong&gt;&amp;nbsp;&lt;/strong&gt;&lt;strong&gt;&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Point72 is a leading global alternative investment firm led by Steven A. Cohen.&amp;nbsp;Building on&amp;nbsp;more than 30 years of investing experience, Point72 seeks to deliver superior returns for its investors through fundamental and systematic investing strategies across asset classes and geographies. We aim to attract and&amp;nbsp;retain&amp;nbsp;the industry’s brightest talent by cultivating an investor-led culture and committing to our people’s long-term growth.&amp;nbsp;&amp;nbsp;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;We’re a firm that thrives on ideas, and we’ve found that the Point72 Academy has provided us with diverse viewpoints and perspectives, and we are able to offer support in their growth and development as analysts and portfolio managers.&amp;nbsp;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;",
+      "departments": [
+        {
+          "id": 4066834002,
+          "name": "Academy",
+          "child_ids": [
+            4066835002,
+            4066836002
+          ],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4041656002,
+          "name": "Singapore",
+          "location": "Singapore, Central, Singapore",
+          "child_ids": [],
+          "parent_id": 4041653002
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/point72/jobs/8492784002?gh_jid=8492784002",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_optional",
+      "internal_job_id": 6392250002,
+      "location": {
+        "name": "New York, NY"
+      },
+      "metadata": [
+        {
+          "id": 4076300002,
+          "name": "Time Type",
+          "value": "Full Time",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 8492784002,
+      "updated_at": "2026-08-03T20:06:28-04:00",
+      "requisition_id": "2121",
+      "title": "Fundamental Research Fellow, Canvas ",
+      "company_name": "Point72 ",
+      "first_published": "2026-04-15T14:11:38-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;&lt;strong&gt;ABOUT PROPRIETARY RESEARCH&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;On our proprietary research team—Market Intelligence—you’ll partner with our Investment Professionals and Compliance team to uncover insights about companies, industries, and the broader economy through deep fundamental research.&lt;/p&gt;\n&lt;p&gt;Canvas is the supply chain research group within Market Intelligence. Canvas conducts compliant supply chain research by developing deep industry expertise, talking with private company executives, and synthesizing information for portfolio managers and analysts. Our team produces impactful research that will change the way you look at the world.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;WHAT YOU&#39;LL DO&lt;br&gt;&lt;/strong&gt;This 6-month intensive fellowship offers hands-on experience in research, business analysis, cross-functional collaboration, and the investment process within a fast-paced, compliance-focused environment. Canvas Fellows will be considered for permanent placement on the team following completion of the program.&lt;/p&gt;\n&lt;p&gt;When you join the Canvas team, you’re signing up for the learning experience of a lifetime. You will never look at anything the same way—from grocery stores to tires to semiconductors. Every day, Canvas team members speak with private company executives and learn about the businesses they’ve spent their lives building. The team synthesizes findings in comprehensive reports that are consumed by Point72 investment professionals.&lt;/p&gt;\n&lt;p&gt;Other Market Intelligence divisions do quantitative research to explain &lt;em&gt;what&lt;/em&gt;&amp;nbsp;is going on in an industry. As a Fundamental Researcher, your qualitative research will explain the&amp;nbsp;&lt;em&gt;why.&lt;/em&gt;&amp;nbsp;During the 6-month program based in our New York office, you will:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Become a subject matter expert on an assigned industry&lt;/li&gt;\n&lt;li&gt;Engage with small, medium, and large private company executives about their businesses and the industries in which they operate, gathering qualitative data on key development—including structural shifts, real-time changes in supply/demand dynamics, and emerging competitors, markets, and technologies—with a focus on understanding &lt;em&gt;why&lt;/em&gt;&amp;nbsp;they are happening&lt;/li&gt;\n&lt;li&gt;Synthesize your findings in comprehensive reports that present a view of the industry&lt;/li&gt;\n&lt;li&gt;Gain unparalleled exposure to, and learn from, business leaders across industries, including private company executives and your colleagues&lt;/li&gt;\n&lt;li&gt;Interact directly with our investment professionals and learn the discretionary investment process to help drive more informed investment decisions&lt;/li&gt;\n&lt;li&gt;Partner on the above with dedicated Compliance professionals&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;WHAT EXCITES YOU&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Staying current on the evolving alternative data market and its role in discretionary investing&lt;/li&gt;\n&lt;li&gt;Speaking with experts both inside and outside the firm to understand data needs and offerings&lt;/li&gt;\n&lt;li&gt;Analytical thinking and sifting through available data to find “the answer”&lt;/li&gt;\n&lt;li&gt;Fast-paced work environments that at times require switching gears to address the needs of the business&lt;/li&gt;\n&lt;li&gt;Working as part of a cross-functional team comprising investment, research, and compliance professionals&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;WHAT EXCITES US&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Excellent attention to detail, organization, and project management skills&lt;/li&gt;\n&lt;li&gt;Superb business intuition and a solution orientated, methodical approach to problem-solving&lt;/li&gt;\n&lt;li&gt;Ability to collaborate and build relationships across multiple business units within the firm&lt;/li&gt;\n&lt;li&gt;People who “elevate the room” through their work ethic, curiosity, and solution-orientated attitude&lt;/li&gt;\n&lt;li&gt;Commitment to the highest ethical standards&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;WHAT’S REQUIRED&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Undergraduate degree conferred in 2025 or 2026&lt;/li&gt;\n&lt;li&gt;Strong analytical skills&lt;/li&gt;\n&lt;li&gt;Excellent written and verbal communication abilities&lt;/li&gt;\n&lt;li&gt;An eagerness to find out if your conclusions are right or wrong&lt;/li&gt;\n&lt;li&gt;An understanding of how companies work (their processes and outcomes) or an interest in learning&lt;/li&gt;\n&lt;li&gt;Intellectual curiosity, creative thinking, maturity&lt;/li&gt;\n&lt;li&gt;Highest standards of ethical decision making&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;WHAT SUCCESS LOOKS LIKE&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Integrity – You demonstrate 100% commitment to the highest ethical standards&lt;/li&gt;\n&lt;li&gt;Ownership – You take charge of your work, uphold your commitments, and always do your best&lt;/li&gt;\n&lt;li&gt;Commerciality – You focus on what matters most, ask questions when needed, and are cognizant of not wasting your time or that of others&lt;/li&gt;\n&lt;li&gt;Humility – You welcome and are receptive to feedback and learn from past mistakes&lt;/li&gt;\n&lt;li&gt;Adaptability – You can triage business needs and context switch quickly and efficiently&lt;/li&gt;\n&lt;li&gt;Admirability – You elevate the room through your work ethic, domain knowledge, work product, and solution orientated attitude&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;WE TAKE CARE OF OUR PEOPLE&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;We invest in our people, their careers, their health, and their well-being. When you work here, we provide:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Fully paid health care benefits&lt;/li&gt;\n&lt;li&gt;Generous parental and family leave policies&lt;/li&gt;\n&lt;li&gt;Mental and physical wellness programs&lt;/li&gt;\n&lt;li&gt;Volunteer opportunities&lt;/li&gt;\n&lt;li&gt;Non-profit matching gift program&lt;/li&gt;\n&lt;li&gt;Support for employee-led affinity groups representing women, minorities and the LGBTQ+ community&lt;/li&gt;\n&lt;li&gt;Tuition assistance&lt;/li&gt;\n&lt;li&gt;A 401(k) savings program with an employer match and more&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;About Point72&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Point72 is a leading global alternative investment firm led by Steven A. Cohen. Building on more than 30 years of investing experience, Point72 seeks to deliver superior returns for its investors through fundamental and systematic investing strategies across asset classes and geographies. We aim to attract and retain the industry’s brightest talent by cultivating an investor-led culture and committing to our people’s long-term growth. For more information, visit&amp;nbsp;&lt;a href=&quot;https://point72.com/&quot;&gt;https://point72.com/&lt;/a&gt;.&lt;/p&gt;\n&lt;p&gt;The annual base salary is $100,000 (USD) which will be prorated based on program start and end date. Actual compensation offered to the successful candidate may vary from posted hiring range based upon geographic location, work experience, education, and/or skill level, among other things.&lt;/p&gt;",
+      "departments": [
+        {
+          "id": 4051269002,
+          "name": "Market Intelligence ",
+          "child_ids": [
+            4062739002,
+            4092524002,
+            4051303002,
+            4055691002,
+            4051277002,
+            4051273002,
+            4062740002,
+            4062741002,
+            4050927002,
+            4051278002,
+            4062732002,
+            4051275002,
+            4051080002,
+            4051274002,
+            4051279002,
+            4062733002,
+            4051276002,
+            4062738002,
+            4078791002,
+            4092525002,
+            4092526002,
+            4092527002,
+            4055695002,
+            4055694002,
+            4055693002,
+            4055692002
+          ],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4007773002,
+          "name": "New York, NY",
+          "location": "New York, New York, United States",
+          "child_ids": [],
+          "parent_id": 4041645002
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/point72/jobs/8572402002?gh_jid=8572402002",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_required",
+      "internal_job_id": 6424027002,
+      "location": {
+        "name": "Hong Kong"
+      },
+      "metadata": [
+        {
+          "id": 4076300002,
+          "name": "Time Type",
+          "value": "Full Time",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 8572402002,
+      "updated_at": "2026-08-03T20:06:28-04:00",
+      "requisition_id": "2171",
+      "title": "Point72 Academy Investment Analyst Program for Upcoming Graduates (2027 – HK)",
+      "company_name": "Point72 ",
+      "first_published": "2026-06-03T20:55:58-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;&lt;strong&gt;Point72 Academy Investment Analyst Program for Upcoming Graduates — Hong Kong&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;We’re training the next generation of Point72 investors.&lt;/p&gt;\n&lt;p&gt;The Point72 Academy Investment Analyst Program for Upcoming Graduates is a paid ten-month training program designed to introduce you to the buy-side and prepare you for a potential career as an analyst at Point72. &amp;nbsp;&lt;/p&gt;\n&lt;p&gt;We’re looking for current students graduating between December 2026 and July 2027 to join our 2027 classes. &amp;nbsp;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;After successfully completing the program, you’ll have the opportunity to join a network of more than 230 Point72 Academy graduates who we have placed at our firm, as of March 2026. If you are successfully placed as an analyst, you will have access to mentorship and professional development resources that can help you progress your career for years to come. &amp;nbsp;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;What you’ll do&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Join us to learn the fundamental research and analysis skills needed to become an investment analyst at Point72, applying your intellectual curiosity in a role that prizes creativity, autonomy, and analytical rigor. The program begins with eight months of formal training followed by two months of rotations with investment teams or similar roles on our platform. Best of all, upon successful completion, you may have the chance to join an investing team as a full-time analyst. &amp;nbsp;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Develop sophisticated company analysis and modeling skills with guidance from our Academy faculty, investment professionals, and professors from some of the world’s leading universities.&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Learn statistics, accounting, financial modeling, data analysis, coding, and more.&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Apply the skills you’ve developed to real-life situations as you rotate with up to three investing teams.&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Work closely with our investment professionals, gaining firsthand experience and mentorship throughout your rotations.&amp;nbsp;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Upon Successful Graduation: The Analyst Role&lt;/strong&gt;&lt;br&gt;You may have the opportunity to become an equity research analyst at Point72, where you&#39;ll apply your financial acumen and curiosity to help shape your team’s investment strategies as you: &amp;nbsp;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Build and refine sophisticated financial models to help you understand the businesses you cover and how they are changing&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Perform company channel checks; attend industry events; build relationships with industry contacts, sell-side analysts, and research associates; analyze data sets to develop investment theses&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Constantly develop your skills through coaching from your Portfolio Manager and by using the full breadth of the Professional Development resources available to you&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Conduct yourself with the highest levels of professionalism, integrity, ethics, and excellence&amp;nbsp;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Who We&#39;re Looking For &amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;We welcome students from all academic disciplines. Your field of study or major is not a determining factor; we seek individuals who can collaborate effectively, exhibit integrity, possess intellectual curiosity, demonstrate leadership potential, and express a keen interest in the financial markets.&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Students should have a high enthusiasm for the financial services industry. Interest in analyzing companies and looking at stocks is recommended given the project-based nature of this program.&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Candidates with excellent communication skills, both written and verbal in an Asian language and a high degree of self-motivation.&amp;nbsp;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;We want you to apply if you are:&lt;/strong&gt; &amp;nbsp;&amp;nbsp;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;A current student who will graduate from university between December 2026 and July 2027.&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Fascinated by research and problem-solving, relentlessly curious, and constantly expanding your horizons.&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Committed to continued success in your academic and professional career with the highest levels of professionalism, integrity, and excellence.&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Commitment to the highest ethical standards.&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Highly self-driven and motivated to explore a career in finance.&amp;nbsp;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;What to expect:&amp;nbsp;&lt;/strong&gt;&amp;nbsp;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Your online application, essays, and resume will serve as an introduction to who you are as a candidate. Once submitted, we will begin reviewing your profile.&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Selected candidates will receive an email invitation to participate in a case study, allowing you to showcase your experiences and demonstrate your business acumen.&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Following submission and review of your case study, the next step is a series of virtual one-on-one interviews with various members of the Academy team, if selected.&amp;nbsp;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;About Point72 &lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Point72 is a leading global alternative investment firm led by Steven A. Cohen. Building on more than 30 years of investing experience, Point72 seeks to deliver superior returns for its investors through fundamental and systematic investing strategies across asset classes and geographies. We aim to attract and retain the industry’s brightest talent by cultivating an investor-led culture and committing to our people’s long-term growth. &amp;nbsp;&lt;/p&gt;\n&lt;p&gt;We’re a firm that thrives on ideas, and we’ve found that the Point72 Academy has provided us with diverse viewpoints and perspectives. We can offer support in Academy Associates’ growth and development as analysts and portfolio managers.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;For more information, visit &lt;span style=&quot;text-decoration: underline;&quot;&gt;&lt;a href=&quot;https://www.Point72.com/working-here&quot; target=&quot;_blank&quot;&gt;www.Point72.com/working-here&lt;/a&gt;&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;There is no set application deadline for this position. Candidates are considered as they apply, until the program is at capacity. We strongly encourage you to apply and fulfill all requirements as soon as you feel ready to begin the hiring process. Please note, you may only submit one application to the Academy program globally, so please be sure to apply to the region you are most interested in.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;Don&#39;t miss this opportunity to kickstart your career in the world of investing with Point72 Academy. &amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;Please note that any use of GenAI is strictly prohibited when completing this application.&lt;/em&gt;&lt;/p&gt;",
+      "departments": [
+        {
+          "id": 4066834002,
+          "name": "Academy",
+          "child_ids": [
+            4066835002,
+            4066836002
+          ],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4041654002,
+          "name": "Hong Kong",
+          "location": "Hong Kong",
+          "child_ids": [],
+          "parent_id": 4041653002
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/point72/jobs/8658618002?gh_jid=8658618002",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 6457461002,
+      "location": {
+        "name": "Hong Kong, Singapore "
+      },
+      "metadata": [
+        {
+          "id": 4076300002,
+          "name": "Time Type",
+          "value": "Full Time",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 8658618002,
+      "updated_at": "2026-08-03T20:06:28-04:00",
+      "requisition_id": "2219",
+      "title": "AI Data Scientist",
+      "company_name": "Point72 ",
+      "first_published": "2026-07-30T11:38:49-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;&lt;strong&gt;ROLE&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;We are passionate about data. We collaborate to build elegant, effective, scalable and highly reliable solutions to empower predictive modelling in finance.&lt;/p&gt;\n&lt;p&gt;Cubist’s Data Services (CDS) group is looking&amp;nbsp;for an AI Data Scientist to join our dedicated data team. Our group is responsible for the timely delivery of comprehensive and error-free data to&amp;nbsp;some of the most demanding and successful systematic Portfolio Managers in the world.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;RESPONSIBILITIES&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Build AI-powered data products using machine learning models, large language models, and modern AI tools.&lt;/li&gt;\n&lt;li&gt;Design, train, fine-tune, evaluate, and deploy in-house AI/ML models using proprietary and external datasets.&lt;/li&gt;\n&lt;li&gt;Develop end-to-end model pipelines covering data preparation, feature engineering, training, validation, deployment, and monitoring.&lt;/li&gt;\n&lt;li&gt;Apply generative AI and LLM techniques to use cases such as summarization, classification, knowledge extraction, semantic search, and workflow automation.&lt;/li&gt;\n&lt;li&gt;Work with product, engineering, and business teams to translate business problems into scalable AI solutions.&lt;/li&gt;\n&lt;li&gt;Evaluate and integrate third-party AI tools, APIs, open-source models, and internal models where appropriate.&lt;/li&gt;\n&lt;li&gt;Build data pipelines and model workflows for structured and unstructured data.&lt;/li&gt;\n&lt;li&gt;Define model performance metrics, run experiments, conduct error analysis, and continuously improve model quality.&lt;/li&gt;\n&lt;li&gt;Support production deployment of AI models, ensuring reliability, scalability, governance, and responsible AI usage.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;REQUIREMENTS&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;PhD in Computer Science, with a specialization in AI or machine learning related domains&lt;/li&gt;\n&lt;li&gt;Strong programming skills in Python and SQL&lt;/li&gt;\n&lt;li&gt;Strong publication record in top tier machine learning conferences&lt;/li&gt;\n&lt;li&gt;3+ years of experience as a Data Scientist or similar role&lt;/li&gt;\n&lt;li&gt;Experience working with large data sets including predictive modeling&lt;/li&gt;\n&lt;li&gt;Financial industry experience preferred but not required&lt;/li&gt;\n&lt;li&gt;Strong organization, communication and interpersonal skills&lt;/li&gt;\n&lt;li&gt;Intellectual curiosity and enthusiasm for learning&lt;/li&gt;\n&lt;li&gt;Attention to detail and a love of processes&lt;/li&gt;\n&lt;li&gt;Strong oral&amp;nbsp;and written&amp;nbsp;communication skills&lt;/li&gt;\n&lt;li&gt;Ability to multitask and prioritize assignments&lt;/li&gt;\n&lt;li&gt;Commitment to the highest ethical standards&lt;/li&gt;\n&lt;/ul&gt;",
+      "departments": [
+        {
+          "id": 4077293002,
+          "name": "Quant Management",
+          "child_ids": [
+            4093681002,
+            4093682002,
+            4093683002,
+            4093684002,
+            4093685002,
+            4127486002,
+            4077294002
+          ],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4041654002,
+          "name": "Hong Kong",
+          "location": "Hong Kong",
+          "child_ids": [],
+          "parent_id": 4041653002
+        },
+        {
+          "id": 4041656002,
+          "name": "Singapore",
+          "location": "Singapore, Central, Singapore",
+          "child_ids": [],
+          "parent_id": 4041653002
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/point72/jobs/8627919002?gh_jid=8627919002",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_optional",
+      "internal_job_id": 6445775002,
+      "location": {
+        "name": "Stamford, CT"
+      },
+      "metadata": [
+        {
+          "id": 4076300002,
+          "name": "Time Type",
+          "value": "Full Time",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 8627919002,
+      "updated_at": "2026-08-03T20:06:28-04:00",
+      "requisition_id": "Compliance Officer_5145",
+      "title": "Compliance Officer, Trading Compliance",
+      "company_name": "Point72 ",
+      "first_published": "2026-07-16T13:32:26-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;&lt;strong&gt;A Career with Point72&#39;s Compliance Team&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;The Point72 Compliance department is an industry-leading team of compliance professionals who support global investment and trading activities by establishing and enforcing the firm’s compliance policies, providing real-time advice, and conducting pre- and post-trade surveillance. Our team is essential to Point72’s success and we provide mentorship, a growth path, and the opportunity for a long-term career with us.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;What you&#39;ll do&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Provide real-time compliance coverage for traders, providing clear, actionable guidance on trade approvals and trading conduct&lt;/li&gt;\n&lt;li&gt;Support and enhance the trading compliance program for the firm’s trading desks, driving measurable improvements in controls and monitoring&lt;/li&gt;\n&lt;li&gt;Manage cross-functional coordination with legal, risk, operations, finance, technology, and third-party vendors to implement and enhance compliance solutions&lt;/li&gt;\n&lt;li&gt;Build and enhance pre-trade and post-trade surveillance processes, including tuning alerts and escalating significant issues&lt;/li&gt;\n&lt;li&gt;Assist in advising on new trading strategies, products, and market access to ensure compliant go-to-market execution and risk mitigation&lt;/li&gt;\n&lt;li&gt;Partner with trading operations and technology teams to develop and implement automated controls, reports, and dashboards&lt;/li&gt;\n&lt;li&gt;Execute and manage trading-related compliance projects driven by regulatory change or internal initiatives from scoping through delivery&lt;/li&gt;\n&lt;li&gt;Investigate trading exceptions and potential breaches, prepare concise findings and remediation plans, and present results to senior compliance leaders&lt;/li&gt;\n&lt;li&gt;Develop and deliver targeted training and guidance for trading personnel to embed compliance-by-design practices&lt;/li&gt;\n&lt;li&gt;Monitor market and regulatory developments that affect trading activities and translate them into clear internal policy and process updates&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;What&#39;s required&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Juris Doctorate degree from an accredited law school and bar admission&lt;/li&gt;\n&lt;li&gt;Minimum of 5 years of compliance experience within an investment manager, hedge fund, or broker-dealer with direct responsibility for trading compliance&lt;/li&gt;\n&lt;li&gt;Demonstrated working knowledge of U.S. securities laws and regulations applicable to trading and market conduct&lt;/li&gt;\n&lt;li&gt;Proven experience designing, operating, or materially enhancing pre-trade and post-trade surveillance programs&lt;/li&gt;\n&lt;li&gt;Demonstrated experience working directly with traders, portfolio managers, and trading operations to provide timely compliance advice&lt;/li&gt;\n&lt;li&gt;Proven ability to analyze trading activity and alert data&lt;/li&gt;\n&lt;li&gt;Experience conducting compliance investigations and producing clear written summaries, escalation materials, and remediation plans&lt;/li&gt;\n&lt;li&gt;Track record of leading cross-functional projects to implement policy, system, or process changes related to trading&lt;/li&gt;\n&lt;li&gt;Excellent verbal and written communication skills with the ability to influence senior stakeholders and explain technical topics clearly&lt;/li&gt;\n&lt;li&gt;Commitment to the highest ethical standards&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;We take care of our people&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;We invest in our people, their careers, their health, and their well-being. When you work here, we provide:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Fully-paid health care benefits&lt;/li&gt;\n&lt;li&gt;Generous parental and family leave policies&lt;/li&gt;\n&lt;li&gt;Volunteer opportunities&lt;/li&gt;\n&lt;li&gt;Support for employee-led affinity groups representing women, people of color and the LGBT+ community&lt;/li&gt;\n&lt;li&gt;Mental and physical wellness programs&lt;/li&gt;\n&lt;li&gt;Tuition assistance&lt;/li&gt;\n&lt;li&gt;A 401(k) savings program with an employer match and more&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;About Point72&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Point72 is a leading global alternative investment firm led by Steven A. Cohen. Building on more than 30 years of investing experience, Point72 seeks to deliver superior returns for its investors through fundamental and systematic investing strategies across asset classes and geographies. We aim to attract and retain the industry&#39;s brightest talent by cultivating an investor-led culture and committing to our people&#39;s long-term growth. For more information, visit https://point72.com/.&lt;/p&gt;",
+      "departments": [
+        {
+          "id": 4072567002,
+          "name": "Macro Management",
+          "child_ids": [
+            4072670002
+          ],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4041642002,
+          "name": "North America",
+          "location": null,
+          "child_ids": [
+            4080026002,
+            4041643002,
+            4041645002,
+            4041646002,
+            4052020002,
+            4052021002,
+            4046454002,
+            4041647002,
+            4029281002,
+            4007687002,
+            4007773002,
+            4041649002,
+            4007774002,
+            4046455002,
+            4041648002
+          ],
+          "parent_id": null
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/point72/jobs/8250290002?gh_jid=8250290002",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_optional",
+      "internal_job_id": 6270906002,
+      "location": {
+        "name": "New York, NY"
+      },
+      "metadata": [
+        {
+          "id": 4076300002,
+          "name": "Time Type",
+          "value": "Full Time",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 8250290002,
+      "updated_at": "2026-08-03T20:06:28-04:00",
+      "requisition_id": "Senior Academy Recruiter_9948_3187",
+      "title": "Academy Senior Recruiter",
+      "company_name": "Point72 ",
+      "first_published": "2025-11-07T16:52:31-05:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;&lt;strong&gt;A CAREER WITH POINT72’S ACADEMY TEAM&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;The Point72 Academy is the firm’s training program for fundamental equities financial analysts. Designed for undergraduates and early-career professionals, this immersive curriculum combines advanced modeling, critical thinking, and sector-specific research skills — preparing our analysts for an accelerated career trajectory at Point72.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;WHAT YOU’LL DO&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;The Academy Recruiting team focuses on bringing to life the Point72 Academy’s mission, strategy, and initiatives. You will apply your experience in campus recruiting within competitive undergraduate programs to help evaluate candidates and identify the most promising future investment talent. Specifically, you will:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Build and maintain high-caliber pools of candidates—with a focus on undergrads and early-career professionals—and deliver effective initial screening to match prospective candidates with our opportunities.&lt;/li&gt;\n&lt;li&gt;Support all aspects of global campus recruiting including sourcing, screening, and interviewing candidates to recommend top talent for entry to the Point72 Academy.&lt;/li&gt;\n&lt;li&gt;Partner with Academy Management to determine strategic hiring plan for campus classes and review job descriptions.&lt;/li&gt;\n&lt;li&gt;Liaise with Academy recruiting team, drive strategic university relationships, plan recruiting events and lead candidate debrief sessions.&lt;/li&gt;\n&lt;li&gt;Develop and maintain strong relationships with potential candidates, universities and student organizations.&lt;/li&gt;\n&lt;li&gt;Enter and maintain data integrity and reporting in all applicable databases and ATS with strong attention to detail.&lt;/li&gt;\n&lt;li&gt;Work closely with key business stakeholders to coordinate orientation and training for summer intern and early-career programs.&lt;/li&gt;\n&lt;li&gt;Remain apprised of current and changing recruiting methods through research and development of external network.&lt;/li&gt;\n&lt;li&gt;Participate in campus recruitment budget maintenance and analytical reporting&lt;/li&gt;\n&lt;li&gt;Partner with Corporate Communications and Compliance to curate and develop marketing messages and materials.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;WHAT’S REQUIRED&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Bachelor’s degree or equivalent.&lt;/li&gt;\n&lt;li&gt;6+ years of campus recruiting experience, with at least 3 in financial services.&lt;/li&gt;\n&lt;li&gt;Skilled in applicant tracking systems and hiring platforms.&lt;/li&gt;\n&lt;li&gt;Strong communication and presentation skills; confident engaging with candidates and senior stakeholders.&lt;/li&gt;\n&lt;li&gt;Proven ability to manage multiple recruiting campaigns under tight deadlines with sharp attention to detail.&lt;/li&gt;\n&lt;li&gt;Experience developing campus strategies, building university partnerships, and supporting early career initiatives.&lt;/li&gt;\n&lt;li&gt;Established network of talent acquisition professionals, university career services and other faculty, and student organizations.&lt;/li&gt;\n&lt;li&gt;Data-driven decision-making skills: ability to track, analyze, and report recruiting metrics to assess effectiveness and optimize processes.&lt;/li&gt;\n&lt;li&gt;Proficiency in Microsoft Excel and PowerPoint; familiarity with HRIS/CRM and virtual recruiting tools.&lt;/li&gt;\n&lt;li&gt;Collaborative team player with integrity, professionalism, and proactive problem-solving skills.&lt;/li&gt;\n&lt;li&gt;Demonstration of a high level of integrity, discretion and professionalism.&lt;/li&gt;\n&lt;li&gt;Willingness and ability to travel during peak campus recruiting seasons.&lt;/li&gt;\n&lt;li&gt;Commitment to the highest ethical standards.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;WE TAKE CARE OF OUR PEOPLE&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;We invest in our people, their careers, their health, and their well-being. When you work here, we provide:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Fully-paid health care benefits&lt;/li&gt;\n&lt;li&gt;Generous parental and family leave policies&lt;/li&gt;\n&lt;li&gt;Mental and physical wellness programs&lt;/li&gt;\n&lt;li&gt;Volunteer opportunities&lt;/li&gt;\n&lt;li&gt;Non-profit matching gift program&lt;/li&gt;\n&lt;li&gt;Support for employee-led affinity groups representing women, minorities and the LGBT+ community&lt;/li&gt;\n&lt;li&gt;Tuition assistance&lt;/li&gt;\n&lt;li&gt;A 401(k) savings program with an employer match and more&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;ABOUT POINT72&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Point72 is a leading global alternative investment firm led by Steven A. Cohen. Building on more than 30 years of investing experience, Point72 seeks to deliver superior returns for its investors through fundamental and systematic investing strategies across asset classes and geographies. We aim to attract and retain the industry’s brightest talent by cultivating an investor-led culture and committing to our people’s long-term growth. For more information, visit&amp;nbsp;&lt;a href=&quot;https://point72.com/&quot;&gt;https://point72.com/&lt;/a&gt;.&lt;/p&gt;\n&lt;p&gt;The annual base salary range for this role is $170,000-$200,000 (USD), which does not include discretionary bonus compensation or our comprehensive benefits package. Actual compensation offered to the successful candidate may vary from posted hiring range based upon geographic location, work experience, education, and/or skill level, among other things.&lt;/p&gt;",
+      "departments": [
+        {
+          "id": 4120958002,
+          "name": "P72 Academy",
+          "child_ids": [
+            4072937002
+          ],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4041642002,
+          "name": "North America",
+          "location": null,
+          "child_ids": [
+            4080026002,
+            4041643002,
+            4041645002,
+            4041646002,
+            4052020002,
+            4052021002,
+            4046454002,
+            4041647002,
+            4029281002,
+            4007687002,
+            4007773002,
+            4041649002,
+            4007774002,
+            4046455002,
+            4041648002
+          ],
+          "parent_id": null
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/point72/jobs/8511578002?gh_jid=8511578002",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_optional",
+      "internal_job_id": 6399977002,
+      "location": {
+        "name": "Hong Kong"
+      },
+      "metadata": [
+        {
+          "id": 4076300002,
+          "name": "Time Type",
+          "value": "Full Time",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 8511578002,
+      "updated_at": "2026-08-03T20:06:28-04:00",
+      "requisition_id": "AI Product Analyst_5158",
+      "title": "AI Product Analyst, Market Intelligence",
+      "company_name": "Point72 ",
+      "first_published": "2026-04-17T06:59:24-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;A Career with Point72&#39;s Market Intelligence Team&lt;/p&gt;\n&lt;p&gt;On our proprietary research team—Market Intelligence—you’ll partner with our investment professionals and Compliance team to work with alternative data to uncover insights about companies, industries, and the broader economy through deep fundamental research and applying data science and engineering techniques. You’ll work alongside a talented team with diverse skills, backgrounds, and perspectives. Our industry researchers, product managers, and data scientists and engineers work together to build compliant research products. We look for other bright, motivated, and collaborative people to join our team and grow with us—a majority of the leaders in our group were promoted from within.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;WHAT YOU&#39;LL DO&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Lead the development and delivery of AI products that transform Market Intelligence workflows and enable investment professionals to generate differentiated research and trading ideas&lt;/li&gt;\n&lt;li&gt;Work with investment professionals to identify and prioritize AI use cases that drive productivity and actionable insights&lt;/li&gt;\n&lt;li&gt;Translate research and investment needs into clear product requirements and roadmaps&lt;/li&gt;\n&lt;li&gt;Own the end-to-end product lifecycle from ideation and internal approval processes through testing, deployment, and operational support, with metrics-driven reporting on adoption and business impact&lt;/li&gt;\n&lt;li&gt;Establish and maintain model governance standards, including testing, monitoring, documentation, and performance validation to ensure reliability and responsible use&lt;/li&gt;\n&lt;li&gt;Develop integrations between external Compliance approved data sources and internal systems, and collaborate with data engineering to ensure high-quality inputs and reproducible pipelines&lt;/li&gt;\n&lt;li&gt;Stay current of AI and machine learning trends, evaluate new methods and tools, and represent Market Intelligence in shaping the firm’s broader AI strategy&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;WHAT&#39;S REQUIRED&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Bachelor&#39;s degree in computer science, engineering, data science, statistics, or a related field&lt;/li&gt;\n&lt;li&gt;2+ years of professional experience, including experience in AI/ML product initiatives or solution engineering teams&lt;/li&gt;\n&lt;li&gt;Demonstrated track record of designing and operating AI/ML products in production with measurable business impact&lt;/li&gt;\n&lt;li&gt;Proven experience working with large datasets and data pipelines, including proficiency in SQL or equivalent data querying tools&lt;/li&gt;\n&lt;li&gt;Strong stakeholder management and communication skills, with the ability to prioritize initiatives in a fast-paced environment&lt;/li&gt;\n&lt;li&gt;Commitment to the highest ethical standards&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;WE TAKE CARE OF OUR PEOPLE&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;We invest in our people, their careers, their health, and their well-being. When you work here, we provide:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Health care benefits&lt;/li&gt;\n&lt;li&gt;Generous parental and family leave policies&lt;/li&gt;\n&lt;li&gt;Mental and physical wellness programs&lt;/li&gt;\n&lt;li&gt;Volunteer opportunities&lt;/li&gt;\n&lt;li&gt;Support for employee-led affinity groups representing women, minorities and the LGBT+ community&lt;/li&gt;\n&lt;li&gt;Tuition assistance&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;ABOUT POINT72&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Point72 is a leading global alternative investment firm led by Steven A. Cohen. Building on more than 30 years of investing experience, Point72 seeks to deliver superior returns for its investors through fundamental and systematic investing strategies across asset classes and geographies. We aim to attract and retain the industry&#39;s brightest talent by cultivating an investor-led culture and committing to our people&#39;s long-term growth. For more information, visit https://point72.com/.&lt;/p&gt;",
+      "departments": [
+        {
+          "id": 4072571002,
+          "name": "MI - Proprietary Research",
+          "child_ids": [
+            4072654002,
+            4072651002,
+            4072672002,
+            4072648002,
+            4072712002,
+            4072668002,
+            4072673002,
+            4072682002,
+            4072686002,
+            4072699002,
+            4072724002
+          ],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4041654002,
+          "name": "Hong Kong",
+          "location": "Hong Kong",
+          "child_ids": [],
+          "parent_id": 4041653002
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/point72/jobs/8560137002?gh_jid=8560137002",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_optional",
+      "internal_job_id": 6419232002,
+      "location": {
+        "name": "Bengaluru, India "
+      },
+      "metadata": [
+        {
+          "id": 4076300002,
+          "name": "Time Type",
+          "value": "Full Time",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 8560137002,
+      "updated_at": "2026-08-03T20:06:28-04:00",
+      "requisition_id": "Access and Identity Management - Business Analyst_4789",
+      "title": "Access and Identity Management - Business Analyst",
+      "company_name": "Point72 ",
+      "first_published": "2026-05-27T10:17:46-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;&lt;strong&gt;JOB TITLE&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Access and Identity Management - Business Analyst&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;A CAREER WITH POINT72&#39;S TECHNOLOGY TEAM&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;As Point72 reimagines the future of investing, our Technology group is constantly improving our company’s IT infrastructure, positioning us at the forefront of a rapidly evolving technology landscape. We’re a team of experts experimenting, discovering new ways to harness the power of open source and AI solutions, and embracing enterprise agile methodology. We encourage professional development to ensure you bring innovative ideas to our products while satisfying your own intellectual curiosity.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;WHAT YOU&#39;LL DO&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Translate business and security requirements into scalable, production‑ready AIM and IGA solutions that support firmwide operations&lt;/li&gt;\n&lt;li&gt;Partner closely with business, Global Systems Administration, and technology stakeholders to deliver secure, efficient, and user‑friendly access solutions&lt;/li&gt;\n&lt;li&gt;Analyze data to identify access trends, control gaps, and process inefficiencies, with a focus on automating manual processes and improving platform scalability&lt;/li&gt;\n&lt;li&gt;Own requirements gathering, functional documentation, and user stories from ideation through UAT, deployment, and post‑release support&lt;/li&gt;\n&lt;li&gt;Leverage tools such as SailPoint, JIRA, SQL, Splunk, and Power BI to support access governance, reporting, and operational insights&lt;/li&gt;\n&lt;li&gt;Design and maintain dashboards and KPIs that measure access lifecycle performance, risk indicators, and user experience&lt;/li&gt;\n&lt;li&gt;Support data‑driven decision making by validating data quality, ensuring consistency, and aligning metrics to business objectives&lt;/li&gt;\n&lt;li&gt;Build deep domain expertise in identity governance, security controls, and investment‑driven technology platforms&lt;/li&gt;\n&lt;li&gt;Contribute to a culture that prioritizes integrity, transparency, and the highest ethical standards&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;WHAT’S REQUIRED&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;4+ years of experience as a Business Analyst supporting Access &amp;amp; Identity Management (AIM) and Identity Governance &amp;amp; Administration (IGA) initiatives&lt;/li&gt;\n&lt;li&gt;Hands‑on experience with SailPoint, JIRA (case management and workflows), Splunk, Confluence/Wiki tools, and SQL&lt;/li&gt;\n&lt;li&gt;Strong data extraction and analysis skills, including writing SQL queries to aggregate, validate, and analyze data&lt;/li&gt;\n&lt;li&gt;Proficiency in Excel for data analysis, pivot tables, formulas, and ad‑hoc reporting&lt;/li&gt;\n&lt;li&gt;Experience with BI and data visualization tools (e.g., Power BI, Tableau) to build dashboards and communicate insights&lt;/li&gt;\n&lt;li&gt;Solid understanding of SDLC, functional analysis, requirements documentation, and UAT processes&lt;/li&gt;\n&lt;li&gt;Hands-on experience with AI‑driven analytics capabilities (e.g., Copilot, intelligent BI features) to support data analysis, metrics development, and data storytelling&lt;/li&gt;\n&lt;li&gt;Familiarity with data quality controls, validation techniques, and awareness of privacy, security, and compliance standards&lt;/li&gt;\n&lt;li&gt;Strong verbal and written communication skills, with the ability to translate complex technical concepts into clear business insights&lt;/li&gt;\n&lt;li&gt;Ability to manage multiple initiatives simultaneously, collaborate across diverse stakeholders, and deliver under tight timelines&lt;/li&gt;\n&lt;li&gt;Commitment to the highest ethical standards&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;WE TAKE CARE OF OUR PEOPLE&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;We invest in our people, their careers, their health, and their well-being. When you work here, we provide:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Health care benefits&lt;/li&gt;\n&lt;li&gt;Maternity, Adoption &amp;amp; related leave policies&lt;/li&gt;\n&lt;li&gt;Generous paternity and family care leave policies&lt;/li&gt;\n&lt;li&gt;Employee Assistance Program &amp;amp; Mental wellness programs&lt;/li&gt;\n&lt;li&gt;Transportation support&lt;/li&gt;\n&lt;li&gt;Tuition assistance&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;ABOUT POINT72&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Point72 is a leading global alternative investment firm led by Steven A. Cohen. Building on more than 30 years of investing experience, Point72 seeks to deliver superior returns for its investors through fundamental and systematic investing strategies across asset classes and geographies. We aim to attract and retain industry’s brightest talent by cultivating an investor-led culture and committing to our people&#39;s long-term growth. For more information, visit https://point72.com/.&lt;/p&gt;",
+      "departments": [
+        {
+          "id": 4056169002,
+          "name": "Technology",
+          "child_ids": [
+            4131773002,
+            4111193002,
+            4111194002,
+            4114621002,
+            4105346002,
+            4111196002,
+            4072638002,
+            4111197002,
+            4111198002,
+            4072641002,
+            4106925002,
+            4141175002,
+            4128162002,
+            4072632002,
+            4072718002,
+            4132928002,
+            4114617002,
+            4101871002,
+            4135456002,
+            4113077002,
+            4128245002,
+            4128246002,
+            4114612002,
+            4114613002,
+            4114614002,
+            4114615002,
+            4114616002,
+            4141281002,
+            4114618002,
+            4114619002,
+            4114620002,
+            4114622002,
+            4114623002,
+            4123187002,
+            4106924002,
+            4106926002,
+            4129158002,
+            4111195002,
+            4072720002,
+            4124189002,
+            4072677002,
+            4078650002,
+            4074613002,
+            4074599002,
+            4073198002,
+            4072636002,
+            4072623002,
+            4072725002,
+            4072713002,
+            4072704002,
+            4072696002,
+            4072660002,
+            4072639002,
+            4062272002,
+            4078649002,
+            4073456002,
+            4073197002,
+            4072719002,
+            4072637002,
+            4072628002,
+            4072622002,
+            4072708002,
+            4072706002,
+            4072642002,
+            4072630002,
+            4073196002,
+            4072643002,
+            4072635002,
+            4072634002,
+            4072631002,
+            4072629002,
+            4072627002,
+            4072626002,
+            4072625002,
+            4072595002,
+            4072709002,
+            4072707002,
+            4072697002,
+            4072644002,
+            4072624002,
+            4072621002,
+            4072633002,
+            4072620002,
+            4072640002,
+            4062271002,
+            4072590002,
+            4062270002,
+            4062273002,
+            4062269002,
+            4064905002,
+            4064899002,
+            4064913002,
+            4064918002,
+            4064904002,
+            4064893002,
+            4064898002,
+            4064914002,
+            4064901002,
+            4064917002,
+            4064912002,
+            4064907002,
+            4064910002,
+            4064909002,
+            4064908002,
+            4064902002,
+            4064911002,
+            4064894002,
+            4064895002,
+            4064897002,
+            4064915002,
+            4064903002,
+            4064906002,
+            4064916002,
+            4064900002,
+            4064896002,
+            4064890002,
+            4064891002,
+            4064889002,
+            4064892002,
+            4064888002,
+            4064887002,
+            4064920002,
+            4064923002,
+            4064926002,
+            4064925002,
+            4064924002,
+            4064921002,
+            4064927002,
+            4064919002,
+            4064922002,
+            4064885002,
+            4064886002
+          ],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4099503002,
+          "name": "India",
+          "location": "Bengaluru, Karnataka, India",
+          "child_ids": [],
+          "parent_id": 4041653002
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/point72/jobs/8041300002?gh_jid=8041300002",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_optional",
+      "internal_job_id": 6182809002,
+      "location": {
+        "name": "Bengaluru, India"
+      },
+      "metadata": [
+        {
+          "id": 4076300002,
+          "name": "Time Type",
+          "value": "Full Time",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 8041300002,
+      "updated_at": "2026-08-03T20:06:28-04:00",
+      "requisition_id": "DevOps_9207_001",
+      "title": "AI/ML – Investment Services",
+      "company_name": "Point72 ",
+      "first_published": "2026-02-04T06:09:44-05:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;&lt;strong&gt;AI/ML – Investment Services &lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;A Career with Point72&#39;s AI/ML – Investment Services Team&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;The AI/ML – Investment Services team at Point72 spearheads the development of cutting-edge AI solutions that seek to transform our business processes and enhance enterprise intelligence. The team aims to bridge the gap between business challenges and technological innovation, collaborating with stakeholders across the firm and leveraging expertise in generative AI, data engineering, and machine learning.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;WHAT YOU&#39;LL DO&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Build and scale core backend services and platforms that power generative AI applications and data infrastructure used across the firm’s investment workflows&lt;/li&gt;\n&lt;li&gt;Design and implement high-throughput, low-latency data pipelines to ingest, normalize, and serve both structured and unstructured data&lt;/li&gt;\n&lt;li&gt;Develop robust APIs and microservices to support model inference, feature serving, and downstream applications&lt;/li&gt;\n&lt;li&gt;Integrate generative AI tools and model-serving workflows into production, including embedding stores, retrieval components, and fine-tuning pipelines&lt;/li&gt;\n&lt;li&gt;Optimize system performance, cost, and reliability through profiling, capacity planning, and architectural improvements&lt;/li&gt;\n&lt;li&gt;Implement automated testing, continuous delivery pipelines, monitoring, and incident response practices to maintain production health&lt;/li&gt;\n&lt;li&gt;Partner with data scientists, AI engineers, product owners, and operations to translate models and prototypes into scalable, production-grade solutions&lt;/li&gt;\n&lt;li&gt;Mentor engineers, lead code reviews, and establish engineering best practices for maintainability, security, and observability&lt;/li&gt;\n&lt;li&gt;Own end-to-end delivery, operational runbooks, and metrics-driven measurement of feature impact and system reliability&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;WHAT&#39;S REQUIRED&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Bachelor’s degree in computer science, software engineering, or a related technical field&lt;/li&gt;\n&lt;li&gt;Minimum 5+ years of professional experience building backend systems and production services&lt;/li&gt;\n&lt;li&gt;Demonstrated experience designing and operating large-scale data engineering pipelines for both batch and streaming workloads&lt;/li&gt;\n&lt;li&gt;Demonstrated hands-on engagement with generative AI tools or development workflows, including model inference, embeddings, or model fine-tuning&lt;/li&gt;\n&lt;li&gt;Proficiency in Python and in at least one systems language such as Java, Go, or C++&lt;/li&gt;\n&lt;li&gt;Strong experience with cloud platforms and services for compute and storage and with containerization and orchestration technologies such as Kubernetes&lt;/li&gt;\n&lt;li&gt;Proven experience with databases and messaging or stream-processing technologies for high-throughput workloads&lt;/li&gt;\n&lt;li&gt;Experience designing and implementing APIs, microservices, CI/CD pipelines, automated testing, and observability tooling&lt;/li&gt;\n&lt;li&gt;Excellent verbal and written communication skills and demonstrated ability to work effectively with cross-functional teams to deliver impactful solutions&lt;/li&gt;\n&lt;li&gt;Commitment to the highest ethical standards&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;We take care of our people&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;We invest in our people, their careers, their health, and their well-being. When you work here, we provide:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Health care benefits&lt;/li&gt;\n&lt;li&gt;Maternity, Adoption &amp;amp; related leave policies&lt;/li&gt;\n&lt;li&gt;Generous paternity and family care leave policies&lt;/li&gt;\n&lt;li&gt;Employee Assistance Program &amp;amp; Mental wellness programs&lt;/li&gt;\n&lt;li&gt;Transportation support&lt;/li&gt;\n&lt;li&gt;Tuition assistance&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;About Point72&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Point72 is a leading global alternative investment firm led by Steven A. Cohen. Building on more than 30 years of investing experience, Point72 seeks to deliver superior returns for its investors through fundamental and systematic investing strategies across asset classes and geographies. We aim to attract and retain the industry’s brightest talent by cultivating an investor-led culture and committing to our people’s long-term growth. For more information, visit&amp;nbsp;&lt;a href=&quot;https://point72.com/&quot;&gt;&lt;strong&gt;https://point72.com/&lt;/strong&gt;&lt;/a&gt;.&lt;/p&gt;",
+      "departments": [
+        {
+          "id": 4137897002,
+          "name": "Strategy / IS AI",
+          "child_ids": [],
+          "parent_id": 4137895002
+        }
+      ],
+      "offices": [
+        {
+          "id": 4099503002,
+          "name": "India",
+          "location": "Bengaluru, Karnataka, India",
+          "child_ids": [],
+          "parent_id": 4041653002
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/point72/jobs/8630027002?gh_jid=8630027002",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_optional",
+      "internal_job_id": 6446660002,
+      "location": {
+        "name": "Singapore"
+      },
+      "metadata": [
+        {
+          "id": 4076300002,
+          "name": "Time Type",
+          "value": "Full Time",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 8630027002,
+      "updated_at": "2026-08-03T20:06:28-04:00",
+      "requisition_id": "2209",
+      "title": "AI Product Analyst, Market Intelligence, Singapore",
+      "company_name": "Point72 ",
+      "first_published": "2026-07-30T05:07:10-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;A Career with Point72&#39;s Market Intelligence Team&lt;/p&gt;\n&lt;p&gt;On our proprietary research team—Market Intelligence—you’ll partner with our investment professionals and Compliance team to work with alternative data to uncover insights about companies, industries, and the broader economy through deep fundamental research and applying data science and engineering techniques. You’ll work alongside a talented team with diverse skills, backgrounds, and perspectives. Our industry researchers, product managers, and data scientists and engineers work together to build compliant research products. We look for other bright, motivated, and collaborative people to join our team and grow with us—a majority of the leaders in our group were promoted from within.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;WHAT YOU&#39;LL DO&lt;/strong&gt;&lt;/p&gt;\n&lt;p style=&quot;padding-left: 40px;&quot;&gt;• &amp;nbsp; &amp;nbsp;Shape artificial intelligence product initiatives that help investment and business teams across Asia-Pacific work more efficiently and generate stronger insights&lt;br&gt;• &amp;nbsp; &amp;nbsp;Serve as a hub resource in Singapore for Investment Services APAC, partnering across Macro, Cubist Systematic Strategies, Market Intelligence, CDS, and Finance&lt;br&gt;• &amp;nbsp; &amp;nbsp;Translate business needs into clear product requirements, user stories, workflows, and success measures for artificial intelligence-enabled tools&lt;br&gt;• &amp;nbsp; &amp;nbsp;Analyze user feedback, adoption patterns, and operational pain points to identify high-impact opportunities for automation and workflow improvement&lt;br&gt;• &amp;nbsp; &amp;nbsp;Partner with researchers, data professionals, engineers, and control functions to advance approved ideas from discovery through delivery&lt;br&gt;• &amp;nbsp; &amp;nbsp;Support prioritization of a cross-business product pipeline by assessing impact, feasibility, dependencies, and readiness for adoption&lt;br&gt;• &amp;nbsp; &amp;nbsp;Coordinate testing, documentation, user training, and rollout activities to help teams adopt new capabilities with confidence&lt;br&gt;• &amp;nbsp; &amp;nbsp;Monitor product performance after launch and recommend refinements that improve accuracy, usability, and business value&lt;br&gt;• &amp;nbsp; &amp;nbsp;Communicate product progress, risks, decisions, and outcomes clearly to stakeholders across functions and seniority levels&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;WHAT&#39;S REQUIRED&lt;/strong&gt;&lt;/p&gt;\n&lt;p style=&quot;padding-left: 40px;&quot;&gt;• &amp;nbsp; &amp;nbsp;At least two years of experience in product analysis, business analysis, data analytics, or artificial intelligence-enabled product delivery&lt;br&gt;• &amp;nbsp; &amp;nbsp;Experience supporting stakeholders across APAC business functions, ideally in a Singapore-based role or regional hub environment&lt;br&gt;• &amp;nbsp; &amp;nbsp;Understanding of artificial intelligence product concepts, including use case discovery, requirements gathering, testing, adoption tracking, and performance measurement&lt;br&gt;• &amp;nbsp; &amp;nbsp;Strong analytical skills, with the ability to evaluate workflows, interpret data, and translate findings into practical product recommendations&lt;br&gt;• &amp;nbsp; &amp;nbsp;Ability to document business requirements, process flows, user feedback, and acceptance criteria clearly and logically&lt;br&gt;• &amp;nbsp; &amp;nbsp;Strong communication skills, with the ability to explain product concepts to technical and nontechnical stakeholders&lt;br&gt;• &amp;nbsp; &amp;nbsp;Strong ownership, attention to detail, and ability to manage multiple priorities in a fast-paced, cross-functional environment&lt;br&gt;• &amp;nbsp; &amp;nbsp;Commitment to the highest ethical standards&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;WE TAKE CARE OF OUR PEOPLE&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;We invest in our people, their careers, their health, and their well-being. When you work here, we provide:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Health care benefits&lt;/li&gt;\n&lt;li&gt;Generous parental and family leave policies&lt;/li&gt;\n&lt;li&gt;Mental and physical wellness programs&lt;/li&gt;\n&lt;li&gt;Volunteer opportunities&lt;/li&gt;\n&lt;li&gt;Support for employee-led affinity groups representing women, minorities and the LGBT+ community&lt;/li&gt;\n&lt;li&gt;Tuition assistance&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;ABOUT POINT72&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Point72 is a leading global alternative investment firm led by Steven A. Cohen. Building on more than 30 years of investing experience, Point72 seeks to deliver superior returns for its investors through fundamental and systematic investing strategies across asset classes and geographies. We aim to attract and retain the industry&#39;s brightest talent by cultivating an investor-led culture and committing to our people&#39;s long-term growth. For more information, visit https://point72.com/.&lt;/p&gt;",
+      "departments": [
+        {
+          "id": 4072571002,
+          "name": "MI - Proprietary Research",
+          "child_ids": [
+            4072654002,
+            4072651002,
+            4072672002,
+            4072648002,
+            4072712002,
+            4072668002,
+            4072673002,
+            4072682002,
+            4072686002,
+            4072699002,
+            4072724002
+          ],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4041656002,
+          "name": "Singapore",
+          "location": "Singapore, Central, Singapore",
+          "child_ids": [],
+          "parent_id": 4041653002
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/point72/jobs/7045979002?gh_jid=7045979002",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_required",
+      "internal_job_id": 5693261002,
+      "location": {
+        "name": "New York"
+      },
+      "metadata": [
+        {
+          "id": 4076300002,
+          "name": "Time Type",
+          "value": "Full Time",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 7045979002,
+      "updated_at": "2026-08-03T20:06:28-04:00",
+      "requisition_id": "1194",
+      "title": "Cubist Senior Data Scientist",
+      "company_name": "Point72 ",
+      "first_published": "2023-12-15T09:00:31-05:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;&lt;strong&gt;ROLE&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;We are passionate about data. We collaborate to build elegant, effective, scalable and highly reliable solutions to empower predictive modelling in finance.&lt;/p&gt;\n&lt;p&gt;Cubist’s Data Services (CDS) group is looking&amp;nbsp;for a&amp;nbsp;Data Scientist to join our dedicated data team. Our group is responsible for the timely delivery of comprehensive and error-free data to&amp;nbsp;some of the most demanding and successful systematic Portfolio Managers in the world.&lt;/p&gt;\n&lt;p&gt;As a Senior Data Scientist in the team, this individual will play a vital role in ensuring the smooth day-to-day&amp;nbsp;implementation of a large research infrastructure, and the live production trading&amp;nbsp;of billions of dollars of capital across global capital markets, including equities, futures, options and other financial instruments.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;RESPONSIBILITIES&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Onboarding novel datasets from a huge variety of sources into our platform&lt;/li&gt;\n&lt;li&gt;Building processes, tools and frameworks to ingest, clean and deliver datasets&lt;/li&gt;\n&lt;li&gt;Analysis of data for usability, cleanliness, feature extraction and proposed usage by investment teams&lt;/li&gt;\n&lt;li&gt;Creation of in-house, value added, derived data products for consumption by investment teams&lt;/li&gt;\n&lt;li&gt;Engaging with vendors and internal stakeholders to understand characteristics of datasets&lt;/li&gt;\n&lt;li&gt;Partnering closely with investment teams to ensure their data requirements are met&lt;/li&gt;\n&lt;li&gt;Research on new technologies (including AI solutions) to continuously improve data management and value-add for investment teams&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;REQUIREMENTS&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;PhD or Masters in Financial Engineering, Statistics, Computer Science or other disciplines involving rigorous quantitative analysis&lt;/li&gt;\n&lt;li&gt;Strong programming skills in Python and SQL&lt;/li&gt;\n&lt;li&gt;Experience working with AWS, Linux and Airflow preferred but not required&lt;/li&gt;\n&lt;li&gt;5+ years of experience as a Data Scientist or similar role&lt;/li&gt;\n&lt;li&gt;Experience working with large data sets including predictive modeling&lt;/li&gt;\n&lt;li&gt;Financial industry experience preferred but not required&lt;/li&gt;\n&lt;li&gt;Strong organization, communication and interpersonal skills&lt;/li&gt;\n&lt;li&gt;Intellectual curiosity and enthusiasm for learning&lt;/li&gt;\n&lt;li&gt;Attention to detail and a love of processes&lt;/li&gt;\n&lt;li&gt;Strong oral&amp;nbsp;and written&amp;nbsp;communication skills&lt;/li&gt;\n&lt;li&gt;Ability to multitask and prioritize assignments&lt;/li&gt;\n&lt;li&gt;Commitment to the highest ethical standards&lt;/li&gt;\n&lt;/ul&gt;",
+      "departments": [
+        {
+          "id": 4077293002,
+          "name": "Quant Management",
+          "child_ids": [
+            4093681002,
+            4093682002,
+            4093683002,
+            4093684002,
+            4093685002,
+            4127486002,
+            4077294002
+          ],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4007773002,
+          "name": "New York, NY",
+          "location": "New York, New York, United States",
+          "child_ids": [],
+          "parent_id": 4041645002
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/point72/jobs/7045995002?gh_jid=7045995002",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_required",
+      "internal_job_id": 5693271002,
+      "location": {
+        "name": "Singapore"
+      },
+      "metadata": [
+        {
+          "id": 4076300002,
+          "name": "Time Type",
+          "value": "Full Time",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 7045995002,
+      "updated_at": "2026-08-03T20:06:28-04:00",
+      "requisition_id": "1199",
+      "title": "Cubist Senior Data Scientist",
+      "company_name": "Point72 ",
+      "first_published": "2023-12-15T09:26:33-05:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;&lt;strong&gt;ROLE&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;We are passionate about data. We collaborate to build elegant, effective, scalable and highly reliable solutions to empower predictive modelling in finance.&lt;/p&gt;\n&lt;p&gt;Cubist’s Data Services (CDS) group is looking&amp;nbsp;for a&amp;nbsp;Data Scientist to join our dedicated data team. Our group is responsible for the timely delivery of comprehensive and error-free data to&amp;nbsp;some of the most demanding and successful systematic Portfolio Managers in the world.&lt;/p&gt;\n&lt;p&gt;As a Senior Data Scientist in the team, this individual will play a vital role in ensuring the smooth day-to-day&amp;nbsp;implementation of a large research infrastructure, and the live production trading&amp;nbsp;of billions of dollars of capital across global capital markets, including equities, futures, options and other financial instruments.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;RESPONSIBILITIES&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Onboarding novel datasets from a huge variety of sources into our platform&lt;/li&gt;\n&lt;li&gt;Building processes, tools and frameworks to ingest, clean and deliver datasets&lt;/li&gt;\n&lt;li&gt;Analysis of data for usability, cleanliness, feature extraction and proposed usage by investment teams&lt;/li&gt;\n&lt;li&gt;Creation of in-house, value added, derived data products for consumption by investment teams&lt;/li&gt;\n&lt;li&gt;Engaging with vendors and internal stakeholders to understand characteristics of datasets&lt;/li&gt;\n&lt;li&gt;Partnering closely with investment teams to ensure their data requirements are met&lt;/li&gt;\n&lt;li&gt;Research on new technologies (including AI solutions) to continuously improve data management and value-add for investment teams&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;REQUIREMENTS&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;PhD or Masters in Financial Engineering, Statistics, Computer Science or other disciplines involving rigorous quantitative analysis&lt;/li&gt;\n&lt;li&gt;Strong programming skills in Python and SQL&lt;/li&gt;\n&lt;li&gt;Experience working with AWS, Linux and Airflow preferred but not required&lt;/li&gt;\n&lt;li&gt;5+ years of experience as a Data Scientist or similar role&lt;/li&gt;\n&lt;li&gt;Experience working with large data sets including predictive modeling&lt;/li&gt;\n&lt;li&gt;Financial industry experience preferred but not required&lt;/li&gt;\n&lt;li&gt;Strong organization, communication and interpersonal skills&lt;/li&gt;\n&lt;li&gt;Intellectual curiosity and enthusiasm for learning&lt;/li&gt;\n&lt;li&gt;Attention to detail and a love of processes&lt;/li&gt;\n&lt;li&gt;Strong oral&amp;nbsp;and written&amp;nbsp;communication skills&lt;/li&gt;\n&lt;li&gt;Ability to multitask and prioritize assignments&lt;/li&gt;\n&lt;li&gt;Commitment to the highest ethical standards&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;",
+      "departments": [
+        {
+          "id": 4077293002,
+          "name": "Quant Management",
+          "child_ids": [
+            4093681002,
+            4093682002,
+            4093683002,
+            4093684002,
+            4093685002,
+            4127486002,
+            4077294002
+          ],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4041656002,
+          "name": "Singapore",
+          "location": "Singapore, Central, Singapore",
+          "child_ids": [],
+          "parent_id": 4041653002
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/point72/jobs/8634189002?gh_jid=8634189002",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_optional",
+      "internal_job_id": 6448393002,
+      "location": {
+        "name": "Hong Kong"
+      },
+      "metadata": [
+        {
+          "id": 4076300002,
+          "name": "Time Type",
+          "value": "Full Time",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 8634189002,
+      "updated_at": "2026-08-03T20:06:28-04:00",
+      "requisition_id": "2210",
+      "title": "Administrative Assistant",
+      "company_name": "Point72 ",
+      "first_published": "2026-07-15T05:02:26-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;p&gt;&lt;strong&gt;PM Admin Assistant&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Summary&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;We are looking for an experienced administrative assistant to provide support to our portfolio managers and their team of research analysts.&lt;/em&gt;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;What you’ll do&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;As an Administrative Assistant, you will provide administrative support to one or several investment teams including portfolio managers and research analysts. Specifically, you will:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Strategically partner with investment team(s) to help alleviate workload and create efficiencies&lt;/li&gt;\n&lt;li&gt;Manage calendars and conference calls, make appointments, book conference rooms, organize meetings&lt;/li&gt;\n&lt;li&gt;Coordinate domestic and international travel arrangements&lt;/li&gt;\n&lt;li&gt;Create and process expense reports&lt;/li&gt;\n&lt;li&gt;Manage phone coverage for team and set up conference calls as needed&lt;/li&gt;\n&lt;li&gt;Participate in elements of the research process&lt;/li&gt;\n&lt;li&gt;Perform personal assistant functions (scheduling, reservations etc.) if required&lt;/li&gt;\n&lt;li&gt;Identify areas of improvement and develop solutions to help optimize team workflow&lt;/li&gt;\n&lt;li&gt;Develop and maintain strong working relationships with Brokers to manage corporate access for PM(s) and team in partnership with Compliance&lt;/li&gt;\n&lt;li&gt;Conduct research and aggregate data&lt;/li&gt;\n&lt;li&gt;Follow internal policies and due processes such as compliance approvals&lt;/li&gt;\n&lt;li&gt;Work on special projects as needed&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;What’s required &lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Strong industry knowledge&lt;/li&gt;\n&lt;li&gt;Ability to multitask and anticipate assignments while maintaining meticulous attention to detail&lt;/li&gt;\n&lt;li&gt;Research and organize earnings calls and conference dates&lt;/li&gt;\n&lt;li&gt;Proactive workflow management and strong communication skills&lt;/li&gt;\n&lt;li&gt;Desire to take on more responsibility and become an important member of team investment process&lt;/li&gt;\n&lt;li&gt;Demonstrated sustained top performance as a PM administrative assistant, exemplifying our Mission, Value and Standards&lt;/li&gt;\n&lt;li&gt;Strong organizational, communication, and interpersonal skills&lt;/li&gt;\n&lt;li&gt;Ability to work autonomously with very little direction&lt;/li&gt;\n&lt;li&gt;Proficient level knowledge of Microsoft Outlook, Excel, and Word - Consistently lives Point72’s Mission and Values&lt;/li&gt;\n&lt;li&gt;Commitment to the highest ethical standards&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;We take care of our people &lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;We invest in our people, their careers, their health, and their well-being. When you work here, we provide:&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Health care benefits&lt;/li&gt;\n&lt;li&gt;Generous parental and family leave policies&lt;/li&gt;\n&lt;li&gt;Mental and physical wellness programs&lt;/li&gt;\n&lt;li&gt;Volunteer opportunities&lt;/li&gt;\n&lt;li&gt;Non-profit matching gift program&lt;/li&gt;\n&lt;li&gt;Support for employee-led affinity groups representing women, minorities and the LGBT+ community&lt;/li&gt;\n&lt;li&gt;Tuition assistance&lt;/li&gt;\n&lt;li&gt;Competitive retirement program&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;About Point72&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Point72 Asset Management is a global firm led by Steven Cohen that invests in multiple asset classes and strategies worldwide. Resting on more than a quarter-century of investing experience, we seek to be the industry’s premier asset manager through delivering superior risk-adjusted returns, adhering to the highest ethical standards, and offering the greatest opportunities to the industry’s brightest talent. We’re inventing the future of finance by revolutionizing how we develop our people and how we use data to shape our thinking. For more information, visit &lt;a href=&quot;http://www.Point72.com/working-here&quot;&gt;www.Point72.com/working-here&lt;/a&gt;.&lt;/p&gt;",
+      "departments": [
+        {
+          "id": 4062309002,
+          "name": "Administrative Support - Pre-Sync",
+          "child_ids": [],
+          "parent_id": 4062308002
+        }
+      ],
+      "offices": [
+        {
+          "id": 4041654002,
+          "name": "Hong Kong",
+          "location": "Hong Kong",
+          "child_ids": [],
+          "parent_id": 4041653002
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://boards.greenhouse.io/point72/jobs/8522115002?gh_jid=8522115002",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_optional",
+      "internal_job_id": 6403918002,
+      "location": {
+        "name": "Singapore"
+      },
+      "metadata": [
+        {
+          "id": 4076300002,
+          "name": "Time Type",
+          "value": "Full Time",
+          "value_type": "single_select"
+        }
+      ],
+      "id": 8522115002,
+      "updated_at": "2026-08-03T20:06:28-04:00",
+      "requisition_id": "Admin Assistant_4640",
+      "title": "Administrative Assistant, Investment Professional Development",
+      "company_name": "Point72 ",
+      "first_published": "2026-04-24T08:30:04-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "Administrative Assistant, Investment Professional Development",
+      "departments": [
+        {
+          "id": 4124220002,
+          "name": "Investment Professional Development",
+          "child_ids": [
+            4124222002
+          ],
+          "parent_id": 4062308002
+        }
+      ],
+      "offices": [
+        {
+          "id": 4041654002,
+          "name": "Hong Kong",
+          "location": "Hong Kong",
+          "child_ids": [],
+          "parent_id": 4041653002
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    }
+  ],
+  "meta": {
+    "total": 17
+  }
+}

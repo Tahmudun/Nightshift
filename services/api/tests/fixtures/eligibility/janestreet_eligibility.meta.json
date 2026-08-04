@@ -1,0 +1,34 @@
+{
+  "provenance": {
+    "endpoint": "https://boards-api.greenhouse.io/v1/boards/janestreet/jobs?content=true",
+    "recorded_at": "2026-08-04T09:16:46+00:00",
+    "board_token": "janestreet",
+    "http_status": 200,
+    "full_response_job_count": 225,
+    "note": "Each job object is byte-identical to the live response. Only the set of jobs was reduced (225 -> 17); nothing inside a job was edited, redacted, or synthesised."
+  },
+  "why_each_job_is_here": {
+    "8469230002": "new grad / university programme in the title",
+    "8448713002": "new grad / university programme in the title",
+    "8377831002": "a graduation year stated numerically",
+    "8347385002": "a graduation year stated numerically",
+    "8630687002": "a graduation year stated numerically",
+    "8459402002": "sponsorship stated in writing",
+    "8594416002": "a doctorate named as a requirement",
+    "8596771002": "a doctorate named as a requirement",
+    "7642974002": "'or equivalent experience' \u2014 the A13 escape hatch",
+    "7642886002": "'or equivalent experience' \u2014 the A13 escape hatch",
+    "8213653002": "a numeric years-of-experience requirement",
+    "8233259002": "a numeric years-of-experience requirement",
+    "8512072002": "a numeric years-of-experience requirement",
+    "8599605002": "senior or above in the title \u2014 the seniority mismatch case",
+    "8564603002": "senior or above in the title \u2014 the seniority mismatch case",
+    "8347073002": "non-engineering role at a technical employer",
+    "8151903002": "non-engineering role at a technical employer"
+  },
+  "coverage_not_available_on_this_board": [
+    "internship in the title",
+    "a preferred / nice-to-have section, whose contents are not gaps",
+    "multi-level posting spanning an eligibility boundary"
+  ]
+}
