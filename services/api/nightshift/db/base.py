@@ -336,6 +336,38 @@ class ExtractionStatus(enum.StrEnum):
     REJECTED = "rejected"
 
 
+class RequirementKind(enum.StrEnum):
+    """What a posting is asking for. Each value is something a rule can find.
+
+    Deliberately absent: anything about culture, drive, or "passion". A rule
+    cannot find those and a score built on them would be taste wearing a
+    number's clothes.
+    """
+
+    DEGREE = "degree"
+    GRADUATION_WINDOW = "graduation_window"
+    YEARS_EXPERIENCE = "years_experience"
+    TECHNOLOGY = "technology"
+    AUTHORIZATION = "authorization"
+    ENROLLMENT = "enrollment"
+    ROLE_LEVEL = "role_level"
+
+
+class RequirementNecessity(enum.StrEnum):
+    """How hard the ask is. `matching.md` §4.1: this is the column the product
+    turns on.
+
+    Only ``required`` may produce a missing-requirement penalty or appear as a
+    gap. Ramp's Android internship lists nine technologies under "nice to
+    haves"; treating those as required reports nine false gaps against a
+    candidate who is fully qualified.
+    """
+
+    REQUIRED = "required"
+    PREFERRED = "preferred"
+    MENTIONED = "mentioned"
+
+
 def pg_enum_values(enum_cls: type[enum.Enum]) -> list[str]:
     """``values_callable`` helper: store enum *values*, not member names."""
     return [member.value for member in enum_cls]

@@ -27,6 +27,7 @@ from typing import Any
 from geoalchemy2 import Geometry
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Computed,
     Date,
@@ -63,6 +64,8 @@ from nightshift.db.base import (
     ProjectStatus,
     RemotePolicy,
     RemotePreference,
+    RequirementKind,
+    RequirementNecessity,
     ResolutionMethod,
     ResumeSourceKind,
     ResumeVariant,
@@ -588,6 +591,9 @@ class Job(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     source_links: Mapped[list[JobSourceLink]] = relationship(
         back_populates="job", cascade="all, delete-orphan"
     )
+    requirements: Mapped[list[JobRequirement]] = relationship(
+        back_populates="job", cascade="all, delete-orphan"
+    )
 
 
 class JobLocation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -664,6 +670,55 @@ class JobLocation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     is_primary: Mapped[bool] = mapped_column(nullable=False, server_default=text("false"))
 
     job: Mapped[Job] = relationship(back_populates="locations", foreign_keys=[job_id])
+
+
+class JobRequirement(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """What a posting asks for, and the characters where it says so.
+
+    **Invariant I2 does not govern this table**, though it looks like it should.
+    I2 is about claims regarding a *person's* qualifications, which is why
+    `resume_extractions` proposes and never confirms. A job requirement is a
+    claim about a *posting*, checkable against a payload committed in the same
+    repository. It needs no confirmation step.
+
+    It still quotes its span, enforced by trigger, because a requirement nobody
+    can trace back to a sentence is not auditable — and the job page shows the
+    sentence rather than asking anyone to trust a summary.
+    """
+
+    __tablename__ = "job_requirements"
+    __table_args__ = (
+        Index("ix_job_requirements_job_id", "job_id"),
+        # The extractor emits one row per (kind, value, span). A second run over
+        # unchanged text must not double the rows.
+        UniqueConstraint("job_id", "kind", "value", "char_start", name="uq_job_requirements_span"),
+        CheckConstraint("char_start >= 0", name="char_start_is_not_negative"),
+        CheckConstraint("char_end > char_start", name="span_runs_forwards"),
+    )
+
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False
+    )
+    kind: Mapped[RequirementKind] = mapped_column(
+        _enum(RequirementKind, "requirement_kind"), nullable=False
+    )
+    #: Normalized: a skill name from `data/skills.yaml`, a year range, an integer
+    #: as a string. `raw_text` is what the posting actually said.
+    value: Mapped[str] = mapped_column(String(200), nullable=False)
+    raw_text: Mapped[str] = mapped_column(String(500), nullable=False)
+    char_start: Mapped[int] = mapped_column(Integer, nullable=False)
+    char_end: Mapped[int] = mapped_column(Integer, nullable=False)
+    necessity: Mapped[RequirementNecessity] = mapped_column(
+        _enum(RequirementNecessity, "requirement_necessity"), nullable=False
+    )
+    #: "or equivalent experience". A13: this is not a hard blocker, and M3b's
+    #: gate must resolve it to `uncertain` rather than `ineligible`.
+    has_equivalence: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false")
+    )
+    extractor_version: Mapped[str] = mapped_column(String(40), nullable=False)
+
+    job: Mapped[Job] = relationship(back_populates="requirements")
 
 
 class JobSourceLink(UUIDPrimaryKeyMixin, Base):
