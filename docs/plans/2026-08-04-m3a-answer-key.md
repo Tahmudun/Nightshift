@@ -483,7 +483,7 @@ live. A 5,800-character description is not something anyone will read sixty time
 - Create: `services/api/tests/test_label_worksheet.py`
 
 **Interfaces:**
-- Produces: `requirements_excerpt(text: str, *, window: int = 1200) -> str`
+- Produces: `requirements_excerpt(text: str, *, window: int = 2500) -> str`
 - Produces: `blank_label(posting_id: str, title: str) -> dict[str, Any]`
 
 - [ ] **Step 1: Write the failing test**
@@ -684,6 +684,61 @@ def test_a_colon_after_a_sentence_terminator_does_not_count(worksheet: Any) -> N
     """`_colon_follows` must abandon the search at the end of the sentence."""
     assert worksheet._colon_follows("qualifications, and skill set. Note: x", 0) is False
     assert worksheet._colon_follows(" in this role if you: Kotlin", 0) is True
+
+
+def test_the_excerpt_stops_at_the_next_non_requirements_section(
+    worksheet: Any,
+) -> None:
+    """Pay disclaimers and benefits are not requirements and must not appear."""
+    text = (
+        "REQUIREMENTS Proficiency in Kotlin. " + "More real requirements here. " * 8
+        + "COMPENSATION The base salary range for this role is $200,000 to $300,000 "
+        "and this role is also eligible for a discretionary bonus."
+    )
+    excerpt = worksheet.requirements_excerpt(text)
+    assert "Proficiency in Kotlin" in excerpt
+    assert "$200,000" not in excerpt
+    assert "discretionary bonus" not in excerpt
+
+
+def test_a_section_ended_by_a_closer_is_not_marked_as_cut(worksheet: Any) -> None:
+    """Stopping at the section's own end is completeness, not truncation.
+
+    Marking it would put the notice on almost every posting and teach a labeler
+    to ignore it — which is what a 1200-char window with no boundary did, at
+    56 of 60.
+    """
+    text = "REQUIREMENTS Kotlin. " + "Real requirement. " * 12 + "BENEFITS Free lunch."
+    excerpt = worksheet.requirements_excerpt(text)
+    assert not excerpt.endswith(worksheet.TRUNCATED_SUFFIX)
+    assert "Free lunch" not in excerpt
+
+
+def test_a_closer_inside_the_heading_line_does_not_end_the_section(
+    worksheet: Any,
+) -> None:
+    """`_CLOSER_OFFSET` exists because flattened HTML can put a requirements
+    heading and the word "compensation" within a sentence of each other."""
+    text = (
+        "REQUIREMENTS Experience with compensation systems. Proficiency in Kotlin. "
+        + "More requirements. " * 8
+    )
+    assert "Proficiency in Kotlin" in worksheet.requirements_excerpt(text)
+
+
+def test_most_selected_excerpts_are_not_cut_off(worksheet: Any) -> None:
+    """A marker on almost every posting is a marker nobody reads.
+
+    Measured at 56 of 60 before the section boundary existed. If this rises
+    again the fix is the closer list or the window, and the docstring on
+    `_SECTION_CLOSERS` records the measurements to decide which.
+    """
+    picked = worksheet.select_for_labeling(worksheet._all_postings())
+    cut = sum(
+        worksheet.requirements_excerpt(p["text"]).endswith(worksheet.TRUNCATED_SUFFIX)
+        for _, p in picked
+    )
+    assert cut <= len(picked) // 4, f"{cut} of {len(picked)} excerpts cut off"
 
 
 def test_a_cut_off_excerpt_says_so(worksheet: Any) -> None:
@@ -1148,14 +1203,47 @@ NO_HEADING_WHOLE = NO_HEADING_PREFIX + " — showing the whole posting] "
 #: `required_tech` from that would under-report it and have no way to know.
 TRUNCATED_SUFFIX = " […cut off — open the fixture for the rest]"
 
+#: Headings that end a requirements section. Everything after one of these is
+#: pay disclaimers, benefits and EEO boilerplate — never a requirement.
+#:
+#: This is what makes the window generous without recreating the wall of text.
+#: Measured across the 60 selected postings: from the requirements heading to
+#: the *end of the posting* is a median of 3,475 characters and a maximum of
+#: 13,967. To the next closer below it is a median of **1,260**. Raising the
+#: window alone would have dragged all that boilerplate back in.
+_SECTION_CLOSERS = re.compile(
+    r"compensation|benefits|equal (employment )?opportunity|perks"
+    r"|why (join|work)|our values|about (us|the company)"
+    r"|the (expected )?(base )?(salary|pay)|we are an equal|pay transparency"
+    r"|how to apply|interview process|life at|eeo|in accordance with"
+    r"|annual salary range|total (pay|compensation)",
+    re.I,
+)
 
-def requirements_excerpt(text: str, *, window: int = 1200) -> str:
-    """The region where requirements live, capped, never the whole document.
+#: How far into a section to start looking for its closer. A requirements
+#: heading and a compensation heading sometimes sit within a sentence of each
+#: other in flattened HTML, and without this offset the excerpt would close
+#: itself immediately.
+_CLOSER_OFFSET = 200
+
+
+def requirements_excerpt(text: str, *, window: int = 2500) -> str:
+    """The requirements section, bounded at its own end rather than by length.
 
     Starts at the earliest *genuine* heading (see :func:`_heading_positions`)
-    and runs ``window`` characters, which keeps the preferred section in frame —
-    it almost always follows the required one and it is the section that matters
-    most to label.
+    and runs to whichever comes first: the next non-requirements section
+    (:data:`_SECTION_CLOSERS`) or ``window`` characters. The preferred section
+    stays in frame — it almost always follows the required one and is the part
+    that matters most to label — while pay disclaimers and EEO boilerplate do
+    not.
+
+    **The section boundary is what lets the window be generous.** A 1,200-char
+    window with no boundary marked 56 of 60 excerpts as cut, which makes the
+    marker noise nobody reads; raising it alone would have dragged the
+    boilerplate back in, since heading-to-end-of-posting runs to a median of
+    3,475 characters and a maximum of 13,967. Cutting at the closer brings the
+    median to 1,260, and at 2,500 only about 7 of 60 are still cut — a marker
+    that means something when it appears.
 
     With no heading it returns the **tail**, not the whole text. Two reasons,
     both measured: the first version returned everything and produced excerpts
@@ -1174,8 +1262,12 @@ def requirements_excerpt(text: str, *, window: int = 1200) -> str:
     positions = _heading_positions(text)
     if positions:
         start = positions[0]
-        excerpt = text[start : start + window]
-        if start + window < len(text):
+        body = text[start:]
+        closer = _SECTION_CLOSERS.search(body, _CLOSER_OFFSET)
+        section_end = closer.start() if closer else len(body)
+        end = min(section_end, window)
+        excerpt = body[:end]
+        if end < section_end:
             excerpt += TRUNCATED_SUFFIX
         return excerpt
     if len(text) <= window:
