@@ -134,11 +134,18 @@ def test_every_selected_excerpt_starts_at_a_heading_or_says_it_could_not(
 
 
 def test_no_selected_excerpt_is_a_wall_of_text(worksheet: Any) -> None:
-    """13 of the first 60 ran past 1,500 characters; one hit 8,019."""
+    """13 of the first 60 ran past 1,500 characters; one hit 8,019.
+
+    The bound tracks the window rather than being a separate number. It was
+    literally 1400 for several rounds and went stale the moment the window rose
+    to 2500 — a guard whose threshold has to be remembered separately is a
+    guard that will disagree with the code it guards.
+    """
+    limit = 2500 + len(worksheet.TRUNCATED_SUFFIX)
     offenders = []
     for board, posting in worksheet.select_for_labeling(worksheet._all_postings()):
         excerpt = worksheet.requirements_excerpt(posting["text"])
-        if len(excerpt) > 1400:
+        if len(excerpt) > limit:
             offenders.append(f"{board}/{posting['id']}: {len(excerpt)} chars")
     assert offenders == [], f"{len(offenders)} excerpts too long: {offenders[:5]}"
 
@@ -191,6 +198,116 @@ def test_a_colon_after_a_sentence_terminator_does_not_count(worksheet: Any) -> N
     """`_colon_follows` must abandon the search at the end of the sentence."""
     assert worksheet._colon_follows("qualifications, and skill set. Note: x", 0) is False
     assert worksheet._colon_follows(" in this role if you: Kotlin", 0) is True
+
+
+def test_the_excerpt_stops_at_the_next_non_requirements_section(
+    worksheet: Any,
+) -> None:
+    """Pay disclaimers and benefits are not requirements and must not appear."""
+    text = (
+        "REQUIREMENTS Proficiency in Kotlin. "
+        + "More real requirements here. " * 8
+        + "COMPENSATION The base salary range for this role is $200,000 to $300,000 "
+        "and this role is also eligible for a discretionary bonus."
+    )
+    excerpt = worksheet.requirements_excerpt(text)
+    assert "Proficiency in Kotlin" in excerpt
+    assert "$200,000" not in excerpt
+    assert "discretionary bonus" not in excerpt
+
+
+def test_a_section_ended_by_a_closer_is_not_marked_as_cut(worksheet: Any) -> None:
+    """Stopping at the section's own end is completeness, not truncation.
+
+    Marking it would put the notice on almost every posting and teach a labeler
+    to ignore it — which is what a 1200-char window with no boundary did, at
+    56 of 60.
+    """
+    text = "REQUIREMENTS Kotlin. " + "Real requirement. " * 12 + "BENEFITS Free lunch."
+    excerpt = worksheet.requirements_excerpt(text)
+    assert not excerpt.endswith(worksheet.TRUNCATED_SUFFIX)
+    assert "Free lunch" not in excerpt
+
+
+def test_a_closer_word_inside_a_bullet_does_not_end_the_section(
+    worksheet: Any,
+) -> None:
+    """OpenAI's "Account Director - Tokyo", found by reading the worksheet.
+
+    "benefits" appears inside a requirement bullet. A bare match there ended
+    the section three requirements early and showed no truncation marker,
+    because as far as the code knew the section had simply ended. An excerpt
+    that stops *before* the requirements is worse than one that runs past them,
+    and it is indistinguishable from a complete one.
+    """
+    text = (
+        "REQUIREMENTS Proficiency in Kotlin. "
+        "Experience selling benefits software to enterprise customers. "
+        "Familiarity with Rust and Python. " + "More requirements here. " * 6
+    )
+    excerpt = worksheet.requirements_excerpt(text)
+    assert "Familiarity with Rust and Python" in excerpt
+
+
+def test_no_section_ends_almost_immediately(worksheet: Any) -> None:
+    """A closer firing just after the heading would hide everything.
+
+    The counterpart to the wall-of-text guard, and the failure mode that
+    adding closers risks: each new closer is a new chance to end a section
+    early, and an excerpt that stops at once looks tidy rather than broken.
+    """
+    offenders = []
+    for board, posting in worksheet.select_for_labeling(worksheet._all_postings()):
+        excerpt = worksheet.requirements_excerpt(posting["text"])
+        if excerpt.startswith(worksheet.NO_HEADING_PREFIX):
+            continue
+        if len(excerpt) < 300:
+            offenders.append(f"{board}/{posting['id']}: {len(excerpt)} chars — {excerpt[:60]}")
+    assert len(offenders) <= 1, f"{len(offenders)} excerpts end almost at once: {offenders}"
+
+
+def test_a_capitalised_closer_still_ends_the_section(worksheet: Any) -> None:
+    """The bullet rule must not stop real closers working."""
+    text = "REQUIREMENTS Kotlin. " + "Real requirement. " * 10 + "BENEFITS Free lunch."
+    assert "Free lunch" not in worksheet.requirements_excerpt(text)
+
+
+def test_the_required_section_wins_over_a_later_optional_one(
+    worksheet: Any,
+) -> None:
+    """Two Jump postings showed "Bonus Points" while the required list above it
+    went unshown, which made `required_tech` unanswerable from the worksheet."""
+    text = "About us. Skills You'll Need: Kotlin and Rust. Bonus Points: Experience with CUDA."
+    excerpt = worksheet.requirements_excerpt(text)
+    assert excerpt.startswith("Skills You'll Need")
+    assert "Kotlin and Rust" in excerpt
+
+
+def test_a_closer_inside_the_heading_line_does_not_end_the_section(
+    worksheet: Any,
+) -> None:
+    """`_CLOSER_OFFSET` exists because flattened HTML can put a requirements
+    heading and the word "compensation" within a sentence of each other."""
+    text = (
+        "REQUIREMENTS Experience with compensation systems. Proficiency in Kotlin. "
+        + "More requirements. " * 8
+    )
+    assert "Proficiency in Kotlin" in worksheet.requirements_excerpt(text)
+
+
+def test_most_selected_excerpts_are_not_cut_off(worksheet: Any) -> None:
+    """A marker on almost every posting is a marker nobody reads.
+
+    Measured at 56 of 60 before the section boundary existed. If this rises
+    again the fix is the closer list or the window, and the docstring on
+    `_SECTION_CLOSERS` records the measurements to decide which.
+    """
+    picked = worksheet.select_for_labeling(worksheet._all_postings())
+    cut = sum(
+        worksheet.requirements_excerpt(p["text"]).endswith(worksheet.TRUNCATED_SUFFIX)
+        for _, p in picked
+    )
+    assert cut <= len(picked) // 4, f"{cut} of {len(picked)} excerpts cut off"
 
 
 def test_a_cut_off_excerpt_says_so(worksheet: Any) -> None:

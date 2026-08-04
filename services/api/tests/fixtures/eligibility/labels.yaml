@@ -555,6 +555,17 @@ boards:
       required_tech: TO_LABEL
       sponsorship: TO_LABEL
       title: 'Campus AI/ML Researcher (Fall 2026) '
+    '8052313':
+      degree: TO_LABEL
+      enrollment_required: TO_LABEL
+      graduation_window: TO_LABEL
+      is_internship: TO_LABEL
+      mentioned_not_required: TO_LABEL
+      min_years_experience: TO_LABEL
+      note: TO_LABEL
+      required_tech: TO_LABEL
+      sponsorship: TO_LABEL
+      title: Campus AI Research Engineer (Full-Time)
     '8052343':
       degree: TO_LABEL
       enrollment_required: TO_LABEL
@@ -566,17 +577,6 @@ boards:
       required_tech: TO_LABEL
       sponsorship: TO_LABEL
       title: Campus AI Research Engineer – Deep Learning (Full-Time)
-    '8052356':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
-      title: Campus AI Research Engineer – Research Automation (Full-Time)
   openai_eligibility:
     0322d6d8-6588-4209-a304-83e768063a25:
       degree: TO_LABEL

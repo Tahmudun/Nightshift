@@ -46,6 +46,13 @@ _REQUIREMENT_HEADINGS = (
     "what you'll need",
     "what you will need",
     "what you'll bring",
+    # Jump Trading's phrasing. Held back for one round on purpose, to see
+    # whether those postings fell back honestly — they did not. They anchored
+    # on "Bonus Points" instead and showed a labeler the optional list while
+    # the required one sat above it, unshown. Falling back would have been the
+    # better failure; showing the wrong section is the one that misleads.
+    "skills you'll need",
+    "skills you will need",
     "what we look for",
     "you should have",
     "who should apply",
@@ -133,10 +140,7 @@ def _heading_positions(text: str) -> list[int]:
         if match.group(0).casefold() not in _AMBIGUOUS_HEADINGS:
             positions.append(start)
             continue
-        written_in_capitals = match.group(0).isupper()
-        preceding = text[:start].rstrip()
-        opens_a_sentence = not preceding or preceding[-1] in ".;!?•|"
-        if _colon_follows(text, end) or written_in_capitals or opens_a_sentence:
+        if _looks_like_a_heading(text, start, end):
             positions.append(start)
     return sorted(positions)
 
@@ -228,14 +232,81 @@ NO_HEADING_WHOLE = NO_HEADING_PREFIX + " — showing the whole posting] "
 #: `required_tech` from that would under-report it and have no way to know.
 TRUNCATED_SUFFIX = " […cut off — open the fixture for the rest]"
 
+#: Headings that end a requirements section. Everything after one of these is
+#: pay disclaimers, benefits and EEO boilerplate — never a requirement.
+#:
+#: This is what makes the window generous without recreating the wall of text.
+#: Measured across the 60 selected postings: from the requirements heading to
+#: the *end of the posting* is a median of 3,475 characters and a maximum of
+#: 13,967. To the next closer below it is a median of **1,260**. Raising the
+#: window alone would have dragged all that boilerplate back in.
+#: A closer must look like a heading, by the same test a requirements heading
+#: passes. Measured: OpenAI's "Account Director - Tokyo" says "benefits" inside
+#: a requirement bullet, and a bare match there ended the section three
+#: requirements early — with no truncation marker, because the section had
+#: "ended". An excerpt that stops *before* the requirements is worse than one
+#: that runs past them, and it looks identical to a complete one.
+_SECTION_CLOSERS = re.compile(
+    r"compensation|benefits|equal (employment )?opportunity|perks"
+    r"|why (join|work)|our values|about (us|the company)"
+    r"|the (expected )?(base )?(salary|pay)|we are an equal|pay transparency"
+    r"|how to apply|interview process|life at|eeo|in accordance with"
+    r"|annual salary range|total (pay|compensation)"
+    # Anthropic's closing sections, which name themselves rather than saying
+    # "benefits". Without these its postings had no closer at all and the
+    # window became their only bound — 12 of 18 truncations were cutting real
+    # requirement language, not boilerplate. Measured across the 60: adding
+    # them takes the p90 section from 5,645 characters to 2,860 and truncation
+    # from 18 of 60 to 6.
+    r"|logistics|how we'?re different|come work with us|location-based hybrid"
+    r"|we encourage you to apply|deadline to apply|the salary range|role-specific",
+    re.I,
+)
 
-def requirements_excerpt(text: str, *, window: int = 1200) -> str:
-    """The region where requirements live, capped, never the whole document.
+#: How far into a section to start looking for its closer. A requirements
+#: heading and a compensation heading sometimes sit within a sentence of each
+#: other in flattened HTML, and without this offset the excerpt would close
+#: itself immediately.
+_CLOSER_OFFSET = 200
+
+
+def _looks_like_a_heading(text: str, start: int, end: int) -> bool:
+    """The shared test: a colon follows, it is capitalised, or it opens a
+    sentence. Used for requirement headings and for section closers alike —
+    a word buried in a bullet is not a heading in either direction."""
+    written_in_capitals = text[start:end].isupper()
+    preceding = text[:start].rstrip()
+    opens_a_sentence = not preceding or preceding[-1] in ".;!?•|"
+    return _colon_follows(text, end) or written_in_capitals or opens_a_sentence
+
+
+def _section_end(body: str) -> int:
+    """Where the requirements section stops, or ``len(body)`` if it does not."""
+    position = _CLOSER_OFFSET
+    while (match := _SECTION_CLOSERS.search(body, position)) is not None:
+        if _looks_like_a_heading(body, match.start(), match.end()):
+            return match.start()
+        position = match.end()
+    return len(body)
+
+
+def requirements_excerpt(text: str, *, window: int = 2500) -> str:
+    """The requirements section, bounded at its own end rather than by length.
 
     Starts at the earliest *genuine* heading (see :func:`_heading_positions`)
-    and runs ``window`` characters, which keeps the preferred section in frame —
-    it almost always follows the required one and it is the section that matters
-    most to label.
+    and runs to whichever comes first: the next non-requirements section
+    (:data:`_SECTION_CLOSERS`) or ``window`` characters. The preferred section
+    stays in frame — it almost always follows the required one and is the part
+    that matters most to label — while pay disclaimers and EEO boilerplate do
+    not.
+
+    **The section boundary is what lets the window be generous.** A 1,200-char
+    window with no boundary marked 56 of 60 excerpts as cut, which makes the
+    marker noise nobody reads; raising it alone would have dragged the
+    boilerplate back in, since heading-to-end-of-posting runs to a median of
+    3,475 characters and a maximum of 13,967. Cutting at the closer brings the
+    median to 1,260, and at 2,500 only about 7 of 60 are still cut — a marker
+    that means something when it appears.
 
     With no heading it returns the **tail**, not the whole text. Two reasons,
     both measured: the first version returned everything and produced excerpts
@@ -254,8 +325,11 @@ def requirements_excerpt(text: str, *, window: int = 1200) -> str:
     positions = _heading_positions(text)
     if positions:
         start = positions[0]
-        excerpt = text[start : start + window]
-        if start + window < len(text):
+        body = text[start:]
+        section_end = _section_end(body)
+        end = min(section_end, window)
+        excerpt = body[:end]
+        if end < section_end:
             excerpt += TRUNCATED_SUFFIX
         return excerpt
     if len(text) <= window:
