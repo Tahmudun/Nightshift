@@ -554,6 +554,83 @@ def test_the_excerpt_falls_back_to_the_whole_text_when_no_heading_matches(
     assert worksheet.requirements_excerpt(text) == text
 
 
+def _posting(pid: str, title: str, reason: str) -> dict[str, Any]:
+    return {"id": pid, "title": title, "reason": reason, "text": "REQUIREMENTS Python."}
+
+
+def test_selection_covers_every_reason_before_deepening_any(worksheet: Any) -> None:
+    """Round-robin across shapes, not the first N in file order.
+
+    Taking postings in file order would hand back sixty postings from three
+    boards with whole eligibility shapes missing, and the answer key would be
+    blind to exactly the cases A13 calls hard.
+    """
+    postings = [("b1", _posting(f"a{i}", f"Engineer {i}", "internship")) for i in range(50)]
+    postings += [("b2", _posting("z1", "Researcher", "doctorate"))]
+    picked = worksheet.select_for_labeling(postings, target=5)
+    assert "doctorate" in {p["reason"] for _, p in picked}
+
+
+def test_a_reason_with_one_example_still_contributes(worksheet: Any) -> None:
+    """A shape with a single instance is the one most likely to be got wrong."""
+    postings = [("b1", _posting(f"a{i}", f"Engineer {i}", "internship")) for i in range(100)]
+    postings += [("b2", _posting("solo", "Research Scientist", "doctorate"))]
+    picked = worksheet.select_for_labeling(postings, target=60)
+    assert ("b2", postings[-1][1]) in picked
+
+
+def test_recruiting_roles_are_skipped(worksheet: Any) -> None:
+    """"Campus Recruiter" matched the new-grad selector on a real board.
+
+    It is a job recruiting new grads, not a job for one. Labeling it teaches
+    the answer key nothing about new-grad eligibility.
+    """
+    postings = [
+        ("b1", _posting("1", "Campus Recruiter", "new grad")),
+        ("b1", _posting("2", "University Recruiter", "new grad")),
+        ("b1", _posting("3", "Software Engineer, New Grad", "new grad")),
+    ]
+    picked = worksheet.select_for_labeling(postings, target=3)
+    assert [p["title"] for _, p in picked] == ["Software Engineer, New Grad"]
+
+
+def test_a_reason_made_entirely_of_recruiting_roles_still_contributes(
+    worksheet: Any,
+) -> None:
+    """Dropping every posting under a reason would delete the shape silently.
+
+    Better a weak example the human can mark odd in `note` than a shape that
+    vanishes without appearing anywhere.
+    """
+    postings = [("b1", _posting("1", "Campus Recruiter", "new grad"))]
+    picked = worksheet.select_for_labeling(postings, target=5)
+    assert len(picked) == 1
+
+
+def test_selection_is_deterministic(worksheet: Any) -> None:
+    """Regenerating must not reshuffle what a human has already worked through."""
+    postings = [
+        ("b2", _posting("9", "B", "internship")),
+        ("b1", _posting("3", "A", "doctorate")),
+        ("b1", _posting("1", "C", "internship")),
+    ]
+    first = worksheet.select_for_labeling(postings, target=3)
+    second = worksheet.select_for_labeling(list(reversed(postings)), target=3)
+    assert [p["id"] for _, p in first] == [p["id"] for _, p in second]
+
+
+def test_selection_never_pads_past_the_corpus(worksheet: Any) -> None:
+    postings = [("b1", _posting("1", "Engineer", "internship"))]
+    assert len(worksheet.select_for_labeling(postings, target=60)) == 1
+
+
+def test_no_posting_is_selected_twice(worksheet: Any) -> None:
+    postings = [("b1", _posting(str(i), f"Engineer {i}", "internship")) for i in range(80)]
+    picked = worksheet.select_for_labeling(postings, target=60)
+    keys = [(b, p["id"]) for b, p in picked]
+    assert len(keys) == len(set(keys)) == 60
+
+
 def test_a_blank_label_has_every_field_and_no_value(worksheet: Any) -> None:
     label = worksheet.blank_label("abc123", "Software Engineer Internship")
     assert label["title"] == "Software Engineer Internship"
@@ -647,6 +724,25 @@ _LABEL_FIELDS = (
     "note",
 )
 
+#: How many postings the worksheet asks a human to label.
+#:
+#: Task 2 recorded 153 across nine boards — the per-board selector limits were
+#: never capped across boards, so nine boards overshot the plan's stated ~60 by
+#: two and a half times. Decided 2026-08-04: label a stratified 60; the other 93
+#: stay committed and unlabeled, available if the metrics later look thin.
+#:
+#: A13's floor is 50. Sixty clears it with room for a few labels to be wrong.
+WORKSHEET_TARGET = 60
+
+#: Titles that match an eligibility selector but are not the thing it is for.
+#: "Campus Recruiter" and "University Recruiter" matched "new grad / university
+#: programme in the title" on the real boards — those are jobs recruiting new
+#: grads, not jobs for them. Measured, not guessed: 3 of that selector's 8 hits.
+_NOT_ENTRY_LEVEL = re.compile(
+    r"\b(recruit(er|ing|ment)|talent|sourcer|university relations|campus relations)\b",
+    re.I,
+)
+
 
 def plain_text(raw: str) -> str:
     text = html.unescape(html.unescape(raw or ""))
@@ -674,6 +770,81 @@ def blank_label(posting_id: str, title: str) -> dict[str, Any]:
     for field in _LABEL_FIELDS:
         label[field] = "TO_LABEL"
     return label
+
+
+def select_for_labeling(
+    postings: list[tuple[str, dict[str, Any]]], *, target: int = WORKSHEET_TARGET
+) -> list[tuple[str, dict[str, Any]]]:
+    """Pick ``target`` postings covering every eligibility shape.
+
+    Stratified by the *reason* each posting was recorded under, which is stored
+    per posting in the board's ``.meta.json``. Round-robins across reasons
+    rather than taking the first N: the corpus holds 153 postings and taking
+    them in file order would hand back 153 postings from three boards, with
+    whole shapes missing.
+
+    Two rules beyond the round-robin:
+
+    * **Every reason present in the corpus contributes at least one posting**,
+      even reasons with only one example. A shape with one instance is exactly
+      the shape most likely to be got wrong.
+    * **Titles matching ``_NOT_ENTRY_LEVEL`` are skipped** unless dropping one
+      would empty its reason. "Campus Recruiter" matched the new-grad selector
+      on a real board; it is a job recruiting new grads, not a job for one, and
+      labeling it teaches the answer key nothing about new-grad eligibility.
+
+    Deterministic: same corpus in, same 60 out, so regenerating the worksheet
+    never reshuffles what a human has already worked through.
+    """
+    by_reason: dict[str, list[tuple[str, dict[str, Any]]]] = {}
+    for board, posting in postings:
+        by_reason.setdefault(posting["reason"], []).append((board, posting))
+
+    for entries in by_reason.values():
+        entries.sort(key=lambda bp: (bp[0], bp[1]["id"]))
+        keep = [bp for bp in entries if not _NOT_ENTRY_LEVEL.search(bp[1]["title"])]
+        if keep:
+            entries[:] = keep
+
+    picked: list[tuple[str, dict[str, Any]]] = []
+    seen: set[tuple[str, str]] = set()
+    depth = 0
+    while len(picked) < target:
+        added = False
+        for reason in sorted(by_reason):
+            if len(picked) >= target:
+                break
+            entries = by_reason[reason]
+            if depth >= len(entries):
+                continue
+            board, posting = entries[depth]
+            if (board, posting["id"]) in seen:
+                continue
+            seen.add((board, posting["id"]))
+            picked.append((board, posting))
+            added = True
+        if not added:
+            break  # corpus exhausted before the target; report it, do not pad
+        depth += 1
+    return picked
+
+
+def _all_postings() -> list[tuple[str, dict[str, Any]]]:
+    """Every recorded posting, tagged with its board and its recorded reason."""
+    out: list[tuple[str, dict[str, Any]]] = []
+    for path in sorted(CORPUS.glob("*.json")):
+        if path.name.endswith(".meta.json") or path.name == "labels.yaml":
+            continue
+        meta_path = path.with_name(path.stem + ".meta.json")
+        reasons = (
+            json.loads(meta_path.read_text()).get("why_each_job_is_here", {})
+            if meta_path.exists()
+            else {}
+        )
+        for posting in _postings(path):
+            posting["reason"] = reasons.get(posting["id"], "unrecorded")
+            out.append((path.stem, posting))
+    return out
 
 
 def _postings(path: Path) -> list[dict[str, Any]]:
@@ -735,32 +906,34 @@ def main() -> int:
     ]
 
     counter = 0
-    for path in sorted(CORPUS.glob("*.json")):
-        if path.name.endswith(".meta.json") or path.name == "labels.yaml":
-            continue
-        board = path.stem
+    for board, posting in select_for_labeling(_all_postings()):
         key["boards"].setdefault(board, {})
         prior = (existing.get("boards") or {}).get(board, {})
-        for posting in _postings(path):
-            counter += 1
-            pid = posting["id"]
-            key["boards"][board][pid] = prior.get(pid) or blank_label(
-                pid, posting["title"]
-            )
-            lines += [
-                f"## [{counter}] {board} — {posting['title']}",
-                "",
-                f"`{board}` / `{pid}`",
-                "",
-                "> " + requirements_excerpt(posting["text"]).replace("\n", " "),
-                "",
-            ]
+        counter += 1
+        pid = posting["id"]
+        key["boards"][board][pid] = prior.get(pid) or blank_label(
+            pid, posting["title"]
+        )
+        lines += [
+            f"## [{counter}] {board} — {posting['title']}",
+            "",
+            f"`{board}` / `{pid}`  ·  recorded because: {posting['reason']}",
+            "",
+            "> " + requirements_excerpt(posting["text"]).replace("\n", " "),
+            "",
+        ]
 
     LABELS.write_text(yaml.safe_dump(key, sort_keys=True, allow_unicode=True))
     WORKSHEET.parent.mkdir(parents=True, exist_ok=True)
     WORKSHEET.write_text("\n".join(lines))
-    print(f"{counter} postings -> {LABELS}")
-    print(f"worksheet          -> {WORKSHEET}")
+    total = len(_all_postings())
+    print(f"{counter} of {total} recorded postings -> {LABELS}")
+    print(f"worksheet -> {WORKSHEET}")
+    if counter < WORKSHEET_TARGET:
+        print(
+            f"WARNING: corpus yielded only {counter}, below the {WORKSHEET_TARGET} "
+            "target — do not pad; report it"
+        )
     return 0
 
 
