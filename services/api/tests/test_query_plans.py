@@ -1,19 +1,30 @@
 """Every supported filter is servable by an index.
 
-This deliberately does **not** assert "the plan has no Seq Scan". On the seeded
-corpus Postgres chooses a sequential scan for every query, because scanning
-tens of rows really is cheaper than an index lookup — so that assertion would
-fail on correct code, and its inverse would pass on a table with no indexes at
-all. Both are useless.
+Nothing here asserts "the plan has no Seq Scan" *as written by the planner on
+its own terms*. On the seeded corpus Postgres chooses a sequential scan for
+every query, because scanning tens of rows really is cheaper than an index
+lookup — so a naked "no Seq Scan" assertion would fail on correct code, and its
+inverse would pass on a table with no indexes at all. Both are useless.
 
-Instead each query runs with ``enable_seqscan = off``, which makes the planner
-prefer any usable index, and the test asserts one was used. That answers the
-question that actually matters: **is this filter servable by an index?** It
-fails the day somebody adds a filter on an unindexed column, and it does not
-depend on how big the corpus happens to be.
+Every query here therefore runs with ``enable_seqscan = off``, which makes the
+planner prefer any usable index. Under that setting the two questions below
+become answerable, and they are different questions asked in two different ways:
 
-``test_a_filter_on_an_unindexed_column_is_detectable`` is the non-vacuity
-guard: without it, the assertions above would pass for anything.
+* **The job-search filters (M2a)** assert an index node appears at all. Those
+  statements read one table, so "some index was used" is a real claim about the
+  filter.
+* **The queue sections (M2d)** assert their table is *not* sequentially scanned.
+  They join three tables, so an index node always appears — the primary keys —
+  and counting index nodes would be vacuous. Under ``enable_seqscan = off`` a
+  sequential scan means no usable index exists, which is the same question
+  phrased so that a join cannot answer it by accident. See
+  ``test_no_queue_section_scans_its_table`` for why naming the expected index
+  instead is worse.
+
+Both forms have a non-vacuity guard beside them —
+``test_a_filter_on_an_unindexed_column_is_detectable`` and
+``test_a_sequential_scan_is_detectable``. Without those, either set would pass
+for anything.
 """
 
 from __future__ import annotations
@@ -118,30 +129,66 @@ async def test_a_filter_on_an_unindexed_column_is_detectable(
     assert _index_nodes(await _plan(db_session, statement)) == []
 
 
-#: The index each queue section exists to be served by, named rather than
-#: implied. **"Some index was used" is not good enough here**, and that is not a
-#: hypothetical: every queue statement joins ``jobs`` and ``companies``, so
-#: ``pk_jobs`` and ``pk_companies`` appear in all four plans no matter what the
-#: filter does. An assertion that only checked for a non-empty index list would
-#: have passed with both M2d indexes deleted — measured, not assumed.
-QUEUE_INDEXES: dict[QueueSectionKey, str] = {
-    QueueSectionKey.FOLLOW_UP: "ix_application_events_user_activity",
-    QueueSectionKey.INTERVIEWS_APPROACHING: "ix_application_events_interviews",
-    QueueSectionKey.STALE_SAVED: "ix_application_events_user_activity",
-    QueueSectionKey.CLOSED_WHILE_SAVED: "ix_jobs_status_last_seen_at",
+def _sequential_scans(node: dict[str, Any]) -> list[str]:
+    """Every relation this plan reads by sequential scan, at any depth."""
+    found: list[str] = []
+    if node.get("Node Type") == "Seq Scan" and "Relation Name" in node:
+        found.append(str(node["Relation Name"]))
+    for child in node.get("Plans", []):
+        found.extend(_sequential_scans(child))
+    return found
+
+
+#: The table whose *filter* each queue section depends on. `applications` is
+#: excluded on purpose: it is the driving table and reading all of one user's
+#: applications is what these queries are for.
+QUEUE_TABLES: dict[QueueSectionKey, str] = {
+    QueueSectionKey.FOLLOW_UP: "application_events",
+    QueueSectionKey.INTERVIEWS_APPROACHING: "application_events",
+    QueueSectionKey.STALE_SAVED: "application_events",
+    QueueSectionKey.CLOSED_WHILE_SAVED: "jobs",
 }
 
 
 @pytest.mark.parametrize("key", [pytest.param(key, id=key.value) for key in QueueSectionKey])
-async def test_every_queue_section_uses_the_index_it_was_given(
+async def test_no_queue_section_scans_its_table(
     db_session: AsyncSession, key: QueueSectionKey
 ) -> None:
-    """M2d. The queue runs on every page load and grows with the user's
-    pipeline, so each of its four queries must be servable by an index — and by
-    the specific one that exists for it."""
+    """M2d. The queue runs on every page load and grows with the pipeline, so
+    none of its four queries may fall back to reading a whole table.
+
+    **This asserts a capability, not a plan.** Two weaker or stricter forms were
+    tried first and both were wrong, which is why the shape is spelled out here:
+
+    * ``assert _index_nodes(plan)`` — "some index was used" — is **vacuous**.
+      Every queue statement joins ``jobs`` and ``companies``, so ``pk_jobs`` and
+      ``pk_companies`` appear in all four plans whatever the filter does.
+      Measured: with both M2d indexes dropped, all four plans still reported
+      index nodes.
+    * Naming the exact index per section is **brittle**, and it broke within the
+      hour. ``interviews_approaching`` used ``ix_application_events_interviews``
+      against one corpus and ``ix_application_events_application_id_occurred_at``
+      against another a few applications larger — the planner switching from a
+      time scan to a nested loop, which is it doing its job rather than a
+      regression. Asserting the plan pins a decision that is not ours to make.
+
+    With ``enable_seqscan = off`` a sequential scan means **no usable index
+    exists**, which is the property that actually has to hold. It fails the day
+    somebody filters on an unindexed column and survives the planner changing
+    its mind.
+    """
     statement = queue_selects(user_id=uuid.uuid4(), now=datetime(2026, 8, 4, tzinfo=UTC))[key]
     plan = await _plan(db_session, statement, literal_binds=True)
-    used = _index_nodes(plan)
-    assert QUEUE_INDEXES[key] in used, (
-        f"{key.value} did not use {QUEUE_INDEXES[key]}; it used {used}. {json.dumps(plan)[:600]}"
+    scanned = _sequential_scans(plan)
+    assert QUEUE_TABLES[key] not in scanned, (
+        f"{key.value} reads all of {QUEUE_TABLES[key]}; scans: {scanned}. {json.dumps(plan)[:600]}"
     )
+
+
+async def test_a_sequential_scan_is_detectable(db_session: AsyncSession) -> None:
+    """Non-vacuity for the four above. ``description_text`` has no index and a
+    leading-wildcard LIKE could not use one anyway, so this plan must contain
+    the Seq Scan the assertions above forbid — otherwise they would pass for
+    anything."""
+    statement = select(func.count()).select_from(Job).where(Job.description_text.like("%zzz%"))
+    assert "jobs" in _sequential_scans(await _plan(db_session, statement))

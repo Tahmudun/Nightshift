@@ -32,6 +32,14 @@ async function totalFor(query: string): Promise<number> {
 
 test.describe('search and filters', () => {
   test('a title search narrows the list and survives a reload', async ({ page }) => {
+    // Same remedy, same reason as `profile.spec.ts` (milestone-2c review §2.6).
+    // Typing calls `router.replace` per change, which under `next dev` is a
+    // server round-trip rather than the client-side navigation it is in a
+    // build; this test also reloads, paying that cost twice. It passes alone
+    // and timed out once in the full suite after M2d added three more tests to
+    // the parallel pool. Marked slow rather than trimmed — cutting the reload
+    // would remove the assertion that the URL really is the state.
+    test.slow();
     const everything = await totalFor('limit=1');
     const narrowed = await totalFor('limit=1&q=engineer');
     expect(narrowed).toBeGreaterThan(0);
