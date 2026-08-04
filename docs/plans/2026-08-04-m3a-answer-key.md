@@ -204,8 +204,37 @@ def _mentions_equivalence(job: dict[str, Any]) -> bool:
     return bool(re.search(r"\bor\s+(have\s+)?equivalent\b", _content_text(job), re.I))
 
 
+#: Words that make a "sponsor" an immigration statement rather than a sales one.
+_IMMIGRATION_CONTEXT = (
+    r"visa|immigration|work(?:ing)? authorai?[sz]ation|work permit|right to work|"
+    r"h-?1-?b|green card|employment eligibility|citizenship"
+)
+
+
 def _mentions_sponsorship(job: dict[str, Any]) -> bool:
-    return bool(re.search(r"\bsponsor(ship|ing|ed)?\b", _content_text(job), re.I))
+    """Visa sponsorship, not "executive sponsor for strategic customers".
+
+    A bare `\\bsponsor\\b` was the first version and it was wrong on real data:
+    Datadog's "Area Vice President, Sales Engineering" says *"Serve as an
+    executive sponsor for strategic customers"* and was selected as this
+    board's sole sponsorship exemplar. A corpus whose one example of a shape is
+    the wrong shape is worse than one with a hole, because the hole is recorded
+    in `coverage_not_available_on_this_board` and the wrong example is not.
+
+    Either an explicit sponsorship phrase, or "sponsor" sharing a sentence with
+    immigration vocabulary.
+    """
+    text = _content_text(job)
+    if re.search(r"\b(visa|immigration)\s+sponsor", text, re.I):
+        return True
+    if re.search(r"sponsorship\s+(is|are)?\s*(not\s+)?(available|offered|provided)", text, re.I):
+        return True
+    for sentence in re.split(r"(?<=[.;!?])\s+", text):
+        if re.search(r"\bsponsor(ship|ing|ed|s)?\b", sentence, re.I) and re.search(
+            _IMMIGRATION_CONTEXT, sentence, re.I
+        ):
+            return True
+    return False
 
 
 def _states_graduation_year(job: dict[str, Any]) -> bool:
@@ -316,12 +345,41 @@ and where Greenhouse is curated:
             else GREENHOUSE_SELECTORS
         )
         fixture_body_jobs, reasons = curate(jobs, selectors)
-        missing = [why for why, _, _ in selectors if why not in reasons.values()]
+        missing = unmatched_shapes(jobs, selectors)
 ```
 
 `missing` becomes the `coverage_not_available_on_this_board` list, which is the
-existing meta contract — a selector that matched nothing is recorded rather than
-silently dropped.
+existing meta contract — a shape no posting on the board has is recorded rather
+than silently dropped.
+
+**It must be computed from the predicates, not from `reasons`.** Add:
+
+```python
+def unmatched_shapes(
+    jobs: list[dict[str, Any]],
+    selectors: list[tuple[str, Callable[[dict[str, Any]], bool], int]],
+) -> list[str]:
+    """Shapes no posting on this board has at all.
+
+    Deliberately **not** `[why for why, _, _ in selectors if why not in
+    reasons.values()]`, which was this plan's first version and which lies.
+    `curate` is greedy and first-claim-wins: when one posting satisfies two
+    selectors, the earlier one takes it and the later one contributes nothing —
+    so the later shape is reported absent from a board that demonstrably has it.
+
+    Measured on the committed Datadog fixture: job 6572669, the AI Research
+    Scientist posting this plan cites in §3.2 as the "PhD or equivalent
+    experience" worked example, matches both `_mentions_doctorate` and
+    `_mentions_equivalence`. Doctorate is listed first, so recording that board
+    wrote *"'or equivalent experience' — the A13 escape hatch"* into the
+    board's "could not demonstrate" list — for a board whose text contains that
+    exact phrase.
+
+    A coverage list that reports a gap where there is none teaches its reader
+    to stop believing it, which costs more than having no list.
+    """
+    return [why for why, predicate, _ in selectors if not any(predicate(j) for j in jobs)]
+```
 
 - [ ] **Step 4: Run the tests and watch them pass**
 
