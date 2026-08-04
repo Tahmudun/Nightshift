@@ -174,7 +174,7 @@ def test_curate_never_returns_the_same_posting_twice(
 - [ ] **Step 2: Run it and watch it fail**
 
 ```bash
-make test-py ARGS="services/api/tests/test_record_fixture_selectors.py -v"
+cd services/api && .venv/bin/pytest tests/test_record_fixture_selectors.py -v
 ```
 
 Expected: FAIL — `AttributeError: module 'record_fixture' has no attribute '_content_text'`.
@@ -326,7 +326,7 @@ silently dropped.
 - [ ] **Step 4: Run the tests and watch them pass**
 
 ```bash
-make test-py ARGS="services/api/tests/test_record_fixture_selectors.py -v"
+cd services/api && .venv/bin/pytest tests/test_record_fixture_selectors.py -v
 ```
 
 Expected: 6 passed.
@@ -401,7 +401,7 @@ Confirm it covers `eligibility/` by running it; if it hard-codes the three
 provider directories, add `eligibility` to that tuple.
 
 ```bash
-make test-py ARGS="services/api/tests/test_fixture_provenance.py -v"
+cd services/api && .venv/bin/pytest tests/test_fixture_provenance.py -v
 ```
 
 - [ ] **Step 4: Commit**
@@ -518,7 +518,7 @@ def test_a_blank_label_has_every_field_and_no_value(worksheet: Any) -> None:
 - [ ] **Step 2: Run it and watch it fail**
 
 ```bash
-make test-py ARGS="services/api/tests/test_label_worksheet.py -v"
+cd services/api && .venv/bin/pytest tests/test_label_worksheet.py -v
 ```
 
 Expected: FAIL — the script does not exist.
@@ -713,7 +713,7 @@ if __name__ == "__main__":
 - [ ] **Step 4: Run the tests and watch them pass**
 
 ```bash
-make test-py ARGS="services/api/tests/test_label_worksheet.py -v"
+cd services/api && .venv/bin/pytest tests/test_label_worksheet.py -v
 ```
 
 Expected: 4 passed.
@@ -953,7 +953,7 @@ def test_the_committed_answer_key_parses_and_is_big_enough() -> None:
 - [ ] **Step 2: Run it and watch it fail**
 
 ```bash
-make test-py ARGS="services/api/tests/test_eligibility_labels.py -v"
+cd services/api && .venv/bin/pytest tests/test_eligibility_labels.py -v
 ```
 
 Expected: FAIL — module does not exist.
@@ -1078,7 +1078,7 @@ def load_answer_key(path: Path | None = None) -> AnswerKey:
 - [ ] **Step 4: Run the tests**
 
 ```bash
-make test-py ARGS="services/api/tests/test_eligibility_labels.py -v"
+cd services/api && .venv/bin/pytest tests/test_eligibility_labels.py -v
 ```
 
 Expected: **7 passed, 2 skipped** — the two gate tests skip with a reason naming
@@ -1105,7 +1105,7 @@ p.write_text(yaml.safe_dump({"boards": {"probe": {"1": {
     "mentioned_not_required": [], "sponsorship": "not_stated", "note": ""}}}}))
 pathlib.Path("/tmp/labels.bak").write_text(backup)
 PY
-make test-py ARGS="services/api/tests/test_eligibility_labels.py -v"
+cd services/api && .venv/bin/pytest tests/test_eligibility_labels.py -v
 ```
 
 Expected: the two gate tests now **run**, and `..._is_big_enough` **fails** with
@@ -1275,7 +1275,7 @@ async def test_an_inverted_span_is_refused(db_session: AsyncSession) -> None:
 
 ```bash
 make up && make migrate
-make test-py ARGS="services/api/tests/test_job_requirement_models.py -v"
+cd services/api && .venv/bin/pytest tests/test_job_requirement_models.py -v
 ```
 
 Expected: FAIL — `ImportError: cannot import name 'RequirementKind'`.
@@ -1457,7 +1457,7 @@ alembic check    # must report no drift
 - [ ] **Step 7: Run the model tests**
 
 ```bash
-make test-py ARGS="services/api/tests/test_job_requirement_models.py -v"
+cd services/api && .venv/bin/pytest tests/test_job_requirement_models.py -v
 ```
 
 Expected: 4 passed.
@@ -1588,7 +1588,7 @@ has no attribute 'match_all'`, implement, watch them pass, and confirm M2c is
 untouched:
 
 ```bash
-make test-py ARGS="services/api/tests/test_skill_vocabulary.py services/api/tests/test_resume_extraction.py -v"
+cd services/api && .venv/bin/pytest tests/test_skill_vocabulary.py tests/test_resume_extraction.py -v
 ```
 
 Commit this separately — it is a change to an M2c module and deserves its own
@@ -1795,7 +1795,7 @@ def test_necessity_at_reports_the_governing_heading() -> None:
 - [ ] **Step 2: Run it and watch it fail**
 
 ```bash
-make test-py ARGS="services/api/tests/test_requirement_extraction.py -v"
+cd services/api && .venv/bin/pytest tests/test_requirement_extraction.py -v
 ```
 
 Expected: FAIL — module does not exist.
@@ -2116,7 +2116,7 @@ def extract_requirements(
 - [ ] **Step 4: Run the tests**
 
 ```bash
-make test-py ARGS="services/api/tests/test_requirement_extraction.py -v"
+cd services/api && .venv/bin/pytest tests/test_requirement_extraction.py -v
 ```
 
 Expected: 19 passed. Where a test fails, fix the rule — **not the test** — unless
@@ -2426,7 +2426,7 @@ def test_no_nice_to_have_is_ever_reported_as_required(
 - [ ] **Step 3: Measure, then set the floors**
 
 ```bash
-make test-py ARGS="services/api/tests/test_requirement_extraction_against_the_answer_key.py::test_report_the_numbers -s"
+cd services/api && .venv/bin/pytest tests/test_requirement_extraction_against_the_answer_key.py::test_report_the_numbers -s
 ```
 
 Read the three figures. Set each floor in the module constants to just below the
@@ -2441,7 +2441,7 @@ lists in Task 6, and re-measure.
 - [ ] **Step 4: Run the whole file**
 
 ```bash
-make test-py ARGS="services/api/tests/test_requirement_extraction_against_the_answer_key.py services/api/tests/test_extraction_metrics.py -v"
+cd services/api && .venv/bin/pytest tests/test_requirement_extraction_against_the_answer_key.py tests/test_extraction_metrics.py -v
 ```
 
 Expected: all pass.
@@ -2552,7 +2552,7 @@ async def test_a_job_with_no_description_gets_no_requirements(
 - [ ] **Step 2: Run it and watch it fail**
 
 ```bash
-make test-py ARGS="services/api/tests/test_requirement_ingestion.py -v"
+cd services/api && .venv/bin/pytest tests/test_requirement_ingestion.py -v
 ```
 
 Expected: FAIL — `ImportError: cannot import name 'sync_requirements'`.
@@ -2602,7 +2602,7 @@ the same transaction. Add `delete` to the SQLAlchemy imports.
 - [ ] **Step 4: Run the tests**
 
 ```bash
-make test-py ARGS="services/api/tests/test_requirement_ingestion.py -v"
+cd services/api && .venv/bin/pytest tests/test_requirement_ingestion.py -v
 ```
 
 Expected: 3 passed.
@@ -2718,7 +2718,7 @@ async def test_a_job_with_no_description_returns_an_empty_list_not_null(
 - [ ] **Step 2: Run it and watch it fail**
 
 ```bash
-make test-py ARGS="services/api/tests/test_job_requirement_routes.py -v"
+cd services/api && .venv/bin/pytest tests/test_job_requirement_routes.py -v
 ```
 
 Expected: FAIL — `KeyError: 'requirements'`.
@@ -2762,7 +2762,7 @@ In `routes/jobs.py`, eager-load the relationship on the detail query
 - [ ] **Step 4: Run the tests**
 
 ```bash
-make test-py ARGS="services/api/tests/test_job_requirement_routes.py -v"
+cd services/api && .venv/bin/pytest tests/test_job_requirement_routes.py -v
 ```
 
 Expected: 3 passed.
@@ -2798,7 +2798,7 @@ In `services/api/tests/test_enum_parity.py`, add `RequirementKind` and
 `RequirementNecessity` to the mapping it walks. Run it:
 
 ```bash
-make test-py ARGS="services/api/tests/test_enum_parity.py -v"
+cd services/api && .venv/bin/pytest tests/test_enum_parity.py -v
 ```
 
 Expected: FAIL — the TypeScript side does not have them yet. This is the only
@@ -2846,7 +2846,7 @@ Extend the job detail schema with `requirements` and
 - [ ] **Step 3: Run the parity guard again**
 
 ```bash
-make test-py ARGS="services/api/tests/test_enum_parity.py -v"
+cd services/api && .venv/bin/pytest tests/test_enum_parity.py -v
 ```
 
 Expected: pass. **If it fails, the transcription is wrong** — read the Python
@@ -3043,7 +3043,7 @@ def test_the_blind_spots_name_employers_with_their_own_careers_system() -> None:
 - [ ] **Step 2: Run it and watch it fail**
 
 ```bash
-make test-py ARGS="services/api/tests/discovery -v -k careers_system"
+cd services/api && .venv/bin/pytest tests/discovery -v -k careers_system
 ```
 
 Expected: FAIL — `StopIteration`.
@@ -3082,7 +3082,7 @@ In `STRUCTURAL_BLIND_SPOTS` in `coverage.py`:
 - [ ] **Step 4: Run the tests**
 
 ```bash
-make test-py ARGS="services/api/tests/discovery -v"
+cd services/api && .venv/bin/pytest tests/discovery -v
 ```
 
 Expected: pass, including the existing count assertions — **update any test
