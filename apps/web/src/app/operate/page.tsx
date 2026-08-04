@@ -25,6 +25,23 @@ export default function OperatePage() {
 
       <section className="border border-ink-700 bg-ink-900/40 p-5">
         <h2 className="font-mono text-[10px] uppercase tracking-[0.16em] text-paper-faint">
+          Today
+        </h2>
+        <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-paper-dim">
+          What is waiting on you right now — follow-ups, interviews coming up, saved roles going
+          quiet, and listings that closed while you were tracking them. Nothing on it is ranked, and
+          it says which rows it cannot compute yet.
+        </p>
+        <Link
+          href="/operate/queue"
+          className="mt-3 inline-block border border-ink-700 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-signal-400 hover:border-signal-400"
+        >
+          Open today&rsquo;s queue
+        </Link>
+      </section>
+
+      <section className="border border-ink-700 bg-ink-900/40 p-5">
+        <h2 className="font-mono text-[10px] uppercase tracking-[0.16em] text-paper-faint">
           Pipeline
         </h2>
         <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-paper-dim">
@@ -79,8 +96,6 @@ export default function OperatePage() {
           Not built yet
         </h2>
         <ul className="mt-3 space-y-1.5 text-[13px] text-paper-dim">
-          <li>Saving, applying, and stage tracking — milestone 2.</li>
-          <li>The daily queue — milestone 2.</li>
           <li>Match scores and explanations — milestone 3.</li>
         </ul>
         <p className="mt-3 text-[12px] text-paper-faint">
