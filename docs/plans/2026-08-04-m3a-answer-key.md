@@ -654,6 +654,102 @@ def test_most_selected_excerpts_find_a_real_heading(worksheet: Any) -> None:
     )
 
 
+def test_a_distinctive_heading_needs_no_further_proof(worksheet: Any) -> None:
+    """Three real postings fell back because these were made to prove themselves.
+
+    "You might thrive in this role if you:" (OpenAI), "You may be a good fit if
+    you have:" (Anthropic) and a bare "Minimum qualifications" line all failed
+    the colon-and-capitals test — the vocabulary stores stems, so the colon sat
+    a clause away, and HTML flattening had removed the punctuation before them.
+    """
+    for text, expected in (
+        ("About us. You might thrive in this role if you: Kotlin.", "you might thrive"),
+        ("About us. You may be a good fit if you have: Kotlin.", "you may be a good fit"),
+        ("About us blurb Minimum qualifications 3 years of Python.", "minimum qualifications"),
+    ):
+        assert worksheet.requirements_excerpt(text).casefold().startswith(expected), text
+
+
+def test_an_ambiguous_heading_still_has_to_prove_itself(worksheet: Any) -> None:
+    """The prose-anchoring bug must not come back through the new branch."""
+    text = (
+        "The base salary depends on experience, qualifications, and skill set. "
+        "You will meet regulatory requirements by translating commitments. "
+        "WHAT YOU'LL NEED Proficiency in Kotlin."
+    )
+    assert worksheet.requirements_excerpt(text).startswith("WHAT YOU'LL NEED")
+
+
+def test_a_colon_after_a_sentence_terminator_does_not_count(worksheet: Any) -> None:
+    """`_colon_follows` must abandon the search at the end of the sentence."""
+    assert worksheet._colon_follows("qualifications, and skill set. Note: x", 0) is False
+    assert worksheet._colon_follows(" in this role if you: Kotlin", 0) is True
+
+
+def test_a_cut_off_excerpt_says_so(worksheet: Any) -> None:
+    """Akuna's "Security Engineer II" lost TCP/IP, DNS, HTTP/S and VPNs to the
+    window with no signal. A labeler would under-report `required_tech` and
+    have no way to know they were reading a fragment."""
+    text = "REQUIREMENTS " + "Python and Kotlin and Rust. " * 200
+    excerpt = worksheet.requirements_excerpt(text, window=100)
+    assert excerpt.endswith(worksheet.TRUNCATED_SUFFIX)
+
+
+def test_an_excerpt_that_reaches_the_end_does_not_claim_to_be_cut(
+    worksheet: Any,
+) -> None:
+    text = "REQUIREMENTS Proficiency in Kotlin."
+    assert not worksheet.requirements_excerpt(text).endswith(worksheet.TRUNCATED_SUFFIX)
+
+
+def test_no_known_heading_is_present_but_undetected(worksheet: Any) -> None:
+    """The gap none of the corpus-wide tests could see.
+
+    The existing guards ask "did we find *a* heading" and "is the fallback
+    count under budget". Neither asks the question that mattered: is a heading
+    phrase sitting in the raw text that we failed to detect? Three postings
+    fell back with a known heading present, and every test passed.
+    """
+    offenders = []
+    for board, posting in worksheet.select_for_labeling(worksheet._all_postings()):
+        text = posting["text"]
+        if worksheet._heading_positions(text):
+            continue
+        lowered = text.casefold()
+        present = [h for h in worksheet._REQUIREMENT_HEADINGS if h in lowered]
+        if present:
+            offenders.append(f"{board}/{posting['id']}: undetected {present[:3]}")
+    assert offenders == [], f"{len(offenders)} postings: {offenders}"
+
+
+def test_regenerating_never_overwrites_a_filled_in_label(
+    worksheet: Any, tmp_path: Any, monkeypatch: Any
+) -> None:
+    """The one property protecting ninety minutes of somebody's work.
+
+    Proved by hand after each of four fix rounds and guarded by nothing, which
+    is exactly the shape of thing that breaks on the fifth.
+    """
+    import yaml
+
+    labels = tmp_path / "labels.yaml"
+    monkeypatch.setattr(worksheet, "LABELS", labels)
+    monkeypatch.setattr(worksheet, "WORKSHEET", tmp_path / "worksheet.md")
+
+    worksheet.main()
+    key = yaml.safe_load(labels.read_text())
+    board = sorted(key["boards"])[0]
+    pid = sorted(key["boards"][board])[0]
+    key["boards"][board][pid]["is_internship"] = "no"
+    key["boards"][board][pid]["note"] = "checked by hand"
+    labels.write_text(yaml.safe_dump(key, sort_keys=True, allow_unicode=True))
+
+    worksheet.main()
+    after = yaml.safe_load(labels.read_text())
+    assert after["boards"][board][pid]["is_internship"] == "no"
+    assert after["boards"][board][pid]["note"] == "checked by hand"
+
+
 def test_selection_prefers_a_posting_whose_requirements_can_be_shown(
     worksheet: Any,
 ) -> None:
@@ -890,9 +986,33 @@ _REQUIREMENT_HEADINGS = (
     "preferred",
 )
 
+#: Headings whose words could plausibly occur mid-prose, so a bare match is not
+#: enough. "the base salary depends on experience, qualifications, and skill
+#: set" and "meet regulatory requirements by translating commitments" both
+#: contain one of these and neither opens a requirements section.
+_AMBIGUOUS_HEADINGS = frozenset(
+    {"requirements", "qualifications", "you have", "required", "preferred", "about you"}
+)
+
 _HEADING_ALTERNATION = "|".join(
     re.escape(h) for h in sorted(_REQUIREMENT_HEADINGS, key=len, reverse=True)
 )
+
+#: How far past a heading phrase to look for its colon. The vocabulary stores
+#: truncated stems — "you might thrive" for "You might thrive in this role if
+#: you:" — so the colon can sit a clause away. Bounded, and abandoned at any
+#: sentence terminator, so a heading word inside prose still finds nothing.
+_COLON_LOOKAHEAD = 80
+
+
+def _colon_follows(text: str, end: int) -> bool:
+    """A colon within :data:`_COLON_LOOKAHEAD`, before any sentence terminator."""
+    for char in text[end : end + _COLON_LOOKAHEAD]:
+        if char == ":":
+            return True
+        if char in ".!?;":
+            return False
+    return False
 
 
 def _heading_positions(text: str) -> list[int]:
@@ -908,22 +1028,36 @@ def _heading_positions(text: str) -> list[int]:
     this whole function exists to avoid — a label built from wrong evidence is
     indistinguishable from a good one.
 
-    Once HTML is stripped to a single run, a real heading is one of:
+    **A distinctive phrase is taken at its word.** "Minimum qualifications" and
+    "you may be a good fit if you" cannot plausibly occur mid-sentence in a job
+    posting; requiring further proof of them cost three real postings, which
+    then showed a labeler "About Anthropic" boilerplate instead of the
+    requirements sitting a few hundred characters earlier.
 
-    * followed by a colon      ``Qualities that make great candidates:``
-    * written in capitals      ``WHAT YOU'LL NEED``
+    **An ambiguous phrase must prove itself** — see :data:`_AMBIGUOUS_HEADINGS`.
+    A bare "requirements" or "qualifications" is a word that appears in pay
+    disclaimers and job duties, so it qualifies only when it is:
+
+    * followed by a colon      ``Qualifications: 3+ years of ...``
+    * written in capitals      ``REQUIREMENTS``
     * opening a sentence       ``... team. Requirements Proficiency in ...``
 
-    A heading word sitting mid-clause after a comma matches none of the three.
+    The colon may sit a clause away rather than immediately after, because the
+    vocabulary stores stems: ``you might thrive`` matches inside "You might
+    thrive in this role if you:". :func:`_colon_follows` bounds that search and
+    abandons it at a sentence terminator, so "meet regulatory requirements by
+    translating commitments into engineering work." still finds nothing.
     """
     positions: list[int] = []
     for match in re.finditer(_HEADING_ALTERNATION, text, re.I):
         start, end = match.span()
-        followed_by_colon = text[end : end + 2].lstrip().startswith(":")
+        if match.group(0).casefold() not in _AMBIGUOUS_HEADINGS:
+            positions.append(start)
+            continue
         written_in_capitals = match.group(0).isupper()
         preceding = text[:start].rstrip()
         opens_a_sentence = not preceding or preceding[-1] in ".;!?•|"
-        if followed_by_colon or written_in_capitals or opens_a_sentence:
+        if _colon_follows(text, end) or written_in_capitals or opens_a_sentence:
             positions.append(start)
     return sorted(positions)
 
@@ -1008,6 +1142,12 @@ NO_HEADING_PREFIX = "[no requirements heading found"
 NO_HEADING_TAIL = NO_HEADING_PREFIX + " — showing the end of the posting] "
 NO_HEADING_WHOLE = NO_HEADING_PREFIX + " — showing the whole posting] "
 
+#: Appended when the window cut the section short. Measured: Akuna's "Security
+#: Engineer II" excerpt ends "...PowerShell, Python, or similar script" while
+#: the posting goes on to name TCP/IP, DNS, HTTP/S and VPNs. A labeler filling
+#: `required_tech` from that would under-report it and have no way to know.
+TRUNCATED_SUFFIX = " […cut off — open the fixture for the rest]"
+
 
 def requirements_excerpt(text: str, *, window: int = 1200) -> str:
     """The region where requirements live, capped, never the whole document.
@@ -1033,7 +1173,11 @@ def requirements_excerpt(text: str, *, window: int = 1200) -> str:
     """
     positions = _heading_positions(text)
     if positions:
-        return text[positions[0] : positions[0] + window]
+        start = positions[0]
+        excerpt = text[start : start + window]
+        if start + window < len(text):
+            excerpt += TRUNCATED_SUFFIX
+        return excerpt
     if len(text) <= window:
         return NO_HEADING_WHOLE + text
     return NO_HEADING_TAIL + text[-window:]
