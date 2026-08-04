@@ -34,13 +34,22 @@ which is the idempotency evidence rather than a hope about it. The single e2e
 skip is the pre-existing honest one: `an unchanged board is not presented as a
 problem` needs a board that has answered `304`.
 
-**CI has not run yet.** Nothing below claims it has. The invariant this project
-has learned twice applies before merging — name the last commit CI has seen and
-check that everything after it is docs only:
+**CI has not run yet.** Nothing below claims it has.
+
+**`1fe34ef` is the last commit containing anything CI executes** — and it is the
+docs commit, because the review found two defects and fixing them is code
+(§2.1's provenance link, §3.3's new guard). The three commands above were run
+*after* those fixes and before that commit, so their counts cover it. Every
+commit after `1fe34ef` must touch `docs/` only, which is one command:
 
 ```
-git diff <last-code-commit>..HEAD --stat    # must list nothing outside docs/
+git diff 1fe34ef..HEAD --stat    # must list nothing outside docs/
 ```
+
+If that shows a file under `apps/`, `services/`, `infra/`, `data/` or the
+Makefile, the recorded results do not cover the branch and the three commands
+must run again. This is the invariant M1d wrote down after PROGRESS twice
+carried a green claim beside a SHA that was no longer the head.
 
 Eleven tasks, eleven commits, branch `m2c-profile-and-resume`.
 
