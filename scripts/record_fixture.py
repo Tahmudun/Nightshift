@@ -114,8 +114,31 @@ def _mentions_equivalence(job: dict[str, Any]) -> bool:
     return bool(re.search(r"\bor\s+(have\s+)?equivalent\b", _content_text(job), re.I))
 
 
+#: Words that make a "sponsor" an immigration statement rather than a sales one.
+_IMMIGRATION_CONTEXT = (
+    r"visa|immigration|work(?:ing)? authori[sz]ation|work permit|right to work|"
+    r"h-?1-?b|green card|employment eligibility|citizenship"
+)
+
+
 def _mentions_sponsorship(job: dict[str, Any]) -> bool:
-    return bool(re.search(r"\bsponsor(ship|ing|ed)?\b", _content_text(job), re.I))
+    """Visa sponsorship, not "executive sponsor for strategic customers".
+
+    A corpus whose one example of a shape is the wrong shape is worse than one
+    with a hole: the hole is recorded in `coverage_not_available_on_this_board`
+    and the wrong example is not.
+    """
+    text = _content_text(job)
+    if re.search(r"\b(visa|immigration)\s+sponsor", text, re.I):
+        return True
+    if re.search(r"sponsorship\s+(is|are)?\s*(not\s+)?(available|offered|provided)", text, re.I):
+        return True
+    for sentence in re.split(r"(?<=[.;!?])\s+", text):
+        if re.search(r"\bsponsor(ship|ing|ed|s)?\b", sentence, re.I) and re.search(
+            _IMMIGRATION_CONTEXT, sentence, re.I
+        ):
+            return True
+    return False
 
 
 def _states_graduation_year(job: dict[str, Any]) -> bool:
@@ -194,6 +217,20 @@ def curate(
             reasons[str(job["id"])] = why
             found += 1
     return picked, reasons
+
+
+def unmatched_shapes(
+    jobs: list[dict[str, Any]],
+    selectors: list[tuple[str, Callable[[dict[str, Any]], bool], int]],
+) -> list[str]:
+    """Shapes no posting on this board has at all.
+
+    Deliberately not computed from which selectors *contributed* a posting:
+    `curate` is greedy, so a shape claimed by an earlier selector would be
+    reported absent from a board that demonstrably has it. A coverage list that
+    reports a gap where there is none teaches its reader to stop believing it.
+    """
+    return [why for why, predicate, _ in selectors if not any(predicate(j) for j in jobs)]
 
 
 def _reduce_lever(payload: Any, limit: int) -> tuple[Any, dict[str, str], list[str]]:
@@ -322,7 +359,7 @@ def main() -> int:
             else GREENHOUSE_SELECTORS
         )
         picked, reasons = curate(jobs, selectors)
-        missing = [why for why, _, _ in selectors if why not in reasons.values()]
+        missing = unmatched_shapes(jobs, selectors)
         full_count = payload.get("meta", {}).get("total", len(jobs))
         fixture_body = {"jobs": picked, "meta": {"total": len(picked)}}
     elif args.provider == "lever":
