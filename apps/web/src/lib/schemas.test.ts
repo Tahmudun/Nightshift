@@ -442,7 +442,7 @@ describe('dailyQueueSchema', () => {
         row_cap: 20,
       },
     });
-    expect(parsed.sections[0].rows[0].because).toContain('9 days');
+    expect(parsed.sections[0]?.rows[0]?.because).toContain('9 days');
   });
 
   it('refuses a row with no reason', () => {
