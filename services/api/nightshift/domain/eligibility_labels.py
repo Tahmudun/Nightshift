@@ -75,18 +75,43 @@ class AnswerKey(BaseModel):
     boards: dict[str, dict[str, PostingLabel]]
 
 
+class MalformedAnswerKeyError(ValueError):
+    """The answer key is not shaped like an answer key.
+
+    Its own exception because the alternative is worse: an empty file, a
+    typo'd top-level key and a null ``boards:`` all produce zero unlabeled
+    fields, which is **the same value a finished key produces**. Returning
+    ``[]`` there would announce that labeling is complete.
+    """
+
+
 def unlabeled(key_text: str) -> list[str]:
     """Every field still reading TO_LABEL, as `board/posting/field`, sorted.
 
     Reads the raw YAML rather than the parsed model on purpose: `TO_LABEL` is a
     valid string and several fields are typed `str`, so a partly-filled key
     parses cleanly. This is the only thing that can tell the difference.
+
+    Raises :class:`MalformedAnswerKeyError` rather than returning ``[]`` for a
+    key that carries no postings at all — see that class for why.
     """
-    raw: dict[str, Any] = yaml.safe_load(key_text) or {}
+    raw: Any = yaml.safe_load(key_text)
+    boards = raw.get("boards") if isinstance(raw, dict) else None
+    if not isinstance(boards, dict) or not boards:
+        raise MalformedAnswerKeyError(
+            "answer key has no 'boards' mapping; refusing to report it as fully labeled"
+        )
     missing: list[str] = []
-    for board, postings in (raw.get("boards") or {}).items():
-        for posting_id, label in (postings or {}).items():
-            for field, value in (label or {}).items():
+    for board, postings in boards.items():
+        if not isinstance(postings, dict) or not postings:
+            raise MalformedAnswerKeyError(f"board {board!r} carries no postings")
+        for posting_id, label in postings.items():
+            if not isinstance(label, dict) or not label:
+                raise MalformedAnswerKeyError(
+                    f"{board}/{posting_id} has no fields; an empty posting "
+                    "reports zero unlabeled fields, which reads as finished"
+                )
+            for field, value in label.items():
                 if value == UNLABELED:
                     missing.append(f"{board}/{posting_id}/{field}")
     return sorted(missing)

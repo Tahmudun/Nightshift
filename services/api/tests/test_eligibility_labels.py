@@ -12,6 +12,7 @@ from pydantic import ValidationError
 
 from nightshift.domain.eligibility_labels import (
     AnswerKey,
+    MalformedAnswerKeyError,
     PostingLabel,
     load_answer_key,
     unlabeled,
@@ -86,18 +87,28 @@ boards:
 
 
 def _labeling_state() -> tuple[int, int]:
-    """(fields still unlabeled, postings in the key). Cheap, and read twice."""
+    """(fields still unlabeled, postings in the key). Cheap, and read twice.
+
+    Returns ``-1`` for a missing or malformed key. That is deliberately **not**
+    a positive number: the skip below triggers on ``> 0``, so a broken key
+    makes the gate tests *run* and fail by name rather than skip quietly. A
+    skip is for "the human is still working", never for "the file is broken".
+    """
     from nightshift.domain.eligibility_labels import ANSWER_KEY_PATH
 
     if not ANSWER_KEY_PATH.exists():
-        return (0, 0)
-    remaining = len(unlabeled(ANSWER_KEY_PATH.read_text()))
+        return (-1, 0)
+    try:
+        remaining = len(unlabeled(ANSWER_KEY_PATH.read_text()))
+    except MalformedAnswerKeyError:
+        return (-1, 0)
     key: AnswerKey | None = load_answer_key() if remaining == 0 else None
     total = sum(len(v) for v in key.boards.values()) if key else 0
     return (remaining, total)
 
 
 _REMAINING, _POSTINGS = _labeling_state()
+
 
 #: The gate tests skip — with a reason naming the shortfall — while the human
 #: is still labeling, and activate by themselves the moment the key is filled
@@ -107,8 +118,18 @@ _REMAINING, _POSTINGS = _labeling_state()
 #:
 #: A skip that could go stale is worse than a red test, so
 #: `test_the_skip_condition_is_honest` below asserts the condition itself.
+def gates_should_skip(remaining: int) -> bool:
+    """Skip only while a human is genuinely part-way through.
+
+    ``-1`` means the key is missing or malformed, and that must **run** the
+    gates so one of them fails by name. A quiet skip there is indistinguishable
+    from work in progress.
+    """
+    return remaining > 0
+
+
 skip_until_labeled = pytest.mark.skipif(
-    _REMAINING > 0,
+    gates_should_skip(_REMAINING),
     reason=f"answer key incomplete: {_REMAINING} fields still say TO_LABEL",
 )
 
@@ -123,9 +144,51 @@ def test_the_skip_condition_is_honest() -> None:
 
     assert ANSWER_KEY_PATH.exists(), "the answer key file is missing entirely"
     remaining, _ = _labeling_state()
+    assert remaining >= 0, "the committed answer key is malformed, not incomplete"
     if remaining == 0:
         # Labeling is done: prove the checker can still see an unlabeled field.
         assert unlabeled("boards: {b: {'1': {is_internship: TO_LABEL}}}") == ["b/1/is_internship"]
+
+
+@pytest.mark.parametrize(
+    "corrupt",
+    [
+        pytest.param("board: {x: {'1': {a: TO_LABEL}}}", id="top-level key typo"),
+        pytest.param("foo: bar", id="no boards key"),
+        pytest.param("", id="empty file"),
+        pytest.param("boards:", id="null boards"),
+        pytest.param("boards: {}", id="empty boards"),
+        pytest.param("boards: {b: {}}", id="board with no postings"),
+        pytest.param("boards: {b: {'1': }}", id="posting with no fields"),
+    ],
+)
+def test_a_broken_key_is_never_reported_as_finished(corrupt: str) -> None:
+    """Each of these once returned ``[]`` — the same value a finished key gives.
+
+    That is the one bug in this module that would be expensive and invisible:
+    it does not merely skip a test, it authorises grading a matching engine
+    against an answer key that holds nothing.
+    """
+    with pytest.raises(MalformedAnswerKeyError):
+        unlabeled(corrupt)
+
+
+@pytest.mark.parametrize(
+    ("remaining", "should_skip"),
+    [
+        pytest.param(540, True, id="labeling not started"),
+        pytest.param(1, True, id="one field left"),
+        pytest.param(0, False, id="finished — the gates must run"),
+        pytest.param(-1, False, id="broken key — the gates must run and fail"),
+    ],
+)
+def test_only_an_unfinished_key_skips_the_gates(remaining: int, should_skip: bool) -> None:
+    """A skip means "the human is still working", never "the file is broken".
+
+    The -1 case is the one that matters: a malformed key must produce a named
+    failure, not a quiet skip that reads identically to work in progress.
+    """
+    assert gates_should_skip(remaining) is should_skip
 
 
 @skip_until_labeled
