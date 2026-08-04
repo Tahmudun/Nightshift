@@ -12,14 +12,151 @@
 **M2a: COMPLETE, reviewed, CI-green at `76190c8`, merged to `main` as PR #5 (`910027a`).**
 **M2b: COMPLETE, reviewed, CI-green at `6a10bb6`, merged to `main` as PR #6 (`2f984f3`).**
 **M2c: COMPLETE, reviewed, CI-green at `e63ec2f`, merged to `main` as PR #7 (`e42d612`).**
-**Current milestone: M2 — the functional command center. M2d is planned and not yet started. It is the last slice in M2.**
+**M2d: COMPLETE and reviewed, on branch `m2d-daily-queue`. CI has not run yet.**
+**Current milestone: M2 — the functional command center. M2d was the last slice; M2's deliverable list is complete.**
 **Last updated: 2026-08-04**
 
 ---
 
 ## Next exact action
 
-### Next: execute `docs/plans/2026-08-04-m2d-daily-queue.md`, Task 1.
+### Next: push `m2d-daily-queue`, open the PR, and read CI.
+
+All seven tasks are done and committed. The three commands were run at the
+branch head and their counts are read from the output, not inferred:
+
+```
+make check        1136 Python, 144 web, ruff/mypy/eslint/tsc clean
+make acceptance   50 verify checks + 37 seeded browser tests, 1 skip
+make test-e2e     5 degraded-path tests        <- the third command, run separately
+alembic check     no drift; 0010 up, down, up clean
+```
+
+**`make acceptance` was run three times back to back and passed all three**,
+which is the idempotency evidence rather than a hope about it. The single e2e
+skip is the pre-existing honest one: `an unchanged board is not presented as a
+problem` needs a board that has answered `304`.
+
+**M2d earns none of M2's four acceptance criteria, and that is not a gap.** All
+four were verified at M2a, M2b and M2c and are recorded below, unchanged. What
+M2d completes is M2's *deliverable* list in `CLAUDE.md` §6, of which the daily
+queue was the last item.
+
+Seven tasks, branch `m2d-daily-queue`.
+
+| Task | Commit | What it did |
+|---|---|---|
+| 1 | `9bef08a` | `domain/queue.py` — four queries, three thresholds, the `actor = 'user'` filter |
+| 2 | `4ed6390` | Migration `0010`, two partial indexes, the first query-plan assertion |
+| 3 | `02eeb39`¹ | `GET /queue`, the schemas, the four named absences |
+| 4 | `a3d6b11` | Zod schemas, `fetchQueue`, and five enums added to the parity guard |
+| 5 | `1f39435` | `QueuePanel`, `/operate/queue`, the Operate link |
+| 6 | `02eeb39` | The browser walk and `check_daily_queue` |
+| 7 | `a6c4ead` | ADR 0014, the review, the reworked plan assertion |
+
+¹ Task 3's route landed in its own commit; `02eeb39` is Task 6's.
+
+### The queue's own acceptance, measured
+
+`check_daily_queue` in `make acceptance`, compared **before and after** rather
+than against an absolute state — asserting "the queue is empty" would pass
+vacuously on a fresh database and fail on a developer's own:
+
+```
+✓ the queue answers                              HTTP 200
+✓ four sections, always                          follow_up, interviews_approaching, stale_saved, closed_while_saved
+✓ four deferred rows, each with a reason         4
+✓ no deferred row carries a number
+✓ the thresholds are coherent                    7 / 21 / 14
+✓ a past next action adds exactly one follow-up  0 -> 1
+✓ every row says why it is there                 1 rows
+✓ the row names the reason it was added          you set a next action for 1 Jan
+✓ clearing the next action removes the row again 1 -> 0
+✓ the application is left as it was found        nothing is left behind
+```
+
+### What M2d found that the plan did not predict
+
+Six, and **three were in code or tests that reported success** — the eighth
+milestone running to record that pattern. Full detail in
+`docs/reviews/milestone-2d-review.md`; the three worth reading here:
+
+1. **The query-plan assertion was wrong twice, in opposite directions.** The
+   plan's version could not fail: every queue statement joins `jobs` and
+   `companies`, so `pk_jobs` and `pk_companies` appear in all four plans
+   whatever the filter does — measured by dropping both new indexes and watching
+   all four still report index nodes. The fix then over-corrected by naming the
+   expected index, and **that broke within the hour**: `interviews_approaching`
+   used one index against one corpus and another against a corpus a few
+   applications larger, which is the planner switching from a time scan to a
+   nested loop and doing its job. The property that holds is *no fall back to
+   reading a whole table*; with `enable_seqscan = off` a sequential scan means no
+   usable index exists. Dropping all three `application_events` indexes turns
+   three of four red. **Between a vacuous assertion and a brittle one there was a
+   correct one, and finding it took measuring the planner twice.**
+2. **The plan's test helper could not insert a closed job.**
+   `ck_jobs_closed_at_matches_status` is a biconditional, so setting `status`
+   alone fails — six tests, every one about "closed while saved". The schema was
+   right and the plan was wrong.
+3. **Operate claimed tracking was not built, directly below a link to it.** The
+   "Not built yet" list still said *"Saving, applying, and stage tracking —
+   milestone 2"*, false since M2b. M2c's review made the same finding about a
+   different list, which makes this the pattern rather than the incident: **a
+   "not built" list goes stale in the one direction nobody checks**, because
+   nobody re-reads it when a feature lands.
+
+Also: the plan's browser walk would not have run twice — it gave both tests the
+same job, and an `interview_scheduled` event cannot be deleted, so the
+follow-up test's "the row is gone" assertion would fail on the second run of the
+day. That is the exact bug M2b's pipeline test shipped.
+
+### A prediction the plan made that did not come true
+
+The plan added M2b's four enums to `test_enum_parity.py` and predicted **at
+least one would disagree** with Python, reasoning that hand-transcribed and
+never machine-checked is what produced M2c's defect. **All four were correct.**
+Recorded rather than deleted — the prediction was sound and the outcome was
+better than it. The guard now covers thirteen enums instead of nine, and
+`QueueSectionKey` is the first entry in it that is not a database enum.
+
+### Not real yet — M2d
+
+The four rows PRODUCT-SPEC §10.4 asks for that need M3. **None are stubbed**;
+each is named on the page with its reason, rendered from the API's own
+`deferred_rows`:
+
+- **Best new internships** — 'best' is a ranking and there is no match score.
+- **High-match roles closing soon** — needs a score *and* a deadline most
+  sources never publish (A10).
+- **Resume mismatch warnings** — needs requirement extraction and the evidence
+  graph.
+- **The one thing to do today** — ranking across four heterogeneous row types.
+
+Also deliberately absent: **dismiss and snooze** (§7.3 — new state, a new table,
+and a decision about whether a dismissed row returns tomorrow), and
+**`assessment_due_at`** (§7.1 — `next_action_at` already carries the date).
+
+**`offer` is excluded from every queue section.** An offer is a decision rather
+than a chase and the pipeline shows it prominently. That is a judgement a real
+user might overturn, and it is one tuple — `TERMINAL_STAGES` — in one file.
+
+**The browser walk leaves one archived application**, for the same reason
+`check_application_tracking` does: an `interview_scheduled` event is append-only,
+so archiving is the only way to take a role back out of the queue. Stated in the
+test. `check_daily_queue` itself leaves nothing.
+
+### The M2d plan, and the two branches still on the remote
+
+`docs/plans/2026-08-04-m2d-daily-queue.md`. Two merged remote branches are still
+there — `origin/m2c-profile-and-resume` and `origin/m1a-provider-breadth` — both
+fully merged into `main` with nothing ahead. Deleting them needs a permission
+this session did not have; it is one `git push origin --delete`.
+
+**Next after M2d: merge, then M3 — explainable matching.**
+
+---
+
+### The M2c record, kept below
 
 **PR #7 is merged.** `main` is at `e42d612`, merged 2026-08-04 by the human,
 checked against the PR rather than assumed. The pre-merge invariant held: `git
