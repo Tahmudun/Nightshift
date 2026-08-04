@@ -579,19 +579,51 @@ def test_a_reason_with_one_example_still_contributes(worksheet: Any) -> None:
     assert ("b2", postings[-1][1]) in picked
 
 
-def test_recruiting_roles_are_skipped(worksheet: Any) -> None:
+def test_recruiting_roles_are_skipped_under_the_new_grad_reason(
+    worksheet: Any,
+) -> None:
     """"Campus Recruiter" matched the new-grad selector on a real board.
 
     It is a job recruiting new grads, not a job for one. Labeling it teaches
     the answer key nothing about new-grad eligibility.
     """
     postings = [
-        ("b1", _posting("1", "Campus Recruiter", "new grad")),
-        ("b1", _posting("2", "University Recruiter", "new grad")),
-        ("b1", _posting("3", "Software Engineer, New Grad", "new grad")),
+        ("b1", _posting("1", "Campus Recruiter", "new grad / university programme")),
+        ("b1", _posting("2", "University Recruiter", "new grad / university programme")),
+        ("b1", _posting("3", "Software Engineer, New Grad", "new grad / university programme")),
     ]
     picked = worksheet.select_for_labeling(postings, target=3)
     assert [p["title"] for _, p in picked] == ["Software Engineer, New Grad"]
+
+
+def test_an_immigration_role_is_skipped_under_the_sponsorship_reason(
+    worksheet: Any,
+) -> None:
+    """Jane Street's "Immigration and Mobility Specialist", found on real data.
+
+    It matched on "advise on visa sponsorship considerations during the hiring
+    process" — a job administering sponsorship for employees, not a posting
+    stating its own policy toward an applicant.
+    """
+    postings = [
+        ("b1", _posting("1", "Immigration and Mobility Specialist", "sponsorship stated in writing")),
+        ("b1", _posting("2", "Software Engineer", "sponsorship stated in writing")),
+    ]
+    picked = worksheet.select_for_labeling(postings, target=2)
+    assert [p["title"] for _, p in picked] == ["Software Engineer"]
+
+
+def test_the_skip_is_scoped_to_the_reason_that_earned_it(worksheet: Any) -> None:
+    """An immigration specialist is a fine example of a *senior title*.
+
+    Skipping it under every reason would throw away real signal to fix one bad
+    annotation.
+    """
+    postings = [
+        ("b1", _posting("1", "Immigration and Mobility Specialist", "senior or above in the title")),
+    ]
+    picked = worksheet.select_for_labeling(postings, target=5)
+    assert len(picked) == 1
 
 
 def test_a_reason_made_entirely_of_recruiting_roles_still_contributes(
@@ -602,7 +634,7 @@ def test_a_reason_made_entirely_of_recruiting_roles_still_contributes(
     Better a weak example the human can mark odd in `note` than a shape that
     vanishes without appearing anywhere.
     """
-    postings = [("b1", _posting("1", "Campus Recruiter", "new grad"))]
+    postings = [("b1", _posting("1", "Campus Recruiter", "new grad / university programme"))]
     picked = worksheet.select_for_labeling(postings, target=5)
     assert len(picked) == 1
 
@@ -734,14 +766,49 @@ _LABEL_FIELDS = (
 #: A13's floor is 50. Sixty clears it with room for a few labels to be wrong.
 WORKSHEET_TARGET = 60
 
-#: Titles that match an eligibility selector but are not the thing it is for.
-#: "Campus Recruiter" and "University Recruiter" matched "new grad / university
-#: programme in the title" on the real boards — those are jobs recruiting new
-#: grads, not jobs for them. Measured, not guessed: 3 of that selector's 8 hits.
-_NOT_ENTRY_LEVEL = re.compile(
-    r"\b(recruit(er|ing|ment)|talent|sourcer|university relations|campus relations)\b",
-    re.I,
+#: Postings that satisfy a selector's *words* while being about the topic rather
+#: than an instance of it. Both entries were measured on the real corpus, not
+#: guessed, and both are the same mistake wearing different clothes: a job whose
+#: subject matter is X matches every keyword a job that *states* X would.
+#:
+#:   * "Campus Recruiter" / "University Recruiter" matched the new-grad
+#:     selector — 3 of its 8 hits across nine boards. Jobs recruiting new
+#:     grads, not jobs for new grads.
+#:   * "Immigration and Mobility Specialist" matched the sponsorship selector,
+#:     on "advise on visa sponsorship considerations during the hiring
+#:     process". A job administering sponsorship for employees, not a posting
+#:     stating its own sponsorship policy toward an applicant.
+#:
+#: Keyed by reason rather than applied to every posting: an immigration
+#: specialist posting is a perfectly good example of a *senior title* or a
+#: *years-of-experience requirement*, and skipping it everywhere would throw
+#: away real signal to fix one bad annotation.
+_MISLEADING_FOR_ITS_REASON: tuple[tuple[str, re.Pattern[str]], ...] = (
+    (
+        "new grad",
+        re.compile(
+            r"\b(recruit(er|ing|ment)|talent|sourcer|university relations"
+            r"|campus relations|early careers)\b",
+            re.I,
+        ),
+    ),
+    (
+        "sponsorship",
+        re.compile(
+            r"\b(immigration|mobility|visa|people ops|human resources|hr)\b",
+            re.I,
+        ),
+    ),
 )
+
+
+def _is_about_rather_than_an_instance(reason: str, title: str) -> bool:
+    """True when a posting matched its selector by subject, not by being one."""
+    lowered = reason.casefold()
+    return any(
+        key in lowered and pattern.search(title)
+        for key, pattern in _MISLEADING_FOR_ITS_REASON
+    )
 
 
 def plain_text(raw: str) -> str:
@@ -788,10 +855,11 @@ def select_for_labeling(
     * **Every reason present in the corpus contributes at least one posting**,
       even reasons with only one example. A shape with one instance is exactly
       the shape most likely to be got wrong.
-    * **Titles matching ``_NOT_ENTRY_LEVEL`` are skipped** unless dropping one
-      would empty its reason. "Campus Recruiter" matched the new-grad selector
-      on a real board; it is a job recruiting new grads, not a job for one, and
-      labeling it teaches the answer key nothing about new-grad eligibility.
+    * **Postings that matched their selector by subject rather than by being an
+      instance of it are skipped**, unless dropping one would empty its reason.
+      See ``_MISLEADING_FOR_ITS_REASON``: "Campus Recruiter" under new-grad,
+      "Immigration and Mobility Specialist" under sponsorship. Labeling those
+      teaches the answer key nothing about the shape they were recorded for.
 
     Deterministic: same corpus in, same 60 out, so regenerating the worksheet
     never reshuffles what a human has already worked through.
@@ -800,9 +868,13 @@ def select_for_labeling(
     for board, posting in postings:
         by_reason.setdefault(posting["reason"], []).append((board, posting))
 
-    for entries in by_reason.values():
+    for reason, entries in by_reason.items():
         entries.sort(key=lambda bp: (bp[0], bp[1]["id"]))
-        keep = [bp for bp in entries if not _NOT_ENTRY_LEVEL.search(bp[1]["title"])]
+        keep = [
+            bp
+            for bp in entries
+            if not _is_about_rather_than_an_instance(reason, bp[1]["title"])
+        ]
         if keep:
             entries[:] = keep
 
