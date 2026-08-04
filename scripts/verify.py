@@ -104,6 +104,126 @@ def send_delete(path: str, timeout: float = 10.0) -> int:
         return int(exc.code)
 
 
+def check_daily_queue() -> None:
+    """M2d over HTTP: the queue shows what is true and names what it cannot do.
+
+    Written to compare **before and after** rather than to assert an absolute
+    state, for the reason `check_profile_confirmation` records: asserting "the
+    queue is empty" would pass vacuously on a fresh database and fail on a
+    developer's own, which is a check that reports success for the wrong reason.
+
+    It leaves nothing behind. The next action it sets is cleared again, and the
+    application it may have created is left saved rather than archived —
+    `check_application_tracking` leaves an archived row and says so; this one
+    does not need to.
+    """
+    print("\nthe daily queue")
+    status_code, queue = get_json("/queue")
+    if not (status_code == 200 and isinstance(queue, dict)):
+        check(False, "the queue answers", f"HTTP {status_code}")
+        return
+    check(True, "the queue answers", f"HTTP {status_code}")
+
+    keys = [section["key"] for section in queue["sections"]]
+    check(
+        keys == ["follow_up", "interviews_approaching", "stale_saved", "closed_while_saved"],
+        "four sections, always",
+        ", ".join(keys),
+    )
+
+    deferred = queue["deferred_rows"]
+    check(
+        len(deferred) == 4 and all(row["reason"].strip() for row in deferred),
+        "four deferred rows, each with a reason",
+        str(len(deferred)),
+    )
+    # I4 and I7: a count beside a row that does not exist reads as a real,
+    # empty result rather than as an absence.
+    check(
+        not any(character.isdigit() for row in deferred for character in row["name"]),
+        "no deferred row carries a number",
+    )
+
+    thresholds = queue["thresholds"]
+    check(
+        thresholds["follow_up_silent_days"] > 0
+        and thresholds["stale_saved_days"] > thresholds["follow_up_silent_days"],
+        "the thresholds are coherent",
+        f"{thresholds['follow_up_silent_days']} / {thresholds['stale_saved_days']}"
+        f" / {thresholds['interview_horizon_days']}",
+    )
+
+    def follow_up_count() -> int:
+        _, body = get_json("/queue")
+        section = next(s for s in body["sections"] if s["key"] == "follow_up")
+        return int(section["total"])
+
+    before = follow_up_count()
+
+    status_code, jobs = get_json("/jobs?limit=1&offset=4&status=open")
+    if not (status_code == 200 and isinstance(jobs, dict) and jobs.get("items")):
+        check(False, "a job exists to queue", f"HTTP {status_code}")
+        return
+    job_id = jobs["items"][0]["id"]
+
+    code, saved = send_json("/applications", "POST", {"job_id": job_id})
+    if code not in (200, 201):
+        check(False, "saving a job succeeds", f"HTTP {code}")
+        return
+    application_id = saved["id"]
+    # Entry normalisation, not exit tidiness: a previous run that died halfway
+    # must not make this one fail.
+    if saved.get("archived_at") is not None:
+        send_json(f"/applications/{application_id}/restore", "POST")
+
+    code, _ = send_json(
+        f"/applications/{application_id}",
+        "PATCH",
+        {"next_action_at": "2020-01-01T00:00:00+00:00"},
+    )
+    if code != 200:
+        check(False, "a next action can be set", f"HTTP {code}")
+        return
+
+    after = follow_up_count()
+    check(
+        after == before + 1,
+        "a past next action adds exactly one follow-up",
+        f"{before} -> {after}",
+    )
+
+    _, body = get_json("/queue")
+    rows = [row for s in body["sections"] for row in s["rows"]]
+    check(
+        all(row["because"].strip() and row["job_title"].strip() for row in rows),
+        "every row says why it is there",
+        f"{len(rows)} rows",
+    )
+    mine = [row for row in rows if row["application_id"] == application_id]
+    check(
+        any("next action" in row["because"] for row in mine),
+        "the row names the reason it was added",
+        mine[0]["because"] if mine else "row not found",
+    )
+
+    send_json(f"/applications/{application_id}", "PATCH", {"next_action_at": None})
+    restored = follow_up_count()
+    check(
+        restored == before,
+        "clearing the next action removes the row again",
+        f"{after} -> {restored}",
+    )
+
+    # Not archived, and no date left set. Unlike `check_application_tracking`,
+    # this check leaves the database exactly as it found it.
+    _, final = get_json(f"/applications/{application_id}")
+    check(
+        final["archived_at"] is None and final["next_action_at"] is None,
+        "the application is left as it was found",
+        "nothing is left behind",
+    )
+
+
 RESUME_FIXTURE = API_DIR / "tests" / "fixtures" / "resumes" / "nadia_okonkwo.txt"
 
 
@@ -460,6 +580,7 @@ def main() -> int:
         verify_http()
         check_application_tracking()
         check_profile_confirmation()
+        check_daily_queue()
         asyncio.run(verify_constraints())
     finally:
         api.terminate()

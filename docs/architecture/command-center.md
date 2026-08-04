@@ -243,14 +243,16 @@ and §13 applies to it.
 
 ## 7. M2d — the daily queue
 
-Four rows are computable honestly without M3:
+Four rows are computable honestly without M3. The thresholds were decided by
+the human on 2026-08-04 and are named constants, not literals scattered through
+queries:
 
-| Row | Derived from |
-|---|---|
-| Follow up | `applications.next_action_at`, or applied-and-silent past a threshold |
-| Interviews approaching | Interview dates on events |
-| Stale saved jobs | Saved long ago with no subsequent event |
-| Closed while saved | A tracked job whose listing reached `closed` |
+| Row | Derived from | Threshold |
+|---|---|---|
+| Follow up | `applications.next_action_at` due or past, **or** applied with no user activity since | 7 days |
+| Interviews approaching | `interview_scheduled` events whose `occurred_at` is in the future | next 14 days |
+| Stale saved jobs | Still at `saved`, no user activity since | 21 days |
+| Closed while saved | A tracked job whose listing is *currently* `closed` | — |
 
 Four more require the matching engine and are **named on the page with their
 reason**: best new internships, high-match roles closing soon, resume mismatch
@@ -261,6 +263,55 @@ asserting the section is visible without expanding anything.
 Building them against an invented score would violate I4. Rendering them as
 empty placeholders would violate I7 and §27.7. Naming them is the third option
 and the correct one.
+
+### 7.1 Assessments due — folded, not dropped
+
+PRODUCT-SPEC §10.4 lists **"Assessments due"** as a ninth row. Earlier drafts of
+this section omitted it silently, which is the failure mode this document exists
+to prevent. It is folded into **Follow up** by the human's decision on
+2026-08-04, and the reason is that the data to separate it does not exist:
+`applications` carries `next_action_at` and nothing else date-shaped, so an
+application sitting in the `assessment` stage with a date set already surfaces
+in Follow up. Splitting it into its own row would query the same column twice
+and show an empty section to almost every user.
+
+Adding an `assessment_due_at` column is the alternative and was rejected as
+shape with no use — a migration, a form field and a test suite for a row one
+user may never fill in. If a real assessment deadline ever needs to differ from
+the next action, that column is the change to make.
+
+### 7.2 Three rules that decide whether the queue tells the truth
+
+**"No activity since" means no activity *by the user*.** `application_events`
+records system events too, and `record_listing_closed` writes one. If staleness
+counted every event, a listing going closed would make the application look
+freshly touched and quietly remove it from the queue that exists to surface it.
+Both silence queries therefore filter `actor = 'user'`. This is the load-bearing
+filter on the page and it is mutation-checked.
+
+**Archived applications are excluded from every row.** M2b already shipped this
+bug from the other direction — an archived application rendered as unsaved and
+saving it changed nothing.
+
+**"Closed while saved" reads the job's current status, not the `listing_closed`
+event.** A listing can close and reopen; §7.4's state machine allows it. Reading
+the event would keep a reopened role in the queue permanently, telling the user
+to act on something that stopped being true.
+
+### 7.3 The queue writes nothing
+
+No dismiss, no snooze, no "mark as done". Every row is a link to the application
+it is about, and acting on it happens there. I5 governs: the queue suggests and
+the user acts. Dismissal is also new state — a table, a route, and a decision
+about whether a dismissed row returns tomorrow — and none of that is needed to
+make the four rows useful.
+
+Each row set is capped at 20 with an honest "and N more" count. Unbounded render
+work is `CLAUDE.md` §8's anti-pattern and it applies to a list as much as to a
+map.
+
+An empty queue says so, and says that an empty queue is a normal state rather
+than a failure. A blank panel and a permanent spinner both read as broken.
 
 ---
 

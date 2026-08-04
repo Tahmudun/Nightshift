@@ -441,6 +441,66 @@ export const applicationListSchema = z.object({
 export type ApplicationList = z.infer<typeof applicationListSchema>;
 
 /* -------------------------------------------------------------------------
+ * The daily queue (M2d)
+ *
+ * Read-only. There is no mutation schema here and `command-center.md` §7.3
+ * says there is not to be one — the queue suggests, and acting happens on the
+ * application page it links to.
+ * ---------------------------------------------------------------------- */
+
+export const queueSectionKeySchema = z.enum([
+  'follow_up',
+  'interviews_approaching',
+  'stale_saved',
+  'closed_while_saved',
+]);
+export type QueueSectionKey = z.infer<typeof queueSectionKeySchema>;
+
+export const queueRowSchema = z.object({
+  application_id: z.string().uuid(),
+  job_id: z.string().uuid(),
+  job_title: z.string(),
+  company_name: z.string(),
+  current_stage: applicationStageSchema,
+  at: z.string().datetime({ offset: true }).nullable(),
+  // A row with no reason is a bare signal, which is what I4 exists to prevent.
+  because: z.string().min(1),
+});
+export type QueueRow = z.infer<typeof queueRowSchema>;
+
+export const queueSectionSchema = z.object({
+  key: queueSectionKeySchema,
+  title: z.string().min(1),
+  rows: queueRowSchema.array(),
+  total: z.number().int().nonnegative(),
+});
+export type QueueSection = z.infer<typeof queueSectionSchema>;
+
+export const deferredQueueRowSchema = z.object({
+  name: z.string().min(1),
+  blocked_on: z.string().min(1),
+  reason: z.string().min(1),
+});
+export type DeferredQueueRow = z.infer<typeof deferredQueueRowSchema>;
+
+export const queueThresholdsSchema = z.object({
+  follow_up_silent_days: z.number().int().positive(),
+  stale_saved_days: z.number().int().positive(),
+  interview_horizon_days: z.number().int().positive(),
+  row_cap: z.number().int().positive(),
+});
+export type QueueThresholds = z.infer<typeof queueThresholdsSchema>;
+
+export const dailyQueueSchema = z.object({
+  generated_at: z.string().datetime({ offset: true }),
+  sections: queueSectionSchema.array(),
+  total_rows: z.number().int().nonnegative(),
+  deferred_rows: deferredQueueRowSchema.array(),
+  thresholds: queueThresholdsSchema,
+});
+export type DailyQueue = z.infer<typeof dailyQueueSchema>;
+
+/* -------------------------------------------------------------------------
  * Profile and resumes (M2c)
  *
  * Invariant I2 crosses the network here, so it is enforced here. An

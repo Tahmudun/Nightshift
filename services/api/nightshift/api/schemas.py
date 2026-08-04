@@ -43,6 +43,7 @@ from nightshift.db.base import (
     TransitionClass,
     WorkAuthorization,
 )
+from nightshift.domain.queue import QueueSectionKey
 
 
 class HealthComponent(BaseModel):
@@ -470,6 +471,61 @@ class ApplicationListOut(BaseModel):
     stage_counts: ApplicationStageCounts
     archived_count: int
     deferred_fields: list[DeferredApplicationFieldOut]
+
+
+class QueueRowOut(BaseModel):
+    """One row. ``because`` is a sentence, not a score — I4."""
+
+    application_id: UUID
+    job_id: UUID
+    job_title: str
+    company_name: str
+    current_stage: ApplicationStage
+    at: datetime | None
+    because: str
+
+
+class QueueSectionOut(BaseModel):
+    key: QueueSectionKey
+    title: str
+    rows: list[QueueRowOut]
+    #: Before the cap, so the page can say "and N more" honestly.
+    total: int
+
+
+class DeferredQueueRowOut(BaseModel):
+    """I7: a row this system cannot compute yet, named rather than faked.
+
+    Same shape as ``DeferredApplicationFieldOut`` and ``DeferredFilter`` because
+    it is the same idea in a third place.
+    """
+
+    name: str
+    blocked_on: str
+    reason: str
+
+
+class QueueThresholdsOut(BaseModel):
+    """The numbers behind the rows, so the page can explain itself without a
+    second copy of them in TypeScript.
+
+    M2c's enum-parity defect is the reason this is in the response: two
+    vocabularies transcribed by hand into two languages drifted, and nothing
+    local could see it.
+    """
+
+    follow_up_silent_days: int
+    stale_saved_days: int
+    interview_horizon_days: int
+    row_cap: int
+
+
+class DailyQueueOut(BaseModel):
+    generated_at: datetime
+    sections: list[QueueSectionOut]
+    total_rows: int
+    deferred_rows: list[DeferredQueueRowOut]
+    thresholds: QueueThresholdsOut
 
 
 class SaveJobIn(BaseModel):

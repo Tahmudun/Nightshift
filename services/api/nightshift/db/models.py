@@ -1021,6 +1021,25 @@ class ApplicationEvent(UUIDPrimaryKeyMixin, Base):
             "application_id",
             "occurred_at",
         ),
+        # M2d. The queue asks "when did this person last touch this
+        # application?" across the whole table, and `actor` is not the leading
+        # column of the index above. Partial, because system events are
+        # deliberately excluded from that answer (command-center.md §7.2) and
+        # indexing them would be dead weight.
+        Index(
+            "ix_application_events_user_activity",
+            "application_id",
+            "occurred_at",
+            postgresql_where=text("actor = 'user'"),
+        ),
+        # M2d. "Interviews in the next fortnight" scans by time across every
+        # application, so application_id being the leading column of the index
+        # above makes it unusable here.
+        Index(
+            "ix_application_events_interviews",
+            "occurred_at",
+            postgresql_where=text("event_type = 'interview_scheduled'"),
+        ),
         # Invariant I5, at the lowest level available. A system actor may record
         # a fact about the world; it may never move a stage.
         CheckConstraint(

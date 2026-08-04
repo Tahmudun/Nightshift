@@ -16,6 +16,7 @@ import {
   companyDetailSchema,
   companyListSchema,
   coverageSchema,
+  dailyQueueSchema,
   healthSchema,
   jobDetailSchema,
   jobAdminListSchema,
@@ -33,6 +34,7 @@ import {
   type CompanyDetail,
   type CompanyList,
   type Coverage,
+  type DailyQueue,
   type Health,
   type JobDetail,
   type JobAdminList,
@@ -239,6 +241,11 @@ export function fetchJobHistory(jobId: string): Promise<JobStatusEvent[]> {
 /** What is covered and — the reason the endpoint exists — what is not. */
 export function fetchCoverage(): Promise<Coverage> {
   return request('/coverage', coverageSchema);
+}
+
+/** Today's queue, and the rows it cannot compute yet. Read-only by design. */
+export function fetchQueue(): Promise<DailyQueue> {
+  return request('/queue', dailyQueueSchema);
 }
 
 /**
