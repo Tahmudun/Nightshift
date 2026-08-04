@@ -546,12 +546,89 @@ def test_the_excerpt_keeps_the_preferred_section(worksheet: Any) -> None:
     assert "Flask" in excerpt
 
 
-def test_the_excerpt_falls_back_to_the_whole_text_when_no_heading_matches(
-    worksheet: Any,
-) -> None:
-    """No heading is not a reason to show nothing. It is a reason to show all."""
+def test_a_short_text_with_no_heading_is_returned_whole(worksheet: Any) -> None:
     text = "We want someone who can write Kotlin and has shipped an app."
     assert worksheet.requirements_excerpt(text) == text
+
+
+def test_a_long_text_with_no_heading_returns_a_marked_tail(worksheet: Any) -> None:
+    """Never the whole document. The first version produced 8,000-character
+    excerpts, and an unmarked fallback reads as evidence rather than a guess."""
+    text = "Company blurb. " * 400 + "You will write Kotlin."
+    excerpt = worksheet.requirements_excerpt(text, window=200)
+    assert excerpt.startswith(worksheet.NO_HEADING_NOTICE)
+    assert "You will write Kotlin." in excerpt
+    assert len(excerpt) <= 200 + len(worksheet.NO_HEADING_NOTICE)
+
+
+def test_a_heading_word_inside_prose_is_not_an_anchor(worksheet: Any) -> None:
+    """The exact compensation boilerplate that broke 16 Akuna postings.
+
+    "qualifications" appears mid-clause. Anchoring there shows a labeler a pay
+    disclaimer and none of the posting's requirements.
+    """
+    text = (
+        "The base salary depends on experience, qualifications, and skill set. "
+        "This role is also eligible for a discretionary bonus. "
+        "Qualities that make great candidates: Graduating between 2027 and 2028."
+    )
+    excerpt = worksheet.requirements_excerpt(text)
+    assert excerpt.startswith("Qualities that make great candidates")
+
+
+def test_a_duty_containing_a_heading_word_is_not_an_anchor(worksheet: Any) -> None:
+    """"meet regulatory requirements by translating..." is a job duty."""
+    text = (
+        "You will meet regulatory requirements by translating commitments into "
+        "engineering work. WHAT YOU'LL NEED Proficiency in Kotlin."
+    )
+    assert worksheet.requirements_excerpt(text).startswith("WHAT YOU'LL NEED")
+
+
+def test_a_capitalised_heading_anchors_even_without_a_colon(worksheet: Any) -> None:
+    text = "About us we are great. WHAT YOU'LL NEED Proficiency in Kotlin."
+    assert worksheet.requirements_excerpt(text).startswith("WHAT YOU'LL NEED")
+
+
+def test_no_selected_excerpt_starts_mid_sentence(worksheet: Any) -> None:
+    """The property that failed on the first real run: 30 of 60 broken.
+
+    Runs over the actual corpus rather than invented strings, because the
+    failure was invisible to every invented string in this file.
+    """
+    offenders = []
+    for board, posting in worksheet.select_for_labeling(worksheet._all_postings()):
+        excerpt = worksheet.requirements_excerpt(posting["text"])
+        if excerpt[:1].islower():
+            offenders.append(f"{board}/{posting['id']}: {excerpt[:70]}")
+    assert offenders == [], f"{len(offenders)} excerpts anchored mid-sentence"
+
+
+def test_no_selected_excerpt_is_a_wall_of_text(worksheet: Any) -> None:
+    """13 of the first 60 ran past 1,500 characters; one hit 8,019."""
+    offenders = []
+    for board, posting in worksheet.select_for_labeling(worksheet._all_postings()):
+        excerpt = worksheet.requirements_excerpt(posting["text"])
+        if len(excerpt) > 1400:
+            offenders.append(f"{board}/{posting['id']}: {len(excerpt)} chars")
+    assert offenders == [], f"{len(offenders)} excerpts too long: {offenders[:5]}"
+
+
+def test_most_selected_excerpts_find_a_real_heading(worksheet: Any) -> None:
+    """The fallback is honest, but it is still a fallback.
+
+    If most of the corpus lands on it, `_REQUIREMENT_HEADINGS` is missing the
+    vocabulary these boards actually use, and the right fix is to add it rather
+    than to accept tails.
+    """
+    picked = worksheet.select_for_labeling(worksheet._all_postings())
+    fell_back = sum(
+        worksheet.requirements_excerpt(p["text"]).startswith(worksheet.NO_HEADING_NOTICE)
+        for _, p in picked
+    )
+    assert fell_back <= len(picked) // 4, (
+        f"{fell_back} of {len(picked)} excerpts had no heading to anchor on"
+    )
 
 
 def _posting(pid: str, title: str, reason: str) -> dict[str, Any]:
@@ -727,13 +804,21 @@ LABELS = CORPUS / "labels.yaml"
 WORKSHEET = ROOT / "docs" / "labeling" / "eligibility-worksheet.md"
 
 #: Longest first, so "preferred qualifications" wins over a bare "qualifications".
+#: Every entry after the first block was found in the recorded corpus, not
+#: imagined — "qualities that make great candidates" is Akuna's, and without it
+#: sixteen of their postings anchored on compensation boilerplate instead.
 _REQUIREMENT_HEADINGS = (
     "preferred qualifications",
     "minimum qualifications",
     "basic qualifications",
+    "qualities that make great candidates",
+    "what we're looking for",
+    "who we're looking for",
     "what you'll need",
     "what you will need",
-    "what we're looking for",
+    "what you'll bring",
+    "what we look for",
+    "you should have",
     "who you are",
     "requirements",
     "qualifications",
@@ -743,6 +828,43 @@ _REQUIREMENT_HEADINGS = (
     "you have",
     "about you",
 )
+
+_HEADING_ALTERNATION = "|".join(
+    re.escape(h) for h in sorted(_REQUIREMENT_HEADINGS, key=len, reverse=True)
+)
+
+
+def _heading_positions(text: str) -> list[int]:
+    """Offsets where a requirement heading genuinely opens a section.
+
+    A bare substring search is not enough, and the corpus proved it on the
+    first real run: **30 of 60 worksheet excerpts anchored inside ordinary
+    prose.** "This role is also eligible for... experience, qualifications, and
+    skill set" is compensation boilerplate; "meet regulatory requirements by
+    translating commitments" is a job duty. Both contain a heading word, and an
+    excerpt anchored on either shows a human none of the posting's actual
+    requirements while looking exactly like one that does. That is the failure
+    this whole function exists to avoid — a label built from wrong evidence is
+    indistinguishable from a good one.
+
+    Once HTML is stripped to a single run, a real heading is one of:
+
+    * followed by a colon      ``Qualities that make great candidates:``
+    * written in capitals      ``WHAT YOU'LL NEED``
+    * opening a sentence       ``... team. Requirements Proficiency in ...``
+
+    A heading word sitting mid-clause after a comma matches none of the three.
+    """
+    positions: list[int] = []
+    for match in re.finditer(_HEADING_ALTERNATION, text, re.I):
+        start, end = match.span()
+        followed_by_colon = text[end : end + 2].lstrip().startswith(":")
+        written_in_capitals = match.group(0).isupper()
+        preceding = text[:start].rstrip()
+        opens_a_sentence = not preceding or preceding[-1] in ".;!?•|"
+        if followed_by_colon or written_in_capitals or opens_a_sentence:
+            positions.append(start)
+    return sorted(positions)
 
 _LABEL_FIELDS = (
     "is_internship",
@@ -816,20 +938,32 @@ def plain_text(raw: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", text)).strip()
 
 
-def requirements_excerpt(text: str, *, window: int = 1200) -> str:
-    """The region where requirements live, or the whole text if none is found.
+#: Marks an excerpt that had no heading to anchor on, so a labeler can see the
+#: tool is guessing rather than quietly reading a guess as evidence.
+NO_HEADING_NOTICE = "[no requirements heading found — showing the end of the posting] "
 
-    Starts at the *earliest* requirement heading and runs `window` characters,
-    which is what keeps the preferred section in frame — it almost always
-    follows the required one, and it is the section that matters most to label.
+
+def requirements_excerpt(text: str, *, window: int = 1200) -> str:
+    """The region where requirements live, capped, never the whole document.
+
+    Starts at the earliest *genuine* heading (see :func:`_heading_positions`)
+    and runs ``window`` characters, which keeps the preferred section in frame —
+    it almost always follows the required one and it is the section that matters
+    most to label.
+
+    With no heading it returns the **tail**, not the whole text. Two reasons,
+    both measured: the first version returned everything and produced excerpts
+    up to 8,000 characters, which nobody reads; and in these postings the
+    requirements sit near the end, after the company blurb. The tail is prefixed
+    with :data:`NO_HEADING_NOTICE` because an unmarked fallback is a silent
+    guess presented as evidence.
     """
-    lowered = text.lower()
-    starts = [lowered.find(h) for h in _REQUIREMENT_HEADINGS]
-    found = [s for s in starts if s >= 0]
-    if not found:
+    positions = _heading_positions(text)
+    if positions:
+        return text[positions[0] : positions[0] + window]
+    if len(text) <= window:
         return text
-    start = min(found)
-    return text[start : start + window]
+    return NO_HEADING_NOTICE + text[-window:]
 
 
 def blank_label(posting_id: str, title: str) -> dict[str, Any]:
