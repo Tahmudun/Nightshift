@@ -742,6 +742,23 @@ def test_a_closer_word_inside_a_bullet_does_not_end_the_section(
     assert "Familiarity with Rust and Python" in excerpt
 
 
+def test_no_section_ends_almost_immediately(worksheet: Any) -> None:
+    """A closer firing just after the heading would hide everything.
+
+    The counterpart to the wall-of-text guard, and the failure mode that
+    adding closers risks: each new closer is a new chance to end a section
+    early, and an excerpt that stops at once looks tidy rather than broken.
+    """
+    offenders = []
+    for board, posting in worksheet.select_for_labeling(worksheet._all_postings()):
+        excerpt = worksheet.requirements_excerpt(posting["text"])
+        if excerpt.startswith(worksheet.NO_HEADING_PREFIX):
+            continue
+        if len(excerpt) < 300:
+            offenders.append(f"{board}/{posting['id']}: {len(excerpt)} chars — {excerpt[:60]}")
+    assert len(offenders) <= 1, f"{len(offenders)} excerpts end almost at once: {offenders}"
+
+
 def test_a_capitalised_closer_still_ends_the_section(worksheet: Any) -> None:
     """The bullet rule must not stop real closers working."""
     text = "REQUIREMENTS Kotlin. " + "Real requirement. " * 10 + "BENEFITS Free lunch."
@@ -1274,7 +1291,15 @@ _SECTION_CLOSERS = re.compile(
     r"|why (join|work)|our values|about (us|the company)"
     r"|the (expected )?(base )?(salary|pay)|we are an equal|pay transparency"
     r"|how to apply|interview process|life at|eeo|in accordance with"
-    r"|annual salary range|total (pay|compensation)",
+    r"|annual salary range|total (pay|compensation)"
+    # Anthropic's closing sections, which name themselves rather than saying
+    # "benefits". Without these its postings had no closer at all and the
+    # window became their only bound — 12 of 18 truncations were cutting real
+    # requirement language, not boilerplate. Measured across the 60: adding
+    # them takes the p90 section from 5,645 characters to 2,860 and truncation
+    # from 18 of 60 to 6.
+    r"|logistics|how we'?re different|come work with us|location-based hybrid"
+    r"|we encourage you to apply|deadline to apply|the salary range|role-specific",
     re.I,
 )
 
