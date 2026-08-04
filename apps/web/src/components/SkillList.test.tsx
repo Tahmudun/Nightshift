@@ -31,11 +31,13 @@ const BY_HAND: UserSkill = {
   vocabulary_version: null,
 };
 
-function renderList(skills: UserSkill[]) {
+const RESUME_ID = '9f1c2b3a-0000-4000-8000-000000000009';
+
+function renderList(skills: UserSkill[], liveResumeIds?: Set<string>) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <SkillList skills={skills} />
+      <SkillList skills={skills} liveResumeIds={liveResumeIds} />
     </QueryClientProvider>,
   );
 }
@@ -55,6 +57,21 @@ describe('SkillList', () => {
     renderList([FROM_RESUME]);
     const link = screen.getByRole('link', { name: /238–244/ });
     expect(link).toHaveAttribute('href', '/operate/resumes/9f1c2b3a-0000-4000-8000-000000000009');
+  });
+
+  it('states the provenance but withholds the link when the resume is gone', () => {
+    // A confirmed skill outlives the resume it came from — that is the product
+    // decision. So the pointer outlives its target too, and a link to a deleted
+    // resume is a 404 dressed up as evidence.
+    renderList([FROM_RESUME], new Set());
+    expect(screen.queryByRole('link', { name: /238–244/ })).toBeNull();
+    expect(screen.getByText(/since deleted/i)).toBeInTheDocument();
+    expect(screen.getByText('Python').closest('li')).toHaveTextContent(/from your resume/i);
+  });
+
+  it('offers the link when the resume is still there', () => {
+    renderList([FROM_RESUME], new Set([RESUME_ID]));
+    expect(screen.getByRole('link', { name: /238–244/ })).toBeInTheDocument();
   });
 
   it('says nothing is confirmed rather than rendering an empty list', () => {

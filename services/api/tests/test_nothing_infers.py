@@ -80,6 +80,29 @@ def test_no_new_module_writes_attributes_dynamically() -> None:
     )
 
 
+def test_nothing_rewrites_the_text_a_proposal_quotes() -> None:
+    """A span is an offset into ``resumes.parsed_text``. Edit that text and every
+    proposal on it silently starts quoting different words.
+
+    The trigger cannot catch it — it fires on ``resume_extractions``, not on
+    ``resumes``, so an UPDATE to the parent passes unexamined while every child
+    row becomes a lie. Today no code path assigns the column at all
+    (``create_resume`` passes it to the constructor and nothing else touches
+    it), and this is what keeps that true. A resume whose text really changed
+    is a different resume, which is what the content hash already says.
+    """
+    written = re.compile(r"\.parsed_text\s*=(?!=)")
+    offenders = sorted(
+        str(path.relative_to(ROOT))
+        for path in _sources()
+        if written.search(path.read_text(encoding="utf-8"))
+    )
+    assert offenders == [], (
+        f"these rewrite the text proposals point at: {offenders}. Create a new "
+        "resume instead — the spans on the old one belong to the old text."
+    )
+
+
 def test_the_extractor_does_not_call_back_into_the_writer() -> None:
     """`profile.py` may call the extractor; the extractor may not call back."""
     extractor = (ROOT / "domain" / "resume_extraction.py").read_text(encoding="utf-8")

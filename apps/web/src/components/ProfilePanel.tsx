@@ -70,6 +70,11 @@ function Resumes() {
 
 export function ProfilePanel() {
   const { data, isPending, error } = useQuery({ queryKey: PROFILE_KEY, queryFn: fetchProfile });
+  // Which resumes still exist, so a skill whose resume was deleted states its
+  // provenance without offering a link to a 404.
+  const resumes = useQuery({ queryKey: RESUMES_KEY, queryFn: listResumes });
+  const liveResumeIds =
+    resumes.data === undefined ? undefined : new Set(resumes.data.items.map((resume) => resume.id));
 
   if (isPending) {
     return <p className="font-mono text-[12px] text-paper-faint">Loading your profile…</p>;
@@ -100,7 +105,7 @@ export function ProfilePanel() {
           Skills
         </h2>
         <div className="mt-3">
-          <SkillList skills={data.skills} />
+          <SkillList skills={data.skills} liveResumeIds={liveResumeIds} />
         </div>
       </section>
 

@@ -30,18 +30,35 @@ export function parseSourceReference(
   return { resumeId: match[1]!, start: Number(match[2]), end: Number(match[3]) };
 }
 
-function Provenance({ skill }: { readonly skill: UserSkill }) {
+function Provenance({
+  skill,
+  liveResumeIds,
+}: {
+  readonly skill: UserSkill;
+  readonly liveResumeIds: ReadonlySet<string> | undefined;
+}) {
   const pointer = parseSourceReference(skill.source_reference);
   if (skill.source_type === 'resume' && pointer !== null) {
+    // A confirmed skill outlives the resume it came from — deliberately, since
+    // the fact belongs to the person. So the pointer can outlive its target,
+    // and a link to a deleted resume is a 404 dressed up as evidence. The
+    // provenance is still stated; only the link is withheld.
+    const followable = liveResumeIds === undefined || liveResumeIds.has(pointer.resumeId);
     return (
       <span className="font-mono text-[10px] text-paper-faint">
         from your resume ·{' '}
-        <Link
-          href={`/operate/resumes/${pointer.resumeId}`}
-          className="text-signal-400 underline underline-offset-2"
-        >
-          characters {pointer.start}–{pointer.end}
-        </Link>
+        {followable ? (
+          <Link
+            href={`/operate/resumes/${pointer.resumeId}`}
+            className="text-signal-400 underline underline-offset-2"
+          >
+            characters {pointer.start}–{pointer.end}
+          </Link>
+        ) : (
+          <span>
+            characters {pointer.start}–{pointer.end}, in a resume you have since deleted
+          </span>
+        )}
       </span>
     );
   }
@@ -52,7 +69,17 @@ function Provenance({ skill }: { readonly skill: UserSkill }) {
   );
 }
 
-export function SkillList({ skills }: { readonly skills: readonly UserSkill[] }) {
+export function SkillList({
+  skills,
+  liveResumeIds,
+}: {
+  readonly skills: readonly UserSkill[];
+  /** Undefined means "not known yet" — the link is offered rather than withheld
+   * on a loading state, because a working link that flickers is better than a
+   * correct one nobody can click. Written `| undefined` rather than `?:`
+   * because `exactOptionalPropertyTypes` tells the two apart. */
+  readonly liveResumeIds: ReadonlySet<string> | undefined;
+}) {
   const [draft, setDraft] = useState('');
   const queryClient = useQueryClient();
 
@@ -83,7 +110,7 @@ export function SkillList({ skills }: { readonly skills: readonly UserSkill[] })
             >
               <span>
                 <span className="text-[14px] text-paper">{skill.name}</span>{' '}
-                <Provenance skill={skill} />
+                <Provenance skill={skill} liveResumeIds={liveResumeIds} />
               </span>
               <button
                 type="button"
