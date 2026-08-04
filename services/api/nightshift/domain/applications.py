@@ -279,7 +279,16 @@ async def schedule_interview(
 #: functions precisely because they carry rules, and a generic patch route
 #: would route around both.
 UPDATABLE_FIELDS = frozenset(
-    {"priority", "next_action_at", "application_url", "source_of_application", "applied_at"}
+    {
+        "priority",
+        "next_action_at",
+        "application_url",
+        "source_of_application",
+        "applied_at",
+        # M2c. Ownership is checked in the route before it reaches here — the
+        # foreign key alone permits any user's resume (A3).
+        "selected_resume_id",
+    }
 )
 
 

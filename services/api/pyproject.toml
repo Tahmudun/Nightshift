@@ -27,6 +27,12 @@ dependencies = [
   # Added at M1b, which is the milestone that first reads them (ADR 0010).
   "pgvector>=0.3.6",
   "fastembed>=0.4.2",
+  # M2c: resume text. Pure Python, no native libraries and no key, so
+  # `make demo` still runs offline (A9). pypdf reads only — it never writes a
+  # file back, and the uploaded bytes are discarded after extraction.
+  "pypdf>=5.1",
+  # FastAPI needs this to parse a multipart upload at all. Also pure Python.
+  "python-multipart>=0.0.20",
 ]
 
 # Deliberately absent until the milestone that needs them, per CLAUDE.md §8:

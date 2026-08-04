@@ -1,0 +1,123 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [4 0 R 6 0 R] /Count 2 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>
+endobj
+5 0 obj
+<< /Length 522 >>
+stream
+BT
+/F1 10 Tf
+72 720 Td
+14 TL
+(NADIA OKONKWO) Tj
+T*
+(Brooklyn, NY | nadia.okonkwo@example.edu | github.com/example) Tj
+T*
+() Tj
+T*
+(EDUCATION) Tj
+T*
+() Tj
+T*
+(Hunter College, CUNY - New York, NY) Tj
+T*
+(Bachelor of Science in Computer Science) Tj
+T*
+(Expected graduation: May 2027) Tj
+T*
+(GPA 3.7 / 4.0) Tj
+T*
+() Tj
+T*
+(TECHNICAL SKILLS) Tj
+T*
+() Tj
+T*
+(Languages: Python, TypeScript, SQL, Go) Tj
+T*
+(Frameworks: React, FastAPI, PostgreSQL) Tj
+T*
+(Tools: Docker, Git, Playwright) Tj
+T*
+() Tj
+T*
+(PROJECTS) Tj
+T*
+() Tj
+T*
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
+endobj
+7 0 obj
+<< /Length 762 >>
+stream
+BT
+/F1 10 Tf
+72 720 Td
+14 TL
+(Transit Delay Tracker - Python, PostgreSQL) Tj
+T*
+(- Ingested MTA real-time feeds every 30 seconds into a time-series table.) Tj
+T*
+(- Published a dashboard read by roughly 400 people a week.) Tj
+T*
+() Tj
+T*
+(Cafe Queue - TypeScript, React) Tj
+T*
+(- Built a mobile ordering flow used by a campus coffee shop.) Tj
+T*
+(- Wrote the Playwright suite covering the checkout path.) Tj
+T*
+() Tj
+T*
+(EXPERIENCE) Tj
+T*
+() Tj
+T*
+(Peer Tutor, Hunter College Computer Science Department) Tj
+T*
+(- Tutored 40 students in data structures over two semesters.) Tj
+T*
+(- Five years of experience is a phrase this resume deliberately contains.) Tj
+T*
+() Tj
+T*
+(AUTHORIZATION) Tj
+T*
+() Tj
+T*
+(Authorized to work in the United States.) Tj
+T*
+() Tj
+T*
+ET
+endstream
+endobj
+xref
+0 8
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000121 00000 n 
+0000000191 00000 n 
+0000000317 00000 n 
+0000000890 00000 n 
+0000001016 00000 n 
+trailer
+<< /Size 8 /Root 1 0 R >>
+startxref
+1829
+%%EOF

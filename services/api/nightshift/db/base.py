@@ -233,6 +233,109 @@ class ApplicationEventType(enum.StrEnum):
     LISTING_CLOSED = "listing_closed"
 
 
+class WorkAuthorization(enum.StrEnum):
+    """A claim about legal status, and therefore never inferred (I2).
+
+    The resume extractor has no member for this and no rule that could produce
+    one — ``ExtractionKind`` below deliberately omits it. ``unspecified`` is the
+    default and the honest answer until a person picks another in a form.
+    """
+
+    UNSPECIFIED = "unspecified"
+    US_CITIZEN = "us_citizen"
+    PERMANENT_RESIDENT = "permanent_resident"
+    F1_STUDENT = "f1_student"
+    OTHER_AUTHORIZED = "other_authorized"
+    NEEDS_SPONSORSHIP = "needs_sponsorship"
+
+
+class RemotePreference(enum.StrEnum):
+    """The user's own preference. Distinct from a job's ``RemotePolicy``."""
+
+    NO_PREFERENCE = "no_preference"
+    ON_SITE = "on_site"
+    HYBRID = "hybrid"
+    REMOTE = "remote"
+
+
+class ProficiencyLevel(enum.StrEnum):
+    """Only the user sets this. Nothing reads a level off a resume — a page
+    cannot show how well somebody knows a thing (I2)."""
+
+    UNSPECIFIED = "unspecified"
+    BEGINNER = "beginner"
+    INTERMEDIATE = "intermediate"
+    ADVANCED = "advanced"
+
+
+class SkillSourceType(enum.StrEnum):
+    """PRODUCT-SPEC §6.2's list.
+
+    ``inferred_pending_confirmation`` exists here and is **refused** by a check
+    constraint on ``user_skills``: that table holds confirmed facts only, and a
+    pending one belongs in ``resume_extractions``. The value is kept so the
+    refusal is expressible rather than implicit — the same reason
+    ``LocationConfidence`` keeps ``unknown``.
+    """
+
+    MANUAL = "manual"
+    RESUME = "resume"
+    PROJECT = "project"
+    COURSEWORK = "coursework"
+    ASSESSMENT = "assessment"
+    GITHUB = "github"
+    INFERRED_PENDING_CONFIRMATION = "inferred_pending_confirmation"
+
+
+class ProjectStatus(enum.StrEnum):
+    ACTIVE = "active"
+    COMPLETED = "completed"
+    ARCHIVED = "archived"
+
+
+class ResumeSourceKind(enum.StrEnum):
+    """How the text arrived. Matches ``resume_text.ResumeFormat`` exactly, and
+    a test asserts the two sets are equal — a drift would store a
+    ``source_kind`` nothing can read back."""
+
+    PASTE = "paste"
+    TXT = "txt"
+    PDF = "pdf"
+
+
+class ResumeVariant(enum.StrEnum):
+    """PRODUCT-SPEC §6.4's variants. The user picks; nothing classifies."""
+
+    GENERAL_SWE = "general_swe"
+    BACKEND = "backend"
+    FULL_STACK = "full_stack"
+    DATA_ML = "data_ml"
+    INFRASTRUCTURE = "infrastructure"
+    CUSTOM = "custom"
+
+
+class ExtractionKind(enum.StrEnum):
+    """What a proposal is about. Matches ``resume_extraction.ProposalKind``.
+
+    There is no member for work authorization, seniority, or years of
+    experience, and adding one is a migration — which is the point (I2).
+    """
+
+    SKILL = "skill"
+    GRADUATION = "graduation"
+    DEGREE = "degree"
+    SCHOOL = "school"
+    PROJECT = "project"
+
+
+class ExtractionStatus(enum.StrEnum):
+    """A proposal is pending until a person decides. Nothing else decides."""
+
+    PENDING = "pending"
+    CONFIRMED = "confirmed"
+    REJECTED = "rejected"
+
+
 def pg_enum_values(enum_cls: type[enum.Enum]) -> list[str]:
     """``values_callable`` helper: store enum *values*, not member names."""
     return [member.value for member in enum_cls]

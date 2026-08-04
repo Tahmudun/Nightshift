@@ -1,0 +1,35 @@
+NADIA OKONKWO
+Brooklyn, NY | nadia.okonkwo@example.edu | github.com/example
+
+EDUCATION
+
+Hunter College, CUNY - New York, NY
+Bachelor of Science in Computer Science
+Expected graduation: May 2027
+GPA 3.7 / 4.0
+
+TECHNICAL SKILLS
+
+Languages: Python, TypeScript, SQL, Go
+Frameworks: React, FastAPI, PostgreSQL
+Tools: Docker, Git, Playwright
+
+PROJECTS
+
+Transit Delay Tracker - Python, PostgreSQL
+- Ingested MTA real-time feeds every 30 seconds into a time-series table.
+- Published a dashboard read by roughly 400 people a week.
+
+Cafe Queue - TypeScript, React
+- Built a mobile ordering flow used by a campus coffee shop.
+- Wrote the Playwright suite covering the checkout path.
+
+EXPERIENCE
+
+Peer Tutor, Hunter College Computer Science Department
+- Tutored 40 students in data structures over two semesters.
+- Five years of experience is a phrase this resume deliberately contains.
+
+AUTHORIZATION
+
+Authorized to work in the United States.

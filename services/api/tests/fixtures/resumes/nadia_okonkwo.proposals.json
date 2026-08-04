@@ -1,0 +1,160 @@
+[
+  {
+    "char_end": 102,
+    "char_start": 88,
+    "kind": "school",
+    "quoted_text": "Hunter College",
+    "value": {
+      "school": "Hunter College"
+    }
+  },
+  {
+    "char_end": 143,
+    "char_start": 124,
+    "kind": "degree",
+    "quoted_text": "Bachelor of Science",
+    "value": {
+      "degree": "Bachelor of Science"
+    }
+  },
+  {
+    "char_end": 193,
+    "char_start": 185,
+    "kind": "graduation",
+    "quoted_text": "May 2027",
+    "value": {
+      "month": 5,
+      "year": 2027
+    }
+  },
+  {
+    "char_end": 244,
+    "char_start": 238,
+    "kind": "skill",
+    "quoted_text": "Python",
+    "value": {
+      "name": "Python",
+      "vocabulary_version": "2026-08-03.1"
+    }
+  },
+  {
+    "char_end": 256,
+    "char_start": 246,
+    "kind": "skill",
+    "quoted_text": "TypeScript",
+    "value": {
+      "name": "TypeScript",
+      "vocabulary_version": "2026-08-03.1"
+    }
+  },
+  {
+    "char_end": 261,
+    "char_start": 258,
+    "kind": "skill",
+    "quoted_text": "SQL",
+    "value": {
+      "name": "SQL",
+      "vocabulary_version": "2026-08-03.1"
+    }
+  },
+  {
+    "char_end": 265,
+    "char_start": 263,
+    "kind": "skill",
+    "quoted_text": "Go",
+    "value": {
+      "name": "Go",
+      "vocabulary_version": "2026-08-03.1"
+    }
+  },
+  {
+    "char_end": 283,
+    "char_start": 278,
+    "kind": "skill",
+    "quoted_text": "React",
+    "value": {
+      "name": "React",
+      "vocabulary_version": "2026-08-03.1"
+    }
+  },
+  {
+    "char_end": 292,
+    "char_start": 285,
+    "kind": "skill",
+    "quoted_text": "FastAPI",
+    "value": {
+      "name": "FastAPI",
+      "vocabulary_version": "2026-08-03.1"
+    }
+  },
+  {
+    "char_end": 304,
+    "char_start": 294,
+    "kind": "skill",
+    "quoted_text": "PostgreSQL",
+    "value": {
+      "name": "PostgreSQL",
+      "vocabulary_version": "2026-08-03.1"
+    }
+  },
+  {
+    "char_end": 318,
+    "char_start": 312,
+    "kind": "skill",
+    "quoted_text": "Docker",
+    "value": {
+      "name": "Docker",
+      "vocabulary_version": "2026-08-03.1"
+    }
+  },
+  {
+    "char_end": 323,
+    "char_start": 320,
+    "kind": "skill",
+    "quoted_text": "Git",
+    "value": {
+      "name": "Git",
+      "vocabulary_version": "2026-08-03.1"
+    }
+  },
+  {
+    "char_end": 335,
+    "char_start": 325,
+    "kind": "skill",
+    "quoted_text": "Playwright",
+    "value": {
+      "name": "Playwright",
+      "vocabulary_version": "2026-08-03.1"
+    }
+  },
+  {
+    "char_end": 522,
+    "char_start": 347,
+    "kind": "project",
+    "quoted_text": "Transit Delay Tracker - Python, PostgreSQL\n- Ingested MTA real-time feeds every 30 seconds into a time-series table.\n- Published a dashboard read by roughly 400 people a week.",
+    "value": {
+      "evidence": "- Ingested MTA real-time feeds every 30 seconds into a time-series table.\n- Published a dashboard read by roughly 400 people a week.",
+      "name": "Transit Delay Tracker"
+    }
+  },
+  {
+    "char_end": 672,
+    "char_start": 524,
+    "kind": "project",
+    "quoted_text": "Cafe Queue - TypeScript, React\n- Built a mobile ordering flow used by a campus coffee shop.\n- Wrote the Playwright suite covering the checkout path.",
+    "value": {
+      "evidence": "- Built a mobile ordering flow used by a campus coffee shop.\n- Wrote the Playwright suite covering the checkout path.",
+      "name": "Cafe Queue"
+    }
+  },
+  {
+    "char_end": 781,
+    "char_start": 766,
+    "kind": "skill",
+    "quoted_text": "data structures",
+    "value": {
+      "name": "Data Structures",
+      "vocabulary_version": "2026-08-03.1"
+    }
+  }
+]

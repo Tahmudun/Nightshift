@@ -21,14 +21,26 @@ REQUIRED_PROVENANCE_KEYS = {"endpoint", "recorded_at", "board_token"}
 #: newest recordings — the ones least likely to have been checked by hand.
 RECORDED_SUFFIXES = (".json", ".jsonl", ".html")
 
+#: A **derived** fixture is computed from a committed input by a committed
+#: script — M2c's golden proposal list is the first. Provenance still applies,
+#: but it is a different question: not "which endpoint served this" but "which
+#: script, from which input". Added at M2c rather than exempting the file,
+#: because an exemption is how a fixture with no history gets in.
+DERIVED_SUFFIX = ".proposals.json"
+REQUIRED_DERIVED_KEYS = {"derived_from", "generated_by", "extractor_version"}
+
 
 def _payload_fixtures() -> list[Path]:
     return sorted(
         path
         for suffix in RECORDED_SUFFIXES
         for path in FIXTURE_ROOT.rglob(f"*{suffix}")
-        if not path.name.endswith(".meta.json")
+        if not path.name.endswith(".meta.json") and not path.name.endswith(DERIVED_SUFFIX)
     )
+
+
+def _derived_fixtures() -> list[Path]:
+    return sorted(FIXTURE_ROOT.rglob(f"*{DERIVED_SUFFIX}"))
 
 
 @pytest.mark.parametrize("fixture", _payload_fixtures(), ids=lambda p: f"{p.parent.name}/{p.stem}")
@@ -40,6 +52,21 @@ def test_every_fixture_has_provenance(fixture: Path) -> None:
     missing = REQUIRED_PROVENANCE_KEYS - provenance.keys()
     assert not missing, f"{meta.name} provenance missing {sorted(missing)}"
     assert provenance["endpoint"].startswith("https://"), meta.name
+
+
+@pytest.mark.parametrize("fixture", _derived_fixtures(), ids=lambda p: f"{p.parent.name}/{p.stem}")
+def test_every_derived_fixture_names_its_input_and_its_generator(fixture: Path) -> None:
+    """A golden file with no history is a rule that says "whatever ran that day"."""
+    meta = fixture.with_suffix(".meta.json")
+    assert meta.exists(), f"{fixture.name} has no .meta.json — provenance is not optional"
+    provenance = json.loads(meta.read_text())["provenance"]
+    missing = REQUIRED_DERIVED_KEYS - provenance.keys()
+    assert not missing, f"{meta.name} provenance missing {sorted(missing)}"
+
+    source = fixture.parent / str(provenance["derived_from"])
+    assert source.exists(), f"{meta.name} names an input that is not committed: {source.name}"
+    generator = Path(__file__).resolve().parents[3] / str(provenance["generated_by"])
+    assert generator.exists(), f"{meta.name} names a generator that does not exist: {generator}"
 
 
 def test_the_discovery_name_fixtures_exist() -> None:

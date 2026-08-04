@@ -75,6 +75,14 @@ describe('text colours meet WCAG AA on every surface they appear on', () => {
       expect(contrast(token(name), token('ink-950'))).toBeGreaterThanOrEqual(4.5);
     });
   }
+
+  // M2c: `signal-900` became a text surface when `HighlightedText` started
+  // rendering a person's resume on it. It is the only accent shade used that
+  // way, and the words underneath a highlight are the words a claim rests on —
+  // unreadable there is worse than unreadable anywhere else on the site.
+  it('paper on signal-900 clears 4.5:1, because the highlight carries resume text', () => {
+    expect(contrast(token('paper'), token('signal-900'))).toBeGreaterThanOrEqual(4.5);
+  });
 });
 
 describe('surface shades stay out of the text ramp', () => {

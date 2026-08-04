@@ -15,7 +15,7 @@ is required to say "not provided by source" instead of hiding the row.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -27,12 +27,21 @@ from nightshift.db.base import (
     BoardTier,
     EmploymentType,
     EventActor,
+    ExtractionKind,
+    ExtractionStatus,
     IngestionRunStatus,
     JobStatus,
     LocationConfidence,
+    ProficiencyLevel,
+    ProjectStatus,
     RemotePolicy,
+    RemotePreference,
     ResolutionMethod,
+    ResumeSourceKind,
+    ResumeVariant,
+    SkillSourceType,
     TransitionClass,
+    WorkAuthorization,
 )
 
 
@@ -416,6 +425,7 @@ class ApplicationOut(BaseModel):
     next_action_at: datetime | None
     application_url: str | None
     source_of_application: str | None
+    selected_resume_id: UUID | None
     archived_at: datetime | None
     created_at: datetime
     updated_at: datetime
@@ -496,3 +506,220 @@ class ApplicationPatchIn(BaseModel):
     application_url: str | None = Field(default=None, max_length=1000)
     source_of_application: str | None = Field(default=None, max_length=200)
     applied_at: datetime | None = None
+    #: The route checks this resume belongs to the caller before it is stored.
+    #: The foreign key alone would happily accept a stranger's id (A3).
+    selected_resume_id: UUID | None = None
+
+
+# ---------------------------------------------------------------------------
+# Profile and resumes (M2c)
+#
+# Two shapes, and the boundary between them is invariant I2. `ExtractionOut` is
+# a *proposal* — what a file appears to say, with the characters it says it at.
+# `ProfileOut` is what a person confirmed. Nothing moves from the first to the
+# second without a `ConfirmIn` carrying their decision.
+# ---------------------------------------------------------------------------
+
+
+class UserSkillOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    proficiency_level: ProficiencyLevel
+    source_type: SkillSourceType
+    #: Where it came from, in a form a human can follow back:
+    #: ``resume:<uuid>#214-229``, or ``manual``.
+    source_reference: str | None
+    vocabulary_version: str | None
+    created_at: datetime
+
+
+class UserProjectOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    summary: str | None
+    evidence: str | None
+    repository_url: str | None
+    demo_url: str | None
+    technologies: list[str]
+    status: ProjectStatus
+    created_at: datetime
+
+
+class DeferredProfileFieldOut(BaseModel):
+    """I7: what the profile cannot infer, named rather than left blank."""
+
+    name: str
+    blocked_on: str
+    reason: str
+
+
+class ProfileOut(BaseModel):
+    """Confirmed facts only. Every field here was typed or clicked by a person.
+
+    ``graduation_year`` and ``graduation_month`` rather than a date: a resume
+    saying "May 2027" does not name a day, and inventing one to fill a column is
+    the fabrication I1 forbids (ADR 0013).
+    """
+
+    id: UUID
+    email: str
+    display_name: str | None
+    timezone: str
+    graduation_year: int | None
+    graduation_month: int | None
+    degree: str | None
+    school: str | None
+    work_authorization: WorkAuthorization
+    home_location_text: str | None
+    remote_preference: RemotePreference
+    minimum_salary: int | None
+    preferred_roles: list[str]
+    preferred_locations: list[str]
+    skills: list[UserSkillOut]
+    projects: list[UserProjectOut]
+    deferred_fields: list[DeferredProfileFieldOut]
+
+
+class ProfilePatchIn(BaseModel):
+    """Absent means "leave alone"; explicit null means "clear".
+
+    Same rule as :class:`ApplicationPatchIn`, and for the same reason: without
+    it there is no way to unset a graduation year once it is set.
+    """
+
+    display_name: str | None = Field(default=None, max_length=200)
+    graduation_year: int | None = Field(default=None, ge=1900, le=2100)
+    graduation_month: int | None = Field(default=None, ge=1, le=12)
+    degree: str | None = Field(default=None, max_length=200)
+    school: str | None = Field(default=None, max_length=300)
+    work_authorization: WorkAuthorization | None = None
+    home_location_text: str | None = Field(default=None, max_length=300)
+    remote_preference: RemotePreference | None = None
+    minimum_salary: int | None = Field(default=None, ge=0)
+    preferred_roles: list[str] | None = None
+    preferred_locations: list[str] | None = None
+
+
+class SkillIn(BaseModel):
+    """The manual path — §6.2's fallback, and where "nothing could be proven
+    from this file" hands over to."""
+
+    name: str = Field(min_length=1, max_length=120)
+    proficiency_level: ProficiencyLevel = ProficiencyLevel.UNSPECIFIED
+
+
+class ProjectIn(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    summary: str | None = Field(default=None, max_length=4000)
+    evidence: str | None = Field(default=None, max_length=8000)
+    repository_url: str | None = Field(default=None, max_length=500)
+    demo_url: str | None = Field(default=None, max_length=500)
+    technologies: list[str] = Field(default_factory=list)
+    status: ProjectStatus = ProjectStatus.COMPLETED
+
+
+class ExtractionOut(BaseModel):
+    """A proposal, and the characters it came from.
+
+    ``char_start``/``char_end`` index into :attr:`ResumeDetailOut.parsed_text`,
+    and ``quoted_text`` is what that slice must contain. The database enforces
+    it with a trigger; `test_every_proposal_in_the_response_quotes_the_parsed_text`
+    enforces it again here, where the browser reads it.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    kind: ExtractionKind
+    value: dict[str, Any]
+    char_start: int
+    char_end: int
+    quoted_text: str
+    status: ExtractionStatus
+    extractor_version: str
+    decided_at: datetime | None
+
+
+class ExtractionCounts(BaseModel):
+    """Same shape rule as `ApplicationStageCounts`: a zero, never a missing key."""
+
+    pending: int = 0
+    confirmed: int = 0
+    rejected: int = 0
+
+
+class ResumeOut(BaseModel):
+    """One resume, without its text. **The uploaded bytes are never stored** —
+    what survives is the filename, a hash of the text, and the text itself."""
+
+    id: UUID
+    name: str
+    variant_type: ResumeVariant
+    source_kind: ResumeSourceKind
+    original_filename: str | None
+    content_hash: str
+    is_default: bool
+    extraction_counts: ExtractionCounts
+    created_at: datetime
+    updated_at: datetime
+
+
+class ResumeDetailOut(ResumeOut):
+    """The text the extractor actually read, plus every proposal over it.
+
+    ``parsed_text`` is here so the confirmation screen can show the words rather
+    than a tidy form — a scrambled two-column PDF extraction is then visible
+    instead of hidden, which is what makes accepting PDFs safe.
+    """
+
+    parsed_text: str
+    extractions: list[ExtractionOut]
+    nothing_proven: bool = Field(
+        description="No proposal could be made from this text. Stated, never "
+        "papered over with a half-filled form (I7)."
+    )
+
+
+class ResumeListOut(BaseModel):
+    items: list[ResumeOut]
+    total: int
+
+
+class ResumePasteIn(BaseModel):
+    name: str = Field(default="Pasted resume", min_length=1, max_length=200)
+    text: str = Field(min_length=1)
+    variant_type: ResumeVariant = ResumeVariant.CUSTOM
+
+
+class ResumePatchIn(BaseModel):
+    """Rename, retype, or make default. Nothing here re-reads the text —
+    proposals are made once, so a decision already made is never stranded."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    variant_type: ResumeVariant | None = None
+    is_default: bool | None = None
+
+
+class ExtractionDecisionIn(BaseModel):
+    extraction_id: UUID
+    decision: Literal["confirm", "reject"]
+
+
+class ConfirmIn(BaseModel):
+    decisions: list[ExtractionDecisionIn] = Field(min_length=1)
+
+
+class ConfirmationOut(BaseModel):
+    """What the click did, counted. ``skipped`` is a proposal already decided —
+    reported rather than refused, so a double-submitted form is not an error."""
+
+    confirmed: int
+    rejected: int
+    skipped: int
+    skills_added: int
+    projects_added: int
+    profile_fields_set: list[str]

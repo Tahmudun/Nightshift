@@ -396,6 +396,7 @@ export const applicationSchema = z.object({
   next_action_at: z.string().datetime({ offset: true }).nullable(),
   application_url: z.string().nullable(),
   source_of_application: z.string().nullable(),
+  selected_resume_id: z.string().uuid().nullable(),
   archived_at: z.string().datetime({ offset: true }).nullable(),
   created_at: z.string().datetime({ offset: true }),
   updated_at: z.string().datetime({ offset: true }),
@@ -438,3 +439,239 @@ export const applicationListSchema = z.object({
   deferred_fields: deferredApplicationFieldSchema.array(),
 });
 export type ApplicationList = z.infer<typeof applicationListSchema>;
+
+/* -------------------------------------------------------------------------
+ * Profile and resumes (M2c)
+ *
+ * Invariant I2 crosses the network here, so it is enforced here. An
+ * `Extraction` is a *proposal* — what a file appears to say, and the exact
+ * characters it says it at. A `Profile` holds only what a person confirmed.
+ * Nothing turns the first into the second except a `confirmExtractions` call
+ * carrying their decisions.
+ * ------------------------------------------------------------------------- */
+
+export const workAuthorizationSchema = z.enum([
+  'unspecified',
+  'us_citizen',
+  'permanent_resident',
+  'f1_student',
+  'other_authorized',
+  'needs_sponsorship',
+]);
+export type WorkAuthorization = z.infer<typeof workAuthorizationSchema>;
+
+export const remotePreferenceSchema = z.enum(['no_preference', 'on_site', 'hybrid', 'remote']);
+export type RemotePreference = z.infer<typeof remotePreferenceSchema>;
+
+export const proficiencyLevelSchema = z.enum([
+  'unspecified',
+  'beginner',
+  'intermediate',
+  'advanced',
+]);
+export type ProficiencyLevel = z.infer<typeof proficiencyLevelSchema>;
+
+export const skillSourceTypeSchema = z.enum([
+  'manual',
+  'resume',
+  'project',
+  'coursework',
+  'assessment',
+  'github',
+  'inferred_pending_confirmation',
+]);
+
+export const projectStatusSchema = z.enum(['active', 'completed', 'archived']);
+
+export const resumeSourceKindSchema = z.enum(['paste', 'txt', 'pdf']);
+export type ResumeSourceKind = z.infer<typeof resumeSourceKindSchema>;
+
+export const resumeVariantSchema = z.enum([
+  'general_swe',
+  'backend',
+  'full_stack',
+  'data_ml',
+  'infrastructure',
+  'custom',
+]);
+export type ResumeVariant = z.infer<typeof resumeVariantSchema>;
+
+/**
+ * Five kinds and no sixth. There is deliberately no `work_authorization`: a
+ * claim about legal status is confirmed in a form, never read off a page, and
+ * a value arriving here would mean the API grew a rule I2 forbids.
+ */
+export const extractionKindSchema = z.enum(['skill', 'graduation', 'degree', 'school', 'project']);
+export type ExtractionKind = z.infer<typeof extractionKindSchema>;
+
+export const extractionStatusSchema = z.enum(['pending', 'confirmed', 'rejected']);
+export type ExtractionStatus = z.infer<typeof extractionStatusSchema>;
+
+/**
+ * One proposal. The refinement is the client's half of the database trigger:
+ * the trigger checks the quote against the resume text, and this checks it
+ * against the span the row claims. A quote that cannot fit its own span means
+ * an offset moved in serialisation, and the highlight would land on the wrong
+ * words while still looking authoritative.
+ */
+export const extractionSchema = z
+  .object({
+    id: z.string().uuid(),
+    kind: extractionKindSchema,
+    value: z.record(z.unknown()),
+    char_start: z.number().int().nonnegative(),
+    char_end: z.number().int().positive(),
+    quoted_text: z.string(),
+    status: extractionStatusSchema,
+    extractor_version: z.string(),
+    decided_at: z.string().datetime({ offset: true }).nullable(),
+  })
+  .superRefine((row, ctx) => {
+    if (row.char_end <= row.char_start) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'a proposal with an empty span highlights nothing and still claims something',
+        path: ['char_end'],
+      });
+    }
+    if (row.quoted_text.length !== row.char_end - row.char_start) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'invariant I2: the quoted words do not fill the span they claim to come from',
+        path: ['quoted_text'],
+      });
+    }
+  });
+export type Extraction = z.infer<typeof extractionSchema>;
+
+export const extractionCountsSchema = z.object({
+  pending: z.number(),
+  confirmed: z.number(),
+  rejected: z.number(),
+});
+export type ExtractionCounts = z.infer<typeof extractionCountsSchema>;
+
+export const resumeSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  variant_type: resumeVariantSchema,
+  source_kind: resumeSourceKindSchema,
+  original_filename: z.string().nullable(),
+  content_hash: z.string(),
+  is_default: z.boolean(),
+  extraction_counts: extractionCountsSchema,
+  created_at: z.string().datetime({ offset: true }),
+  updated_at: z.string().datetime({ offset: true }),
+});
+export type Resume = z.infer<typeof resumeSchema>;
+
+/**
+ * The resume with its text and its proposals. The second refinement is the one
+ * `extractionSchema` cannot make on its own: only the parent holds the text, so
+ * only the parent can check that a span of the right *length* also points at
+ * the right *words*.
+ */
+export const resumeDetailSchema = resumeSchema
+  .extend({
+    parsed_text: z.string(),
+    extractions: extractionSchema.array(),
+    nothing_proven: z.boolean(),
+  })
+  .superRefine((detail, ctx) => {
+    detail.extractions.forEach((row, index) => {
+      if (detail.parsed_text.slice(row.char_start, row.char_end) !== row.quoted_text) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'invariant I2: this proposal does not quote the text it points at',
+          path: ['extractions', index, 'quoted_text'],
+        });
+      }
+    });
+  });
+export type ResumeDetail = z.infer<typeof resumeDetailSchema>;
+
+export const resumeListSchema = z.object({
+  items: resumeSchema.array(),
+  total: z.number(),
+});
+export type ResumeList = z.infer<typeof resumeListSchema>;
+
+export const userSkillSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  proficiency_level: proficiencyLevelSchema,
+  source_type: skillSourceTypeSchema,
+  source_reference: z.string().nullable(),
+  vocabulary_version: z.string().nullable(),
+  created_at: z.string().datetime({ offset: true }),
+});
+export type UserSkill = z.infer<typeof userSkillSchema>;
+
+export const userProjectSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  summary: z.string().nullable(),
+  evidence: z.string().nullable(),
+  repository_url: z.string().nullable(),
+  demo_url: z.string().nullable(),
+  technologies: z.string().array(),
+  status: projectStatusSchema,
+  created_at: z.string().datetime({ offset: true }),
+});
+export type UserProject = z.infer<typeof userProjectSchema>;
+
+export const deferredProfileFieldSchema = z.object({
+  name: z.string(),
+  blocked_on: z.string(),
+  reason: z.string(),
+});
+export type DeferredProfileField = z.infer<typeof deferredProfileFieldSchema>;
+
+/**
+ * Confirmed facts only. `graduation_year` and `graduation_month` rather than a
+ * date, because "May 2027" does not name a day and inventing one to fill a
+ * field is the fabrication I1 forbids.
+ */
+export const profileSchema = z
+  .object({
+    id: z.string().uuid(),
+    email: z.string(),
+    display_name: z.string().nullable(),
+    timezone: z.string(),
+    graduation_year: z.number().int().nullable(),
+    graduation_month: z.number().int().min(1).max(12).nullable(),
+    degree: z.string().nullable(),
+    school: z.string().nullable(),
+    work_authorization: workAuthorizationSchema,
+    home_location_text: z.string().nullable(),
+    remote_preference: remotePreferenceSchema,
+    minimum_salary: z.number().int().nullable(),
+    preferred_roles: z.string().array(),
+    preferred_locations: z.string().array(),
+    skills: userSkillSchema.array(),
+    projects: userProjectSchema.array(),
+    deferred_fields: deferredProfileFieldSchema.array(),
+  })
+  .superRefine((profile, ctx) => {
+    // Mirrors the `graduation_month_needs_a_year` check constraint. A month with
+    // no year is not a date anyone can act on, and M3's eligibility window would
+    // have to guess the missing half.
+    if (profile.graduation_month !== null && profile.graduation_year === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'a graduation month needs a year',
+        path: ['graduation_month'],
+      });
+    }
+  });
+export type Profile = z.infer<typeof profileSchema>;
+
+export const confirmationSchema = z.object({
+  confirmed: z.number(),
+  rejected: z.number(),
+  skipped: z.number(),
+  skills_added: z.number(),
+  projects_added: z.number(),
+  profile_fields_set: z.string().array(),
+});
+export type Confirmation = z.infer<typeof confirmationSchema>;

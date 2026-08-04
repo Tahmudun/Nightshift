@@ -94,6 +94,126 @@ def send_json(
             return exc.code, None
 
 
+def send_delete(path: str, timeout: float = 10.0) -> int:
+    """DELETE, returning only the status. A 204 has no body to decode."""
+    request = urllib.request.Request(f"{BASE}{path}", method="DELETE")
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
+            return int(response.status)
+    except urllib.error.HTTPError as exc:
+        return int(exc.code)
+
+
+RESUME_FIXTURE = API_DIR / "tests" / "fixtures" / "resumes" / "nadia_okonkwo.txt"
+
+
+def check_profile_confirmation() -> None:
+    """Invariant I2 over HTTP: reading a resume changes nothing about a person.
+
+    The shape is deliberate. It records the profile *before* pasting, pastes,
+    and asserts the profile is byte-identical afterwards — that is the criterion,
+    and asserting "no skills" instead would pass vacuously on a fresh database
+    and fail on a developer's own.
+
+    **It leaves nothing behind.** The resume it creates is deleted, and so is
+    the one skill it confirms — but only if that skill was not already there,
+    because deleting a skill somebody added by hand would be this script
+    damaging the database it is verifying. `check_application_tracking` leaves
+    an archived row and says so; this one does not need to.
+    """
+    print("\nprofile and resume confirmation")
+    if not RESUME_FIXTURE.is_file():
+        check(False, "the fixture resume exists", str(RESUME_FIXTURE))
+        return
+
+    # Entry normalisation, not exit tidiness. A previous run that died halfway
+    # must not make this one fail — the lesson M2b's browser test recorded.
+    code, listed = get_json("/resumes")
+    if code == 200 and isinstance(listed, dict):
+        for row in listed.get("items", []):
+            if row["name"] == "verify.py fixture":
+                send_delete(f"/resumes/{row['id']}")
+
+    code, before = get_json("/profile")
+    if code != 200:
+        check(False, "the profile is readable", f"HTTP {code}")
+        return
+    skills_before = {skill["name"] for skill in before["skills"]}
+    check(True, "the profile is readable", f"{len(skills_before)} confirmed skill(s) already")
+
+    text = RESUME_FIXTURE.read_text(encoding="utf-8")
+    code, resume = send_json(
+        "/resumes/paste", "POST", {"name": "verify.py fixture", "text": text}
+    )
+    if code not in (200, 201):
+        check(False, "pasting a resume succeeds", f"HTTP {code}")
+        return
+    check(True, "pasting a resume succeeds", f"HTTP {code}")
+
+    proposals = resume["extractions"]
+    check(len(proposals) > 0, "the resume produced proposals", f"{len(proposals)}")
+    check(
+        all(
+            resume["parsed_text"][row["char_start"] : row["char_end"]] == row["quoted_text"]
+            for row in proposals
+        ),
+        "every proposal quotes the text it points at",
+    )
+    check(
+        all(row["status"] == "pending" for row in proposals),
+        "invariant I2: every proposal is still pending",
+    )
+
+    code, after_paste = get_json("/profile")
+    check(
+        {skill["name"] for skill in after_paste["skills"]} == skills_before,
+        "invariant I2: reading a resume confirmed nothing",
+    )
+
+    skill_proposals = [row for row in proposals if row["kind"] == "skill"]
+    chosen = next(
+        (row for row in skill_proposals if row["value"]["name"] not in skills_before), None
+    )
+    if chosen is None:
+        check(False, "a skill proposal exists that is not already confirmed")
+        send_delete(f"/resumes/{resume['id']}")
+        return
+
+    code, result = send_json(
+        f"/resumes/{resume['id']}/confirm",
+        "POST",
+        {"decisions": [{"extraction_id": chosen["id"], "decision": "confirm"}]},
+    )
+    check(code == 200 and result["confirmed"] == 1, "confirming one proposal succeeds")
+
+    code, confirmed = get_json("/profile")
+    names = {skill["name"] for skill in confirmed["skills"]}
+    check(
+        names == skills_before | {chosen["value"]["name"]},
+        "exactly the confirmed skill was added, and nothing else",
+        chosen["value"]["name"],
+    )
+    added = next(skill for skill in confirmed["skills"] if skill["name"] == chosen["value"]["name"])
+    check(
+        added["source_reference"].startswith(f"resume:{resume['id']}#"),
+        "the confirmed skill points back at the words it came from",
+        added["source_reference"],
+    )
+
+    check(send_delete(f"/resumes/{resume['id']}") == 204, "deleting the resume succeeds")
+    code, survived = get_json("/profile")
+    check(
+        chosen["value"]["name"] in {skill["name"] for skill in survived["skills"]},
+        "a confirmed skill survives deleting the resume it came from",
+    )
+
+    check(
+        send_delete(f"/profile/skills/{added['id']}") == 204,
+        "the skill this check added is removed again",
+        "nothing is left behind",
+    )
+
+
 def check_application_tracking() -> None:
     """The loop, over HTTP, exactly as the browser does it.
 
@@ -339,6 +459,7 @@ def main() -> int:
             return 1
         verify_http()
         check_application_tracking()
+        check_profile_confirmation()
         asyncio.run(verify_constraints())
     finally:
         api.terminate()

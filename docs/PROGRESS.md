@@ -10,14 +10,224 @@
 **M1c: COMPLETE, reviewed, CI-green at `19236f5`, merged to `main` as PR #3 (`f377303`).**
 **M1d: COMPLETE, reviewed, CI-green at `75d9ab7`, merged to `main` as PR #4 (`044189e`).**
 **M2a: COMPLETE, reviewed, CI-green at `76190c8`, merged to `main` as PR #5 (`910027a`).**
-**Current milestone: M2 — the functional command center. M2b COMPLETE, reviewed, CI-green at `6a10bb6`. PR #6 open, awaiting the human's merge. M2c/d not started.**
+**M2b: COMPLETE, reviewed, CI-green at `6a10bb6`, merged to `main` as PR #6 (`2f984f3`).**
+**Current milestone: M2 — the functional command center. M2c COMPLETE, CI-green at `e63ec2f`, open as PR #7 and unmerged. M2d not started.**
 **Last updated: 2026-08-03**
 
 ---
 
 ## Next exact action
 
-### Next: run CI on `m2b-the-loop`, then merge. Then M2c — profile and resume.
+### Next: merge PR #7 (a human's call), then plan M2d — the daily queue.
+
+**All eleven tasks are done, committed, pushed, and CI-green.** The three
+commands were run locally and their counts are read from the output, not
+inferred:
+
+```
+make check        1093 Python, 129 web, ruff/mypy/eslint/tsc clean
+make acceptance   73 verify checks + 34 seeded browser tests, 1 skip
+make test-e2e     5 degraded-path tests        <- the third command, run separately
+```
+
+**`make acceptance` was run three times back to back and passed all three**,
+which is the idempotency evidence rather than a hope about it. The single e2e
+skip is the pre-existing honest one: `an unchanged board is not presented as a
+problem` needs a board that has answered `304`.
+
+**CI is green, on the first attempt.** [PR #7](https://github.com/Tahmudun/Nightshift/pull/7),
+run [30877140583](https://github.com/Tahmudun/Nightshift/actions/runs/30877140583)
+— **all five jobs**, counts read from the job logs rather than inferred:
+
+```
+python       4m09s   1093 passed, zero skipped
+e2e          2m39s   5 degraded + 34 seeded passed, 1 skipped
+migrations   1m20s   up, down, up, and no drift
+web            55s   16 files, 129 tests
+secret scan     8s
+```
+
+`headSha` on the run is `e63ec2fe525738db7eb8791971a68a59566912fb`, checked
+against the branch head rather than assumed. **1093 in CI matches 1093
+locally**, so the database-backed tests really ran there too. The single e2e
+skip is the pre-existing honest one.
+
+Six CI runs across this project have failed and every one found something no
+local command had executed. This is the third first-try pass; it is recorded
+precisely because it is not the usual outcome.
+
+**`1fe34ef` is the last commit containing anything CI executes** — and it is the
+docs commit, because the review found two defects and fixing them is code
+(§2.1's provenance link, §3.3's new guard). The three commands above were run
+*after* those fixes and before that commit, so their counts cover it. Every
+commit after `1fe34ef` must touch `docs/` only, which is one command:
+
+```
+git diff 1fe34ef..HEAD --stat    # must list nothing outside docs/
+```
+
+If that shows a file under `apps/`, `services/`, `infra/`, `data/` or the
+Makefile, the recorded results do not cover the branch and the three commands
+must run again. This is the invariant M1d wrote down after PROGRESS twice
+carried a green claim beside a SHA that was no longer the head.
+
+Eleven tasks, eleven commits, branch `m2c-profile-and-resume`.
+
+| Task | Commit | What it did |
+|---|---|---|
+| 1 | `09a4724` | Paste, `.txt` and PDF, failing whole; `pypdf` + `python-multipart` |
+| 2 | `b82b652` | `data/skills.yaml` and the matcher |
+| 3 | `72814c9` | The extractor — 16 proposals, every one carrying its span |
+| 4 | `a87b280` | Migration `0009`, four tables, the span-quoting trigger |
+| 5 | `74f1076` | `domain/profile.py` — the only writer of a confirmed fact |
+| 6 | `e99e085` | Thirteen routes; a resume can be selected on an application |
+| 7 | `61ff9c3` | Zod schemas and the client, and the enum-parity guard |
+| 8 | `8390704` | The profile page, the skill list, the upload control |
+| 9 | `e5f7fdc` | The confirmation screen and the overlapping-span highlighter |
+| 10 | `f2d01f0` | The browser walk, and `check_profile_confirmation` |
+| 11 | this | ADR 0013, the review, this entry |
+
+### Criterion 4, earned: no parsed resume fact is stored as confirmed without a user action
+
+Four independent guards, each shown able to fail:
+
+| Guard | Where | Shown able to fail by |
+|---|---|---|
+| Two tables, one writer | `domain/profile.py` is the only module that may write `users` / `user_skills` / `user_projects` | `test_nothing_infers.py` — three greps: assignment, constructor, `setattr` |
+| The extractor cannot reach the confirmed tables | It does not import the ORM | `test_the_extractor_does_not_call_back_into_the_writer` |
+| Every proposal quotes its span | Trigger `resume_extractions_span_must_quote`, re-asserted in the API response and again in Zod | Task 4's tests; and a one-character shift in the response turns the API test red |
+| The browser confirms nothing on its own | `ExtractionReview` opens with every row undecided | `confirms nothing until somebody says so` |
+
+**The browser test is the criterion, not a proxy for it.**
+`apps/web/e2e-seeded/profile.spec.ts` pastes the fixture resume, asserts sixteen
+proposals with the characters each came from, then **navigates to the profile and
+finds it unchanged** — that step is the criterion. Only then does it confirm two
+and reject one, and assert exactly those outcomes, that the rejected skill is
+absent, that it survives a reload, and that it survives deleting the resume.
+
+`check_profile_confirmation` asserts the same over HTTP and compares the profile
+**before and after** rather than asserting "no skills", which would pass
+vacuously on a fresh database and fail on a developer's own. Measured:
+
+```
+✓ pasting a resume succeeds                              HTTP 201
+✓ the resume produced proposals                          16
+✓ every proposal quotes the text it points at
+✓ invariant I2: every proposal is still pending
+✓ invariant I2: reading a resume confirmed nothing
+✓ exactly the confirmed skill was added, and nothing else   Python
+✓ the confirmed skill points back at the words it came from resume:e445e1e0…#238-244
+✓ a confirmed skill survives deleting the resume it came from
+✓ the skill this check added is removed again            nothing is left behind
+```
+
+### What M2c found that the plan did not predict
+
+**Eleven, and eight were in code or tests that reported success** — the seventh
+milestone running to record that pattern. Full detail in
+`docs/reviews/milestone-2c-review.md`; the seven worth reading here are below,
+starting with the four from Tasks 1–5:
+
+1. **A vocabulary test could not fail.** `test_the_longest_term_wins_when_two_
+   overlap` used "Machine Learning", which contains no shorter vocabulary term,
+   so the longest-first ordering it claimed to guard was never exercised. Found
+   by mutating the sort and watching nothing go red. Rewritten over "Tailwind
+   CSS", where three terms genuinely overlap.
+2. **`op.add_column` does not create an enum type**, unlike `create_table`. The
+   autogenerated migration failed with "type does not exist" on its first run.
+   Restructured to the house pattern from `0001` and `0004`.
+3. **Autogenerate emitted `nightshift.db.types.UTCDateTime` with no import** —
+   the fourth migration in this project to do it — **and** omitted both `users`
+   check constraints, because it does not emit table constraints for a table it
+   is only adding columns to, **and** emitted no `DROP TYPE`, which would have
+   left nine enums behind on downgrade.
+4. **`parents[3]` is `services/`, not the repo root.** The vocabulary loader
+   pointed at a path that does not exist. This is the same off-by-one M1c's
+   plan made, and the reason `domain/registry.py` uses `parents[4]`.
+
+And the three from Tasks 6–11:
+
+5. **Two enum vocabularies were transcribed into TypeScript wrong, and nothing
+   local could see it.** `WorkAuthorization` gained a `requires_sponsorship` that
+   does not exist — the real member is `needs_sponsorship` — and
+   `SkillSourceType` lost `assessment` and `github`. The Python suite never reads
+   TypeScript; the web suite parses fixtures written to match the schema. **The
+   failure would have been a real response reaching a real browser and Zod
+   refusing to parse the page.** Found by printing the enums rather than reading
+   them. `tests/test_enum_parity.py` is the guard and it is the only test in the
+   repo that reads both sides of that boundary at once. This is the fifth time a
+   defect has lived somewhere no local command looks.
+6. **A skill's provenance linked to a resume that may have been deleted.**
+   Deleting a resume deliberately keeps the skills it produced, so the pointer
+   outlives its target and the link 404s. A 404 dressed up as evidence is worse
+   than no link. The provenance is still stated; only the link is withheld, and
+   the row says "in a resume you have since deleted".
+7. **A component test was fed data the API cannot produce.** `ExtractionReview`'s
+   fixture put `Python` at characters 34–40, which is `"\nPytho"` — the right
+   length, the wrong words, and exactly the row `resumeDetailSchema` exists to
+   refuse, sitting inside the test for it. The fixture is now parsed through that
+   schema in its own test.
+
+Also corrected against measurement rather than assumption: the fixture
+generator's docstring claimed `encrypted.pdf` could not be byte-reproducible.
+Two consecutive runs produce identical bytes on pypdf 6.14, so it now records
+what was measured. And `pypdf` is BSD-3-Clause, not the plan's "MIT" —
+`costs.md` had it right.
+
+### Mutation testing: ten more, and nine killed their intended test
+
+The tenth found a test that could not fail rather than a rule that was wrong,
+which is the same outcome Task 2 recorded. `HighlightedText` drops a span whose
+bounds fall outside the text rather than clamping it; the test asserted the
+rendered text was unchanged, **and it is unchanged either way** — an
+out-of-range slice is the empty string whichever branch runs. The assertion is
+on the marks now, and the same mutation kills it.
+
+The most valuable of the ten: inserting `return []` at the top of
+`extract_proposals` fails **19 tests** across three files, so the extraction path
+is decorative in none of them.
+
+### Three things the review checked rather than assumed
+
+- **Nothing logs the resume text.** No logging statement in
+  `services/api/nightshift/` carries `parsed_text` or a resume body, and
+  `logging.py` has no request-body middleware. This is the most personal data
+  the project holds (§13).
+- **No proposal can come to quote different words.** Nothing assigns
+  `resumes.parsed_text` after creation. **The trigger cannot catch this** — it
+  fires on `resume_extractions`, so an UPDATE to the parent passes unexamined
+  while every child row silently starts lying.
+  `test_nothing_rewrites_the_text_a_proposal_quotes` is the new guard.
+- **`make acceptance` leaves nothing behind from M2c.** Both the verify check and
+  the browser walk clean up after themselves, and the browser walk normalises on
+  *entry* as well — M2b's pipeline test could not run twice for the opposite
+  reason. `check_application_tracking` still leaves one archived application, by
+  design and stated in its docstring.
+
+### The plan being executed: `docs/plans/2026-08-03-m2c-profile-and-resume.md`
+
+**M2b is merged and its branch is gone.** PR #6 merged at `2f984f3` with head
+`40d7dd8`, checked against the PR rather than assumed; `m2b-the-loop` is deleted
+locally and on the remote. The pre-merge invariant held — `git diff
+6a10bb6..HEAD --stat` listed one file, `docs/PROGRESS.md`, so the recorded CI
+result covered every line of code on the branch.
+
+**M2c is the slice with the most invariant risk in M2**, which is why
+`command-center.md` §1 put it third. Everything a resume says is a claim about a
+person, and I2 forbids storing any of it as fact without an explicit click. The
+enforcement is structural: proposals live in `resume_extractions`, confirmed
+facts live in `users` / `user_skills` / `user_projects`, and one module may
+write the second set.
+
+**One decision the human made on 2026-08-03, before planning:** resume input is
+**paste, PDF, and `.txt`**. PDF costs one dependency (`pypdf` — pure Python,
+MIT, no native libraries, no key, so `make demo` stays offline). `.docx` is not
+supported and the upload control says so by name. The confirmation screen shows
+the text the extractor actually read, which is what makes PDF safe to accept: a
+scrambled two-column extraction is visible rather than hidden behind a tidy
+form.
+
+### The M2b record, kept below
 
 **M2b is complete and M2's headline criterion is earned.** All three commands
 were run at the branch head and their counts are read from the output, not
@@ -80,15 +290,19 @@ Eight tasks, eight commits, branch `m2b-the-loop`.
 
 ### Acceptance criteria — M2
 
-`CLAUDE.md` §6 gives M2 four. **Three are earned by M2b and verified below.
-One belongs to M2c and is explicitly unclaimed.**
+`CLAUDE.md` §6 gives M2 four. **All four are now earned and verified below** —
+three by M2b, the fourth by M2c. The <200ms filter criterion was earned at M2a
+and is unchanged.
+
+**M2 is not closed.** M2d — the daily queue — is still to build, and CI has not
+run on M2c.
 
 | # | Criterion | Status | Evidence |
 |---|---|---|---|
 | 1 | Full discover→save→apply→track loop works with zero 3D | **VERIFIED** (M2b) | `apps/web/e2e-seeded/pipeline.spec.ts`, `discover, save, apply, track — the whole loop`. Walks a real browser: open a role, save it, assert the control reports a stage, open the application, assert **no control that applies**, record "I applied", write a note, move to `interview`, read the history back with its transition class, archive, restore, and correct the stage back. 15.2 s against the seeded stack. **That test is the criterion, not a proxy for it.** |
 | 2 | Events are append-only, enforced at the DB level, not by convention | **VERIFIED** (M2b) | Trigger `application_events_append_only`, reusing `nightshift_refuse_mutation()` from `0002`. Three tests attempt the violation and catch the error: UPDATE, DELETE, and **deleting the parent application**, which cascades into the trigger. Mutation-checked: dropping the trigger turns exactly those 3 red. An application therefore cannot be deleted at all — archive is the only removal, and that is a property of the schema rather than a UI choice |
 | 3 | No stage moves without a user (invariant I5) | **VERIFIED** (M2b) | Enforced in three places and each proven able to fail. Python: `SystemMayNotSetStageError`. Database: `ck_application_events_only_a_user_moves_a_stage` — neutering it to `true` fails 1 test, and a `system` actor carrying a stage fails 3. Client: `applicationEventSchema`'s `superRefine`. Plus `tests/test_nothing_applies.py`, which asserts `PoliteClient` exposes no write method and that `domain/applications.py` is the only module assigning `current_stage`. A closing listing writes a `listing_closed` event and the stage does not move — asserted end to end through `apply_freshness`, not through the helper |
-| 4 | No parsed resume fact is stored as confirmed without a user action | **UNCLAIMED** | M2c. There is no `resumes` table, no extractor, and nothing to confirm. Named as deferred in the API's own `deferred_fields` and on the application page |
+| 4 | No parsed resume fact is stored as confirmed without a user action | **VERIFIED** (M2c) | `apps/web/e2e-seeded/profile.spec.ts`, `a resume proposes, and confirms nothing until it is told to`. Pastes the fixture resume, asserts 16 proposals each showing the characters it came from, then **navigates to the profile and finds it unchanged** — that step is the criterion. Then confirms two, rejects one, and asserts exactly those outcomes, that the rejected skill is absent, that it survives a reload, and that it survives deleting the resume. Four guards behind it, each shown able to fail — see the table above. Also asserted over HTTP by `check_profile_confirmation` in `make acceptance` |
 
 The <200ms filter criterion was earned at M2a and is unchanged.
 

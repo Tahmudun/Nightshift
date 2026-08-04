@@ -1,0 +1,84 @@
+"""The database's vocabulary and the browser's, asserted equal.
+
+Every `z.enum([...])` in `apps/web/src/lib/schemas.ts` is a copy of a Python
+enum, and a copy drifts. When it does, nothing fails until a real response
+carrying the missing value reaches a real browser and Zod refuses to parse a
+page — a failure that no Python test and no component test can reach, because
+both sides pass in isolation.
+
+**This test was written because that drift had already happened.** Two of the
+nine enums below were transcribed wrong on their first write: `WorkAuthorization`
+gained a `requires_sponsorship` that does not exist (the real member is
+`needs_sponsorship`), and `SkillSourceType` lost `assessment` and `github`
+entirely. Both were found by printing the enums rather than by reading the code,
+which is the same lesson `test_repo_integrity.py` records: a check that only
+reads one side of a boundary cannot see the boundary.
+
+Values, not order — `z.enum` does not care about order and neither does the
+wire.
+"""
+
+from __future__ import annotations
+
+import enum
+import re
+from pathlib import Path
+
+import pytest
+
+from nightshift.db.base import (
+    ExtractionKind,
+    ExtractionStatus,
+    ProficiencyLevel,
+    ProjectStatus,
+    RemotePreference,
+    ResumeSourceKind,
+    ResumeVariant,
+    SkillSourceType,
+    WorkAuthorization,
+)
+
+SCHEMAS_TS = Path(__file__).resolve().parents[3] / "apps" / "web" / "src" / "lib" / "schemas.ts"
+
+#: The TypeScript constant name for each Python enum.
+PAIRS: tuple[tuple[str, type[enum.Enum]], ...] = (
+    ("workAuthorizationSchema", WorkAuthorization),
+    ("remotePreferenceSchema", RemotePreference),
+    ("proficiencyLevelSchema", ProficiencyLevel),
+    ("skillSourceTypeSchema", SkillSourceType),
+    ("projectStatusSchema", ProjectStatus),
+    ("resumeSourceKindSchema", ResumeSourceKind),
+    ("resumeVariantSchema", ResumeVariant),
+    ("extractionKindSchema", ExtractionKind),
+    ("extractionStatusSchema", ExtractionStatus),
+)
+
+
+def _typescript_enum(name: str) -> set[str]:
+    """The string literals inside `export const <name> = z.enum([...])`."""
+    source = SCHEMAS_TS.read_text(encoding="utf-8")
+    match = re.search(rf"export const {re.escape(name)} = z\.enum\(\[(.*?)\]\)", source, re.DOTALL)
+    assert match is not None, f"{name} is not declared as a z.enum in schemas.ts"
+    return set(re.findall(r"'([^']*)'", match.group(1)))
+
+
+def test_the_typescript_file_is_where_this_test_thinks_it_is() -> None:
+    """`parents[3]` is the repo root — `parents[2]` is `services/`.
+
+    Stated as its own assertion because this project has made that exact
+    off-by-one three times, and a path that does not exist would otherwise turn
+    every check below into a vacuous pass.
+    """
+    assert SCHEMAS_TS.is_file(), f"{SCHEMAS_TS} does not exist"
+
+
+@pytest.mark.parametrize(("name", "enum_cls"), PAIRS, ids=[name for name, _ in PAIRS])
+def test_the_browser_knows_exactly_the_values_the_database_can_send(
+    name: str, enum_cls: type[enum.Enum]
+) -> None:
+    python_values = {member.value for member in enum_cls}
+    assert _typescript_enum(name) == python_values, (
+        f"{name} in schemas.ts and {enum_cls.__name__} disagree. A value the API "
+        "can send and the client refuses is an unparseable page; a value the "
+        "client accepts and the API cannot send is dead UI."
+    )

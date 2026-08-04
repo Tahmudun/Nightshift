@@ -30,6 +30,18 @@ naming the monthly figure and the degradation behaviour when the quota runs out.
 | OpenFreeMap / self-hosted Protomaps | Basemap tiles | Free, no key, no quota | OpenFreeMap is donation-funded and could disappear | Self-host Protomaps from a one-off extract. This is why the tile source is a config value, not a hardcoded URL |
 | `bge-small-en-v1.5` via fastembed | Embeddings for dedupe and semantic search | Free, offline, ~130MB ONNX model, CPU | None — it runs locally | None needed. Model name and dimension are stored on every embedding row, so a future swap is a backfill, not a mystery |
 
+## Added at M2c
+
+| Dependency | Purpose | Free tier | At the limit | Replacement plan |
+|---|---|---|---|---|
+| `pypdf` | Reading the text out of an uploaded PDF resume | n/a — a local library, BSD-3-Clause | Nothing. No network call, no key, no quota. Work is bounded per request by a 2 MB size cap and a 20-page cap | Paste, which is already a first-class supported input. Dropping PDF support would cost a step, not a capability |
+| `python-multipart` | Lets FastAPI parse a file upload at all | n/a — a local library, Apache-2.0 | Nothing. No network call | Base64 in a JSON body, or paste-only |
+
+**Still $0/month and zero keys.** Both are pure Python and offline, so `make
+demo` from a clean clone with no network is unaffected. Neither was added
+speculatively: the human chose PDF as an accepted resume format on 2026-08-03,
+and FastAPI cannot read a multipart upload without the second one.
+
 ## Deliberately not used
 
 | Thing | Why not |

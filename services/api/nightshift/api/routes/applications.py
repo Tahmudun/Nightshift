@@ -35,7 +35,7 @@ from nightshift.api.schemas import (
     StageChangeIn,
 )
 from nightshift.db.base import ApplicationStage, EventActor
-from nightshift.db.models import Application, ApplicationEvent, Job
+from nightshift.db.models import Application, ApplicationEvent, Job, Resume
 from nightshift.db.session import get_db_session
 from nightshift.db.types import utcnow
 from nightshift.domain.applications import (
@@ -55,12 +55,6 @@ MAX_LIMIT = 200
 
 #: I7: what tracking cannot record yet, named on the page rather than hidden.
 DEFERRED_FIELDS: tuple[DeferredApplicationFieldOut, ...] = (
-    DeferredApplicationFieldOut(
-        name="Selected resume",
-        blocked_on="M2c",
-        reason="there is no resumes table yet, and a reference to a table that "
-        "does not exist is worse than an absent field",
-    ),
     DeferredApplicationFieldOut(
         name="Contacts",
         blocked_on="unscheduled",
@@ -110,6 +104,7 @@ def _to_out(application: Application) -> ApplicationOut:
         next_action_at=application.next_action_at,
         application_url=application.application_url,
         source_of_application=application.source_of_application,
+        selected_resume_id=application.selected_resume_id,
         archived_at=application.archived_at,
         created_at=application.created_at,
         updated_at=application.updated_at,
@@ -346,6 +341,20 @@ async def patch_application(
     # Only the keys the client actually sent. `exclude_unset` is what makes an
     # explicit null mean "clear" and an absent key mean "leave alone".
     changes: dict[str, Any] = payload.model_dump(exclude_unset=True)
+
+    # A3: the foreign key would happily accept a stranger's resume id, and every
+    # later read of this application would then leak it. Checked here rather
+    # than trusted, and 404 rather than 403 for the same reason `_load` is.
+    selected = changes.get("selected_resume_id")
+    if selected is not None:
+        owned = (
+            await session.execute(
+                select(Resume.id).where(Resume.id == selected, Resume.user_id == user_id)
+            )
+        ).first()
+        if owned is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="resume not found")
+
     try:
         await update_details(session, application=application, changes=changes, now=utcnow())
     except ApplicationArchivedError as exc:

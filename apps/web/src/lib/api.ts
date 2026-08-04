@@ -24,6 +24,12 @@ import {
   boardPollStateSchema,
   sourceHealthSchema,
   statsSchema,
+  confirmationSchema,
+  profileSchema,
+  resumeDetailSchema,
+  resumeListSchema,
+  userProjectSchema,
+  userSkillSchema,
   type CompanyDetail,
   type CompanyList,
   type Coverage,
@@ -41,6 +47,16 @@ import {
   type ApplicationList,
   type ApplicationPriority,
   type ApplicationStage,
+  type Confirmation,
+  type ProficiencyLevel,
+  type Profile,
+  type RemotePreference,
+  type ResumeDetail,
+  type ResumeList,
+  type ResumeVariant,
+  type UserProject,
+  type UserSkill,
+  type WorkAuthorization,
 } from './schemas';
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000';
@@ -301,6 +317,7 @@ export function patchApplication(
     application_url: string | null;
     source_of_application: string | null;
     applied_at: string | null;
+    selected_resume_id: string | null;
   }>,
 ): Promise<ApplicationDetail> {
   return send(`/applications/${id}`, applicationDetailSchema, 'PATCH', changes);
@@ -312,4 +329,134 @@ export function setArchived(id: string, archived: boolean): Promise<ApplicationD
     applicationDetailSchema,
     'POST',
   );
+}
+
+/* -------------------------------------------------------------------------
+ * Profile and resumes (M2c)
+ * ------------------------------------------------------------------------- */
+
+/**
+ * A 204 has no body, so it cannot go through `request` — `schema.parse(null)`
+ * would reject a response that succeeded.
+ */
+async function remove(path: string): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, { method: 'DELETE', cache: 'no-store' });
+  } catch {
+    throw new ApiError(
+      `cannot reach the API at ${API_BASE_URL} — is it running? (\`make dev\`)`,
+      null,
+    );
+  }
+  if (!response.ok) {
+    const body: unknown = await response.json().catch(() => null);
+    const detail =
+      body !== null && typeof body === 'object' && 'detail' in body
+        ? String((body as { detail: unknown }).detail)
+        : response.statusText;
+    throw new ApiError(`${path} failed: ${detail}`, response.status);
+  }
+}
+
+export function fetchProfile(): Promise<Profile> {
+  return request('/profile', profileSchema);
+}
+
+/**
+ * Only the keys present in `changes` are sent, so an explicit `null` clears a
+ * field and an omitted key leaves it alone — matching `ProfilePatchIn`.
+ */
+export function patchProfile(
+  changes: Partial<{
+    display_name: string | null;
+    graduation_year: number | null;
+    graduation_month: number | null;
+    degree: string | null;
+    school: string | null;
+    work_authorization: WorkAuthorization;
+    home_location_text: string | null;
+    remote_preference: RemotePreference;
+    minimum_salary: number | null;
+    preferred_roles: string[];
+    preferred_locations: string[];
+  }>,
+): Promise<Profile> {
+  return send('/profile', profileSchema, 'PATCH', changes);
+}
+
+export function addSkill(name: string, proficiency?: ProficiencyLevel): Promise<UserSkill> {
+  const body: { name: string; proficiency_level?: ProficiencyLevel } = { name };
+  if (proficiency !== undefined) body.proficiency_level = proficiency;
+  return send('/profile/skills', userSkillSchema, 'POST', body);
+}
+
+export function removeSkill(id: string): Promise<void> {
+  return remove(`/profile/skills/${id}`);
+}
+
+export function addProject(project: {
+  name: string;
+  summary?: string;
+  evidence?: string;
+  repository_url?: string;
+  demo_url?: string;
+  technologies?: string[];
+}): Promise<UserProject> {
+  return send('/profile/projects', userProjectSchema, 'POST', project);
+}
+
+export function removeProject(id: string): Promise<void> {
+  return remove(`/profile/projects/${id}`);
+}
+
+export function listResumes(): Promise<ResumeList> {
+  return request('/resumes', resumeListSchema);
+}
+
+export function fetchResume(id: string): Promise<ResumeDetail> {
+  return request(`/resumes/${id}`, resumeDetailSchema);
+}
+
+export function pasteResume(text: string, name?: string): Promise<ResumeDetail> {
+  const body: { text: string; name?: string } = { text };
+  if (name !== undefined) body.name = name;
+  return send('/resumes/paste', resumeDetailSchema, 'POST', body);
+}
+
+/**
+ * The only call in this client that does not send JSON.
+ *
+ * No `Content-Type` header: the browser sets the multipart boundary, and
+ * setting the header by hand produces a request the server cannot parse.
+ */
+export async function uploadResume(file: File, name?: string): Promise<ResumeDetail> {
+  const body = new FormData();
+  body.append('file', file);
+  if (name !== undefined) body.append('name', name);
+  return request('/resumes/upload', resumeDetailSchema, { method: 'POST', body });
+}
+
+export function patchResume(
+  id: string,
+  changes: Partial<{ name: string; variant_type: ResumeVariant; is_default: boolean }>,
+): Promise<ResumeDetail> {
+  return send(`/resumes/${id}`, resumeDetailSchema, 'PATCH', changes);
+}
+
+export function deleteResume(id: string): Promise<void> {
+  return remove(`/resumes/${id}`);
+}
+
+/**
+ * The one call in the product that can turn a proposal into a fact.
+ *
+ * It sends only the ids the person decided on. A proposal left undecided stays
+ * pending — silence is not consent (I2).
+ */
+export function confirmExtractions(
+  resumeId: string,
+  decisions: { extraction_id: string; decision: 'confirm' | 'reject' }[],
+): Promise<Confirmation> {
+  return send(`/resumes/${resumeId}/confirm`, confirmationSchema, 'POST', { decisions });
 }
