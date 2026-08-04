@@ -627,11 +627,18 @@ def test_every_selected_excerpt_starts_at_a_heading_or_says_it_could_not(
 
 
 def test_no_selected_excerpt_is_a_wall_of_text(worksheet: Any) -> None:
-    """13 of the first 60 ran past 1,500 characters; one hit 8,019."""
+    """13 of the first 60 ran past 1,500 characters; one hit 8,019.
+
+    The bound tracks the window rather than being a separate number. It was
+    literally 1400 for several rounds and went stale the moment the window rose
+    to 2500 — a guard whose threshold has to be remembered separately is a
+    guard that will disagree with the code it guards.
+    """
+    limit = 2500 + len(worksheet.TRUNCATED_SUFFIX)
     offenders = []
     for board, posting in worksheet.select_for_labeling(worksheet._all_postings()):
         excerpt = worksheet.requirements_excerpt(posting["text"])
-        if len(excerpt) > 1400:
+        if len(excerpt) > limit:
             offenders.append(f"{board}/{posting['id']}: {len(excerpt)} chars")
     assert offenders == [], f"{len(offenders)} excerpts too long: {offenders[:5]}"
 
@@ -712,6 +719,47 @@ def test_a_section_ended_by_a_closer_is_not_marked_as_cut(worksheet: Any) -> Non
     excerpt = worksheet.requirements_excerpt(text)
     assert not excerpt.endswith(worksheet.TRUNCATED_SUFFIX)
     assert "Free lunch" not in excerpt
+
+
+def test_a_closer_word_inside_a_bullet_does_not_end_the_section(
+    worksheet: Any,
+) -> None:
+    """OpenAI's "Account Director - Tokyo", found by reading the worksheet.
+
+    "benefits" appears inside a requirement bullet. A bare match there ended
+    the section three requirements early and showed no truncation marker,
+    because as far as the code knew the section had simply ended. An excerpt
+    that stops *before* the requirements is worse than one that runs past them,
+    and it is indistinguishable from a complete one.
+    """
+    text = (
+        "REQUIREMENTS Proficiency in Kotlin. "
+        "Experience selling benefits software to enterprise customers. "
+        "Familiarity with Rust and Python. "
+        + "More requirements here. " * 6
+    )
+    excerpt = worksheet.requirements_excerpt(text)
+    assert "Familiarity with Rust and Python" in excerpt
+
+
+def test_a_capitalised_closer_still_ends_the_section(worksheet: Any) -> None:
+    """The bullet rule must not stop real closers working."""
+    text = "REQUIREMENTS Kotlin. " + "Real requirement. " * 10 + "BENEFITS Free lunch."
+    assert "Free lunch" not in worksheet.requirements_excerpt(text)
+
+
+def test_the_required_section_wins_over_a_later_optional_one(
+    worksheet: Any,
+) -> None:
+    """Two Jump postings showed "Bonus Points" while the required list above it
+    went unshown, which made `required_tech` unanswerable from the worksheet."""
+    text = (
+        "About us. Skills You'll Need: Kotlin and Rust. "
+        "Bonus Points: Experience with CUDA."
+    )
+    excerpt = worksheet.requirements_excerpt(text)
+    assert excerpt.startswith("Skills You'll Need")
+    assert "Kotlin and Rust" in excerpt
 
 
 def test_a_closer_inside_the_heading_line_does_not_end_the_section(
@@ -1022,6 +1070,13 @@ _REQUIREMENT_HEADINGS = (
     "what you'll need",
     "what you will need",
     "what you'll bring",
+    # Jump Trading's phrasing. Held back for one round on purpose, to see
+    # whether those postings fell back honestly — they did not. They anchored
+    # on "Bonus Points" instead and showed a labeler the optional list while
+    # the required one sat above it, unshown. Falling back would have been the
+    # better failure; showing the wrong section is the one that misleads.
+    "skills you'll need",
+    "skills you will need",
     "what we look for",
     "you should have",
     "who should apply",
@@ -1109,10 +1164,7 @@ def _heading_positions(text: str) -> list[int]:
         if match.group(0).casefold() not in _AMBIGUOUS_HEADINGS:
             positions.append(start)
             continue
-        written_in_capitals = match.group(0).isupper()
-        preceding = text[:start].rstrip()
-        opens_a_sentence = not preceding or preceding[-1] in ".;!?•|"
-        if _colon_follows(text, end) or written_in_capitals or opens_a_sentence:
+        if _looks_like_a_heading(text, start, end):
             positions.append(start)
     return sorted(positions)
 
@@ -1211,6 +1263,12 @@ TRUNCATED_SUFFIX = " […cut off — open the fixture for the rest]"
 #: the *end of the posting* is a median of 3,475 characters and a maximum of
 #: 13,967. To the next closer below it is a median of **1,260**. Raising the
 #: window alone would have dragged all that boilerplate back in.
+#: A closer must look like a heading, by the same test a requirements heading
+#: passes. Measured: OpenAI's "Account Director - Tokyo" says "benefits" inside
+#: a requirement bullet, and a bare match there ended the section three
+#: requirements early — with no truncation marker, because the section had
+#: "ended". An excerpt that stops *before* the requirements is worse than one
+#: that runs past them, and it looks identical to a complete one.
 _SECTION_CLOSERS = re.compile(
     r"compensation|benefits|equal (employment )?opportunity|perks"
     r"|why (join|work)|our values|about (us|the company)"
@@ -1225,6 +1283,26 @@ _SECTION_CLOSERS = re.compile(
 #: other in flattened HTML, and without this offset the excerpt would close
 #: itself immediately.
 _CLOSER_OFFSET = 200
+
+
+def _looks_like_a_heading(text: str, start: int, end: int) -> bool:
+    """The shared test: a colon follows, it is capitalised, or it opens a
+    sentence. Used for requirement headings and for section closers alike —
+    a word buried in a bullet is not a heading in either direction."""
+    written_in_capitals = text[start:end].isupper()
+    preceding = text[:start].rstrip()
+    opens_a_sentence = not preceding or preceding[-1] in ".;!?•|"
+    return _colon_follows(text, end) or written_in_capitals or opens_a_sentence
+
+
+def _section_end(body: str) -> int:
+    """Where the requirements section stops, or ``len(body)`` if it does not."""
+    position = _CLOSER_OFFSET
+    while (match := _SECTION_CLOSERS.search(body, position)) is not None:
+        if _looks_like_a_heading(body, match.start(), match.end()):
+            return match.start()
+        position = match.end()
+    return len(body)
 
 
 def requirements_excerpt(text: str, *, window: int = 2500) -> str:
@@ -1263,8 +1341,7 @@ def requirements_excerpt(text: str, *, window: int = 2500) -> str:
     if positions:
         start = positions[0]
         body = text[start:]
-        closer = _SECTION_CLOSERS.search(body, _CLOSER_OFFSET)
-        section_end = closer.start() if closer else len(body)
+        section_end = _section_end(body)
         end = min(section_end, window)
         excerpt = body[:end]
         if end < section_end:
