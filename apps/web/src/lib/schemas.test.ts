@@ -4,6 +4,9 @@ import {
   applicationEventSchema,
   applicationSchema,
   companyDetailSchema,
+  dailyQueueSchema,
+  queueRowSchema,
+  queueSectionKeySchema,
   jobDetailSchema,
   jobListSchema,
   jobLocationSchema,
@@ -410,5 +413,50 @@ describe('profileSchema', () => {
     const result = profileSchema.safeParse({ ...base, graduation_month: 5 });
     expect(result.success).toBe(false);
     expect(result.error?.issues[0]?.path).toEqual(['graduation_month']);
+  });
+});
+
+describe('dailyQueueSchema', () => {
+  const row = {
+    application_id: '00000000-0000-4000-8000-000000000001',
+    job_id: '00000000-0000-4000-8000-000000000002',
+    job_title: 'Software Engineer Intern',
+    company_name: 'Example Inc.',
+    current_stage: 'applied',
+    at: '2026-08-04T12:00:00+00:00',
+    because: 'no activity from you in 9 days',
+  };
+
+  it('accepts a well-formed queue', () => {
+    const parsed = dailyQueueSchema.parse({
+      generated_at: '2026-08-04T12:00:00+00:00',
+      sections: [{ key: 'follow_up', title: 'Follow up', rows: [row], total: 1 }],
+      total_rows: 1,
+      deferred_rows: [
+        { name: 'Best new internships', blocked_on: 'milestone 3', reason: 'no score yet' },
+      ],
+      thresholds: {
+        follow_up_silent_days: 7,
+        stale_saved_days: 21,
+        interview_horizon_days: 14,
+        row_cap: 20,
+      },
+    });
+    expect(parsed.sections[0].rows[0].because).toContain('9 days');
+  });
+
+  it('refuses a row with no reason', () => {
+    // A row that cannot say why it is there is the bug I4 describes, and the
+    // schema is where it gets stopped rather than rendered as a bare title.
+    const result = queueRowSchema.safeParse({ ...row, because: '' });
+    expect(result.success).toBe(false);
+  });
+
+  it('allows a row with no date, because not every row has one', () => {
+    expect(queueRowSchema.safeParse({ ...row, at: null }).success).toBe(true);
+  });
+
+  it('refuses a section key the API does not serve', () => {
+    expect(queueSectionKeySchema.safeParse('recommended_action').success).toBe(false);
   });
 });

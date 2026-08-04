@@ -27,6 +27,9 @@ from pathlib import Path
 import pytest
 
 from nightshift.db.base import (
+    ApplicationEventType,
+    ApplicationPriority,
+    ApplicationStage,
     ExtractionKind,
     ExtractionStatus,
     ProficiencyLevel,
@@ -35,8 +38,10 @@ from nightshift.db.base import (
     ResumeSourceKind,
     ResumeVariant,
     SkillSourceType,
+    TransitionClass,
     WorkAuthorization,
 )
+from nightshift.domain.queue import QueueSectionKey
 
 SCHEMAS_TS = Path(__file__).resolve().parents[3] / "apps" / "web" / "src" / "lib" / "schemas.ts"
 
@@ -51,6 +56,20 @@ PAIRS: tuple[tuple[str, type[enum.Enum]], ...] = (
     ("resumeVariantSchema", ResumeVariant),
     ("extractionKindSchema", ExtractionKind),
     ("extractionStatusSchema", ExtractionStatus),
+    # M2d. `QueueSectionKey` is the first entry here that is not a database
+    # enum — it is a shape of the API, defined in `domain.queue`. It crosses
+    # the same boundary and drifts the same way, which is what this file is
+    # about.
+    ("queueSectionKeySchema", QueueSectionKey),
+    # M2b's vocabulary, unguarded until M2d added the four lines below. The
+    # nine pairs above are all M2c's, written the day this file was created;
+    # these four had been crossing the same boundary unchecked since M2b. The
+    # queue's row schema parses `current_stage`, so M2d depends directly on
+    # the first of them being right.
+    ("applicationStageSchema", ApplicationStage),
+    ("applicationPrioritySchema", ApplicationPriority),
+    ("applicationEventTypeSchema", ApplicationEventType),
+    ("transitionClassSchema", TransitionClass),
 )
 
 
