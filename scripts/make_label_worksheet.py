@@ -65,9 +65,33 @@ _REQUIREMENT_HEADINGS = (
     "preferred",
 )
 
+#: Headings whose words could plausibly occur mid-prose, so a bare match is not
+#: enough. "the base salary depends on experience, qualifications, and skill
+#: set" and "meet regulatory requirements by translating commitments" both
+#: contain one of these and neither opens a requirements section.
+_AMBIGUOUS_HEADINGS = frozenset(
+    {"requirements", "qualifications", "you have", "required", "preferred", "about you"}
+)
+
 _HEADING_ALTERNATION = "|".join(
     re.escape(h) for h in sorted(_REQUIREMENT_HEADINGS, key=len, reverse=True)
 )
+
+#: How far past a heading phrase to look for its colon. The vocabulary stores
+#: truncated stems — "you might thrive" for "You might thrive in this role if
+#: you:" — so the colon can sit a clause away. Bounded, and abandoned at any
+#: sentence terminator, so a heading word inside prose still finds nothing.
+_COLON_LOOKAHEAD = 80
+
+
+def _colon_follows(text: str, end: int) -> bool:
+    """A colon within :data:`_COLON_LOOKAHEAD`, before any sentence terminator."""
+    for char in text[end : end + _COLON_LOOKAHEAD]:
+        if char == ":":
+            return True
+        if char in ".!?;":
+            return False
+    return False
 
 
 def _heading_positions(text: str) -> list[int]:
@@ -83,22 +107,36 @@ def _heading_positions(text: str) -> list[int]:
     this whole function exists to avoid — a label built from wrong evidence is
     indistinguishable from a good one.
 
-    Once HTML is stripped to a single run, a real heading is one of:
+    **A distinctive phrase is taken at its word.** "Minimum qualifications" and
+    "you may be a good fit if you" cannot plausibly occur mid-sentence in a job
+    posting; requiring further proof of them cost three real postings, which
+    then showed a labeler "About Anthropic" boilerplate instead of the
+    requirements sitting a few hundred characters earlier.
 
-    * followed by a colon      ``Qualities that make great candidates:``
-    * written in capitals      ``WHAT YOU'LL NEED``
+    **An ambiguous phrase must prove itself** — see :data:`_AMBIGUOUS_HEADINGS`.
+    A bare "requirements" or "qualifications" is a word that appears in pay
+    disclaimers and job duties, so it qualifies only when it is:
+
+    * followed by a colon      ``Qualifications: 3+ years of ...``
+    * written in capitals      ``REQUIREMENTS``
     * opening a sentence       ``... team. Requirements Proficiency in ...``
 
-    A heading word sitting mid-clause after a comma matches none of the three.
+    The colon may sit a clause away rather than immediately after, because the
+    vocabulary stores stems: ``you might thrive`` matches inside "You might
+    thrive in this role if you:". :func:`_colon_follows` bounds that search and
+    abandons it at a sentence terminator, so "meet regulatory requirements by
+    translating commitments into engineering work." still finds nothing.
     """
     positions: list[int] = []
     for match in re.finditer(_HEADING_ALTERNATION, text, re.I):
         start, end = match.span()
-        followed_by_colon = text[end : end + 2].lstrip().startswith(":")
+        if match.group(0).casefold() not in _AMBIGUOUS_HEADINGS:
+            positions.append(start)
+            continue
         written_in_capitals = match.group(0).isupper()
         preceding = text[:start].rstrip()
         opens_a_sentence = not preceding or preceding[-1] in ".;!?•|"
-        if followed_by_colon or written_in_capitals or opens_a_sentence:
+        if _colon_follows(text, end) or written_in_capitals or opens_a_sentence:
             positions.append(start)
     return sorted(positions)
 
@@ -184,6 +222,12 @@ NO_HEADING_PREFIX = "[no requirements heading found"
 NO_HEADING_TAIL = NO_HEADING_PREFIX + " — showing the end of the posting] "
 NO_HEADING_WHOLE = NO_HEADING_PREFIX + " — showing the whole posting] "
 
+#: Appended when the window cut the section short. Measured: Akuna's "Security
+#: Engineer II" excerpt ends "...PowerShell, Python, or similar script" while
+#: the posting goes on to name TCP/IP, DNS, HTTP/S and VPNs. A labeler filling
+#: `required_tech` from that would under-report it and have no way to know.
+TRUNCATED_SUFFIX = " […cut off — open the fixture for the rest]"
+
 
 def requirements_excerpt(text: str, *, window: int = 1200) -> str:
     """The region where requirements live, capped, never the whole document.
@@ -209,7 +253,11 @@ def requirements_excerpt(text: str, *, window: int = 1200) -> str:
     """
     positions = _heading_positions(text)
     if positions:
-        return text[positions[0] : positions[0] + window]
+        start = positions[0]
+        excerpt = text[start : start + window]
+        if start + window < len(text):
+            excerpt += TRUNCATED_SUFFIX
+        return excerpt
     if len(text) <= window:
         return NO_HEADING_WHOLE + text
     return NO_HEADING_TAIL + text[-window:]
