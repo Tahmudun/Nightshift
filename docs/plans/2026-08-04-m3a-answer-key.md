@@ -1887,6 +1887,13 @@ def test_the_skip_condition_is_honest() -> None:
         pytest.param("boards: {}", id="empty boards"),
         pytest.param("boards: {b: {}}", id="board with no postings"),
         pytest.param("boards: {b: {'1': }}", id="posting with no fields"),
+        pytest.param(
+            "boards: {b: {'1': {is_internship: {nested: TO_LABEL}}}}",
+            id="field value is a mapping",
+        ),
+        pytest.param("boards: {b: {'1': [unterminated", id="invalid YAML syntax"),
+        pytest.param("boards: [a, b]", id="boards is a list"),
+        pytest.param("just a string", id="document is a scalar"),
     ],
 )
 def test_a_broken_key_is_never_reported_as_finished(corrupt: str) -> None:
@@ -2047,7 +2054,13 @@ def unlabeled(key_text: str) -> list[str]:
     Raises :class:`MalformedAnswerKeyError` rather than returning ``[]`` for a
     key that carries no postings at all — see that class for why.
     """
-    raw: Any = yaml.safe_load(key_text)
+    try:
+        raw: Any = yaml.safe_load(key_text)
+    except yaml.YAMLError as exc:
+        # Otherwise this surfaces at import time, from `_labeling_state`, as
+        # "Interrupted: 1 error during collection" — the whole suite refusing
+        # to run with no indication that a fixture file is the cause.
+        raise MalformedAnswerKeyError(f"answer key is not valid YAML: {exc}") from exc
     boards = raw.get("boards") if isinstance(raw, dict) else None
     if not isinstance(boards, dict) or not boards:
         raise MalformedAnswerKeyError(
@@ -2065,6 +2078,14 @@ def unlabeled(key_text: str) -> list[str]:
                     "reports zero unlabeled fields, which reads as finished"
                 )
             for field, value in label.items():
+                if isinstance(value, dict):
+                    # A nested mapping holds no TO_LABEL this loop can see, so
+                    # it would count as labeled. Same "reads as finished"
+                    # failure as an empty key, one level down.
+                    raise MalformedAnswerKeyError(
+                        f"{board}/{posting_id}/{field} is a mapping; a label "
+                        "field must be a scalar or a list"
+                    )
                 if value == UNLABELED:
                     missing.append(f"{board}/{posting_id}/{field}")
     return sorted(missing)
