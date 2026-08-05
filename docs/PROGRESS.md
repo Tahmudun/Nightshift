@@ -23,7 +23,7 @@
 
 ## Next exact action
 
-### M3b is underway on `m3b-eligibility-gate`. Next: Task 3 — the `RoleFamily`, `Seniority` and `EligibilityState` enums, and the migration that makes two `String` columns real.
+### M3b is underway on `m3b-eligibility-gate`. Tasks 1–3 are done. Next: Task 4 — the classifier, graded against Task 2's labels.
 
 The plan is `docs/plans/2026-08-05-m3b-eligibility-gate.md`. Two decisions the
 human took on 2026-08-05 before planning: role families are the eight tech
@@ -202,7 +202,107 @@ time in this project a new label field has been unable to arrive unmeasured.**
 
 ---
 
-### After M3b Task 2: the rest of the M3b plan.
+## M3b Task 3 — two `String` placeholders become real types, and a seed that lied
+
+Migration `0013_role_family_and_seniority`. `RoleFamily` (11 values),
+`Seniority` (8), and `EligibilityState` (5).
+
+**`EligibilityState` is deliberately not a PostgreSQL enum**, unlike everything
+else in `db/base.py`. M3b computes a verdict on read and stores none, so there
+is no column to attach a type to until `match_results` arrives at M3c. Creating
+a database type with no column is shape with no use — the same reasoning that
+left `user_skills.confidence` out at M2c.
+
+**Both columns were empty, and that was checked rather than assumed**: no writer
+anywhere in `nightshift/`, `scripts/` or the web app, and `count(role_family),
+count(seniority)` returned `0, 0` against a freshly seeded database holding 31
+jobs. So the conversion could not lose a value.
+
+`null` still means "not yet classified" and stays distinct from `unclear`, which
+is the classifier having read a posting and declined to guess. Merged, an unrun
+classifier and a corpus of ambiguous titles would look identical.
+
+### Autogenerate got three things wrong, and this project had recorded all three
+
+```
+alter_column does not create the enum type   -> `type "role_family" does not exist`
+VARCHAR to enum needs an explicit USING       -> postgres will not cast implicitly
+the downgrade emitted no DROP TYPE            -> next upgrade: "type already exists"
+```
+
+The first and third are M2c's review findings 2 and 3, about `add_column` rather
+than `alter_column`. **Knowing the pattern did not prevent it** — autogenerate
+produced the same shape again and it was caught by running the migration, not by
+remembering.
+
+A fourth, new: `alembic_version.version_num` is `varchar(32)` and the generated
+revision id was 36 characters. The migration applied and then failed writing
+down that it had.
+
+Verified: up, down one, up; and a full down-to-base and back. `make drift`
+reports no drift. `make acceptance` passes with the drift step in it.
+
+### The vocabulary now exists in three places, so it is asserted equal in all three
+
+The enums in `db/base.py`, `ROLE_FAMILY_VALUES` / `SENIORITY_VALUES` beside the
+labels, and the migration's own tuples. **The migration's copy is unavoidable**
+— a migration that imports a model stops describing the schema as of its own
+revision and starts describing today's — so an assertion is the only defence
+available. Shown able to fail by misspelling `hardware` in the migration.
+
+### The seed reported success over an empty database
+
+The eighth time in this project something that reported success was wrong, and
+the first where the reporter was `make seed` itself.
+
+The model change landed before its migration. Every INSERT failed with `type
+"role_family" does not exist`. `ingest_boards` counted all 31 postings into
+`stats.failed` — **which is correct**, I3 says one bad posting may not kill a
+board — and the command printed `seed complete` and exited `0`.
+
+```
+  greenhouse fixture ingest: 0 created, 0 updated, 0 unchanged, 10 failed (succeeded)
+  lever fixture ingest:      0 created, 0 updated, 0 unchanged,  9 failed (succeeded)
+  ashby fixture ingest:      0 created, 0 updated, 0 unchanged, 12 failed (succeeded)
+    canonical jobs      0 (0 open)
+seed complete. `make dev` then open http://localhost:3000     <- exit 0
+```
+
+**The counts were on screen the whole time, and that is not enough.** CI's "Seed
+loads" step reads the exit code and nothing else, so a completely broken seed
+was a green check. `make demo` would have handed a developer an empty city under
+a success message. `make acceptance` *would* have caught it — `verify.py`
+indexes `jobs["items"][0]` and would have raised — but the CI seed step has no
+such backstop and it is the one that runs on every push.
+
+The guard is "ended with zero jobs", not "any posting failed". The fixtures are
+committed and deterministic so any failure is a defect, but failing the whole
+seed over one bad posting would make the command brittle in exactly the way
+`ingest_boards` refuses to be.
+
+**Demonstrated failing twice, from two unrelated causes** — the missing enum
+type, and orphaned `source_job_records` left by a careless `truncate`, which the
+seed refuses on the M1 acceptance criterion. Both now exit 1; a healthy seed
+still exits 0 with 31 jobs.
+
+### Two plan corrections, recorded rather than absorbed
+
+1. **`internship_season` moved from Task 3 to Task 11.** The plan put the column
+   here. It does not belong here: nothing in the answer key labels a season, so
+   populating it in Task 3 would add a field graded by nothing — the exact
+   condition Task 1 built a guard against, four hours earlier. It lands with the
+   filter that uses it, where the two can be checked together. Its shape is also
+   undecided: one `summer_2027` string, or a term enum plus a year, and the
+   corpus (4 of 5 internships state a season in the title) should decide.
+2. **Enum parity moved from Task 3 to Task 9.** The parity test compares Python
+   enums against `z.enum` copies in `schemas.ts`, and nothing serves these
+   values to a browser yet. Writing the TypeScript now would be shape with no
+   use, and the drift it guards happens at the moment of transcription — which
+   is Task 9.
+
+---
+
+### After M3b Task 3: the rest of the M3b plan.
 
 **PR #9 is merged.** `main` is at `452ec90`, checked against the PR rather than
 assumed. CI was green on all five jobs at `3fbffd6`, run

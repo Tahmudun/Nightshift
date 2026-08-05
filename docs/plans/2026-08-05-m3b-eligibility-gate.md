@@ -218,15 +218,15 @@ something a person can act on.
 |---|---|---|
 | 1 | Grade the five ungraded label fields. Publish the numbers before changing a rule | Measured baseline, no floors yet |
 | 2 | `role_family` + `seniority` labels added to the answer key, **before** any classifier exists | The gate test goes red until they are filled |
-| 3 | `RoleFamily`, `Seniority`, `EligibilityState` enums; migration converting the two `String` columns to PG enums; `internship_season`; enum parity | Migration up, down, up |
+| 3 | `RoleFamily`, `Seniority`, `EligibilityState` enums; migration converting the two `String` columns to PG enums | Migration up, down, up |
 | 4 | The classifier, graded against Task 2 | Accuracy per field |
 | 5 | Whatever Task 1 says is broken — the M3a.1-shaped repair loop, each step measured on its own | Attributable movement |
 | 6 | `domain/eligibility.py`: the gate, pure, no ORM | The fixture suite of §2.2 |
 | 7 | The wrong-ineligible equality, shown able to fail | 0, provably |
 | 8 | Mutation testing on every gate rule (`matching.md` §8) | Each rule kills a named test |
-| 9 | `GET /jobs/{id}` returns the verdict, its blockers and its unknowns | Zod schemas, parity guard |
+| 9 | `GET /jobs/{id}` returns the verdict, its blockers and its unknowns; the three new enums transcribed into `schemas.ts` and added to `test_enum_parity.py` | Zod schemas, parity guard |
 | 10 | The job page: blockers named, dimmed not hidden, unknowns linking to the profile | Component tests |
-| 11 | `internship_season` filter real; `skill` filter on with its caveat and its not-extracted count | Both deferral reasons deleted from the list |
+| 11 | `internship_season` — the column, its shape, and the filter; `skill` filter on with its caveat and its not-extracted count | Both deferral reasons deleted from the list |
 | 12 | Browser walk, `check_eligibility_gate` in `verify.py`, ADR 0017, review, PROGRESS | `make acceptance` |
 
 Task 5 is deliberately sized as unknown. M3a.1 was an entire unplanned slice
