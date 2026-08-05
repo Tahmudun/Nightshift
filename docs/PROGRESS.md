@@ -29,9 +29,24 @@
 and that is deliberate.** Seven CI runs in this project have failed and every
 one found something no local command had executed; waiting until the end of a
 twelve-task milestone to learn that is the expensive version. CI now runs on
-every push. It was **green on all five jobs** at `bcf5f58`, run
-[31052329000](https://github.com/Tahmudun/Nightshift/actions/runs/31052329000),
-covering Tasks 1–4.
+every push, and it has been **green on all five jobs twice** —
+[31052329000](https://github.com/Tahmudun/Nightshift/actions/runs/31052329000)
+at `bcf5f58` (Tasks 1–4), and
+[31053249925](https://github.com/Tahmudun/Nightshift/actions/runs/31053249925)
+at `1da91ce` (through Task 5). Counts read from the job logs:
+
+```
+python       1308 passed; 72 distributions, all pinned
+e2e          5 degraded + 41 seeded passed, 1 skipped
+migrations   up, down, up, and no drift — including 0013
+web          18 files, 159 tests
+secret scan
+```
+
+`1da91ce` is the branch head, so the recorded result covers every line on the
+branch by inspection rather than by a diff. **Migration `0013` has now run
+up, down and up on a machine that is not this one**, which is the assertion
+this project has twice had to learn to make.
 
 The plan is `docs/plans/2026-08-05-m3b-eligibility-gate.md`. Two decisions the
 human took on 2026-08-05 before planning: role families are the eight tech
