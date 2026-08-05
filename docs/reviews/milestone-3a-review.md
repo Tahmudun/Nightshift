@@ -188,9 +188,21 @@ recorded rather than padded: the trigger's whole purpose is the writer that *doe
 
 ## 4. What this milestone does not claim
 
-**Recall is 0.459 and that is the headline weakness.** Sixty of the 103 original misses
-are terms `data/skills.yaml` does not carry — no rule can reach them. It is recorded in
-PROGRESS under "Not real yet" rather than absorbed into a floor.
+**Recall is 0.459 and that is the headline weakness.** It is recorded in PROGRESS rather
+than absorbed into a floor, and the human ruled on 2026-08-05 that raising it is the next
+work rather than a known limitation to build on top of.
+
+Task 7 attributed the bulk of the original 103 misses to vocabulary the extractor does not
+carry. Re-measured on 2026-08-05 against the *current* misses, that holds but is not the
+whole story: of the 47 distinct terms the report names, 40 are unknown to
+`data/skills.yaml` and **7 are terms it knows and the rules lose**. One of those seven is
+the most instructive defect in the milestone. `anthropic_eligibility/5023394008` says
+`<h2>Candidates must be:</h2><li>Fluent in Python programming</li>`; the extractor finds
+that Python and files it `preferred`, because "Candidates must be" is not a known required
+heading. It is therefore counted wrong **twice** — once against recall, once against
+necessity accuracy. **Heading vocabulary is the only lever that moves both numbers at
+once**, and this is the third time in this milestone that a missing heading phrase was the
+real cause of a bad measurement. Planned as M3a.1 in PROGRESS.
 
 **Necessity accuracy is 0.668, and the job page makes that visible rather than hiding
 it.** Measured on the seeded corpus: **2 of 32 rows shown as `required` sit beside a

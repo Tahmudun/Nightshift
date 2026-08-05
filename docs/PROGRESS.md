@@ -14,22 +14,120 @@
 **M2c: COMPLETE, reviewed, CI-green at `e63ec2f`, merged to `main` as PR #7 (`e42d612`).**
 **M2d: COMPLETE, reviewed, CI-green at `c6e5a97`, merged to `main` as PR #8 (`77e52ea`).**
 **M2: CLOSED. All four acceptance criteria verified, all four PRs merged.**
-**M3a: COMPLETE and reviewed on branch `m3a-answer-key`. Not yet pushed; CI has not run.**
-**Current milestone: M3 — explainable matching. M3a is the first of its slices.**
-**Last updated: 2026-08-04**
+**M3a: COMPLETE and reviewed. Pushed as `origin/m3a-answer-key` at `9ec9713`. No PR yet, so CI has not run.**
+**Current milestone: M3 — explainable matching. M3a is done; M3a.1 (raise recall) is next, before M3b.**
+**Last updated: 2026-08-05**
 
 ---
 
 ## Next exact action
 
-### Next: push `m3a-answer-key`, open the PR, and get CI green. Then M3b — the eligibility gate.
+### Next: open the PR for `m3a-answer-key` and get CI green. Then M3a.1 — raise recall from 0.459.
 
-**This file was stale when the session started** and the correction is worth
-recording rather than quietly overwriting: it claimed M2 was the current
-milestone and PR #8 was open, while the branch already carried seven M3a
-commits and PR #8 had been merged at `77e52ea`. CLAUDE.md §5 says to confirm
-the repo state matches what PROGRESS claims and fix PROGRESS first when it does
-not. It did not.
+**The branch is pushed** — `origin/m3a-answer-key`, 43 commits, head `9ec9713`.
+
+**Pushing did not start CI, and that is the workflow's design rather than a
+fault.** `.github/workflows/` triggers on `push` to `main` and on
+`pull_request`, so a feature branch sitting on the remote runs nothing.
+**CI has still never executed a line of this branch.** Opening the PR is what
+starts it, and it is a human's action:
+
+```
+gh pr create --base main --head m3a-answer-key
+```
+
+**The human's decision, 2026-08-05: the next work is raising extraction recall**,
+not moving on to the eligibility gate. 0.459 is not good enough to build a
+judgement on top of. Detail and the measured lever are under "M3a.1" below.
+
+**This file was stale when the 2026-08-04 session started** and the correction
+is worth recording rather than quietly overwriting: it claimed M2 was the
+current milestone and PR #8 was open, while the branch already carried seven
+M3a commits and PR #8 had been merged at `77e52ea`. CLAUDE.md §5 says to
+confirm the repo state matches what PROGRESS claims and fix PROGRESS first when
+it does not. It did not.
+
+---
+
+## M3a.1 — raise recall, and where the misses actually are
+
+**Goal: required-technology recall from 0.459 toward 0.70+, without giving back
+precision (0.659) or necessity accuracy (0.668).**
+
+The floors in `test_requirement_extraction_against_the_answer_key.py` move up
+with each improvement, never down. A floor that drops to accommodate a change
+is not a floor.
+
+### The misses, split by cause — measured 2026-08-05, not assumed
+
+The grading report names 47 distinct missed terms. Splitting them by whether
+`data/skills.yaml` carries the term at all:
+
+```
+40 of 47   the vocabulary has never heard of the term      -> vocabulary work
+ 7 of 47   the vocabulary knows it and the rules lost it   -> rule work
+```
+
+The seven are `Python`, `GCP`, `Microsoft Azure`, `Entra ID/Azure AD`, `Excel`,
+`Microsoft Excel`, `Pytorch`.
+
+**Start with the seven, not the forty.** They are the smaller pile and the more
+valuable one, because of what the `Python` case turns out to be.
+
+### The Python case, and why it is the highest-leverage fix
+
+`anthropic_eligibility/5023394008` is labeled `required_tech: ['Python']`. The
+posting says, verbatim:
+
+```
+<h2><strong>Candidates must be:</strong></h2>
+<ul><li>Fluent in Python programming</li>
+```
+
+The extractor **finds** that Python. It then files it as `preferred`, because
+"Candidates must be" is not in `_REQUIRED_HEADINGS`, so the governing heading is
+a `preferred` one from earlier in the posting.
+
+That single defect costs **twice**:
+
+- it is a false negative for *required-technology recall*, because a
+  `preferred` row is not a found requirement, and
+- it is a wrong answer for *necessity accuracy*.
+
+**So heading vocabulary is the only lever that moves both numbers at once.**
+Adding a skill to `data/skills.yaml` can only ever raise recall. This is also
+the third time this milestone that a missing heading phrase was the real cause
+of a bad number — Task 3 hit it twice on the worksheet and Task 7 hit it on the
+first grading run, where the imagined heading list scored 0.156 and the measured
+one scored 0.475 on that change alone.
+
+### How to do it without fooling yourself
+
+1. **Harvest headings from the corpus, do not invent them.** That is the lesson
+   Task 7 already paid for. `scripts/make_label_worksheet.py` built its list by
+   reading the 153 recorded postings; the same route works here.
+2. **Every new heading is a fresh chance to end a section early or govern text
+   it should not.** `_heading_spans` already drops a required heading nested
+   inside a preferred one. Re-run the full grading after each addition, not at
+   the end.
+3. **Watch precision and the nice-to-have assertion.** Loosening what counts as
+   a required heading is exactly how "SQL is preferred but not required" starts
+   being reported as required. `test_no_nice_to_have_is_ever_reported_as_required`
+   currently sits at **0 violations and has no floor** — it must stay at zero.
+4. **The 40 vocabulary terms are a separate, later pass**, and they are mostly
+   domain clusters rather than a long tail: Windows/network administration
+   (`Active Directory`, `SIEM`, `TCP/IP`, `VPN`, `SSO`, `MFA`, …), structural
+   engineering codes (`ACI 318`, `ASCE 7`, `IBC`), treasury systems
+   (`Kyriba`, `GTreasury`, `Trovata`), hardware description languages
+   (`Verilog`, `VHDL`, `SystemVerilog`), and accounting standards (`US GAAP`,
+   `IFRS`). Adding a cluster at a time makes the recall movement attributable.
+
+### What must not happen
+
+**Do not tune against the answer key by editing the answer key.** It was
+committed before any extraction rule existed, and that ordering is the only
+reason these numbers mean anything. If a label looks wrong, it is fixed with a
+recorded reason in the review, never quietly.
 
 **All twelve M3a tasks are done and committed.** The three commands were run
 locally at the branch head and their counts are read from the output, not
@@ -48,10 +146,11 @@ skip is the pre-existing honest one: `an unchanged board is not presented as a
 problem` needs a board that has answered `304`.
 
 **CI has not run on this branch.** Every previous milestone's PROGRESS entry at
-this point carried a CI result; this one cannot, because the branch is
-unpushed. Six CI runs across this project have failed and every one found
-something no local command had executed, so the three green commands above are
-evidence about this machine and not yet evidence about the branch.
+this point carried a CI result; this one cannot. Six CI runs across this project
+have failed and every one found something no local command had executed, so the
+three green commands above are evidence about this machine and not yet evidence
+about the branch. Pushing alone does not change that — see the top of this
+section.
 
 Once CI has run, the invariant this project learned twice applies before
 merging — name the last commit CI executed, and check nothing outside `docs/`
@@ -200,9 +299,11 @@ to write off as "the mutation was not meaningful".
 
 ### Not real yet — M3a
 
-- **Recall is 0.459.** Sixty of the 103 original misses are terms
-  `data/skills.yaml` does not carry — no rule reaches them. Named here rather
-  than absorbed into a floor.
+- **Recall is 0.459, and raising it is the next work rather than a footnote.**
+  See "M3a.1" above for the measured split — the bulk is vocabulary the
+  extractor has never heard of, but seven terms it *does* know are lost to a
+  missing heading phrase, and those are worth more per fix because they move
+  necessity accuracy too.
 - **Necessity accuracy is 0.668**, so roughly one technology in three is filed
   under the wrong heading. **The job page makes this visible rather than hiding
   it**: measured on the seeded corpus, 2 of 32 rows shown as `required` sit
