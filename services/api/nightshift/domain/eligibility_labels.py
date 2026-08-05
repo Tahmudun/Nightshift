@@ -33,6 +33,54 @@ DEGREE_VALUES: frozenset[str] = frozenset(
     [*_DEGREE_BASE, *(f"{d}+equivalent" for d in _DEGREE_BASE)]
 )
 
+#: The human's decision on 2026-08-05: the tech families, plus an explicit
+#: `not_tech`, plus `unclear`. Keeping the last two apart is the whole point —
+#: collapsed, a rise in `unclear` could be more non-tech postings in the corpus
+#: or a worse classifier, with no way to tell which.
+#:
+#: **`hardware` was not in the human's list and was added while labeling**, from
+#: the corpus rather than from taste: Akuna's "Hardware Engineer Intern" and
+#: IMC's "Graduate Hardware Engineer" are both FPGA and low-latency hardware
+#: design. `not_tech` would be false, and `infrastructure` would make that
+#: family mean two unrelated things. Two of sixty, and named here so the
+#: departure from the decision is visible rather than absorbed.
+ROLE_FAMILY_VALUES: frozenset[str] = frozenset(
+    {
+        "software_engineering",
+        "data_engineering",
+        "ml_ai",
+        "infrastructure",
+        "security",
+        "quant_trading",
+        "hardware",
+        "product",
+        "design",
+        # Read, and deliberately outside this product's scope. A compliance
+        # officer at Point72 is a real posting and not a tech role.
+        "not_tech",
+        # Could not decide. Never a default.
+        "unclear",
+    }
+)
+
+#: Harvested from the 60 titles, not invented — the lesson M3a's Task 7 paid
+#: for. Every value below is a level some posting in the corpus actually states.
+#: `staff` covers the Lead / Staff / Principal band because the corpus writes
+#: "Lead" and never "Staff", and the distinction between an IC lead and a
+#: people-manager lead is one these postings do not reliably make.
+SENIORITY_VALUES: frozenset[str] = frozenset(
+    {
+        "internship",
+        "new_grad",
+        "junior",
+        "mid",
+        "senior",
+        "staff",
+        "director",
+        "unclear",
+    }
+)
+
 
 class PostingLabel(BaseModel):
     """One posting's stated requirements. Never a verdict about a person."""
@@ -48,6 +96,13 @@ class PostingLabel(BaseModel):
     required_tech: list[str] = Field(default_factory=list)
     mentioned_not_required: list[str] = Field(default_factory=list)
     sponsorship: Literal["offered", "not_offered", "not_stated"]
+    #: Added at M3b Task 2, labeled across all 60 postings **before any
+    #: classifier existed**. That ordering is the only reason the classifier's
+    #: grade means anything (`matching.md` §1.1), and it is why these are
+    #: required fields with no default: a posting that reaches here unlabeled
+    #: must fail to parse rather than quietly acquire a value.
+    role_family: str
+    seniority: str
     note: str = ""
 
     @property
@@ -59,6 +114,12 @@ class PostingLabel(BaseModel):
     def _check(self) -> PostingLabel:
         if self.degree not in DEGREE_VALUES:
             raise ValueError(f"degree {self.degree!r} not in {sorted(DEGREE_VALUES)}")
+        if self.role_family not in ROLE_FAMILY_VALUES:
+            raise ValueError(
+                f"role_family {self.role_family!r} not in {sorted(ROLE_FAMILY_VALUES)}"
+            )
+        if self.seniority not in SENIORITY_VALUES:
+            raise ValueError(f"seniority {self.seniority!r} not in {sorted(SENIORITY_VALUES)}")
         overlap = {t.casefold() for t in self.required_tech} & {
             t.casefold() for t in self.mentioned_not_required
         }

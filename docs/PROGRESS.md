@@ -23,7 +23,7 @@
 
 ## Next exact action
 
-### M3b is underway on `m3b-eligibility-gate`. Next: Task 2 — label `role_family` and `seniority` into the answer key, before any classifier exists.
+### M3b is underway on `m3b-eligibility-gate`. Next: Task 3 — the `RoleFamily`, `Seniority` and `EligibilityState` enums, and the migration that makes two `String` columns real.
 
 The plan is `docs/plans/2026-08-05-m3b-eligibility-gate.md`. Two decisions the
 human took on 2026-08-05 before planning: role families are the eight tech
@@ -123,7 +123,86 @@ M3a shipped a violation count stuck at zero for a whole milestone:
 
 ---
 
-### After M3b Task 1: the rest of the M3b plan.
+## M3b Task 2 — `role_family` and `seniority` labeled, before a classifier exists
+
+60 postings × 2 fields, added to `labels.yaml`. **120 insertions, zero
+deletions** — checked with `git diff --stat`, and the patch script refuses to
+write at all if the rewrite removes a line, because the one thing it may not do
+is reformat a committed label.
+
+The ordering is the whole point (`matching.md` §1.1). Rules written first make
+the corpus get chosen — in good faith — to hold the cases the rules already
+handle, and the grade then measures nothing. Both fields are **required with no
+default**: a posting arriving unlabeled must fail to parse rather than quietly
+acquire an answer nobody chose. `test_neither_new_field_has_a_default` is that
+guard, and `unclear` and `not_tech` are both real answers a human picked, so
+neither may become what happens when nobody picks.
+
+### The taxonomy gained a value the human's list did not have
+
+`hardware`. Akuna's *Hardware Engineer Intern* and IMC's *Graduate Hardware
+Engineer* are both FPGA and low-latency hardware design — read, not guessed
+from the titles. `not_tech` would be false and `infrastructure` would make that
+family mean two unrelated things. Two of sixty. **Recorded as a departure from
+the decision rather than absorbed into it**, and it is one line to revert.
+
+The rule applied consistently for the harder calls, written down because a
+labeler's rule that lives only in their head is a rule the next pass will
+contradict: **`role_family` describes the work's primary output.** Software,
+systems or models earn a tech family; a deal, a hire, a policy, a report or a
+financing is `not_tech`. That is what puts Anthropic's *Applied AI Architect*
+in `not_tech` — its own first sentence says "you will be a Pre-Sales
+architect" — and OpenAI's TPM roles in `product`.
+
+`seniority` was harvested from the 60 titles rather than invented, the lesson
+M3a's Task 7 paid for. `staff` covers the Lead / Staff / Principal band because
+the corpus writes "Lead" and never "Staff".
+
+### What the distributions say, including the part that is a gap
+
+```
+role_family   not_tech 19   quant_trading 13   ml_ai 9   software_engineering 4
+              security 4    product 4          infrastructure 3
+              hardware 2    design 1           data_engineering 1   unclear 0
+
+seniority     unclear 14    mid 13   new_grad 8   director 6
+              internship 5  senior 5  staff 5     junior 4
+```
+
+**`role_family: unclear` is labeled on zero postings, and that is a coverage
+gap rather than a success.** All sixty could be classified, so the corpus holds
+no example of the case the classifier most needs to get right: a posting it
+should refuse to guess at. A classifier that never answers `unclear` scores
+perfectly here and is wrong the first time it meets a genuinely ambiguous
+posting.
+
+`test_the_corpus_cannot_grade_an_unclear_family_and_says_so` **asserts the
+gap** — it fails the day a posting is labeled `unclear`, and its message says to
+delete it. That is deliberate: this project has now four times shipped a blind
+spot recorded in a comment that nobody re-read once the thing it waited on
+landed. A comment goes stale silently; a test goes red.
+
+`design` and `data_engineering` carry one posting each and `hardware` two, so
+per-family accuracy on those is not a measurement. Asserted by name in
+`test_two_families_are_too_thin_to_grade_on_their_own`, so a future table
+printing `design 1.000` cannot be read as a result.
+
+**14 of 60 seniority labels are `unclear`**, which means roughly a quarter of
+the classifier's job is knowing when not to answer. That is the right shape for
+this milestone and it also means a classifier that always says `unclear` scores
+0.23 — visible, rather than hidden behind an average.
+
+### The guard that worked on its first day
+
+Adding two label fields turned `test_every_label_field_is_graded_or_named` red
+immediately: both were in neither the graded list nor the named-and-excluded
+one. That test was written four hours earlier, in Task 1, precisely because M3a
+had five unmeasured fields and nothing anywhere said so. **This is the first
+time in this project a new label field has been unable to arrive unmeasured.**
+
+---
+
+### After M3b Task 2: the rest of the M3b plan.
 
 **PR #9 is merged.** `main` is at `452ec90`, checked against the PR rather than
 assumed. CI was green on all five jobs at `3fbffd6`, run
@@ -142,11 +221,12 @@ The pre-merge invariant held: `git diff 3fbffd6..HEAD --stat` listed docs only.
 **That branch took three CI runs, and only the first found anything** — the
 check-constraint defect below. The second and third were green first time.
 
-`m3a-answer-key` and `m2d-daily-queue` are deleted locally. **Four merged
-branches are still on the remote** — `m1a-provider-breadth`,
-`m2c-profile-and-resume`, `m2d-daily-queue`, `m3a-answer-key`, all fully merged
-into `main` with nothing ahead. Deleting them still needs a permission this
-session did not have; it is one `git push origin --delete`.
+**All four stale merged branches are deleted, locally and on the remote.**
+`m1a-provider-breadth`, `m2c-profile-and-resume`, `m2d-daily-queue` and
+`m3a-answer-key` are gone; `git branch -a` now lists only `main`,
+`ci-pin-and-canary` and `m3b-eligibility-gate`, checked after a `--prune` rather
+than assumed. This had been carried as an open item since M2c, in four
+consecutive PROGRESS entries, because the permission was not available.
 
 **[PR #10](https://github.com/Tahmudun/Nightshift/pull/10) is open and CI is
 green on all five jobs, first attempt**, run

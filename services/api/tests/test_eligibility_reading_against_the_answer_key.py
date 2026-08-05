@@ -47,6 +47,12 @@ NOT_GRADED_HERE: dict[str, str] = {
     "required_tech": "graded in test_requirement_extraction_against_the_answer_key",
     "mentioned_not_required": "same file",
     "is_internship": "no rule produces it yet — it arrives with the M3b classifier",
+    # Added at Task 2 and immediately caught by the guard below, which is the
+    # first time in this project that a new label field has been unable to
+    # arrive unmeasured. All three are graded in
+    # test_role_classification_against_the_answer_key once Task 4 exists.
+    "role_family": "graded against the classifier, Task 4 — nothing produces it yet",
+    "seniority": "same",
 }
 
 
