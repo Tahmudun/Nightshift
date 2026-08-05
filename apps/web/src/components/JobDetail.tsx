@@ -17,14 +17,25 @@ import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 
 import { ConfidenceLadder } from './ConfidenceLadder';
+import { JobEligibility } from './JobEligibility';
 import { JobRequirements } from './JobRequirements';
 import { SaveJobButton } from './SaveJobButton';
 import { fetchJob } from '@/lib/api';
 import type { JobDetail } from '@/lib/schemas';
 
+/**
+ * What this page still cannot compute. **`Eligibility` was removed at M3b**,
+ * the milestone that built it — this list had otherwise been about to make the
+ * same claim beside a section answering it.
+ *
+ * That is not a hypothetical tidy-up. A stale "not built yet" list has gone
+ * unnoticed for a whole milestone three times in this project, always in the
+ * same direction: nobody re-reads the list when the thing it waits on lands.
+ * It was caught here only because the new section put the word "Eligibility" on
+ * the page twice and an existing test could no longer tell them apart.
+ */
 const DEFERRED_FACTS = [
   'Match score',
-  'Eligibility',
   'Match breakdown',
   'Missing requirements',
   'Project evidence',
@@ -135,6 +146,13 @@ export function JobFacts({ job }: { readonly job: JobDetail }) {
         descriptionText={job.description_text}
         extractorVersion={job.requirements_extractor_version}
       />
+
+      {/* Directly under the requirements, because it is the same evidence read
+          a second way: the section above says what the posting asks for, this
+          one says how that lands for you. Above the description rather than
+          below it for the reason JobRequirements is — a reader who has already
+          scrolled the posting is being told what they just read. */}
+      <JobEligibility eligibility={job.eligibility} />
 
       <section data-testid="deferred-facts">
         <h2 className={TERM}>Not yet computed</h2>
