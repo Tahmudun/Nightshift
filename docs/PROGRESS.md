@@ -12,15 +12,234 @@
 **M2a: COMPLETE, reviewed, CI-green at `76190c8`, merged to `main` as PR #5 (`910027a`).**
 **M2b: COMPLETE, reviewed, CI-green at `6a10bb6`, merged to `main` as PR #6 (`2f984f3`).**
 **M2c: COMPLETE, reviewed, CI-green at `e63ec2f`, merged to `main` as PR #7 (`e42d612`).**
-**M2d: COMPLETE, reviewed, CI-green at `c6e5a97`, open as PR #8 and unmerged.**
-**Current milestone: M2 — the functional command center. M2d was the last slice; M2's deliverable list is complete.**
+**M2d: COMPLETE, reviewed, CI-green at `c6e5a97`, merged to `main` as PR #8 (`77e52ea`).**
+**M2: CLOSED. All four acceptance criteria verified, all four PRs merged.**
+**M3a: COMPLETE and reviewed on branch `m3a-answer-key`. Not yet pushed; CI has not run.**
+**Current milestone: M3 — explainable matching. M3a is the first of its slices.**
 **Last updated: 2026-08-04**
 
 ---
 
 ## Next exact action
 
-### Next: merge PR #8 (a human's call), then plan M3 — explainable matching.
+### Next: push `m3a-answer-key`, open the PR, and get CI green. Then M3b — the eligibility gate.
+
+**This file was stale when the session started** and the correction is worth
+recording rather than quietly overwriting: it claimed M2 was the current
+milestone and PR #8 was open, while the branch already carried seven M3a
+commits and PR #8 had been merged at `77e52ea`. CLAUDE.md §5 says to confirm
+the repo state matches what PROGRESS claims and fix PROGRESS first when it does
+not. It did not.
+
+**All twelve M3a tasks are done and committed.** The three commands were run
+locally at the branch head and their counts are read from the output, not
+inferred:
+
+```
+make check        1280 Python, 159 web, ruff/mypy/eslint/tsc clean
+make acceptance   57 verify checks + 41 seeded browser tests, 1 skip
+make test-e2e     5 degraded-path tests        <- the third command, run separately
+alembic           down, up, no drift; both triggers present after the cycle
+```
+
+**`make acceptance` was run three times back to back and passed all three**,
+which is the idempotency evidence rather than a hope about it. The single e2e
+skip is the pre-existing honest one: `an unchanged board is not presented as a
+problem` needs a board that has answered `304`.
+
+**CI has not run on this branch.** Every previous milestone's PROGRESS entry at
+this point carried a CI result; this one cannot, because the branch is
+unpushed. Six CI runs across this project have failed and every one found
+something no local command had executed, so the three green commands above are
+evidence about this machine and not yet evidence about the branch.
+
+Once CI has run, the invariant this project learned twice applies before
+merging — name the last commit CI executed, and check nothing outside `docs/`
+follows it:
+
+```
+git diff <that-sha>..HEAD --stat    # must list nothing outside docs/
+```
+
+### What M3a is
+
+The reading half of matching, and nothing else. A posting's requirements are
+extracted by rules, stored with the characters they came from, and shown on the
+job page quoting the posting's own words. **Nothing is compared against a person
+yet** — no eligibility gate, no score, no `uncertain`.
+
+| Task | Commit | What it did |
+|---|---|---|
+| 1 | `c577d56` | Fixture selectors by eligibility shape, not location |
+| 2 | `6a9b7cf` | Nine boards recorded, 153 postings |
+| 3 | `b297c36`¹ | The labeling worksheet — six fix rounds, each measured |
+| 4 | `9929aa0` | The answer key's schema, loader, and the two gate tests |
+| 4b | `0f10284` | The key filled: 60 postings × 9 fields, audited |
+| 5 | `44a70e7`² | `job_requirements`, migration `0011`, both triggers |
+| 6 | `3722026` | The extractor — every proposal carrying its span |
+| 6b | `7eb3750` | `match_all`, which keeps repeated occurrences |
+| 7 | `7134094` | Grading against the answer key, and the rules it demanded |
+| 8 | `7c950d5` | `sync_requirements` — extraction follows the description |
+| 9 | `7f52a8f` | `GET /jobs/{id}` returns requirements with their spans |
+| 10 | `38d5e69` | The job page, the Zod refinement, the parity guard |
+| 11 | `7cff577` | The fifth coverage blind spot |
+| 12 | this | The browser walk, `verify.py`, ADR 0015, the review |
+
+¹ Task 3 landed across five commits of fix rounds; `b297c36` is the last.
+² Task 5's trigger fix landed separately in `aa0235b`.
+
+### The measured numbers
+
+**Extraction, graded against the 60-posting answer key.** The key was committed
+*before* any extraction rule existed, so this measures the rules rather than the
+choice of examples:
+
+```
+required technology   precision 0.659   recall 0.459   (tp 56, fp 29, fn 66)
+necessity accuracy    0.668             over 199 labeled technologies
+nice-to-haves reported as required      0            <- the assertion with no floor
+```
+
+Floors in CI: 0.65 / 0.45 / 0.66. Set *after* measuring, just under what the
+extractor achieves — a floor picked before measuring is either unreachable or
+vacuous and there is no way to tell which from the outside.
+
+**The first measurement was 0.432 / 0.156 / 0.447**, with an imagined heading
+list. Setting a floor under that would have enshrined a broken extractor. The
+103 misses were split by cause first: 60 are terms `data/skills.yaml` does not
+carry and no rule can reach; 43 the extractor found and filed under the wrong
+necessity. Only the second kind is an extraction defect.
+
+**The answer key holds 60 postings across seven boards:**
+
+```
+akunacapital 15   anthropic 15   databricks 10   imc 7
+openai 8          jumptrading 3  janestreet 2
+```
+
+**What the corpus could not demonstrate**, from the union of the nine boards'
+`coverage_not_available_on_this_board` lists — the number is how many of the
+nine boards lack that shape:
+
+```
+multi-level posting spanning an eligibility boundary      8 of 9
+sponsorship stated in writing                             4 of 9
+new grad / university programme in the title              3 of 9
+internship in the title                                   2 of 9
+a preferred section whose contents are not gaps           2 of 9
+senior or above in the title — the seniority mismatch     1 of 9
+a graduation year stated numerically                      1 of 9
+internship employmentType                                 1 of 9
+```
+
+The first line is the important one. **A posting spanning an eligibility
+boundary is absent from eight of nine boards**, so the case A13 calls hardest —
+a role open to both a new grad and a senior — is the one the answer key can say
+least about. M3b must not read its grading as evidence there.
+
+### The queue's own acceptance, measured
+
+`check_job_requirements` in `make acceptance`, compared **before and after**
+rather than against an absolute state:
+
+```
+✓ the job detail answers                          HTTP 200, 4 required, 5 preferred
+✓ requirements carry an extractor version         m3a.1
+✓ every span quotes the description it points at  9 spans
+✓ no single span is both required and preferred   4 required, 5 preferred
+✓ changing the description clears the old rows    9 -> 0
+✓ a description change replaces the requirements  9 -> 1
+✓ the job is left as it was found                 nothing is left behind
+```
+
+**Its first version passed with nothing on either side.** It picked the first
+posting with any requirements; that posting's three rows were all `mentioned`,
+so the necessity line read "0 required, 0 preferred" and ticked green. It now
+prefers a posting that can fail the check and prints the mix either way, so a
+vacuous case is visible in the output rather than hidden behind a passing line.
+
+### What M3a found that the plan did not predict
+
+Eleven in Tasks 8–12 and **eight were in code or tests that reported success** —
+the ninth milestone running. Tasks 1–7's are in their commit messages. Full
+detail in `docs/reviews/milestone-3a-review.md`; the four worth reading here:
+
+1. **The plan credited the wrong guard, and measuring said so.** The plan said
+   delete-then-insert is what keeps a span honest when a description changes.
+   It is not — Task 5's `jobs_description_change_clears_requirements` trigger
+   already does, and **removing the delete leaves every description-change test
+   green**. The delete's real job is idempotency: a second sync over unchanged
+   text re-emits the same `(kind, value, char_start)` tuples and the unique
+   constraint rejects them. This matters beyond a docstring — a reader who
+   believes the delete is the integrity guarantee will delete the trigger,
+   because the trigger looks redundant. It is the other way round.
+2. **An unconditional re-extract on the update path churns invisibly.**
+   Identical row counts, every row replaced, `created_at` reset across the
+   corpus each time any board answers. A salary edit changes fields and moves
+   no character. Gated on the description hash; the guard compares row **ids**
+   rather than counts, because counts are exactly what this failure preserves.
+3. **A "not built" reason had gone stale, for the third milestone running.**
+   The `skill` filter still blamed the absence of the skill taxonomy, which
+   shipped at M2c. It is always the same direction: nobody re-reads that list
+   when the thing it waits on lands. The filter stays deferred for a reason
+   that is now measured — at 0.459 recall it would hide more than half the
+   postings that ask for a skill and return them as an empty result, which
+   reads as "no such job".
+4. **A component-test fixture was a cast, not a check.**
+   `const BASE: JobDetail = {...}` asserts a shape without verifying one, so it
+   went stale the instant this milestone added two fields and said nothing —
+   the render crashed instead. Now parsed through `jobDetailSchema`. Second
+   time this project has shipped that exact mistake.
+
+### The mutation that should have failed and did not
+
+Moving the delete after the empty-text guard in `sync_requirements` fails
+**zero** tests. Chasing why is what produced finding 1 above. It is recorded
+because a mutation that survives is the more useful result and the one easiest
+to write off as "the mutation was not meaningful".
+
+### Not real yet — M3a
+
+- **Recall is 0.459.** Sixty of the 103 original misses are terms
+  `data/skills.yaml` does not carry — no rule reaches them. Named here rather
+  than absorbed into a floor.
+- **Necessity accuracy is 0.668**, so roughly one technology in three is filed
+  under the wrong heading. **The job page makes this visible rather than hiding
+  it**: measured on the seeded corpus, 2 of 32 rows shown as `required` sit
+  beside a quoted sentence that itself says "preferred" or "a plus". A reader
+  can see the disagreement because the sentence is printed next to the claim.
+  That is the argument for showing the quote.
+- **The answer key is model-labeled, not human-verified.** Two `+equivalent`
+  calls read an escape hatch worded without the word "equivalent" — Akuna
+  8035515's *"or evidence of mathematical and quantitative skill"* and OpenAI
+  8fb1615c's *"or have a demonstrated track record"*. Both are kept, because
+  `+equivalent` resolves to `uncertain` and the alternative tells a qualified
+  person they are blocked. They are the two entries most likely to be wrong.
+- **93 of the 153 recorded postings are committed and unlabeled.** Deliberate:
+  the payloads are real and cheap to keep, and re-recording later costs a
+  network round against nine live boards.
+- **`has_equivalence` is stored and read by nothing** but the tests and a badge
+  on the job page. A13 requires M3b's gate resolve it to `uncertain` rather
+  than `ineligible`; storing it now is what makes that possible without
+  re-extracting.
+- **The `jobs_description_change_clears_requirements` trigger is guarded by
+  exactly one test.** Dropping it turns exactly that one red. Thin for a
+  structural guarantee, and recorded rather than padded — its whole purpose is
+  the writer that does *not* call `sync_requirements`.
+- **Everything in `matching.md` §9 is M3b or later**: the eligibility gate, the
+  score and its components, role-family and seniority classification, the
+  project evidence graph, and the `uncertain` resolution. None is stubbed.
+
+### The M3a plan
+
+`docs/plans/2026-08-04-m3a-answer-key.md`. Two merged remote branches are still
+there — `origin/m2c-profile-and-resume` and `origin/m1a-provider-breadth` — both
+fully merged into `main` with nothing ahead. Deleting them needs a permission
+this session did not have; it is one `git push origin --delete`.
+
+---
+
+### The M2d record, kept below
 
 All seven tasks are done, committed, pushed, and CI-green. The three commands
 were run locally at the branch head and their counts are read from the output,

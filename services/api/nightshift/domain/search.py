@@ -90,8 +90,21 @@ DEFERRED_FILTERS: tuple[DeferredFilter, ...] = (
     ),
     DeferredFilter(
         name="skill",
-        blocked_on="M3",
-        reason="Requires the skill taxonomy and its aliases.",
+        blocked_on="M3b",
+        # The old reason — "requires the skill taxonomy and its aliases" — went
+        # stale without anyone noticing. `data/skills.yaml` landed at M2c and
+        # M3a indexed every posting's technologies into `job_requirements`, so
+        # this filter became buildable and its stated blocker became false. It
+        # is still deferred, for a reason that is now measured rather than
+        # assumed: required-technology recall grades at 0.459 against the answer
+        # key, so filtering on a skill would silently hide more than half the
+        # postings that ask for it — which is worse than no filter, because an
+        # empty result reads as "no such job".
+        reason=(
+            "Every posting's technologies are extracted, but recall is 0.459 against "
+            "the answer key. A filter on that would hide more than half the matching "
+            "roles and look like a result."
+        ),
     ),
     DeferredFilter(
         name="internship_season",

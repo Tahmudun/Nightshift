@@ -180,7 +180,10 @@ export function JobFacts({ job }: { readonly job: JobDetail }) {
       {job.description_text !== null && (
         <section>
           <h2 className={TERM}>Description</h2>
-          <p className="mt-3 max-w-3xl whitespace-pre-line text-[14px] leading-relaxed text-paper-dim">
+          <p
+            data-testid="job-description"
+            className="mt-3 max-w-3xl whitespace-pre-line text-[14px] leading-relaxed text-paper-dim"
+          >
             {job.description_text}
           </p>
         </section>

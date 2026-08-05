@@ -490,6 +490,179 @@ def verify_http() -> None:
         )
 
 
+async def check_job_requirements() -> None:
+    """M3a over HTTP and then over the database: what a posting requires.
+
+    Two halves, because the milestone makes two different claims and only one of
+    them is reachable through the API. The read half asks `/jobs/{id}` and checks
+    the response is internally consistent — every span quoting the description
+    sent beside it. The write half changes a description and checks the rows
+    follow it, which no endpoint exposes and which is the property most likely to
+    rot: a span is an offset, and the text it indexes into is written by every
+    re-poll.
+
+    Compared **before and after** throughout, for the reason `check_daily_queue`
+    records: asserting "this job has four requirements" would pass vacuously on a
+    fresh database and fail on a developer's own.
+
+    **It leaves nothing behind.** The description it edits is written back and
+    the requirements re-derived, then the resulting rows are compared as a set
+    against the ones it found. Row ids change — they are derived rows and are
+    replaced wholesale — so the comparison is on (kind, value, span), which is
+    what "unchanged" means for this table.
+    """
+    print("\nwhat a posting requires")
+
+    status_code, jobs = get_json("/jobs?limit=100&status=open")
+    if not (status_code == 200 and isinstance(jobs, dict) and jobs.get("items")):
+        check(False, "the corpus has jobs to read", f"HTTP {status_code}")
+        return
+
+    # Not simply the first posting with any requirements. The first run of this
+    # check picked one whose three rows were all `mentioned`, and the
+    # necessity assertion below then read "0 required, 0 preferred" — a green
+    # tick for a comparison with nothing on either side. Prefer a posting that
+    # can actually fail it, and print the mix either way so a vacuous case is
+    # visible in the output rather than hidden by a passing line.
+    detail = None
+    best = -1
+    for item in jobs["items"]:
+        code, body = get_json(f"/jobs/{item['id']}")
+        if code != 200 or not body.get("requirements"):
+            continue
+        kinds = {r["necessity"] for r in body["requirements"]}
+        score = len(kinds & {"required", "preferred"}) * 100 + len(body["requirements"])
+        if score > best:
+            detail, best = body, score
+        if kinds >= {"required", "preferred"}:
+            break
+
+    if detail is None:
+        check(False, "a seeded posting states requirements", "none of the corpus does")
+        return
+    mix = ", ".join(
+        f"{n} {necessity}"
+        for necessity in ("required", "preferred", "mentioned")
+        if (n := sum(1 for r in detail["requirements"] if r["necessity"] == necessity))
+    )
+    check(True, "the job detail answers", f"HTTP 200, {mix}")
+
+    check(
+        bool(detail["requirements_extractor_version"]),
+        "requirements carry an extractor version",
+        str(detail["requirements_extractor_version"]),
+    )
+
+    # The response must be internally consistent. Checking the row against the
+    # database would test the trigger; checking it against the description in
+    # the same payload tests what the browser actually highlights.
+    text = detail["description_text"] or ""
+    drifted = [
+        row
+        for row in detail["requirements"]
+        if text[row["char_start"] : row["char_end"]] != row["raw_text"]
+    ]
+    check(
+        not drifted,
+        "every span quotes the description it points at",
+        f"{len(detail['requirements'])} spans" if not drifted else f"{len(drifted)} drifted",
+    )
+
+    required = {r["value"] for r in detail["requirements"] if r["necessity"] == "required"}
+    preferred = {r["value"] for r in detail["requirements"] if r["necessity"] == "preferred"}
+    # A value under both headings is the posting's own doing and proves nothing.
+    # What must not happen is a row claiming both necessities at once.
+    both = {
+        (r["value"], r["char_start"])
+        for r in detail["requirements"]
+        if r["necessity"] == "required"
+    } & {
+        (r["value"], r["char_start"])
+        for r in detail["requirements"]
+        if r["necessity"] == "preferred"
+    }
+    check(
+        not both,
+        "no single span is both required and preferred",
+        f"{len(required)} required, {len(preferred)} preferred",
+    )
+
+    sys.path.insert(0, str(API_DIR))
+    from sqlalchemy import text as sql  # noqa: PLC0415
+
+    from nightshift.db.session import dispose_engine, get_engine  # noqa: PLC0415
+
+    engine = get_engine()
+    job_id = detail["id"]
+
+    async def rows() -> set[tuple[str, str, int, int]]:
+        async with engine.begin() as connection:
+            result = await connection.execute(
+                sql(
+                    "SELECT kind::text, value, char_start, char_end FROM job_requirements "
+                    "WHERE job_id = :job_id"
+                ),
+                {"job_id": job_id},
+            )
+            return {(k, v, s, e) for k, v, s, e in result.all()}
+
+    before = await rows()
+
+    async with engine.begin() as connection:
+        original = (
+            await connection.execute(
+                sql("SELECT description_text FROM jobs WHERE id = :job_id"), {"job_id": job_id}
+            )
+        ).scalar_one()
+        await connection.execute(
+            sql("UPDATE jobs SET description_text = :new WHERE id = :job_id"),
+            {"new": "REQUIREMENTS Proficiency in Python.", "job_id": job_id},
+        )
+
+    # The trigger fires on that UPDATE and clears the rows. Asserted on its own,
+    # because "replaced" and "cleared then refilled" are different guarantees and
+    # only the second one leaves no window where a span points at moved text.
+    cleared = await rows()
+    check(
+        not cleared,
+        "changing the description clears the old requirements",
+        f"{len(before)} -> {len(cleared)}",
+    )
+
+    from nightshift.db.models import Job  # noqa: PLC0415
+    from nightshift.db.session import session_scope  # noqa: PLC0415
+    from nightshift.domain.ingestion import sync_requirements  # noqa: PLC0415
+    from sqlalchemy import select  # noqa: PLC0415
+
+    async with session_scope() as session:
+        job = (await session.execute(select(Job).where(Job.id == job_id))).scalar_one()
+        await sync_requirements(session, job)
+        await session.commit()
+
+    replaced = await rows()
+    check(
+        bool(replaced) and replaced != before,
+        "a description change replaces the requirements",
+        f"{len(before)} -> {len(replaced)}",
+    )
+
+    async with session_scope() as session:
+        job = (await session.execute(select(Job).where(Job.id == job_id))).scalar_one()
+        job.description_text = original
+        await session.flush()
+        await sync_requirements(session, job)
+        await session.commit()
+
+    after = await rows()
+    check(
+        after == before,
+        "the job is left as it was found",
+        "nothing is left behind" if after == before else f"{len(before)} -> {len(after)}",
+    )
+
+    await dispose_engine()
+
+
 async def verify_constraints() -> None:
     """Attempt each job_locations violation and require the database to refuse it."""
     print("\ndatabase constraints (invariant I1 in DDL)")
@@ -581,6 +754,7 @@ def main() -> int:
         check_application_tracking()
         check_profile_confirmation()
         check_daily_queue()
+        asyncio.run(check_job_requirements())
         asyncio.run(verify_constraints())
     finally:
         api.terminate()
