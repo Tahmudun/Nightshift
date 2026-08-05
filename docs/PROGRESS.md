@@ -26,11 +26,38 @@
 ### M3b is underway on `m3b-eligibility-gate`. Tasks 1–10 are done. Next: Task 11 — the `internship_season` and `skill` filters.
 
 **Docker Desktop went down on this machine part-way through Task 9 and has not
-come back**, so everything after that point is verified without a database.
-`make acceptance`, the browser walk and the seeded e2e suite have **not** run
-since Task 8. CI provisions its own postgres and is the check standing in for
-them; what it cannot stand in for is the browser walk, which is still unwritten
-and is Task 12's.
+come back**, so nothing database-backed could be run locally after that point.
+
+**CI closed most of that gap and the record says so rather than leaving the
+scarier version standing.** Green on all five jobs at `38e22ac`, run
+[31057503553](https://github.com/Tahmudun/Nightshift/actions/runs/31057503553):
+
+```
+python       1345 passed; 72 distributions, all pinned
+e2e          5 degraded + 41 seeded passed, 1 skipped
+migrations   up, down, up, and no drift — including 0014
+web          19 files, 169 tests
+secret scan
+```
+
+**1345 against 1047 locally** — roughly 300 database-backed tests ran there and
+could not run here, including every API route test. The `e2e` job migrates,
+seeds and drives a browser against a real stack, so the job detail page rendered
+the new `eligibility` field and Zod parsed it; had the schema and the response
+disagreed, that suite would have thrown. The seed step passing also exercises
+Task 3's new exit-code guard against a real database.
+
+`38e22ac` is the last commit containing anything CI executes, so the usual
+pre-merge invariant applies:
+
+```
+git diff 38e22ac..HEAD --stat    # must list nothing outside docs/
+```
+
+**What is still not verified, and CI does not cover it:** `scripts/verify.py` —
+the 57 assertions `make acceptance` runs and CI does not — has not run since
+Task 8. Neither has the eligibility browser walk, which is unwritten and is
+Task 12's.
 
 **[PR #11](https://github.com/Tahmudun/Nightshift/pull/11) is open as a draft,
 and that is deliberate.** Seven CI runs in this project have failed and every
