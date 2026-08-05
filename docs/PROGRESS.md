@@ -14,20 +14,21 @@
 **M2c: COMPLETE, reviewed, CI-green at `e63ec2f`, merged to `main` as PR #7 (`e42d612`).**
 **M2d: COMPLETE, reviewed, CI-green at `c6e5a97`, merged to `main` as PR #8 (`77e52ea`).**
 **M2: CLOSED. All four acceptance criteria verified, all four PRs merged.**
-**M3a: COMPLETE and reviewed. [PR #9](https://github.com/Tahmudun/Nightshift/pull/9) is open and CI is green at `90cdfda`.**
+**M3a: COMPLETE, reviewed, CI-green at `3fbffd6`, merged to `main` as PR #9 (`452ec90`).**
 **M3a.1: COMPLETE. Recall 0.459 → 0.861, precision 0.659 → 0.847, necessity 0.668 → 0.915.**
-**Current milestone: M3 — explainable matching. M3a.1 is done; M3b (the eligibility gate) is next.**
+**Current milestone: M3 — explainable matching. M3b (the eligibility gate) is in progress.**
 **Last updated: 2026-08-05**
 
 ---
 
 ## Next exact action
 
-### Next: merge PR #9, then M3b — the eligibility gate.
+### Next: M3b — the deterministic eligibility gate.
 
-**PR #9 is open and CI is green on all five jobs**, run
-[31039059510](https://github.com/Tahmudun/Nightshift/actions/runs/31039059510).
-Counts read from the job logs rather than inferred:
+**PR #9 is merged.** `main` is at `452ec90`, checked against the PR rather than
+assumed. CI was green on all five jobs at `3fbffd6`, run
+[31039059510](https://github.com/Tahmudun/Nightshift/actions/runs/31039059510) —
+counts read from the job logs rather than inferred:
 
 ```
 python       5m11s   1282 passed
@@ -37,21 +38,109 @@ web            59s   159 tests
 secret scan      7s
 ```
 
-`headSha` is `3fbffd6ef6afb0cbdf29ff62c32386bdb727f7d0`, checked against the
-branch head rather than assumed. **1282 in CI matches 1282 locally**, so the
-database-backed tests really ran there too. The single e2e skip is the
-pre-existing honest one: `an unchanged board is not presented as a problem`
-needs a board that has answered `304`.
-
-`3fbffd6` is the last commit containing anything CI executes, so the pre-merge
-invariant is one command:
-
-```
-git diff 3fbffd6..HEAD --stat    # must list nothing outside docs/
-```
-
-**This branch took three CI runs, and only the first found anything** — the
+The pre-merge invariant held: `git diff 3fbffd6..HEAD --stat` listed docs only.
+**That branch took three CI runs, and only the first found anything** — the
 check-constraint defect below. The second and third were green first time.
+
+`m3a-answer-key` and `m2d-daily-queue` are deleted locally. **Four merged
+branches are still on the remote** — `m1a-provider-breadth`,
+`m2c-profile-and-resume`, `m2d-daily-queue`, `m3a-answer-key`, all fully merged
+into `main` with nothing ahead. Deleting them still needs a permission this
+session did not have; it is one `git push origin --delete`.
+
+**[PR #10](https://github.com/Tahmudun/Nightshift/pull/10) is open and CI is
+green on all five jobs, first attempt**, run
+[31045860049](https://github.com/Tahmudun/Nightshift/actions/runs/31045860049).
+Counts read from the job logs rather than inferred:
+
+```
+python       299s   1282 passed; 72 distributions, all pinned
+e2e          189s   5 degraded + 41 seeded passed, 1 skipped
+migrations    74s   up, down, up, and no drift
+web           69s   18 files, 159 tests
+secret scan    5s
+```
+
+**The step that matters is `The pin covers everything that got installed`, and
+it passed in the real runner** — the constraints file resolved to exactly the 72
+lines it names, on a machine that is not this one. Seven CI runs across this
+project have failed and every one found something no local command had executed;
+this is the fifth first-try pass, recorded because it is not the usual outcome.
+
+`headSha` is `cef574a`, which is also the branch head, so the pre-merge
+invariant is satisfied by inspection rather than by a diff.
+
+---
+
+## Q4 answered: CI pins what gates a merge, and a canary watches what does not
+
+**The human's decision on 2026-08-05, on the recommendation in the question:
+both.** Full reasoning, and the four alternatives rejected, in **ADR 0016**.
+
+Reproducibility and early warning only conflict if there is one place to
+install. There are now two:
+
+| | Installs | Runs on | Can block a merge |
+|---|---|---|---|
+| `ci.yml` | pinned, from `services/api/constraints-ci.txt` | `pull_request`, `push` to main | yes |
+| `dependency-canary.yml` | unpinned | `schedule` weekly, `workflow_dispatch` | **no** |
+
+72 distributions are pinned, wired in as **one** workflow-level `PIP_CONSTRAINT`
+rather than a flag on three install steps that could drift apart.
+
+**The pin is checked rather than assumed.** `-c` constrains only the
+distributions the file names, so a dependency added to `pyproject.toml` and never
+regenerated would install unpinned with nothing anywhere saying so — the pin
+becomes partial while everything keeps calling it a pin, which is this project's
+recurring failure class exactly. The `python` job diffs `pip freeze` against the
+file and fails on a difference in either direction.
+
+**The constraints file cannot be generated on this machine, and that was
+measured rather than assumed.** `make constraints` resolves inside a
+`linux/amd64` container. The two platforms disagree about eleven distributions
+and one irreconcilably:
+
+```
+onnxruntime   1.28.0   resolved on linux/amd64, what CI installs
+              1.23.2   the newest release with a macOS x86_64 wheel
+```
+
+So **the pin covers CI and does not cover a developer's machine**. That is a
+smaller copy of the original problem, left standing on purpose and written into
+the file's own header rather than discovered later.
+
+**What this gives up:** the alembic finding arrived free, the day it shipped.
+The same finding would now arrive up to seven days later, from the canary. That
+is the price of an unrelated pull request never going red at a moment nobody
+chose, and it is paid deliberately. The canary writes a diff of unpinned-versus-
+pinned to its job summary on every run, green or red; notification is GitHub's
+own email to the repo owner on a failed scheduled run.
+
+### `make drift` — the gap this episode exposed, now closed
+
+The drift probe existed only in CI, so "it passes locally" and "it passes in CI"
+were never the same claim about the schema. That is how a defect eleven
+migrations old sat unseen. `make drift` runs the probe against the developer's
+own stack and is part of `make acceptance` — **not** of `make check`, which must
+keep working without a database.
+
+**Shown able to fail rather than assumed to work.** Adding a `mutation_probe`
+column to the `Company` model makes it print both operations and exit 1:
+
+```
+==> the models have drifted from the migrations:
+    op.add_column("companies", sa.Column("mutation_probe", sa.String(length=10), nullable=True))
+    op.drop_column("companies", "mutation_probe")
+```
+
+The temporary revision file is cleaned up on the failure path too, checked with
+`git status` after — a probe that leaves a migration behind when it fails is a
+probe that gets committed by accident.
+
+**What is still floating, named so nobody reads the pin as broader than it is:**
+pip itself, the `ubuntu-latest` runner image, `setup-python`'s 3.12.x patch, and
+the Postgres service tag. Node was already locked by `package-lock.json`, which
+is why the canary is Python-only.
 
 ---
 
@@ -99,13 +188,13 @@ after. The local venv is now on 1.19.0 so `make check` means what CI means.
 constraint names at the 63-character limit; the truncated names are 60, so it
 could not have caught this defect and guarded nothing the first test does not.
 
-### Still open, and deliberately not done in this session
+### Both of the things this section left open are now done
 
-**`pip install -e` stays unpinned.** Pinning would have prevented this bug
-report, which is the argument against pinning. The real gap was that local and
-CI ran different versions with nobody noticing, and upgrading the venv closes
-that for now. **A `make` target that runs the drift probe locally does not
-exist and should** — it is the one CI assertion with no local counterpart.
+It read: *"`pip install -e` stays unpinned"* and *"a `make` target that runs the
+drift probe locally does not exist and should"*. Both were closed on
+`ci-pin-and-canary` — see the Q4 section above and ADR 0016. Left here rather
+than deleted, because the entry above is the reason the decision came out the
+way it did: pinning is only defensible alongside something still unpinned.
 
 ---
 

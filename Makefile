@@ -26,7 +26,7 @@ LOADENV := set -a && source .env && set +a
 
 .PHONY: help setup up down migrate migrate-down seed dev demo test test-py test-web \
         test-e2e check fmt lint typecheck reset-db ingest logs ps clean doctor \
-        verify acceptance test-e2e-seeded browsers \
+        verify acceptance test-e2e-seeded browsers drift constraints \
         discover registry-validate registry-approve registry-approve-write coverage
 
 help: ## Show available targets
@@ -106,6 +106,24 @@ reset-db: ## Drop, recreate, migrate, seed
 	@$(COMPOSE) down -v
 	@$(MAKE) up migrate seed
 
+# The one CI assertion that had no local counterpart, and it cost a session to
+# notice. On 2026-08-05 the migrations job went red on a branch that had touched
+# no migration; no `make` target could reproduce it, because nothing local ever
+# compared the models against a live schema. This is that comparison.
+#
+# Not part of `make check`, which must run without a database. It runs inside
+# `make acceptance`, which has already brought a migrated stack up.
+drift: setup ## Assert the models have not drifted from the migrations
+	@$(LOADENV) && cd $(API_DIR) && \
+	trap 'rm -f migrations/versions/*drift_probe.py' EXIT; \
+	../../$(ALEMBIC) revision --autogenerate -m drift_probe --rev-id drift_probe > /dev/null; \
+	if grep -qE '^[[:space:]]+op\.(create|drop|alter|add)' migrations/versions/*drift_probe.py; then \
+	  echo "==> the models have drifted from the migrations:"; \
+	  grep -E '^[[:space:]]+op\.' migrations/versions/*drift_probe.py; \
+	  exit 1; \
+	fi; \
+	echo "==> no model/migration drift"
+
 # ---------------------------------------------------------------------------
 # Running
 # ---------------------------------------------------------------------------
@@ -157,9 +175,10 @@ verify: setup ## Assert the stack actually works, and exit with a status code
 #
 # `verify` covers the API and the database; `test-e2e-seeded` covers the one
 # criterion neither can reach — that the jobs actually render in a browser.
-acceptance: ## up && migrate && seed && verify && seeded e2e — the M0 acceptance run
+acceptance: ## up && migrate && drift && seed && verify && seeded e2e — the acceptance run
 	@$(MAKE) up
 	@$(MAKE) migrate
+	@$(MAKE) drift
 	@$(MAKE) seed
 	@$(MAKE) verify
 	@$(MAKE) test-e2e-seeded
@@ -213,6 +232,13 @@ test-e2e-seeded: setup browsers ## Playwright against a seeded stack (acceptance
 
 check: lint typecheck test ## format + lint + typecheck + test. Run before every commit.
 	@echo "==> check passed"
+
+# ADR 0016. Only needed when services/api/pyproject.toml changes, or when the
+# scheduled canary reports a drift worth taking. Needs docker and the network —
+# it resolves on linux because the developer's machine cannot stand in for a
+# runner; see the comment at the top of the script.
+constraints: ## Regenerate CI's pinned dependency set (needs docker + network)
+	@./scripts/regenerate_constraints.sh
 
 clean: ## Remove build artifacts and virtualenvs
 	@rm -rf $(VENV) $(WEB_DIR)/node_modules $(WEB_DIR)/.next

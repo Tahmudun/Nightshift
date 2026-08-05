@@ -1,0 +1,180 @@
+name: dependency canary
+
+# The unpinned half of ADR 0016.
+#
+# ci.yml installs from services/api/constraints-ci.txt, so a library released
+# this morning cannot turn a pull request red at a moment nobody chose. That
+# safety costs something real: on 2026-08-05 an unpinned install picked up
+# alembic 1.19.0 on the day it shipped, its new check-constraint comparator ran,
+# and it found ten constraints this project had been misnaming since 2026-07-29.
+# Pinning alone would have bought quiet at the price of never learning that.
+#
+# So this workflow installs unpinned, on a schedule, and runs the checks a
+# library release can actually break. It is **informational**:
+#
+#   - It never runs on `pull_request` or on `push`. It cannot block a merge,
+#     and no branch protection rule should ever require it.
+#   - A red run means "a released version of something behaves differently",
+#     not "main is broken". The response is to read the diff below and decide,
+#     not to revert anything.
+#   - GitHub emails the repository owner when a scheduled workflow fails on the
+#     default branch. That is the whole notification design; there is no bot and
+#     no issue-filing, because one reader does not need a queue.
+#
+# Python only. The web side installs with `npm ci` against a committed
+# package-lock.json, which is already a lockfile — there is no unpinned surface
+# there for a canary to watch.
+
+on:
+  schedule:
+    # Monday morning UTC. Weekly rather than nightly: the point is to hear about
+    # a breaking release within days, and a daily run is a daily notification
+    # that gets filtered into a folder and stops being read.
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: '3.12'
+  # Deliberately no PIP_CONSTRAINT. That absence is the entire point of the
+  # workflow; if you find yourself adding one here, delete the file instead.
+
+concurrency:
+  group: dependency-canary
+  cancel-in-progress: false
+
+jobs:
+  unpinned:
+    name: unpinned install — informational, gates nothing
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        # Identical to ci.yml's — see the note in the migrations job there for
+        # why the `-bundle0` tag and the Docker Hub source are both load-bearing.
+        image: imresamu/postgis:16-3.4-bundle0
+        env:
+          POSTGRES_USER: nightshift
+          POSTGRES_PASSWORD: nightshift_ci
+          POSTGRES_DB: nightshift
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U nightshift"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      POSTGRES_USER: nightshift
+      POSTGRES_PASSWORD: nightshift_ci
+      POSTGRES_DB: nightshift
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      NIGHTSHIFT_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          # No pip cache on purpose. A cache hit would serve the wheels of
+          # whatever was newest last week, which is the thing being tested.
+
+      - name: Install, unpinned
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e "services/api[dev]"
+
+      - name: What drifted
+        # Runs before anything can fail, so the report exists even when the run
+        # is red — and it is worth reading when the run is green too, because a
+        # green canary listing eleven upgrades is the evidence for regenerating
+        # the pin. Never fails: reporting a difference is this job's output, not
+        # its verdict.
+        run: |
+          pip freeze --exclude-editable \
+            | grep -vE '^(pip|setuptools|wheel)==' | sort -f > /tmp/unpinned.txt
+          grep -vE '^\s*(#|$)' services/api/constraints-ci.txt | sort -f > /tmp/pinned.txt
+          {
+            echo '## Unpinned install vs `services/api/constraints-ci.txt`'
+            echo
+            if diff -q /tmp/pinned.txt /tmp/unpinned.txt > /dev/null; then
+              echo 'No difference. The pin is current.'
+            else
+              echo '`-` is what CI pins, `+` is what pip installed today.'
+              echo
+              echo '```diff'
+              diff -u /tmp/pinned.txt /tmp/unpinned.txt || true
+              echo '```'
+              echo
+              echo "Regenerate with \`make constraints\` once the checks below are understood."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Format check
+        run: ruff format --check services/api
+
+      - name: Lint
+        run: ruff check services/api
+
+      - name: Typecheck
+        run: mypy nightshift
+        working-directory: services/api
+
+      - name: Create extensions
+        run: |
+          PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U nightshift -d nightshift \
+            -f infra/postgres/init/001-extensions.sql
+
+      - name: Cache the embedding model
+        # Same key as ci.yml. These are model weights, not a library version —
+        # caching them does not hide any dependency drift, and without them the
+        # real-model tests skip and the canary quietly checks less than it says.
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/nightshift/fastembed
+          key: fastembed-bge-small-en-v1.5-v1
+
+      - name: Fetch the embedding model
+        run: make model
+
+      - name: Migrate
+        run: alembic upgrade head
+        working-directory: services/api
+
+      - name: Unit tests
+        run: pytest -q
+        working-directory: services/api
+
+      - name: Down, up, and no drift
+        # The drift probe is the step that earned this workflow. alembic 1.19.0
+        # changed what autogenerate compares; nothing else in CI would have
+        # noticed, because no local command runs a drift probe against a real
+        # database at all.
+        run: |
+          alembic downgrade base
+          alembic upgrade head
+          alembic revision --autogenerate -m canary_probe --rev-id canary_probe
+          if grep -qE '^\s+op\.(create|drop|alter|add)' migrations/versions/*canary_probe.py; then
+            echo "::error::an unpinned install sees model/migration drift that the pinned CI does not"
+            cat migrations/versions/*canary_probe.py
+            rm -f migrations/versions/*canary_probe.py
+            exit 1
+          fi
+          rm -f migrations/versions/*canary_probe.py
+        working-directory: services/api
+
+      - name: What a red run means
+        if: failure()
+        run: |
+          {
+            echo
+            echo '## This run failed, and that does not mean `main` is broken'
+            echo
+            echo 'Pull requests install from `services/api/constraints-ci.txt` and are'
+            echo 'unaffected. A failure here means a released version of a dependency'
+            echo 'behaves differently from the pinned one. Read the drift table above,'
+            echo 'find the responsible release, and decide: fix the code, or pin past it'
+            echo 'with a recorded reason.'
+          } >> "$GITHUB_STEP_SUMMARY"
