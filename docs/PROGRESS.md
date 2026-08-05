@@ -23,7 +23,14 @@
 
 ## Next exact action
 
-### M3b is underway on `m3b-eligibility-gate`. Tasks 1–8 are done. Next: Task 9 — `GET /jobs/{id}` returns the verdict, and the three enums cross into `schemas.ts`.
+### M3b is underway on `m3b-eligibility-gate`. Tasks 1–10 are done. Next: Task 11 — the `internship_season` and `skill` filters.
+
+**Docker Desktop went down on this machine part-way through Task 9 and has not
+come back**, so everything after that point is verified without a database.
+`make acceptance`, the browser walk and the seeded e2e suite have **not** run
+since Task 8. CI provisions its own postgres and is the check standing in for
+them; what it cannot stand in for is the browser walk, which is still unwritten
+and is Task 12's.
 
 **[PR #11](https://github.com/Tahmudun/Nightshift/pull/11) is open as a draft,
 and that is deliberate.** Seven CI runs in this project have failed and every
@@ -648,7 +655,107 @@ checking rather than before.
 
 ---
 
-### After M3b Task 8: the rest of the M3b plan.
+## M3b Tasks 9 and 10 — the verdict reaches the browser
+
+`GET /jobs/{id}` returns the state, every blocker with the posting's own words
+and offsets, and every unknown with the profile field that would resolve it.
+**Computed on read, stored nowhere.** Null when the posting has no extracted
+requirements at all — a verdict from an unread posting would say `eligible` to
+everyone and be indistinguishable on the page from a posting that genuinely
+asks for nothing.
+
+### The gate asked five questions and `users` could answer three
+
+`years_experience` and `is_enrolled` did not exist. Without them two of the five
+rules return `cannot_tell` for every real person forever, **and the page would
+have printed "tell us your years of experience" beside a profile with nowhere to
+say it** — a dead end, which is M2c's finding about a provenance link that 404s,
+one milestone on.
+
+Both nullable: "has not told us" must stay distinct from `0` and from `false`.
+Neither is ever inferred — `graduation_year` is already stored and one
+subtraction would produce a plausible number for both, which is the I2 violation
+easiest to write and hardest to spot in review.
+
+### The I2 guard had silently stopped covering what it guards
+
+`PROFILE_COLUMNS` in `test_nothing_infers.py` is the list of columns only
+`domain/profile.py` may write. **It is hand-maintained, and neither new column
+was in it.** The guard would have gone on passing.
+
+**That is the fourth time in this project a list has quietly stopped describing
+the thing it names**, and always in the same direction — things get added and the
+list does not. The other three were "not built yet" lists, where the cost was a
+stale sentence on a page. This one was an invariant.
+
+The list is now checked against `User.__table__`: every column must be
+classified deliberately as a profile fact or as not one, and neither choice can
+be made by forgetting. Shown able to fail by removing `is_enrolled` and watching
+it name the column.
+
+### `_degree_of` reads free text, whole words only
+
+`users.degree` is what a person typed. A substring test for `bs` matches
+**jobs** and `ba` matches **database** — the defect that made `react` a required
+technology on eight postings at M3a.1. Anything unrecognised returns `None`,
+which reaches `cannot_tell` and asks the person, rather than inventing a level
+low enough to block them or high enough to pass them.
+
+### Three enums crossed the boundary and all three were right
+
+`RoleFamily`, `Seniority`, `EligibilityState`, added to `test_enum_parity.py`.
+Two of the last four milestones found a hand-transcription defect there, so this
+is recorded as the outcome rather than assumed. **The guard was shown able to
+fail** by typoing `quant_trading` in the TypeScript and watching exactly that
+parameter go red — a guard that passes is otherwise indistinguishable from a
+guard that is not looking.
+
+`EligibilityState` is not a database enum and is guarded anyway: that test is
+about a vocabulary crossing the boundary, not about where it is persisted.
+
+### The page, and the sentence that matters most on it
+
+Never hidden, and it never hides a job. A blocker is a wall; an unknown is a
+question with somewhere to go and links to `/operate/profile`, which was checked
+to exist. `blocks` and `soft_blocks` get different headings, because the gate
+never lets a years shortfall produce an `ineligible` and the page must not imply
+otherwise.
+
+Under `ineligible` the page says: the rules misread postings, the quote is right
+there, and **if it does not say what we claim then we are wrong and you should
+apply anyway.** A verdict that sounds like a decision somebody made is a verdict
+nobody argues with. It has its own test.
+
+No state is rendered as its enum value — `likely_ineligible` is jargon on the
+one verdict a person least wants to read. Checked for all five.
+
+### A stale claim removed, and a test is what found it
+
+**"Eligibility" was still in the job page's "Not yet computed" list**, about to
+sit directly beside a section computing it. It surfaced only because the new
+section put that word on the page twice and an existing test could no longer
+tell the two apart. Three times before this, the same kind of list went stale
+for a whole milestone with nothing catching it.
+
+### What has not been verified, stated rather than implied
+
+Docker Desktop hung during Task 9 and has not recovered. So:
+
+```
+verified   1047 non-database Python tests, 169 web tests, ruff, mypy,
+           eslint, tsc, prettier; migration 0014 up/down/up + clean drift
+           probe, run before the daemon died
+NOT run    every database-backed Python test since Task 8
+NOT run    make acceptance, make verify, the seeded browser suite
+NOT written the eligibility browser walk — Task 12's, and it needs a stack
+```
+
+CI provisions its own postgres and is the standing check for the first gap.
+It cannot stand in for the browser walk.
+
+---
+
+### After M3b Task 10: the rest of the M3b plan.
 
 **PR #9 is merged.** `main` is at `452ec90`, checked against the PR rather than
 assumed. CI was green on all five jobs at `3fbffd6`, run
