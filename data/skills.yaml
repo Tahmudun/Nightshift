@@ -15,7 +15,7 @@
 #
 # Two aliases were deliberately left out and are worth naming so they are not
 # "fixed" later: bare `node` (a tree has nodes) and bare `rest` (the word).
-version: "2026-08-03.1"
+version: "2026-08-05.1"
 skills:
   - name: Python
     aliases: [python3, cpython]
@@ -43,8 +43,15 @@ skills:
   - name: SQL
   - name: HTML
   - name: CSS
+  # Case-sensitive for the reason `Go` and `Rust` are, found by grading rather
+  # than by reading: "the ability to react quickly and accurately to rapidly
+  # changing market conditions" is a line in four Akuna trading postings, and
+  # bare `react` made the JavaScript library a *required* technology on eight
+  # postings that never mention it. The lowercase aliases stay, because
+  # "react.js" is unambiguous however it is capitalised.
   - name: React
-    aliases: [react.js, reactjs]
+    case_sensitive: true
+    aliases: [react.js, reactjs, React.js, ReactJS]
   - name: Next.js
     aliases: [nextjs]
   - name: Vue
@@ -84,6 +91,7 @@ skills:
   - name: Google Cloud
     aliases: [gcp, google cloud platform]
   - name: Azure
+    aliases: [microsoft azure, azure cloud]
   - name: Linux
   - name: Git
   - name: GitHub Actions
@@ -125,8 +133,109 @@ skills:
     aliases: [matlab]
   - name: Excel
     case_sensitive: true
+    aliases: [Microsoft Excel, MS Excel]
   - name: Data Structures
     aliases: [data structures and algorithms, dsa]
   - name: Machine Learning
     aliases: [ml]
   - name: Distributed Systems
+
+  # ---------------------------------------------------------------------------
+  # Added 2026-08-05 for M3a.1, to raise required-technology recall. Every term
+  # below was a miss measured against the answer key, grouped so the recall
+  # movement is attributable to a cluster rather than to a long tail.
+  #
+  # This file is shared with resume extraction, so each addition also becomes a
+  # skill a resume may propose. That is the intent — a person doing IT security
+  # in New York should be able to claim SIEM — but it is why nothing vague was
+  # added to move a number.
+  # ---------------------------------------------------------------------------
+
+  # ML and AI frameworks. `HuggingFace` is written both ways in the corpus.
+  - name: JAX
+    case_sensitive: true
+  - name: LangChain
+    aliases: [langchain]
+  - name: HuggingFace
+    aliases: [hugging face, huggingface]
+  - name: DSPy
+    aliases: [dspy]
+
+  # Accelerator and kernel programming.
+  - name: CUDA
+    aliases: [cuda]
+  - name: ROCm
+    aliases: [rocm]
+  - name: Triton
+  - name: SYCL
+    aliases: [sycl]
+
+  # Hardware description languages.
+  - name: Verilog
+  - name: SystemVerilog
+    aliases: [system verilog]
+  - name: VHDL
+    aliases: [vhdl]
+
+  # Windows, network and security administration. Uppercase acronyms are
+  # `case_sensitive` so ordinary prose cannot match them.
+  - name: Active Directory
+  # The compound alias is what Akuna actually types. Without it the label
+  # and the extractor cannot agree on a name for one identity product.
+  - name: Entra ID
+    aliases: [Entra ID/Azure AD, Azure AD, Microsoft Entra ID]
+  - name: SIEM
+    case_sensitive: true
+  - name: EDR
+    case_sensitive: true
+  - name: SSO
+    case_sensitive: true
+  - name: MFA
+    case_sensitive: true
+  - name: VPN
+    case_sensitive: true
+    aliases: [VPNs]
+  - name: DNS
+    case_sensitive: true
+  - name: TCP/IP
+    case_sensitive: true
+  - name: HTTP/S
+    case_sensitive: true
+  - name: IDS/IPS
+    case_sensitive: true
+  - name: PowerShell
+    aliases: [powershell]
+  # `Windows` and `Firewalls` are ordinary English words in the plural and the
+  # singular alike, so both are case-sensitive for the reason `Go` and `Rust`
+  # are: a window is a window.
+  - name: Windows
+    case_sensitive: true
+  # Not case-sensitive, unlike its neighbours: a firewall is only ever the
+  # security appliance, and the corpus writes it lowercase mid-sentence.
+  - name: Firewalls
+    aliases: [firewall]
+  - name: macOS
+    aliases: [mac os]
+  - name: Microsoft 365
+    aliases: [office 365, o365, m365]
+  - name: Next-Generation Antivirus
+    aliases: [NGAV]
+  - name: Burp Suite
+  - name: OWASP ZAP
+    aliases: [owasp zap]
+  - name: Infrastructure as Code
+    aliases: [infrastructure-as-code, IaC]
+
+  # Business systems and productivity. `Excel` is already above; these are the
+  # fuller names the corpus writes.
+  - name: Salesforce
+    aliases: [SFDC, sfdc]
+  # Case-sensitive for the `React` reason, and caught the same way: Jump writes
+  # "eager to solve challenging problems with a pragmatic outlook", which made
+  # the mail client a required technology on two research postings.
+  - name: Microsoft Outlook
+    case_sensitive: true
+    aliases: [Outlook]
+  - name: Google Sheets
+    aliases: [gSheets, gsheets]
+

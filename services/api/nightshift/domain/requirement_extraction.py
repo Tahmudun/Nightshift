@@ -22,7 +22,7 @@ from typing import Literal
 from nightshift.domain.skill_vocabulary import SkillVocabulary, load_vocabulary
 
 #: Bumped whenever the rules change. Stored on every row this module produces.
-EXTRACTOR_VERSION = "m3a.1"
+EXTRACTOR_VERSION = "m3a.2"
 
 RequirementKindName = Literal[
     "degree",
@@ -81,6 +81,14 @@ _REQUIRED_HEADINGS = (
     r"you should have",
     r"who should apply",
     r"about you",
+    # Harvested 2026-08-05, governs 2 labeled postings. Anthropic's Fellows
+    # postings write "Candidates must be: Fluent in Python programming" several
+    # hundred characters below a "Strong candidates may also have" heading, so
+    # without this phrase the *preferred* heading went on governing a sentence
+    # that says "must". It cost twice — a required-technology false negative and
+    # a wrong necessity — which is why heading vocabulary was the lever worth
+    # pulling before the long tail of skills.
+    r"candidates must be",
     r"required",
 )
 
@@ -167,6 +175,85 @@ _INLINE_OPTIONAL = re.compile(
     re.I,
 )
 
+#: Heading patterns whose words occur in ordinary prose, so a bare match is not
+#: enough. Keyed by the pattern string as written above, not by the text matched,
+#: because these are regexes rather than literals.
+#:
+#: **This list and the rule below are ported from
+#: ``scripts/make_label_worksheet.py``**, which has demanded the same proof since
+#: the worksheet's first real run — where *30 of 60* excerpts anchored inside
+#: prose. The extractor was graded against an answer key built with that rule
+#: while using a looser one itself, and the gap is not academic: Databricks
+#: 8290810002 says "requirements, when we ingest terabytes per second", and that
+#: sentence opened a `required` block governing the rest of the posting,
+#: including "an engineering culture born from Apache Spark" — which the human
+#: labeled a nice-to-have, and which the extractor reported as required.
+_AMBIGUOUS_HEADINGS = frozenset(
+    {
+        r"requirements",
+        r"qualifications",
+        r"you have",
+        r"you should have",
+        r"about you",
+        r"required",
+        r"preferred",
+        r"desirable",
+        r"pluses",
+    }
+)
+
+#: How far past a heading phrase to look for its colon, abandoned at any sentence
+#: terminator. The heading vocabulary stores stems — "you might thrive" for "You
+#: might thrive in this role if you:" — so the colon can sit a clause away.
+_COLON_LOOKAHEAD = 80
+
+
+def _colon_follows(text: str, end: int) -> bool:
+    """A colon within :data:`_COLON_LOOKAHEAD`, before any sentence terminator."""
+    for char in text[end : end + _COLON_LOOKAHEAD]:
+        if char == ":":
+            return True
+        if char in ".!?;":
+            return False
+    return False
+
+
+#: What may sit immediately before a heading. The first six are the worksheet's;
+#: the brackets are this module's addition and were measured rather than
+#: supposed. Databricks writes ``[Preferred] Experience using ... Apache Spark``,
+#: and with brackets absent from this set that heading failed its own proof, the
+#: preferred block never opened, and Apache Spark was reported as required on two
+#: postings — the exact false gap the proof rule was added to remove. Applied to
+#: ``scripts/make_label_worksheet.py`` too, so the two rules stay the same rule.
+_HEADING_OPENERS = ".;!?•|[("
+
+
+def _looks_like_a_heading(text: str, start: int, end: int) -> bool:
+    """A colon follows, it is capitalised, or it opens a sentence.
+
+    The same three tests ``make_label_worksheet.py`` applies, deliberately —
+    a rule that disagrees with the one used to build the answer key would be
+    graded against evidence gathered under different assumptions.
+    """
+    written_in_capitals = text[start:end].isupper()
+    preceding = text[:start].rstrip()
+    opens_a_sentence = not preceding or preceding[-1] in _HEADING_OPENERS
+    return _colon_follows(text, end) or written_in_capitals or opens_a_sentence
+
+
+def _heading_matches(pattern: str, text: str) -> list[tuple[int, int]]:
+    """Every occurrence of `pattern` that genuinely opens a section.
+
+    A distinctive phrase is taken at its word; an ambiguous one must prove
+    itself. Requiring proof of the distinctive ones was measured on the
+    worksheet and cost three real postings.
+    """
+    spans = [(m.start(), m.end()) for m in re.finditer(pattern, text, re.I)]
+    if pattern not in _AMBIGUOUS_HEADINGS:
+        return spans
+    return [(start, end) for start, end in spans if _looks_like_a_heading(text, start, end)]
+
+
 _EQUIVALENCE = re.compile(r"\bor\s+(?:have\s+)?equivalent\b", re.I)
 
 _DEGREE_PATTERNS: tuple[tuple[str, str], ...] = (
@@ -197,8 +284,7 @@ def _heading_spans(text: str) -> list[tuple[int, NecessityName]]:
     """
     preferred: list[tuple[int, int]] = []
     for pattern in _PREFERRED_HEADINGS:
-        for m in re.finditer(pattern, text, re.I):
-            preferred.append((m.start(), m.end()))
+        preferred.extend(_heading_matches(pattern, text))
 
     def _nested_in_preferred(start: int) -> bool:
         return any(left <= start < right for left, right in preferred)
@@ -207,20 +293,20 @@ def _heading_spans(text: str) -> list[tuple[int, NecessityName]]:
 
     hard_required: list[int] = []
     for pattern in _REQUIRED_HEADINGS:
-        for m in re.finditer(pattern, text, re.I):
-            if _nested_in_preferred(m.start()):
+        for start, _end in _heading_matches(pattern, text):
+            if _nested_in_preferred(start):
                 continue
-            hard_required.append(m.start())
-            found.append((m.start(), "required"))
+            hard_required.append(start)
+            found.append((start, "required"))
 
     # A soft heading is required only when nothing harder opened a block first.
     earliest_hard = min(hard_required, default=None)
     for pattern in _SOFT_REQUIRED_HEADINGS:
-        for m in re.finditer(pattern, text, re.I):
-            if _nested_in_preferred(m.start()):
+        for start, _end in _heading_matches(pattern, text):
+            if _nested_in_preferred(start):
                 continue
-            softened = earliest_hard is not None and earliest_hard < m.start()
-            found.append((m.start(), "preferred" if softened else "required"))
+            softened = earliest_hard is not None and earliest_hard < start
+            found.append((start, "preferred" if softened else "required"))
 
     for pattern in _CLOSER_HEADINGS:
         for m in re.finditer(pattern, text, re.I):

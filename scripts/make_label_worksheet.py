@@ -207,8 +207,7 @@ def _is_about_rather_than_an_instance(reason: str, title: str) -> bool:
     """True when a posting matched its selector by subject, not by being one."""
     lowered = reason.casefold()
     return any(
-        key in lowered and pattern.search(title)
-        for key, pattern in _MISLEADING_FOR_ITS_REASON
+        key in lowered and pattern.search(title) for key, pattern in _MISLEADING_FOR_ITS_REASON
     )
 
 
@@ -291,13 +290,22 @@ _SECTION_CLOSERS = re.compile(
 _CLOSER_OFFSET = 200
 
 
+#: What may sit immediately before a heading. The brackets were added when
+#: `requirement_extraction.py` adopted this rule and found Databricks writing
+#: ``[Preferred] Experience using ... Apache Spark``; without them that heading
+#: failed its own proof. Kept identical in both files on purpose — the extractor
+#: is graded against a key this script built, and two versions of "what counts as
+#: a heading" would mean grading against evidence gathered under other rules.
+_HEADING_OPENERS = ".;!?•|[("
+
+
 def _looks_like_a_heading(text: str, start: int, end: int) -> bool:
     """The shared test: a colon follows, it is capitalised, or it opens a
     sentence. Used for requirement headings and for section closers alike —
     a word buried in a bullet is not a heading in either direction."""
     written_in_capitals = text[start:end].isupper()
     preceding = text[:start].rstrip()
-    opens_a_sentence = not preceding or preceding[-1] in ".;!?•|"
+    opens_a_sentence = not preceding or preceding[-1] in _HEADING_OPENERS
     return _colon_follows(text, end) or written_in_capitals or opens_a_sentence
 
 
@@ -397,9 +405,7 @@ def select_for_labeling(
     for reason, entries in by_reason.items():
         entries.sort(key=lambda bp: (bp[0], bp[1]["id"]))
         keep = [
-            bp
-            for bp in entries
-            if not _is_about_rather_than_an_instance(reason, bp[1]["title"])
+            bp for bp in entries if not _is_about_rather_than_an_instance(reason, bp[1]["title"])
         ]
         if keep:
             entries[:] = keep
@@ -519,9 +525,7 @@ def main() -> int:
         prior = (existing.get("boards") or {}).get(board, {})
         counter += 1
         pid = posting["id"]
-        key["boards"][board][pid] = prior.get(pid) or blank_label(
-            pid, posting["title"]
-        )
+        key["boards"][board][pid] = prior.get(pid) or blank_label(pid, posting["title"])
         lines += [
             f"## [{counter}] {board} — {posting['title']}",
             "",

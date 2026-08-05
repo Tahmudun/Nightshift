@@ -168,7 +168,7 @@ def test_the_extractor_does_not_import_the_orm() -> None:
 
 
 def test_the_version_is_stamped() -> None:
-    assert EXTRACTOR_VERSION == "m3a.1"
+    assert EXTRACTOR_VERSION == "m3a.2"
 
 
 def test_necessity_at_reports_the_governing_heading() -> None:

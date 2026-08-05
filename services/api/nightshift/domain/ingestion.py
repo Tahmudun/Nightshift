@@ -493,10 +493,18 @@ async def sync_requirements(session: AsyncSession, job: Job) -> int:
     and ``uq_job_requirements_span`` rejects the second insert — so without it a
     second sync raises rather than being a no-op. Idempotency, not integrity.
 
-    Public rather than underscored: the backfill script calls it, and so will
-    M3b's re-extraction when ``EXTRACTOR_VERSION`` moves — which is the one case
-    the trigger cannot serve, because the text is identical and only the rules
-    changed.
+    Public rather than underscored so a re-extraction can call it when
+    ``EXTRACTOR_VERSION`` moves — the one case the trigger cannot serve, because
+    the text is identical and only the rules changed.
+
+    **There is no backfill script, and this docstring claimed there was one
+    until 2026-08-05.** What actually refreshes stored rows today is
+    re-ingestion: both callers above run this on every poll of a job whose
+    description changed, and ``make seed`` re-ingests the corpus from scratch.
+    So after a version bump, rows written by the previous version keep their old
+    ``extractor_version`` until their posting is re-seeded or its text moves.
+    Recorded rather than papered over — it is visible in the column, which is
+    what the column is for.
     """
     # This statement also fixes an ordering hazard, which is why it is a DELETE
     # and not a collection clear. A caller assigns `job.description_text` and
