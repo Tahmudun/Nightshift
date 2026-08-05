@@ -108,6 +108,8 @@ def _to_out(user: User) -> ProfileOut:
         graduation_month=user.graduation_month,
         degree=user.degree,
         school=user.school,
+        years_experience=user.years_experience,
+        is_enrolled=user.is_enrolled,
         work_authorization=user.work_authorization,
         home_location_text=user.home_location_text,
         remote_preference=user.remote_preference,

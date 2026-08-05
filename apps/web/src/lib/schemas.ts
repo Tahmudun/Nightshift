@@ -157,6 +157,85 @@ export const jobRequirementSchema = z.object({
 });
 export type JobRequirement = z.infer<typeof jobRequirementSchema>;
 
+/**
+ * The five states from PRODUCT-SPEC §8.3, and the browser must know all five.
+ * `matching.md` §5.2: a state is never converted into points and never
+ * collapsed into a number, so it crosses the boundary as itself.
+ */
+export const eligibilityStateSchema = z.enum([
+  'eligible',
+  'likely_eligible',
+  'uncertain',
+  'likely_ineligible',
+  'ineligible',
+]);
+export type EligibilityState = z.infer<typeof eligibilityStateSchema>;
+
+export const roleFamilySchema = z.enum([
+  'software_engineering',
+  'data_engineering',
+  'ml_ai',
+  'infrastructure',
+  'security',
+  'quant_trading',
+  'hardware',
+  'product',
+  'design',
+  'not_tech',
+  'unclear',
+]);
+export type RoleFamily = z.infer<typeof roleFamilySchema>;
+
+export const senioritySchema = z.enum([
+  'internship',
+  'new_grad',
+  'junior',
+  'mid',
+  'senior',
+  'staff',
+  'director',
+  'unclear',
+]);
+export type Seniority = z.infer<typeof senioritySchema>;
+
+/**
+ * A reason a posting may not be open to this person, with the posting's own
+ * words. `outcome` separates a wall from a gap: `blocks` is a stated
+ * requirement the profile contradicts, `soft_blocks` is a shortfall the person
+ * may well decide to ignore, and rendering them identically would turn the
+ * second into the first.
+ */
+export const eligibilityBlockerSchema = z.object({
+  dimension: z.string(),
+  outcome: z.enum(['blocks', 'soft_blocks']),
+  posting_says: z.string().nullable(),
+  char_start: z.number().int().nonnegative().nullable(),
+  char_end: z.number().int().nonnegative().nullable(),
+  profile_says: z.string(),
+  why: z.string(),
+});
+export type EligibilityBlocker = z.infer<typeof eligibilityBlockerSchema>;
+
+/**
+ * Something the gate could not decide because the profile is silent. Distinct
+ * from a blocker on purpose: this one is an action with somewhere to go, and
+ * `profile_field` is where the page links to.
+ */
+export const eligibilityUnknownSchema = z.object({
+  dimension: z.string(),
+  profile_field: z.string(),
+  why: z.string(),
+});
+export type EligibilityUnknown = z.infer<typeof eligibilityUnknownSchema>;
+
+export const eligibilitySchema = z.object({
+  state: eligibilityStateSchema,
+  blockers: z.array(eligibilityBlockerSchema),
+  unknowns: z.array(eligibilityUnknownSchema),
+  gate_version: z.string(),
+});
+export type Eligibility = z.infer<typeof eligibilitySchema>;
+
 export const jobDetailSchema = jobSummarySchema
   .extend({
     description_text: z.string().nullable(),
@@ -170,6 +249,12 @@ export const jobDetailSchema = jobSummarySchema
      * unless this field survives the boundary.
      */
     requirements_extractor_version: z.string().nullable(),
+    /**
+     * Null when the posting has no extracted requirements. A verdict from an
+     * unread posting would say `eligible` to everyone and be indistinguishable
+     * on the page from a posting that genuinely asks for nothing.
+     */
+    eligibility: eligibilitySchema.nullable(),
   })
   .superRefine((detail, ctx) => {
     // The same check `resumeDetailSchema` makes, for the same reason: only the

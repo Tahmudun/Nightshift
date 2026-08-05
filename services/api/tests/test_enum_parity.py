@@ -30,6 +30,7 @@ from nightshift.db.base import (
     ApplicationEventType,
     ApplicationPriority,
     ApplicationStage,
+    EligibilityState,
     ExtractionKind,
     ExtractionStatus,
     ProficiencyLevel,
@@ -39,6 +40,8 @@ from nightshift.db.base import (
     RequirementNecessity,
     ResumeSourceKind,
     ResumeVariant,
+    RoleFamily,
+    Seniority,
     SkillSourceType,
     TransitionClass,
     WorkAuthorization,
@@ -58,6 +61,13 @@ PAIRS: tuple[tuple[str, type[enum.Enum]], ...] = (
     ("resumeVariantSchema", ResumeVariant),
     ("extractionKindSchema", ExtractionKind),
     ("extractionStatusSchema", ExtractionStatus),
+    # M3b. RoleFamily and Seniority are database enums; EligibilityState is not
+    # — the gate computes on read and stores nothing until M3c — and it is here
+    # anyway, because this test is about a vocabulary crossing the boundary and
+    # not about where it happens to be persisted.
+    ("roleFamilySchema", RoleFamily),
+    ("senioritySchema", Seniority),
+    ("eligibilityStateSchema", EligibilityState),
     # M2d. `QueueSectionKey` is the first entry here that is not a database
     # enum — it is a shape of the API, defined in `domain.queue`. It crosses
     # the same boundary and drifts the same way, which is what this file is

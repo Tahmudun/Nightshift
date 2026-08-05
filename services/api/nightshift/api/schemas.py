@@ -166,6 +166,55 @@ class JobRequirementOut(BaseModel):
     has_equivalence: bool
 
 
+class EligibilityBlockerOut(BaseModel):
+    """One reason a posting may not be open to this person, with its evidence.
+
+    I4 applied to a verdict rather than a score. `posting_says` and
+    `posting_span` are the posting's own words and where they are, so the page
+    can quote rather than paraphrase — the same discipline
+    `JobRequirementOut` already follows.
+    """
+
+    dimension: str
+    #: `blocks` or `soft_blocks`. The page renders them differently: one is a
+    #: wall, the other is a gap the person may well decide to ignore.
+    outcome: str
+    posting_says: str | None
+    char_start: int | None
+    char_end: int | None
+    profile_says: str
+    why: str
+
+
+class EligibilityUnknownOut(BaseModel):
+    """A profile field whose absence stopped a rule from deciding.
+
+    Separate from a blocker because they mean opposite things. A blocker says
+    "this is probably not for you"; an unknown says "tell us one more thing and
+    we can answer", and `profile_field` is what the page links to. Rendering
+    them the same way turns an action into a rejection.
+    """
+
+    dimension: str
+    profile_field: str
+    why: str
+
+
+class EligibilityOut(BaseModel):
+    """The gate's verdict, computed on read and stored nowhere.
+
+    `matching.md` §5.2: the state is never converted into points and never
+    collapsed into a number. It travels with its blockers, its unknowns and the
+    version of the rules that produced it, because a bare state is the same bug
+    as a bare score.
+    """
+
+    state: str
+    blockers: list[EligibilityBlockerOut] = Field(default_factory=list)
+    unknowns: list[EligibilityUnknownOut] = Field(default_factory=list)
+    gate_version: str
+
+
 class JobDetailOut(JobSummaryOut):
     description_text: str | None
     description_html: str | None
@@ -177,6 +226,10 @@ class JobDetailOut(JobSummaryOut):
     #: "this posting asks for nothing" and "we have not read it" differ, and an
     #: empty list alone cannot tell them apart.
     requirements_extractor_version: str | None = None
+    #: Computed for the current user on every read, never stored. Null only when
+    #: the posting has no extracted requirements at all — a verdict about a
+    #: person derived from an unread posting would be a claim based on nothing.
+    eligibility: EligibilityOut | None = None
 
 
 class DeferredFilterOut(BaseModel):
@@ -655,6 +708,11 @@ class ProfileOut(BaseModel):
     graduation_month: int | None
     degree: str | None
     school: str | None
+    #: M3b gate inputs. Null is "you have not told us" and stays distinct from
+    #: 0 and from false — the gate answers `uncertain` for null and would answer
+    #: `passes` for 0, which are different things to say to a person.
+    years_experience: int | None
+    is_enrolled: bool | None
     work_authorization: WorkAuthorization
     home_location_text: str | None
     remote_preference: RemotePreference
@@ -678,6 +736,10 @@ class ProfilePatchIn(BaseModel):
     graduation_month: int | None = Field(default=None, ge=1, le=12)
     degree: str | None = Field(default=None, max_length=200)
     school: str | None = Field(default=None, max_length=300)
+    #: `ge=0` mirrors the check constraint. A negative figure would pass every
+    #: experience requirement in the gate, so it is refused at both edges.
+    years_experience: int | None = Field(default=None, ge=0, le=80)
+    is_enrolled: bool | None = None
     work_authorization: WorkAuthorization | None = None
     home_location_text: str | None = Field(default=None, max_length=300)
     remote_preference: RemotePreference | None = None

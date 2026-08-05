@@ -31,6 +31,7 @@ const BASE = jobDetailSchema.parse({
   sources: [],
   requirements: [],
   requirements_extractor_version: null,
+  eligibility: null,
 });
 
 describe('JobFacts', () => {

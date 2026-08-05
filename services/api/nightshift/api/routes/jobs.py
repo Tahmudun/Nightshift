@@ -12,6 +12,7 @@ the same row drift, and they drift silently.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Annotated
 from uuid import UUID
@@ -21,9 +22,13 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from nightshift.api.deps import CurrentUserId
 from nightshift.api.schemas import (
     CompanyOut,
     DeferredFilterOut,
+    EligibilityBlockerOut,
+    EligibilityOut,
+    EligibilityUnknownOut,
     JobAdminListOut,
     JobAdminRowOut,
     JobDetailOut,
@@ -42,11 +47,16 @@ from nightshift.db.models import (
     Job,
     JobLocation,
     JobMergeEvent,
+    JobRequirement,
     JobSourceLink,
     JobStatusEvent,
     SourceJobRecord,
+    User,
 )
 from nightshift.db.session import get_db_session
+from nightshift.domain.eligibility import evaluate, profile_from_user
+from nightshift.domain.eligibility_reading import read_posting
+from nightshift.domain.requirement_extraction import RequirementProposal
 from nightshift.domain.search import (
     DEFERRED_FILTERS,
     JobSearchQuery,
@@ -310,6 +320,7 @@ async def job_history(
 async def get_job(
     job_id: UUID,
     session: Annotated[AsyncSession, Depends(get_db_session)],
+    user_id: CurrentUserId,
 ) -> JobDetailOut:
     job = (
         (
@@ -344,6 +355,7 @@ async def get_job(
 
     requirements = sorted(job.requirements, key=lambda r: (r.char_start, r.char_end))
     summary = to_summary(job)
+    eligibility = await _eligibility_for(session, user_id=user_id, requirements=requirements)
     return JobDetailOut(
         **summary.model_dump(),
         description_text=job.description_text,
@@ -366,6 +378,7 @@ async def get_job(
         requirements_extractor_version=(
             requirements[0].extractor_version if requirements else None
         ),
+        eligibility=eligibility,
         sources=[
             JobSourceOut(
                 source_name=record.source.name,
@@ -376,4 +389,67 @@ async def get_job(
             )
             for record in provenance
         ],
+    )
+
+
+async def _eligibility_for(
+    session: AsyncSession, *, user_id: UUID, requirements: Sequence[JobRequirement]
+) -> EligibilityOut | None:
+    """The gate's verdict for this person and this posting, computed on read.
+
+    Returns `None` when the posting has no extracted requirements at all.
+    A verdict derived from an unread posting would say `eligible` to everything,
+    which is a claim about a person based on nothing — and indistinguishable, on
+    the page, from a posting that genuinely asks for nothing. The two are
+    different and the null is what keeps them apart, exactly as
+    `requirements_extractor_version` already does one field up.
+
+    Nothing is written. `matching.md` §4.2 puts the stored verdict in M3c, and a
+    stored one goes stale the moment somebody edits their graduation year.
+    """
+    if not requirements:
+        return None
+
+    user = (await session.execute(select(User).where(User.id == user_id))).scalars().first()
+    if user is None:
+        return None
+
+    reading = read_posting(
+        [
+            RequirementProposal(
+                kind=row.kind.value,
+                value=row.value,
+                raw_text=row.raw_text,
+                char_start=row.char_start,
+                char_end=row.char_end,
+                necessity=row.necessity.value,
+                has_equivalence=row.has_equivalence,
+            )
+            for row in requirements
+        ]
+    )
+    verdict = evaluate(reading, profile_from_user(user))
+    return EligibilityOut(
+        state=verdict.state.value,
+        blockers=[
+            EligibilityBlockerOut(
+                dimension=blocker.dimension,
+                outcome=blocker.outcome,
+                posting_says=blocker.posting_says,
+                char_start=blocker.posting_span[0] if blocker.posting_span else None,
+                char_end=blocker.posting_span[1] if blocker.posting_span else None,
+                profile_says=blocker.profile_says,
+                why=blocker.why,
+            )
+            for blocker in verdict.blockers
+        ],
+        unknowns=[
+            EligibilityUnknownOut(
+                dimension=unknown.dimension,
+                profile_field=unknown.profile_field,
+                why=unknown.why,
+            )
+            for unknown in verdict.unknowns
+        ],
+        gate_version=verdict.gate_version,
     )

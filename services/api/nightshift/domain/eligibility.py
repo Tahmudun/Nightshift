@@ -24,6 +24,7 @@ stored verdict goes stale the moment a person edits their graduation year.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Literal
 
@@ -380,3 +381,52 @@ def _profile_summary(dimension: Dimension, profile: SeekerProfile) -> str:
             return "not stated"
         return "enrolled" if profile.is_enrolled else "not enrolled"
     return profile.work_authorization.value
+
+
+def profile_from_user(user: object) -> SeekerProfile:
+    """Build a gate profile from a `users` row.
+
+    A free function taking `object` rather than a method on the model, because
+    this module may not import the ORM — the same rule that keeps it gradeable
+    by a test with no database. The caller passes the row; only attribute reads
+    happen here.
+
+    **Every field is copied, never derived.** `graduation_year` is right there
+    and `years_experience` could be guessed from it with one subtraction, which
+    is precisely the inference invariant I2 forbids and precisely the one that
+    would look reasonable in review.
+    """
+    return SeekerProfile(
+        graduation_year=getattr(user, "graduation_year", None),
+        graduation_month=getattr(user, "graduation_month", None),
+        degree=_degree_of(getattr(user, "degree", None)),
+        work_authorization=getattr(user, "work_authorization", WorkAuthorization.UNSPECIFIED),
+        years_experience=getattr(user, "years_experience", None),
+        is_enrolled=getattr(user, "is_enrolled", None),
+    )
+
+
+def _degree_of(text: str | None) -> str | None:
+    """`users.degree` is free text a person typed; the gate needs a level.
+
+    Returns `None` — "we cannot tell" — for anything unrecognised, which is the
+    safe direction: an unreadable degree string must never become a level low
+    enough to block somebody, and must never become one high enough to pass them
+    either. `None` reaches `cannot_tell` and the person is asked.
+
+    **Whole words only.** A substring test for "bs" matches "jobs" and "ba"
+    matches "database", which is the same defect that made `react` a required
+    technology on eight postings at M3a.1. Checked highest-first, so "BS/MS" is
+    a master's rather than a bachelor's — the person's *highest* level is what
+    a requirement is compared against.
+    """
+    if not text:
+        return None
+    for level, pattern in (
+        ("phd", r"\b(?:ph\.?\s?d|doctorate|doctoral)\b"),
+        ("masters", r"\b(?:master'?s?|masters|m\.?sc|m\.?s|m\.?eng|mba)\b"),
+        ("bachelors", r"\b(?:bachelor'?s?|bachelors|b\.?sc|b\.?s|b\.?a|b\.?eng|undergraduate)\b"),
+    ):
+        if re.search(pattern, text, re.I):
+            return level
+    return None

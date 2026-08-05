@@ -161,6 +161,7 @@ describe('jobDetailSchema', () => {
       sources: [],
       requirements: [],
       requirements_extractor_version: null,
+      eligibility: null,
     });
     expect(parsed.description_text).toBeNull();
   });
@@ -192,6 +193,7 @@ describe('jobDetailSchema', () => {
     sources: [],
     requirements,
     requirements_extractor_version: version,
+    eligibility: null,
   });
 
   const KOTLIN_TEXT = 'You will need Kotlin.';
