@@ -17,6 +17,7 @@ import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 
 import { ConfidenceLadder } from './ConfidenceLadder';
+import { JobRequirements } from './JobRequirements';
 import { SaveJobButton } from './SaveJobButton';
 import { fetchJob } from '@/lib/api';
 import type { JobDetail } from '@/lib/schemas';
@@ -162,6 +163,12 @@ export function JobFacts({ job }: { readonly job: JobDetail }) {
           </ul>
         )}
       </section>
+
+      <JobRequirements
+        requirements={job.requirements}
+        descriptionText={job.description_text}
+        extractorVersion={job.requirements_extractor_version}
+      />
 
       {job.description_text !== null && (
         <section>

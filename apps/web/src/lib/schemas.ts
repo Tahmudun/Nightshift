@@ -124,11 +124,70 @@ export const jobSourceSchema = z.object({
 });
 export type JobSource = z.infer<typeof jobSourceSchema>;
 
-export const jobDetailSchema = jobSummarySchema.extend({
-  description_text: z.string().nullable(),
-  description_html: z.string().nullable(),
-  sources: z.array(jobSourceSchema),
+export const requirementKindSchema = z.enum([
+  'degree',
+  'graduation_window',
+  'years_experience',
+  'technology',
+  'authorization',
+  'enrollment',
+  'role_level',
+]);
+export type RequirementKind = z.infer<typeof requirementKindSchema>;
+
+export const requirementNecessitySchema = z.enum(['required', 'preferred', 'mentioned']);
+export type RequirementNecessity = z.infer<typeof requirementNecessitySchema>;
+
+/**
+ * One thing a posting asks for, and the characters where it says so.
+ *
+ * `raw_text` travels with the offsets rather than being re-derived in the
+ * browser, so the two can be checked against each other — see the refinement
+ * on `jobDetailSchema`, which is the only place that holds both this row and
+ * the text it points at.
+ */
+export const jobRequirementSchema = z.object({
+  kind: requirementKindSchema,
+  value: z.string(),
+  raw_text: z.string(),
+  char_start: z.number().int().nonnegative(),
+  char_end: z.number().int().nonnegative(),
+  necessity: requirementNecessitySchema,
+  has_equivalence: z.boolean(),
 });
+export type JobRequirement = z.infer<typeof jobRequirementSchema>;
+
+export const jobDetailSchema = jobSummarySchema
+  .extend({
+    description_text: z.string().nullable(),
+    description_html: z.string().nullable(),
+    sources: z.array(jobSourceSchema),
+    requirements: z.array(jobRequirementSchema),
+    /**
+     * Null when nothing has been extracted. An empty `requirements` with a
+     * version is "we read it and found nothing"; an empty one without is "we
+     * have not read it". The page renders those differently and cannot do so
+     * unless this field survives the boundary.
+     */
+    requirements_extractor_version: z.string().nullable(),
+  })
+  .superRefine((detail, ctx) => {
+    // The same check `resumeDetailSchema` makes, for the same reason: only the
+    // parent holds the text, so only the parent can tell a span of the right
+    // *length* from one pointing at the right *words*. The page highlights
+    // against this text, so a drifting offset would underline the wrong
+    // sentence and still look entirely plausible.
+    if (detail.description_text === null) return;
+    detail.requirements.forEach((row, index) => {
+      if (detail.description_text!.slice(row.char_start, row.char_end) !== row.raw_text) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'this requirement does not quote the text it points at',
+          path: ['requirements', index, 'raw_text'],
+        });
+      }
+    });
+  });
 export type JobDetail = z.infer<typeof jobDetailSchema>;
 
 export const jobListSchema = z.object({
