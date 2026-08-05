@@ -138,6 +138,23 @@ _PREFERRED_HEADINGS = (
 #: characters above, was still calling required. The rest are the compensation
 #: and boilerplate closers `scripts/make_label_worksheet.py` already validated
 #: against this corpus.
+#:
+#: **Closers do not have to prove themselves, unlike ambiguous requirement
+#: headings, and that asymmetry was measured rather than left to taste.** The
+#: worksheet applies :func:`_looks_like_a_heading` to its closers, so matching it
+#: here was the obvious tidy-up; routing these through :func:`_heading_matches`
+#: changes nothing, because none of them is in :data:`_AMBIGUOUS_HEADINGS`.
+#: Marking the three that plausibly occur mid-prose — "compensation", "benefits",
+#: "please note" — does change the numbers, and not for the better:
+#:
+#:     as written        precision 0.847  recall 0.861  necessity 0.915
+#:     closers proving   precision 0.829  recall 0.877  necessity 0.910
+#:
+#: It buys two true positives for three false ones and gives back necessity.
+#: Precision is the figure that matters most here — a technology wrongly called
+#: required is a false gap in the explanation, which is a visible lie — so this
+#: stays as it is. Recorded because the next reader will notice the same
+#: asymmetry and should not have to re-run the experiment.
 _CLOSER_HEADINGS = (
     r"as technical context",
     r"about (?:us|the company|openai|akuna|databricks|anthropic)",
