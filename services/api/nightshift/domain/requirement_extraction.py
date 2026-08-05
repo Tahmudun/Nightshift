@@ -50,7 +50,16 @@ class RequirementProposal:
 #: Headings that open a *required* block. Matched case-insensitively anywhere in
 #: the text, because ATS descriptions are one long run of HTML with no reliable
 #: line structure once the tags are stripped.
+#:
+#: **Everything below the first block was measured on the recorded corpus, not
+#: imagined**, by the same route `scripts/make_label_worksheet.py` built its
+#: list. Graded at m3a.1 with the imagined list alone, 43 of 103 missed required
+#: technologies were ones the extractor had *found* and then filed under the
+#: wrong necessity, because the heading above them was not a heading it knew.
+#: Akuna writes "Qualities that make great candidates" and never the word
+#: "requirements"; that phrase alone governs 13 of the 60 labeled postings.
 _REQUIRED_HEADINGS = (
+    r"requirements for this role",
     r"what you'?ll need",
     r"what you will need",
     r"minimum qualifications",
@@ -59,10 +68,43 @@ _REQUIRED_HEADINGS = (
     r"who you are",
     r"qualifications",
     r"you have",
+    # Measured, with the count of labeled postings each governs.
+    r"what we look for",  # 7, Databricks
+    r"your skills and experience",  # 7, IMC
+    r"you might thrive",  # 5, OpenAI
+    r"you may be a good fit if you",  # 3, Anthropic
+    r"skills you'?ll need",  # 3, Jump
+    r"who we'?re looking for",
+    r"what we'?re looking for",
+    r"the ideal candidate is",
+    r"what you'?ll bring",
+    r"you should have",
+    r"who should apply",
+    r"about you",
+    r"required",
 )
 
-#: Headings that open a *preferred* block. Checked first where both could match,
-#: since "preferred qualifications" contains "qualifications".
+#: Headings that open a required block **only when nothing harder opened one
+#: first**, and a preferred block otherwise.
+#:
+#: Akuna is the whole reason this category exists, and the corpus settles it
+#: rather than intuition. "Qualities that make great candidates" governs 13 of
+#: the 60 labeled postings. In the 11 with no other requirements heading it
+#: carries the real asks, and the human labeled C++, Linux and Python required
+#: from it. In the 2 that also say "Requirements for this role" — both
+#: internships, where that harder heading carries graduation, GPA and work
+#: authorization — the human labeled `required_tech` **empty** and put
+#: Kubernetes and AWS under `mentioned_not_required`.
+#:
+#: So the same phrase means "these are the requirements" in one posting and
+#: "these would be nice" in another, and what distinguishes them is whether the
+#: posting already said the harder thing.
+_SOFT_REQUIRED_HEADINGS = (r"qualities that make great candidates",)
+
+#: Headings that open a *preferred* block. A required heading nested inside one
+#: of these is discarded — see :func:`_heading_spans`, which is what lets
+#: "additional qualities that make great candidates" beat the required heading
+#: sitting inside it.
 _PREFERRED_HEADINGS = (
     r"preferred qualifications",
     r"nice to haves?",
@@ -71,6 +113,58 @@ _PREFERRED_HEADINGS = (
     r"pluses",
     r"we'?d love to see",
     r"desirable",
+    # Measured on the corpus, same as above.
+    r"additional qualities that make great candidates",
+    r"additional experience we value",
+    r"strong candidates may also have",
+    r"additional qualities",
+    r"preferred",
+)
+
+#: Headings after which nothing is an ask any more, returning necessity to
+#: `mentioned`. Measured: OpenAI's "Developer Productivity" posting ends its
+#: requirements and then says "As technical context: ... some core technologies
+#: we build with include Terraform, Buildkite, Postgres, Cosmos DB, Kafka,
+#: Python, and FastAPI" — five technologies the human filed as
+#: `mentioned_not_required` and which the last heading, several hundred
+#: characters above, was still calling required. The rest are the compensation
+#: and boilerplate closers `scripts/make_label_worksheet.py` already validated
+#: against this corpus.
+_CLOSER_HEADINGS = (
+    r"as technical context",
+    r"about (?:us|the company|openai|akuna|databricks|anthropic)",
+    r"annual salary",
+    r"base salary",
+    r"pay range transparency",
+    r"compensation",
+    r"benefits",
+    r"equal (?:employment )?opportunity",
+    r"pay transparency",
+    r"how to apply",
+    r"application process",
+    r"please note",
+)
+
+#: An optionality marker in the *sentence* demotes a technology to `preferred`
+#: however strong the heading above it was.
+#:
+#: This is the second way a nice-to-have becomes a false gap, and on this corpus
+#: it was the commonest: 12 of 19 violations. A posting writes its optionality
+#: inline rather than under its own heading — "VBA or Python programming skills
+#: are a plus, but not required", "SQL is preferred but not required",
+#: "Proficiency in a programming language is required (Java or C++ preferred)".
+#: The heading above every one of those says required, and it is right about the
+#: rest of its bullets; only the sentence knows about these.
+_INLINE_OPTIONAL = re.compile(
+    r"\b(?:is|are|as)\s+(?:a\s+|an\s+|strong(?:ly)?\s+|highly\s+)*"
+    r"(?:plus|pluses|bonus|preferred|desired|desirable|nice to have)\b"
+    r"|\bnot\s+required\b"
+    r"|\bbut\s+not\s+necessary\b"
+    r"|\ba\s+plus\b"
+    r"|\bbonus\s+points\b"
+    r"|\bpreferred\s*\)"
+    r"|\bor\s+similar\s*\)",
+    re.I,
 )
 
 _EQUIVALENCE = re.compile(r"\bor\s+(?:have\s+)?equivalent\b", re.I)
@@ -96,18 +190,41 @@ def _heading_spans(text: str) -> list[tuple[int, NecessityName]]:
     the candidate does not actually have. That is the exact failure `necessity`
     exists to prevent, arriving through the heading vocabulary instead of
     through the ranking.
+
+    A **closer** returns necessity to `mentioned`, and a **soft** required
+    heading opens a preferred block when a hard one already opened above it —
+    see :data:`_CLOSER_HEADINGS` and :data:`_SOFT_REQUIRED_HEADINGS`.
     """
     preferred: list[tuple[int, int]] = []
     for pattern in _PREFERRED_HEADINGS:
         for m in re.finditer(pattern, text, re.I):
             preferred.append((m.start(), m.end()))
 
+    def _nested_in_preferred(start: int) -> bool:
+        return any(left <= start < right for left, right in preferred)
+
     found: list[tuple[int, NecessityName]] = [(start, "preferred") for start, _ in preferred]
+
+    hard_required: list[int] = []
     for pattern in _REQUIRED_HEADINGS:
         for m in re.finditer(pattern, text, re.I):
-            if any(start <= m.start() < end for start, end in preferred):
+            if _nested_in_preferred(m.start()):
                 continue
+            hard_required.append(m.start())
             found.append((m.start(), "required"))
+
+    # A soft heading is required only when nothing harder opened a block first.
+    earliest_hard = min(hard_required, default=None)
+    for pattern in _SOFT_REQUIRED_HEADINGS:
+        for m in re.finditer(pattern, text, re.I):
+            if _nested_in_preferred(m.start()):
+                continue
+            softened = earliest_hard is not None and earliest_hard < m.start()
+            found.append((m.start(), "preferred" if softened else "required"))
+
+    for pattern in _CLOSER_HEADINGS:
+        for m in re.finditer(pattern, text, re.I):
+            found.append((m.start(), "mentioned"))
 
     # A preferred heading still wins at the same offset, for any pair the
     # containment rule above does not separate.
@@ -140,6 +257,52 @@ def _sentence_around(text: str, position: int) -> str:
     return text[start : end if end != -1 else len(text)]
 
 
+#: Where one bullet stops and the next begins, looking backwards. A closing
+#: parenthesis is in this set and it is the character that matters most.
+_CLAUSE_OPENS = ".;)•|!?"
+#: The same, looking forwards. An *opening* parenthesis starts a new aside.
+_CLAUSE_CLOSES = ".;(•|!?"
+
+#: How far from a technology an optionality marker may sit and still be about
+#: it. Measured on the corpus: widest genuine marker 46 characters, nearest
+#: false one 200.
+_CLAUSE_RADIUS = 70
+
+
+def _clause_around(text: str, position: int) -> str:
+    """The bullet `position` sits in — never the neighbouring ones.
+
+    :func:`_sentence_around` is far too wide for this job, and one posting
+    proves it. Flattened ATS descriptions run bullets together with no full
+    stop between them, so a period-delimited "sentence" reached 400 characters
+    across four separate asks in Akuna's "Software Engineer - C++":
+
+        ... template metaprogramming a plus) Experience with Linux and
+        Python required Understanding of data structures ...
+
+    "a plus" belongs to the bullet about metaprogramming. Read at sentence
+    width it demoted Linux and Python, which the very next word calls
+    *required*, and cost three true positives on that posting alone. Stopping
+    the backward scan at the closing parenthesis keeps each bullet's optionality
+    to itself.
+
+    **Bounded by distance as well as by punctuation**, because some stretches
+    carry no punctuation at all. The same Akuna posting runs five asks together
+    with nothing between them, ending "Familiarity with trading and trading
+    systems is a plus" — 200 characters after "Linux and Python required", and
+    still inside the same delimiter-free run. Every genuine inline marker in
+    this corpus sits within 55 characters of the technology it qualifies; the
+    widest is "Tableau, SQL, Python, or AI-assisted analytics is a strong plus"
+    at 46. :data:`_CLAUSE_RADIUS` is set above that and below 200.
+    """
+    left = max(0, position - _CLAUSE_RADIUS)
+    right = min(len(text), position + _CLAUSE_RADIUS)
+    start = max((text.rfind(c, left, position) for c in _CLAUSE_OPENS), default=-1)
+    start = left if start == -1 else start + 1
+    ends = [pos for pos in (text.find(c, position, right) for c in _CLAUSE_CLOSES) if pos != -1]
+    return text[start : min(ends) if ends else right]
+
+
 #: Strongest first. A technology named in prose and again under a requirements
 #: heading is one ask, and the heading is what the posting means by it.
 _NECESSITY_RANK: dict[NecessityName, int] = {
@@ -159,6 +322,10 @@ def _technologies(text: str, vocabulary: SkillVocabulary) -> list[RequirementPro
     best: dict[str, RequirementProposal] = {}
     for match in vocabulary.match_all(text):
         necessity = necessity_at(text, match.char_start)
+        if necessity == "required" and _INLINE_OPTIONAL.search(
+            _clause_around(text, match.char_start)
+        ):
+            necessity = "preferred"
         candidate = RequirementProposal(
             kind="technology",
             value=match.canonical_name,
