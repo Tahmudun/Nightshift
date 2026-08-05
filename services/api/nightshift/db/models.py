@@ -69,6 +69,8 @@ from nightshift.db.base import (
     ResolutionMethod,
     ResumeSourceKind,
     ResumeVariant,
+    RoleFamily,
+    Seniority,
     SkillSourceType,
     SourceStatus,
     SourceType,
@@ -494,10 +496,17 @@ class Job(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     normalized_title: Mapped[str] = mapped_column(String(500), nullable=False)
-    # role_family and seniority are populated by M3's classifier. Nullable now,
-    # and null means "not yet classified" — never a guessed default.
-    role_family: Mapped[str | None] = mapped_column(String(100))
-    seniority: Mapped[str | None] = mapped_column(String(50))
+    # Populated by M3b's classifier. Still nullable, and **null keeps meaning
+    # "not yet classified"** — distinct from `unclear`, which is the classifier
+    # having read the posting and declined to guess. Merging those two would
+    # make the coverage figure unreadable: you could not tell an unrun
+    # classifier from a corpus full of ambiguous titles.
+    #
+    # PG enums as of M3b rather than `String(100)`, per CLAUDE.md §7. The
+    # strings were a placeholder from M1 and nothing had written one, so the
+    # migration converts two empty columns.
+    role_family: Mapped[RoleFamily | None] = mapped_column(_enum(RoleFamily, "role_family"))
+    seniority: Mapped[Seniority | None] = mapped_column(_enum(Seniority, "seniority"))
     employment_type: Mapped[EmploymentType] = mapped_column(
         _enum(EmploymentType, "employment_type"),
         nullable=False,

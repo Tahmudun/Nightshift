@@ -309,3 +309,39 @@ def test_two_families_are_too_thin_to_grade_on_their_own() -> None:
             counts[label.role_family] = counts.get(label.role_family, 0) + 1
     thin = sorted(f for f, n in counts.items() if n < 3)
     assert thin == ["data_engineering", "design", "hardware"], counts
+
+
+def test_the_enums_and_the_label_vocabularies_are_the_same_words() -> None:
+    """Three copies of two vocabularies, asserted equal.
+
+    `RoleFamily` and `Seniority` in `db/base.py`, `ROLE_FAMILY_VALUES` and
+    `SENIORITY_VALUES` here, and the value tuples inside migration
+    `0013_role_family_and_seniority`. The migration's copy is genuinely
+    unavoidable — a migration must not import a model, or it stops describing
+    the schema as of its own revision and starts describing today's — so the
+    real defence is this assertion rather than a shared constant.
+
+    The failure it prevents is the one `test_enum_parity.py` was written for
+    after it had already happened twice: a vocabulary transcribed by hand, one
+    member missing, and nothing red until a real value meets a database that
+    has never heard of it.
+    """
+    from nightshift.db.base import RoleFamily, Seniority
+
+    assert {m.value for m in RoleFamily} == ROLE_FAMILY_VALUES
+    assert {m.value for m in Seniority} == SENIORITY_VALUES
+
+
+def test_the_migration_creates_exactly_those_types() -> None:
+    """The third copy, read out of the migration module itself.
+
+    Imported rather than parsed, because the values are module constants there
+    precisely so this test can reach them.
+    """
+    import importlib
+
+    migration = importlib.import_module(
+        "migrations.versions.20260805_2130_role_family_and_seniority_enums"
+    )
+    assert set(migration.ROLE_FAMILY_VALUES) == ROLE_FAMILY_VALUES
+    assert set(migration.SENIORITY_VALUES) == SENIORITY_VALUES
