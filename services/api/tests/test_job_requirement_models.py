@@ -7,16 +7,13 @@ different words than it claims is worse than none at all.
 
 from __future__ import annotations
 
-import uuid
-from datetime import UTC, datetime
-
 import pytest
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from nightshift.db.base import JobStatus, RequirementKind, RequirementNecessity
-from nightshift.db.models import Company, Job, JobRequirement
-from tests.conftest import requires_db
+from nightshift.db.base import RequirementKind, RequirementNecessity
+from nightshift.db.models import Job, JobRequirement
+from tests.conftest import make_job_with_text, requires_db
 
 # The session-scoped loop is required, not stylistic: `db_engine` and
 # `db_session` are session-scoped, and a function-scoped loop tears itself
@@ -40,31 +37,13 @@ async def _requirement_count(session: AsyncSession, job_id: object) -> int:
 
 
 async def _job_with_text(session: AsyncSession, text: str) -> Job:
-    """Build a canonical job carrying `text` as its description.
+    """A canonical job carrying `text` as its description.
 
-    `tests/test_models_canonical_spine.py` builds its jobs with a private,
-    module-local `_a_job` helper (no shared `make_job` exists anywhere in the
-    suite — checked before writing this). This mirrors that helper's shape
-    (company + job, no source record needed since `Job.company_id` is the
-    only required foreign key) and adds the one field this file needs:
-    `description_text`, which the span trigger reads.
+    Moved to `tests/conftest.py` at M3a Task 8, which wanted the third copy.
+    This wrapper stays so the file reads as it did, and because the span
+    trigger reads `description_text` — the one field that matters here.
     """
-    company = Company(canonical_name="Acme", normalized_name=f"acme {uuid.uuid4().hex[:8]}")
-    session.add(company)
-    await session.flush()
-    now = datetime.now(tz=UTC)
-    job = Job(
-        company_id=company.id,
-        title="Engineer",
-        normalized_title="engineer",
-        description_text=text,
-        first_seen_at=now,
-        last_seen_at=now,
-        status=JobStatus.OPEN,
-    )
-    session.add(job)
-    await session.flush()
-    return job
+    return await make_job_with_text(session, text)
 
 
 async def test_a_requirement_quoting_its_span_is_accepted(

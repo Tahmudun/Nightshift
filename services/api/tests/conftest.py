@@ -8,7 +8,9 @@ local file is a suite that passes on one machine and fails in CI, so every
 from __future__ import annotations
 
 import json
+import uuid
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +26,8 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from nightshift.config import Settings, get_settings
+from nightshift.db.base import JobStatus
+from nightshift.db.models import Company, Job
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
 
@@ -85,6 +89,32 @@ def greenhouse_board_payload() -> dict[str, Any]:
 # nothing. Skip only when the database is genuinely unreachable, discovered
 # by actually trying to connect, not by an environment variable's absence.
 requires_db = pytest.mark.integration
+
+
+async def make_job_with_text(session: AsyncSession, text_: str | None) -> Job:
+    """A canonical job carrying ``text_`` as its description.
+
+    Lives here because it is now wanted in three places. `Job.company_id` is the
+    only required foreign key, so a company and a job is the whole fixture — no
+    source record, no link row. The company's `normalized_name` is randomised
+    because it is unique and these tests are not about company identity.
+    """
+    company = Company(canonical_name="Acme", normalized_name=f"acme {uuid.uuid4().hex[:8]}")
+    session.add(company)
+    await session.flush()
+    now = datetime.now(tz=UTC)
+    job = Job(
+        company_id=company.id,
+        title="Engineer",
+        normalized_title="engineer",
+        description_text=text_,
+        first_seen_at=now,
+        last_seen_at=now,
+        status=JobStatus.OPEN,
+    )
+    session.add(job)
+    await session.flush()
+    return job
 
 
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
