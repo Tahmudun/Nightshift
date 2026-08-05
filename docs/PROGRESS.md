@@ -23,7 +23,7 @@
 
 ## Next exact action
 
-### M3b is underway on `m3b-eligibility-gate`. Tasks 1–7 are done. Next: Task 8 — mutation testing on every gate rule.
+### M3b is underway on `m3b-eligibility-gate`. Tasks 1–8 are done. Next: Task 9 — `GET /jobs/{id}` returns the verdict, and the three enums cross into `schemas.ts`.
 
 **[PR #11](https://github.com/Tahmudun/Nightshift/pull/11) is open as a draft,
 and that is deliberate.** Seven CI runs in this project have failed and every
@@ -615,7 +615,40 @@ that file, has perfect precision, and is worthless (`matching.md` §3.3).
 
 ---
 
-### After M3b Task 7: the rest of the M3b plan.
+## M3b Task 8 — every gate rule shown able to fail, in the suite
+
+**All five rules are load-bearing.** Replacing any one with an unconditional
+`passes` changes the verdict of a case taken from `test_eligibility_gate.py`.
+
+`matching.md` §8 asked for this on the gate specifically, and gave the reason:
+three tests in this project have turned out unable to fail, and the gate is
+where that would cost most.
+
+**It runs as a test rather than as an exercise a human did once and wrote down.**
+A mutation result in a review is true on the day it was written. A mutation
+result in the suite is true every time the suite runs.
+
+Two guards on the harness itself, because a mutation harness that mutates
+nothing is the most confident kind of vacuous test:
+
+- `test_every_rule_in_the_gate_has_a_case_here` fails when a rule is added
+  without a mutation case — the same shape as
+  `test_every_label_field_is_graded_or_named` one layer down, and the same
+  failure mode it prevents: a check that looks complete because nothing counts
+  what it is missing.
+- `test_the_harness_itself_is_not_vacuous` neuters all five at once and asserts
+  the all-passing outcome.
+
+**That second risk is real and was measured rather than supposed.** `_RULES`
+holds function references captured at import, so `monkeypatch.setattr(
+eligibility, "_degree_rule", ...)` leaves the tuple pointing at the original.
+Run directly: the verdict stayed `ineligible` under that patch. The harness
+rebuilds the tuple instead, and the comment saying so was written after
+checking rather than before.
+
+---
+
+### After M3b Task 8: the rest of the M3b plan.
 
 **PR #9 is merged.** `main` is at `452ec90`, checked against the PR rather than
 assumed. CI was green on all five jobs at `3fbffd6`, run
