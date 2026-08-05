@@ -23,7 +23,7 @@
 
 ## Next exact action
 
-### M3b is underway on `m3b-eligibility-gate`. Tasks 1–3 are done. Next: Task 4 — the classifier, graded against Task 2's labels.
+### M3b is underway on `m3b-eligibility-gate`. Tasks 1–4 are done. Next: Task 5 — repair what Task 1 measured, each step on its own.
 
 The plan is `docs/plans/2026-08-05-m3b-eligibility-gate.md`. Two decisions the
 human took on 2026-08-05 before planning: role families are the eight tech
@@ -302,7 +302,90 @@ still exits 0 with 31 jobs.
 
 ---
 
-### After M3b Task 3: the rest of the M3b plan.
+## M3b Task 4 — the classifier, and the number that matters more than accuracy
+
+```
+role_family      0.950     57 right,  3 wrong
+seniority        0.967     58 right,  2 wrong
+is_internship    0.933     56 right,  4 wrong
+```
+
+Floors in CI at **0.94 / 0.96 / 0.93**, set after measuring.
+
+### One rule changed after the first measurement, and it is recorded on its own
+
+```
+role_family   0.933 -> 0.950   the role type beats the domain in a title
+```
+
+OpenAI's *Senior Technical Program Manager - Security* names a job and a subject
+area. The job is program management; security is what it is *about*. Graded with
+the domain families first it came out `security`, which describes the team
+rather than the work — and it was **the only family error in the corpus that was
+not a safe `unclear`**. Explicit management phrases now sit above every domain
+rule.
+
+### Three orderings are load-bearing and every one comes from a real posting
+
+- **`not_tech` is tested first.** *AI Compliance Officer* contains AI, *Capital
+  Markets - Infrastructure Financing* contains Infrastructure, *Cloud Partner
+  Enablement Lead* contains Cloud, *People Research Scientist, Recruiting*
+  contains Research Scientist. Four business roles wearing a technical word; a
+  tech-first order files all four wrongly.
+- **New-grad beats junior.** *Associate Product Manager, New Grad (2027 Start)*.
+- **A years figure ≥ 6 beats an early-career title word.** Jane Street's *Campus
+  Recruiter, Early Careers Partnerships & Initiatives* says early career three
+  times and asks for six years. A title-only classifier ranks it into a new
+  graduate's list.
+
+**The description may only veto towards `not_tech`, never promote into a tech
+family.** Every description in this corpus talks about technology, most at
+length, so a promoting rule would promote nearly all of them. The one phrase
+that decides on its own is Anthropic's own first sentence about the Applied AI
+Architect role: *"you will be a Pre-Sales architect"*.
+
+### The assertion that matters more than the floor
+
+`test_every_role_family_error_is_a_refusal_rather_than_a_wrong_answer`. All
+three remaining family errors say `unclear` — the classifier declining to make a
+claim, which is the same instinct A13 demands of the gate.
+
+**A floor cannot tell a confident error from a refusal, and those are not the
+same mistake.** A future rule that buys accuracy by guessing fails this test
+before it fails the floor.
+
+### Two misses are inherited, and that was checked rather than assumed
+
+*Data Center Architect, CSA* is labeled `senior` on 10 years and the classifier
+says `unclear`, because the reading returns `None`. The posting writes:
+
+```
+Required 10+ years delivering mission-critical facility infrastructure
+```
+
+`_years_of_experience` needs the word "experience" within 40 characters of the
+figure, and it is not there. **The classifier's error is the extractor's**, and
+it is one of the two `read None for 10` confusions Task 1 already printed. Task
+5's to fix.
+
+### The methodological caveat, in the module rather than in a review
+
+The seniority precedence and its two thresholds (3 and 6 years) were chosen with
+these 60 titles visible. That is **weaker independence than M3a had** — there
+the key was labeled by reading descriptions and the rules were about headings
+and vocabulary, a different surface. Here labels and rules came off the same
+titles, hours apart.
+
+Some rules are not fitted in any meaningful sense: "Director in the title means
+director" is what anybody would write. The thresholds and the ordering are.
+**So these numbers are an upper bound, not an estimate of behaviour on an unseen
+posting.** The corpus carries 93 recorded-but-unlabeled postings and they are
+exactly the held-out check this wants. **Not done, and named here rather than
+left to be noticed.**
+
+---
+
+### After M3b Task 4: the rest of the M3b plan.
 
 **PR #9 is merged.** `main` is at `452ec90`, checked against the PR rather than
 assumed. CI was green on all five jobs at `3fbffd6`, run
