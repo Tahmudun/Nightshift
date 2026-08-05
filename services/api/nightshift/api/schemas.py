@@ -36,6 +36,8 @@ from nightshift.db.base import (
     ProjectStatus,
     RemotePolicy,
     RemotePreference,
+    RequirementKind,
+    RequirementNecessity,
     ResolutionMethod,
     ResumeSourceKind,
     ResumeVariant,
@@ -147,10 +149,34 @@ class JobSummaryOut(BaseModel):
         return any(loc.latitude is not None for loc in self.locations)
 
 
+class JobRequirementOut(BaseModel):
+    """One thing a posting asks for, and the characters where it says so.
+
+    `raw_text` plus the offsets are what the page highlights. Serialising the
+    offsets without the text — or the text without the offsets — would let the
+    two drift, and the highlight would quietly point somewhere else.
+    """
+
+    kind: RequirementKind
+    value: str
+    raw_text: str
+    char_start: int
+    char_end: int
+    necessity: RequirementNecessity
+    has_equivalence: bool
+
+
 class JobDetailOut(JobSummaryOut):
     description_text: str | None
     description_html: str | None
     sources: list[JobSourceOut]
+    #: In document order, so the page reads down the description it highlights.
+    requirements: list[JobRequirementOut] = Field(default_factory=list)
+    #: Which rules produced them. Null when nothing has been extracted, which
+    #: the page states rather than rendering an empty requirements section —
+    #: "this posting asks for nothing" and "we have not read it" differ, and an
+    #: empty list alone cannot tell them apart.
+    requirements_extractor_version: str | None = None
 
 
 class DeferredFilterOut(BaseModel):

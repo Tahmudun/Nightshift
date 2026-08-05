@@ -29,6 +29,7 @@ from nightshift.api.schemas import (
     JobDetailOut,
     JobListOut,
     JobLocationOut,
+    JobRequirementOut,
     JobSourceOut,
     JobStatusCounts,
     JobStatusEventOut,
@@ -315,7 +316,11 @@ async def get_job(
             await session.execute(
                 select(Job)
                 .where(Job.id == job_id)
-                .options(selectinload(Job.company), selectinload(Job.locations))
+                .options(
+                    selectinload(Job.company),
+                    selectinload(Job.locations),
+                    selectinload(Job.requirements),
+                )
             )
         )
         .scalars()
@@ -337,11 +342,30 @@ async def get_job(
         .all()
     )
 
+    requirements = sorted(job.requirements, key=lambda r: (r.char_start, r.char_end))
     summary = to_summary(job)
     return JobDetailOut(
         **summary.model_dump(),
         description_text=job.description_text,
         description_html=job.description_html,
+        requirements=[
+            JobRequirementOut(
+                kind=row.kind,
+                value=row.value,
+                raw_text=row.raw_text,
+                char_start=row.char_start,
+                char_end=row.char_end,
+                necessity=row.necessity,
+                has_equivalence=row.has_equivalence,
+            )
+            for row in requirements
+        ],
+        # Read off the rows rather than from the module constant: a job whose
+        # rows predate an extractor bump must report the version that actually
+        # produced them, and a job nobody has read must report nothing at all.
+        requirements_extractor_version=(
+            requirements[0].extractor_version if requirements else None
+        ),
         sources=[
             JobSourceOut(
                 source_name=record.source.name,
