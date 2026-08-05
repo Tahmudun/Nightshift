@@ -84,6 +84,32 @@ class SkillVocabulary:
                     )
         return sorted(found.values(), key=lambda match: (match.char_start, match.canonical_name))
 
+    def match_all(self, text: str) -> list[SkillMatch]:
+        """Every non-overlapping vocabulary term, including repeats.
+
+        The difference from :meth:`match` is deliberate and load-bearing. That
+        one keeps the first occurrence per name, which is right for a resume:
+        one person, one skill, one span to confirm. A job posting is the other
+        case — the same technology under "about us" and again under "what
+        you'll need" is two different claims, and which section it sits in is
+        the whole question (``matching.md`` §4.1). Collapsing them would answer
+        that question with whichever came first.
+        """
+        claimed: list[tuple[int, int]] = []
+        found: list[SkillMatch] = []
+        for term in self._terms:
+            for hit in term.pattern.finditer(text):
+                start, end = hit.span()
+                if any(
+                    start < taken_end and taken_start < end for taken_start, taken_end in claimed
+                ):
+                    continue
+                claimed.append((start, end))
+                found.append(
+                    SkillMatch(canonical_name=term.canonical_name, char_start=start, char_end=end)
+                )
+        return sorted(found, key=lambda match: (match.char_start, match.canonical_name))
+
 
 def _compile(term: str, *, case_sensitive: bool) -> re.Pattern[str]:
     # `\b` is wrong beside a non-word character: `\bC++\b` can never match,
