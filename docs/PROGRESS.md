@@ -23,7 +23,107 @@
 
 ## Next exact action
 
-### Next: M3b — the deterministic eligibility gate.
+### M3b is underway on `m3b-eligibility-gate`. Next: Task 2 — label `role_family` and `seniority` into the answer key, before any classifier exists.
+
+The plan is `docs/plans/2026-08-05-m3b-eligibility-gate.md`. Two decisions the
+human took on 2026-08-05 before planning: role families are the eight tech
+families plus an explicit `not_tech` and `unclear`, and the `skill` filter comes
+on with what it is based on stated beside it.
+
+**Task 1 is done and its result is a baseline, not an achievement.**
+
+---
+
+## M3b Task 1 — the five answer-key fields nobody had ever graded
+
+**M3a graded one of the answer key's nine label fields.** The extractor has been
+emitting `degree`, `graduation_window`, `years_experience`, `enrollment` and
+`authorization` proposals since commit `3722026`, against a key committed before
+any of those rules existed, and **no test had ever compared one of them to a
+label.** It read as finished because nothing counted.
+
+Measured 2026-08-05, over the 60 labeled postings, before any rule was changed:
+
+```
+degree                 0.567     34 right, 26 wrong
+graduation_window      0.917     55 right,  5 wrong
+min_years_experience   0.883     53 right,  7 wrong
+enrollment_required    0.317     19 right, 41 wrong
+sponsorship            0.917     55 right,  5 wrong
+```
+
+**No floors are in CI yet, deliberately.** They go in after Task 5 repairs what
+this found, set just under what the rules then achieve — M3a's rule, for M3a's
+reason: a floor picked before measuring is either unreachable or vacuous and
+there is no way to tell which from outside.
+
+### The confusions say what is wrong, which is why the report prints them
+
+```
+degree               read 'none' for 'bachelors+equivalent' x14, for 'bachelors' x5,
+                     'phd' for 'bachelors' x2, 'none' for 'masters+equivalent' x2
+enrollment_required  read 'not_stated' for 'no' x30, for 'yes' x11
+graduation_window    read '2027-2027' for 'through-2027' x2, and 3 more of that shape
+min_years_experience read None for 10, 14, 1; and read 5 where 3 was labeled
+sponsorship          read 'offered' for 'not_offered' x2, 'not_stated' for 'not_offered' x2
+```
+
+**`enrollment_required` at 0.317 is mostly a vocabulary gap, not 41 defects.**
+30 of the 41 are `not_stated` where the human wrote `no` — the reading has no
+rule that can ever output `no`, which is stated in the function's own docstring
+rather than discovered from the grade. Producing `no` needs to know the posting
+is not an internship, and **`is_internship` is the classifier's, so this one is
+blocked on Task 4.** The other 11 are real misses: the rule matches only
+"currently pursuing / enrolled / studying" and postings say "rising senior",
+"returning to school", "must be enrolled in".
+
+**`degree` at 0.567 is the one to chase.** 21 of the 26 errors read `none` where
+a degree was labeled, which means the degree was found and filed under a heading
+the extractor does not read as required — the same class of defect M3a.1 fixed
+for technologies, in a dimension nobody had looked at. The 2 postings read `phd`
+against a labeled `bachelors` are the opposite error and the more dangerous one:
+that is a wrong blocker waiting for the gate to exist.
+
+### A rule that could not fire, found by measuring within the hour
+
+`_resolve_graduation_window` shipped a branch producing the answer key's
+`through-YYYY` form when the words `through|by|before` appeared in a proposal's
+`raw_text`. **`raw_text` for these proposals is the matched year and nothing
+else** — `"2027"`, or `"2027-2028"`. The branch could never fire.
+
+Deleted rather than left in, and **the numbers were identical before and
+after**, which is what makes "it was dead" a measurement rather than a claim.
+Producing that distinction needs the words around the year, which only the
+extractor has; it is Task 5's. Until then those 5 postings read as a narrower
+window than the posting states — the direction that invents blockers.
+
+### One tie-break is deliberately wrong on this corpus
+
+`_resolve_sponsorship` prefers `offered` when a posting somehow says both, and
+that costs 2 of its 5 errors. Kept: "we do not sponsor H-1B for this role, but
+we do sponsor OPT extensions" is one real sentence containing both, and reading
+it as `not_offered` tells a person they cannot apply for a role that says it
+will help them. The other error sends them into a conversation. A13 ranks those
+two, and this is the ranking applied rather than accuracy maximised.
+
+### The grader is guarded against being the thing that is broken
+
+Two of its four tests are about the machinery rather than the corpus, because
+M3a shipped a violation count stuck at zero for a whole milestone:
+
+- `test_the_grader_can_fail` runs a constructed disagreement through the tally
+  and asserts it is recorded — a tally that cannot count a miss reads 1.000.
+- `test_every_label_field_is_graded_or_named` fails if a label field is in
+  neither the graded list nor the named-and-excluded list. **That is the guard
+  that would have caught M3a's gap a milestone earlier**: five fields were
+  unmeasured and nothing anywhere said so.
+- `test_none_years_never_compares_equal_to_zero` — `not_stated` and "no
+  experience required" are different postings, and the gate treats them
+  differently, so the grader must not merge them.
+
+---
+
+### After M3b Task 1: the rest of the M3b plan.
 
 **PR #9 is merged.** `main` is at `452ec90`, checked against the PR rather than
 assumed. CI was green on all five jobs at `3fbffd6`, run
