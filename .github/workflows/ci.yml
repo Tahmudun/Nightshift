@@ -14,6 +14,15 @@ concurrency:
 env:
   PYTHON_VERSION: '3.12'
   NODE_VERSION: '22'
+  # Every `pip install` in every job below reads this (pip maps PIP_<OPTION> to
+  # the flag of the same name), so the pin is set once here rather than added to
+  # three install steps that could drift apart. Relative to the repo root, which
+  # is where all three install steps run.
+  #
+  # These jobs gate a merge, so they are pinned: ADR 0016. The early warning
+  # that pinning gives up is bought back by dependency-canary.yml, which
+  # installs unpinned on a schedule and gates nothing.
+  PIP_CONSTRAINT: services/api/constraints-ci.txt
 
 # AMENDMENTS A14 sets the scope: format, lint, typecheck, unit tests both
 # languages, migration up/down, build, secret scan. Target under five minutes.
@@ -71,6 +80,24 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e "services/api[dev]"
+
+      - name: The pin covers everything that got installed
+        # `-c` pins only the distributions the file names. A dependency added to
+        # pyproject.toml and never regenerated into constraints-ci.txt installs
+        # at whatever version is newest, and nothing anywhere says so — the pin
+        # would quietly become partial while still being described as a pin.
+        # Compare the resolved set against the file so "CI is pinned" is a
+        # checked claim. This runs in one job because all three install steps
+        # run the identical command against the identical constraints file.
+        run: |
+          pip freeze --exclude-editable \
+            | grep -vE '^(pip|setuptools|wheel)==' | sort -f > /tmp/installed.txt
+          grep -vE '^\s*(#|$)' services/api/constraints-ci.txt | sort -f > /tmp/pinned.txt
+          if ! diff -u /tmp/pinned.txt /tmp/installed.txt; then
+            echo "::error::the installed set does not match services/api/constraints-ci.txt (- expected, + actual) — run 'make constraints' and commit the result"
+            exit 1
+          fi
+          echo "$(wc -l < /tmp/pinned.txt) distributions, all pinned"
 
       - name: Format check
         run: ruff format --check services/api
