@@ -93,6 +93,11 @@ class ProfilePatch:
         "graduation_month",
         "degree",
         "school",
+        # M3b. Both are gate inputs and both are user-set only; nothing here
+        # derives them from graduation_year, which would be the I2 violation
+        # that is easiest to write and hardest to notice.
+        "years_experience",
+        "is_enrolled",
         "work_authorization",
         "home_location_text",
         "remote_preference",
@@ -107,6 +112,8 @@ class ProfilePatch:
     graduation_month: int | None = None
     degree: str | None = None
     school: str | None = None
+    years_experience: int | None = None
+    is_enrolled: bool | None = None
     work_authorization: WorkAuthorization = WorkAuthorization.UNSPECIFIED
     home_location_text: str | None = None
     remote_preference: RemotePreference = RemotePreference.NO_PREFERENCE
@@ -418,6 +425,10 @@ async def update_profile(session: AsyncSession, *, user_id: UUID, patch: Profile
         user.degree = patch.degree
     if "school" in given:
         user.school = patch.school
+    if "years_experience" in given:
+        user.years_experience = patch.years_experience
+    if "is_enrolled" in given:
+        user.is_enrolled = patch.is_enrolled
     if "work_authorization" in given:
         user.work_authorization = patch.work_authorization
     if "home_location_text" in given:
@@ -430,6 +441,12 @@ async def update_profile(session: AsyncSession, *, user_id: UUID, patch: Profile
         user.preferred_roles = list(patch.preferred_roles)
     if "preferred_locations" in given:
         user.preferred_locations = list(patch.preferred_locations)
+
+    if user.years_experience is not None and user.years_experience < 0:
+        # The database refuses this too. Raising here makes it a 422 with a
+        # sentence rather than a 500 with a constraint name — and a negative
+        # figure would otherwise pass every experience requirement in the gate.
+        raise InvalidProfileError("years of experience cannot be negative")
 
     if user.graduation_month is not None and user.graduation_year is None:
         # The database refuses this too. Raising here makes it a 422 with a

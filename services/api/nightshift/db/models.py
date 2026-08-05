@@ -110,6 +110,13 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             "graduation_month IS NULL OR graduation_month BETWEEN 1 AND 12",
             name="graduation_month_is_a_month",
         ),
+        # A negative years figure would sail through the gate's `>=` comparison
+        # and quietly pass every experience requirement. Rejected by the
+        # database rather than by the form, per CLAUDE.md §7.
+        CheckConstraint(
+            "years_experience IS NULL OR years_experience >= 0",
+            name="years_experience_is_not_negative",
+        ),
     )
 
     email: Mapped[str] = mapped_column(String(320), nullable=False, unique=True)
@@ -131,6 +138,22 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     graduation_month: Mapped[int | None] = mapped_column(SmallInteger)
     degree: Mapped[str | None] = mapped_column(String(200))
     school: Mapped[str | None] = mapped_column(String(300))
+    #: M3b. Both nullable, and null means "has not told us" — which the gate
+    #: treats as `uncertain`, never as zero and never as false.
+    #:
+    #: Added because the gate asks five questions and `users` could answer three
+    #: of them. Without these two, `_years_rule` and `_enrollment_rule` return
+    #: `cannot_tell` for every real person forever, and the job page would print
+    #: "tell us your years of experience" beside a profile that has nowhere to
+    #: say it — a dead end, which is the M2c finding about a provenance link
+    #: that 404s, one milestone on.
+    #:
+    #: Neither is ever inferred. `graduation_year` is right there and a
+    #: subtraction would produce a plausible number for both, which is exactly
+    #: what invariant I2 forbids: `domain/profile.py` stays the only writer and
+    #: only a person may set them.
+    years_experience: Mapped[int | None] = mapped_column(SmallInteger)
+    is_enrolled: Mapped[bool | None] = mapped_column(Boolean)
     work_authorization: Mapped[WorkAuthorization] = mapped_column(
         _enum(WorkAuthorization, "work_authorization"),
         nullable=False,
