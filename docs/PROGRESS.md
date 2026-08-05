@@ -25,16 +25,33 @@
 
 ### Next: merge PR #9, then M3b — the eligibility gate.
 
-**PR #9 is open and green**, and the pre-merge invariant must be checked before
-merging, because M3a.1's code landed after the CI run recorded below:
+**PR #9 is open and CI is green on all five jobs**, run
+[31039059510](https://github.com/Tahmudun/Nightshift/actions/runs/31039059510).
+Counts read from the job logs rather than inferred:
 
 ```
-git diff <the sha CI last ran>..HEAD --stat    # must list nothing outside docs/
+python       5m11s   1282 passed
+e2e          2m50s   41 seeded passed, 1 skipped
+migrations   1m17s   up, down, up, and no drift
+web            59s   159 tests
+secret scan      7s
 ```
 
-At the time of writing that sha is `90cdfda` and **M3a.1's commits are newer
-than it**, so CI must run again before this merges. Do not merge on the strength
-of the run recorded below alone.
+`headSha` is `3fbffd6ef6afb0cbdf29ff62c32386bdb727f7d0`, checked against the
+branch head rather than assumed. **1282 in CI matches 1282 locally**, so the
+database-backed tests really ran there too. The single e2e skip is the
+pre-existing honest one: `an unchanged board is not presented as a problem`
+needs a board that has answered `304`.
+
+`3fbffd6` is the last commit containing anything CI executes, so the pre-merge
+invariant is one command:
+
+```
+git diff 3fbffd6..HEAD --stat    # must list nothing outside docs/
+```
+
+**This branch took three CI runs, and only the first found anything** — the
+check-constraint defect below. The second and third were green first time.
 
 ---
 
@@ -223,7 +240,7 @@ This is a cap on recall and it is stated rather than papered over.
 
 ### `skills.yaml` is shared with resume extraction, and that was checked
 
-36 terms were added, so a resume can now propose `SIEM` or `CUDA` too — that is
+34 entries were added, so a resume can now propose `SIEM` or `CUDA` too — that is
 intended. What was verified rather than assumed: the fixture resume produces
 **16 proposals before and 16 after, identical but for the vocabulary version**.
 The additions introduce zero spurious resume proposals.
@@ -2211,7 +2228,9 @@ presented to a user as working.
 
 | Thing | What it actually is | Real at |
 |---|---|---|
-| `data/skills.yaml` coverage against real postings | **Largely addressed at M3a.1, and the remainder is now a decision rather than a gap.** The vocabulary went from 73 terms to 109: ML frameworks (JAX, LangChain, HuggingFace, DSPy), accelerators (CUDA, ROCm, Triton, SYCL), HDLs (Verilog, VHDL, SystemVerilog), Windows/network/security administration (Active Directory, SIEM, EDR, SSO, MFA, VPN, DNS, TCP/IP, PowerShell, Windows, macOS, firewalls), and business systems (Salesforce, Google Sheets, Microsoft 365). Recall moved 0.459 → 0.861. **What is deliberately still absent**: structural engineering codes (ACI 318, ASCE 7, IBC, IFC, AISC, FM Global), treasury systems (Kyriba, GTreasury, Trovata, TMS), accounting standards (US GAAP, IFRS), and words too ordinary to match safely (`Word`, `MS Office`). Those are real requirements of real postings in the corpus and are not software skills — adding them would raise recall by teaching the product a domain it does not serve | Closed as vocabulary work. The residual absences are a scope decision, revisited only if the product's scope changes |
+| `data/skills.yaml` coverage against real postings | **Largely addressed at M3a.1, and the remainder is now a decision rather than a gap.** The vocabulary went from **73 entries to 107** — 34 added, counted from the file
+rather than from memory, because the commit message for this work says 36 and is
+wrong: ML frameworks (JAX, LangChain, HuggingFace, DSPy), accelerators (CUDA, ROCm, Triton, SYCL), HDLs (Verilog, VHDL, SystemVerilog), Windows/network/security administration (Active Directory, SIEM, EDR, SSO, MFA, VPN, DNS, TCP/IP, PowerShell, Windows, macOS, firewalls), and business systems (Salesforce, Google Sheets, Microsoft 365). Recall moved 0.459 → 0.861. **What is deliberately still absent**: structural engineering codes (ACI 318, ASCE 7, IBC, IFC, AISC, FM Global), treasury systems (Kyriba, GTreasury, Trovata, TMS), accounting standards (US GAAP, IFRS), and words too ordinary to match safely (`Word`, `MS Office`). Those are real requirements of real postings in the corpus and are not software skills — adding them would raise recall by teaching the product a domain it does not serve | Closed as vocabulary work. The residual absences are a scope decision, revisited only if the product's scope changes |
 | Eligibility answer key (`tests/fixtures/eligibility/labels.yaml`) | **Filled in, and model-labeled rather than human-verified.** All 60 postings × 9 fields were labeled 2026-08-04 by a browser-side Claude reading the recorded excerpts, with the web explicitly off — the grader compares against text the extractor also sees, so a label sourced from outside that text marks a correct extractor wrong. Audited on install: 0 of 199 named technologies absent from the posting text, and no sponsorship, graduation-window, internship or years claim unsupported by the text. Two `+equivalent` calls read an escape hatch worded without the word "equivalent" (`akunacapital/8035515`, `openai/8fb1615c…`) and are the entries most likely to be wrong. Not spot-checked by a human | Human spot-check of ~10 entries, unscheduled |
 | `FixtureGreenhouseAdapter` (`cli.py`) | Subclasses the real adapter, overrides only `fetch_board` to read a committed JSON file. Constructed with no HTTP client, so it cannot make a request. Attributed to source `greenhouse_fixture` with `source_type='fixture'`, badged **"committed fixture"** in the Operate UI. ADR 0004 | Permanent — this is the offline demo path, not a stopgap |
 | Geocoding | **Does not exist.** No coordinate has ever been written. Every location is `city_only`, `remote`, or `unknown`; `mappable_locations` reads 0 and the UI says "nothing geocoded yet" | M1 (NYC GeoSearch, A4) |
