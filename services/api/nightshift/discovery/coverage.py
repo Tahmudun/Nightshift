@@ -104,6 +104,29 @@ STRUCTURAL_BLIND_SPOTS: tuple[BlindSpot, ...] = (
             "one this system will not carry."
         ),
     ),
+    BlindSpot(
+        id="own_careers_system",
+        title="Employers running their own careers system",
+        explanation=(
+            "Meta, Apple, Google, Amazon, Microsoft and Bloomberg do not use "
+            "Greenhouse, Lever or Ashby. Each runs a bespoke careers site with no "
+            "public API, so every opening at them is invisible here. Probed "
+            "2026-08-04: `meta`, `facebook`, `metaplatforms` and `apple` return 404 "
+            "across all three provider endpoints, twelve of twelve. This is not the "
+            "Workday gap above — those are three shared enterprise systems one "
+            "adapter could read; these are one-off sites, one per employer. "
+            "Two different situations sit inside this row and they are different "
+            "disclosures. Meta's robots.txt prohibits automated collection without "
+            "written permission and Google's disallows its job results by name, so "
+            "both are refused sources under the first-party-only rule and no future "
+            "milestone changes that. Amazon's robots.txt disallows only /internal "
+            "and jobs.apple.com serves none at all; neither refuses. Those two are "
+            "simply not built, which is a decision still open rather than one "
+            "already made against us. Whether to read them is a job for a later ADR, "
+            "answered per employer rather than per category, and robots.txt is not "
+            "the terms of service — those need reading separately."
+        ),
+    ),
 )
 
 

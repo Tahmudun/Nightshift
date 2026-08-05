@@ -34,6 +34,8 @@ REQUIRED_BLIND_SPOTS = {
     "workday_icims_taleo",
     "no_public_board",
     "aggregator_only",
+    # M3a's fifth. See `docs/architecture/matching.md` §3.6 for the probe.
+    "own_careers_system",
 }
 
 
@@ -96,6 +98,35 @@ class TestItNamesWhatIsNotCovered:
         """
         lever = next(s for s in STRUCTURAL_BLIND_SPOTS if s.id == "lever_undiscovered")
         assert "ccbot" in lever.explanation.lower() or "robots" in lever.explanation.lower()
+
+    def test_the_blind_spots_name_employers_with_their_own_careers_system(self) -> None:
+        """Probed 2026-08-04 (`docs/architecture/matching.md` §3.6): `meta`,
+        `facebook`, `metaplatforms` and `apple` return 404 on all three ATS
+        endpoints — twelve of twelve.
+
+        The four original blind spots do not cover this. `workday_icims_taleo`
+        is about three shared enterprise systems an adapter could read, and
+        `no_public_board` is about hiring that was never published. Meta has a
+        very public job board; it is simply not on an ATS this system reads. A
+        reader of that page would reasonably conclude big tech is covered, and
+        it is not.
+        """
+        spot = next(s for s in STRUCTURAL_BLIND_SPOTS if s.id == "own_careers_system")
+        text = spot.explanation.lower()
+        for employer in ("meta", "apple", "google", "amazon"):
+            assert employer in text, f"{employer} is not named"
+
+    def test_the_careers_system_gap_separates_refusal_from_absence(self) -> None:
+        """Two situations sit inside that row and they are different disclosures.
+
+        "They told us not to" is permanent and is not a backlog item; "nobody
+        built it" is a decision still open. Merging them would either promise
+        work that cannot be done or imply a refusal that was never made.
+        """
+        spot = next(s for s in STRUCTURAL_BLIND_SPOTS if s.id == "own_careers_system")
+        text = spot.explanation.lower()
+        assert "robots.txt" in text
+        assert "not built" in text or "unbuilt" in text
 
     def test_the_structural_gaps_do_not_claim_a_size_they_cannot_know(self) -> None:
         """`count=None`, never 0. Counting NYC employers on Workday would mean
