@@ -23,7 +23,7 @@
 
 ## Next exact action
 
-### M3b is underway on `m3b-eligibility-gate`. Tasks 1–5 are done. Next: Task 6 — `domain/eligibility.py`, the gate itself.
+### M3b is underway on `m3b-eligibility-gate`. Tasks 1–7 are done. Next: Task 8 — mutation testing on every gate rule.
 
 **[PR #11](https://github.com/Tahmudun/Nightshift/pull/11) is open as a draft,
 and that is deliberate.** Seven CI runs in this project have failed and every
@@ -508,7 +508,114 @@ sponsorship 0.917       2 of the 5 are the deliberate `offered` tie-break
 
 ---
 
-### After M3b Task 5: the rest of the M3b plan.
+## M3b Tasks 6 and 7 — the gate, and the two blockers it was caught inventing
+
+`domain/eligibility.py`. Pure, no ORM, reads no description. It takes a
+`PostingReading` and a `SeekerProfile` and returns a state, its blockers, its
+unknowns and its version. **Nothing is stored** — `match_results` is M3c's, and
+a stored verdict goes stale the moment somebody edits their graduation year.
+
+```
+any blocks       -> ineligible
+else any soft    -> likely_ineligible
+else any cannot  -> uncertain
+else                eligible
+```
+
+`blocks` needs **two explicit halves at once**: the posting states it under a
+required heading, *and* the person's confirmed profile contradicts it. Either
+half missing is `cannot_tell`. That is I2 doing the work — an inferred fact
+never blocks anybody, because an inferred fact is not a fact.
+
+**There is no branch producing `likely_eligible`, and that is stated rather than
+left to be noticed.** It would mean "every rule passed, but one leaned on
+something uncertain", and no rule here passes on an uncertain input — each
+returns `cannot_tell` instead. A fifth state no rule can reach would be shape
+with no use. The enum keeps the member because PRODUCT-SPEC §8.3 names it and
+M3c's score components may earn it.
+
+### Three rules whose reasons matter more than their code
+
+- **A years shortfall may never hard-block.** "5+ years" is a wish far more
+  often than a rule, and A13's first hard case is an employer writing "Intern"
+  and "3+ years required" in the same document. It reaches `likely_ineligible`
+  and stops. The person sees the role, sees the gap, and decides.
+- **Enrollment may hard-block**, because it is categorical and checkable rather
+  than a matter of degree.
+- **Authorization blocks in exactly one configuration** — the posting says in
+  writing that it does not sponsor **and** the person has said they need it.
+  `unspecified` is the column default and most users' day-one value; reading it
+  as "needs sponsorship" would silently block them out of every such posting
+  before they had typed anything. `f1_student` is likewise not `needs_sponsorship`
+  — an F-1 on OPT does not need sponsorship today, and inferring one from the
+  other is the fabrication I2 forbids in the field where being wrong costs most.
+
+**Blockers and unknowns are separate types** because they mean opposite things
+to a person. A blocker says "this is probably not for you". An unknown says
+"tell us one more thing and we can answer" — and names the profile field that
+would settle it, because "complete your profile" is not an action and "tell us
+your graduation year" is.
+
+### The wrong-ineligible check found two real blockers on its first run
+
+Zero, as an equality, over **60 postings × 5 profiles**. The checker is written
+from the answer key and **never calls the gate** — a checker that called the
+gate would agree with it by construction and assert nothing, which is precisely
+how M3a's `test_no_nice_to_have_is_ever_reported_as_required` sat at zero for a
+whole milestone.
+
+**1. "Must be graduating August 2027 or prior"** was read as the single year
+2027, so the gate blocked a 2024 graduate from a role whose own words say they
+qualify. **Task 5 had recorded this exact form as a 5-label accuracy gap and
+deferred it.** It was not an accuracy gap. The gate is what turned five labels
+into a person being told they cannot apply. `_is_open_ended` now reads the words
+on either side of the year; `graduation_window` went **0.917 → 1.000**.
+
+**2. "MS Office" was read as a master's degree** on IMC's *Administrative
+Assistant* posting, which the answer key labels `degree: none` — hard-blocking a
+bachelor's graduate. Bare two-letter abbreviations now need two things at once:
+
+- **case-sensitivity**, because `\bms\b` under `re.I` matches the milliseconds
+  in "5 ms in latency" and these boards are trading firms. The same call
+  `skills.yaml` already makes for `Go`, `Rust`, `React` and `Outlook`.
+- **a following degree context** — a slash, "in", "or", "degree", or a comma
+  *only when another abbreviation follows*. "BS, MS preferably in business" is
+  IMC's; "MS, Word, Excel" is what the constraint keeps out.
+
+**That second fix left accuracy at 0.850, then 0.867 — and that is the finding.**
+It removed no error on paper and removed a hard block on a real person.
+**Accuracy could not tell the difference between a false positive that costs
+precision and one that costs somebody a job.** It is the clearest argument in
+this milestone for why the wrong-ineligible equality exists beside the floors
+rather than instead of them.
+
+### The mutation test was wrong on its first write, and is recorded as such
+
+It strips A13's equivalence hatch and re-runs. The first version used a
+bachelor's holder — who clears a `bachelors+equivalent` bar whether the hatch is
+honoured or not — so the break produced **zero** violations and the test failed
+for its own reason rather than the gate's. The profile the hatch is addressed to
+is the one with **no degree at all**, and that person is now in the profile set.
+
+### The distribution, printed rather than assumed
+
+```
+a 2027 undergraduate, enrolled, needing sponsorship   eligible 27  ineligible 2   likely_inel 20  uncertain 11
+a 2024 graduate with two years and a green card       eligible 22  ineligible 11  likely_inel 15  uncertain 12
+a PhD with eight years, a citizen                     eligible 29  ineligible 11  likely_inel 5   uncertain 15
+a self-taught engineer with no degree and four years  eligible 16  ineligible 21  likely_inel 9   uncertain 14
+somebody who has filled in nothing                    eligible 13  ineligible 0                   uncertain 47
+```
+
+**The last row is the one to read.** A person who has filled in nothing gets
+**zero** ineligibles and 47 uncertains — the state every user is in on day one.
+`test_the_corpus_actually_exercises_the_gate` guards the opposite failure: a
+gate answering `uncertain` to everything would satisfy every other assertion in
+that file, has perfect precision, and is worthless (`matching.md` §3.3).
+
+---
+
+### After M3b Task 7: the rest of the M3b plan.
 
 **PR #9 is merged.** `main` is at `452ec90`, checked against the PR rather than
 assumed. CI was green on all five jobs at `3fbffd6`, run
