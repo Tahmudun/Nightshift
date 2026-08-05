@@ -23,7 +23,15 @@
 
 ## Next exact action
 
-### M3b is underway on `m3b-eligibility-gate`. Tasks 1–4 are done. Next: Task 5 — repair what Task 1 measured, each step on its own.
+### M3b is underway on `m3b-eligibility-gate`. Tasks 1–5 are done. Next: Task 6 — `domain/eligibility.py`, the gate itself.
+
+**[PR #11](https://github.com/Tahmudun/Nightshift/pull/11) is open as a draft,
+and that is deliberate.** Seven CI runs in this project have failed and every
+one found something no local command had executed; waiting until the end of a
+twelve-task milestone to learn that is the expensive version. CI now runs on
+every push. It was **green on all five jobs** at `bcf5f58`, run
+[31052329000](https://github.com/Tahmudun/Nightshift/actions/runs/31052329000),
+covering Tasks 1–4.
 
 The plan is `docs/plans/2026-08-05-m3b-eligibility-gate.md`. Two decisions the
 human took on 2026-08-05 before planning: role families are the eight tech
@@ -385,7 +393,107 @@ left to be noticed.**
 
 ---
 
-### After M3b Task 4: the rest of the M3b plan.
+## M3b Task 5 — four repairs, each measured on its own
+
+```
+Task 1 baseline                          degree 0.567   enrollment 0.317
++ curly apostrophe in the degree words   degree 0.700
++ "or an equivalent" broadened           degree 0.733
++ "minimum education" heading harvested  degree 0.850
++ enrollment stops requiring "currently"                enrollment 0.483
+```
+
+**The technology numbers are unchanged at 0.847 / 0.861 / 0.915**, checked
+rather than assumed — adding a required heading is exactly the kind of change
+that could have moved M3a.1's figures.
+
+### The apostrophe: M3a.1's en-dash finding, in a different rule
+
+Akuna, Anthropic and IMC type the **curly** apostrophe in "Bachelor's degree",
+because that is what a rich-text editor produces. The pattern accepted only
+ASCII `'` and matched none of it. **21 of the 26 degree errors were postings
+whose degree sentence the extractor could not see at all.**
+
+Two of those came out `phd` against a labeled `bachelors`:
+
+```
+Requirements for this role: Pursuing a bachelor's, master's, or Ph.D.
+```
+
+`Ph.D` is the one spelling in that list with no apostrophe in it, so it was the
+only proposal and won by default. **A posting explicitly open to a bachelor's
+graduate read as a doctorate requirement** — the direction A13 ranks worst, and
+it was one migration away from being a wrong `ineligible`.
+
+Normalising the text to ASCII first would also have worked and was rejected:
+every proposal carries character offsets into `jobs.description_text`, and
+rewriting the string those offsets point at is how a span comes to quote
+something the posting never said. U+2019 happens to be one character wide so the
+offsets would have survived — but the rule is not "when the replacement is the
+same width", and the next such fix would not be.
+
+### Both new phrasings were harvested, not invented
+
+- **`minimum education`** occurs in exactly **15** postings — every Anthropic
+  posting in the corpus, which appends a `Logistics / Minimum education: ... /
+  Required field of study: ...` block to all of them. It is the last heading
+  before the degree sentence, so without it a posting whose own words are
+  *"Minimum education: Bachelor's degree"* was read as requiring **no degree**.
+- **`or an equivalent`** — A13's escape hatch. `or\s+(?:an?\s+)?equivalent`
+  matches 23 of 60 against the narrow form's 8. Missing one is the dangerous
+  direction: it turns "or an equivalent combination of education, training,
+  and/or experience" into a hard degree requirement.
+- **The enrollment rule required the word "currently"**, and 10 of the 11
+  postings labeled `enrollment_required: yes` do not use it. They write
+  *"Pursuing a bachelor's, master's, or Ph.D."* and *"Current university
+  student graduating between..."*. The replacement is anchored to a degree word,
+  because "pursuing excellence" is ordinary prose — the same prove-itself
+  discipline `_looks_like_a_heading` already applies to headings.
+
+### One metric was redefined rather than one rule tuned, and no label was edited
+
+**`enrollment_required`'s `no` and `not_stated` are not separable from the
+postings.** Among the 47 non-internship postings, 30 are labeled `no` and 17
+`not_stated`, and reading the descriptions the split is not driven by anything
+they say — a few `no` labels carry a note pointing at real text, most do not. To
+a person both mean the same thing: you do not have to be a student to apply.
+
+So the three-way figure measures a distinction that does not exist, and it would
+keep looking broken however good the rules got.
+
+```
+enrollment, as the gate asks it   0.983    59 right, 1 wrong
+enrollment, three-way             0.483    still printed, not gated
+```
+
+**No label was edited.** Rewriting 30 labels to lift a metric is exactly the
+move `matching.md` §1.1 forbids, and "with a recorded reason" would not make it
+a different move. The metric is redefined on the distinction that changes a
+verdict — the gate asks "must this person be enrolled", and a posting that is
+silent and a posting that says no produce the identical answer — and the
+three-way figure stays printed beside it so the change is visible rather than a
+quiet improvement.
+
+**This is the only floor in that file so far**, at 0.90. The other five stay
+reported and ungated until the repair pass is finished, because a floor set
+mid-repair is a floor that has to be edited again next week.
+
+### What is still wrong, and what it is waiting on
+
+```
+degree 0.850            9 left: 2 read `none` for `bachelors+equivalent`,
+                        2 read `bachelors+equivalent` for `none`
+graduation_window 0.917 all 5 are the `through-YYYY` form, which needs the
+                        words around the year and so needs the extractor
+min_years 0.883         "Required 10+ years delivering ..." — the rule needs
+                        the word "experience" within 40 characters and it is
+                        not there
+sponsorship 0.917       2 of the 5 are the deliberate `offered` tie-break
+```
+
+---
+
+### After M3b Task 5: the rest of the M3b plan.
 
 **PR #9 is merged.** `main` is at `452ec90`, checked against the PR rather than
 assumed. CI was green on all five jobs at `3fbffd6`, run
