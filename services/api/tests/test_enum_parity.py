@@ -35,6 +35,8 @@ from nightshift.db.base import (
     ProficiencyLevel,
     ProjectStatus,
     RemotePreference,
+    RequirementKind,
+    RequirementNecessity,
     ResumeSourceKind,
     ResumeVariant,
     SkillSourceType,
@@ -70,6 +72,12 @@ PAIRS: tuple[tuple[str, type[enum.Enum]], ...] = (
     ("applicationPrioritySchema", ApplicationPriority),
     ("applicationEventTypeSchema", ApplicationEventType),
     ("transitionClassSchema", TransitionClass),
+    # M3a. Added before the TypeScript existed, so the guard failed first and
+    # was seen to fail — the transcription was then checked by printing the
+    # Python members rather than reading them, which is how M2c's two defects
+    # were eventually found.
+    ("requirementKindSchema", RequirementKind),
+    ("requirementNecessitySchema", RequirementNecessity),
 )
 
 

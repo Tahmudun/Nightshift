@@ -7,6 +7,47 @@ the date, because the reasoning is usually worth more than the decision.
 
 ---
 
+## Q3 — Should CI pin its Python dependencies?
+
+**Raised:** 2026-08-05 (M3a.1) · **Type:** engineering policy · **Blocking:** no
+
+CI runs `pip install -e "services/api[dev]"` with no pin and no lockfile, so it
+installs whatever is newest on the day. On 2026-08-05 that was alembic 1.19.0,
+released with a new check-constraint comparator, and the migrations job went red
+on a branch that had not touched a migration in a week.
+
+**It was right to go red.** The drift it found was real and eleven migrations
+old — ten check constraints misnamed since 2026-07-29 (see PROGRESS). Pinning
+would have prevented that bug report, which is the strongest argument *against*
+pinning and the reason this is a question rather than a decision already taken.
+
+The cost of leaving it unpinned is that any library release can turn CI red on
+an unrelated PR, at a moment nobody chose. Today that cost a session's attention
+at the exact point the branch was ready to merge.
+
+The two are separable, and that is the useful framing:
+
+- **Reproducibility** — should a given commit build the same way in six months?
+  That argues for a lockfile.
+- **Early warning** — should this project learn about a breaking release from
+  its own CI rather than from a future upgrade? That argues for an unpinned job
+  somewhere, whether or not the main jobs are pinned.
+
+A common resolution is both: pin the jobs that gate merges, and run one
+scheduled unpinned job whose failure is informational. That costs a workflow
+file and a decision about who reads it.
+
+**Not blocking.** Nothing is pinned today and CI is green.
+
+### The related gap, which is not a question
+
+`make check` has never run a drift probe — the drift assertion exists only in
+CI, so "it passes locally" and "it passes in CI" were never the same claim about
+the schema. That is an engineering task rather than a human decision and it is
+recorded in PROGRESS as next work. It would not have caught this particular
+defect on alembic 1.18.5, but `tests/test_check_constraint_names.py` now does,
+on any version.
+
 ## Q2 — Deployment target for the M4 ship
 
 **Raised:** 2026-07-29 (M0) · **Type:** cost · **Blocking:** no

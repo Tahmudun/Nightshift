@@ -1,0 +1,32 @@
+{
+  "provenance": {
+    "endpoint": "https://boards-api.greenhouse.io/v1/boards/oldmissioncapital/jobs?content=true",
+    "recorded_at": "2026-08-04T09:17:34+00:00",
+    "board_token": "oldmissioncapital",
+    "http_status": 200,
+    "full_response_job_count": 34,
+    "note": "Each job object is byte-identical to the live response. Only the set of jobs was reduced (34 -> 16); nothing inside a job was edited, redacted, or synthesised."
+  },
+  "why_each_job_is_here": {
+    "7796180003": "internship in the title",
+    "7791877003": "new grad / university programme in the title",
+    "6309652003": "a graduation year stated numerically",
+    "7513238003": "a doctorate named as a requirement",
+    "6519353003": "a doctorate named as a requirement",
+    "7819322003": "'or equivalent experience' \u2014 the A13 escape hatch",
+    "6309309003": "'or equivalent experience' \u2014 the A13 escape hatch",
+    "6286727003": "a numeric years-of-experience requirement",
+    "6515984003": "a numeric years-of-experience requirement",
+    "5607340003": "a numeric years-of-experience requirement",
+    "6551116003": "a preferred / nice-to-have section, whose contents are not gaps",
+    "7790586003": "a preferred / nice-to-have section, whose contents are not gaps",
+    "7532685003": "a preferred / nice-to-have section, whose contents are not gaps",
+    "7792553003": "senior or above in the title \u2014 the seniority mismatch case",
+    "7790670003": "non-engineering role at a technical employer",
+    "4485649003": "non-engineering role at a technical employer"
+  },
+  "coverage_not_available_on_this_board": [
+    "sponsorship stated in writing",
+    "multi-level posting spanning an eligibility boundary"
+  ]
+}

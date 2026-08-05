@@ -1,0 +1,34 @@
+{
+  "provenance": {
+    "endpoint": "https://boards-api.greenhouse.io/v1/boards/anthropic/jobs?content=true",
+    "recorded_at": "2026-08-04T09:17:14+00:00",
+    "board_token": "anthropic",
+    "http_status": 200,
+    "full_response_job_count": 397,
+    "note": "Each job object is byte-identical to the live response. Only the set of jobs was reduced (397 -> 16); nothing inside a job was edited, redacted, or synthesised."
+  },
+  "why_each_job_is_here": {
+    "5101378008": "sponsorship stated in writing",
+    "5208218008": "sponsorship stated in writing",
+    "5357746008": "a doctorate named as a requirement",
+    "5362838008": "a doctorate named as a requirement",
+    "5192805008": "'or equivalent experience' \u2014 the A13 escape hatch",
+    "5339199008": "'or equivalent experience' \u2014 the A13 escape hatch",
+    "5215052008": "a numeric years-of-experience requirement",
+    "5076109008": "a numeric years-of-experience requirement",
+    "5226862008": "a numeric years-of-experience requirement",
+    "5176201008": "a preferred / nice-to-have section, whose contents are not gaps",
+    "5364336008": "a preferred / nice-to-have section, whose contents are not gaps",
+    "5358112008": "a preferred / nice-to-have section, whose contents are not gaps",
+    "5258579008": "senior or above in the title \u2014 the seniority mismatch case",
+    "5369181008": "senior or above in the title \u2014 the seniority mismatch case",
+    "5023394008": "non-engineering role at a technical employer",
+    "5183044008": "non-engineering role at a technical employer"
+  },
+  "coverage_not_available_on_this_board": [
+    "internship in the title",
+    "new grad / university programme in the title",
+    "a graduation year stated numerically",
+    "multi-level posting spanning an eligibility boundary"
+  ]
+}

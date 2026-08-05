@@ -8,7 +8,9 @@ local file is a suite that passes on one machine and fails in CI, so every
 from __future__ import annotations
 
 import json
+import uuid
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +26,8 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from nightshift.config import Settings, get_settings
+from nightshift.db.base import JobStatus
+from nightshift.db.models import Company, Job
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
 
@@ -87,6 +91,32 @@ def greenhouse_board_payload() -> dict[str, Any]:
 requires_db = pytest.mark.integration
 
 
+async def make_job_with_text(session: AsyncSession, text_: str | None) -> Job:
+    """A canonical job carrying ``text_`` as its description.
+
+    Lives here because it is now wanted in three places. `Job.company_id` is the
+    only required foreign key, so a company and a job is the whole fixture — no
+    source record, no link row. The company's `normalized_name` is randomised
+    because it is unique and these tests are not about company identity.
+    """
+    company = Company(canonical_name="Acme", normalized_name=f"acme {uuid.uuid4().hex[:8]}")
+    session.add(company)
+    await session.flush()
+    now = datetime.now(tz=UTC)
+    job = Job(
+        company_id=company.id,
+        title="Engineer",
+        normalized_title="engineer",
+        description_text=text_,
+        first_seen_at=now,
+        last_seen_at=now,
+        status=JobStatus.OPEN,
+    )
+    session.add(job)
+    await session.flush()
+    return job
+
+
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def db_engine() -> AsyncIterator[AsyncEngine]:
     """One engine per test session, bound to the project's own settings.
@@ -113,6 +143,12 @@ async def db_engine() -> AsyncIterator[AsyncEngine]:
 # below) and never outside the per-test transaction, so the truncation itself
 # is undone by the same rollback that undoes everything else.
 _INGESTION_TABLES = (
+    # M3a. Referenced by nothing, references `jobs` — added because the
+    # no-CASCADE choice below refused to truncate the moment this table
+    # started existing, which is the fifth milestone running that this list
+    # has been kept correct by the database rather than by somebody
+    # remembering.
+    "job_requirements",
     # M1b's three, listed first because they reference `jobs` and
     # `ingestion_runs`. Adding them here is not optional: the no-CASCADE choice
     # below means TRUNCATE fails loudly the moment a new table references one

@@ -96,3 +96,28 @@ def test_the_three_lever_i3_fixtures_exist() -> None:
     lever = FIXTURE_ROOT / "lever"
     for name in ("alloy_board", "plaid_empty_board", "ramp_unknown_board"):
         assert (lever / f"{name}.json").exists(), f"missing lever fixture {name}"
+
+
+def test_the_nine_eligibility_corpus_boards_exist() -> None:
+    """M3a's answer key is hand-labeled from these nine boards specifically.
+
+    Asserted by name rather than by count for the same reason as the lever
+    trio above: a suite that only counts files still passes when one board is
+    quietly dropped, and dropping a board silently shrinks the labeled corpus
+    without any test going red.
+    """
+    eligibility = FIXTURE_ROOT / "eligibility"
+    boards = (
+        "akunacapital_eligibility",
+        "anthropic_eligibility",
+        "databricks_eligibility",
+        "imc_eligibility",
+        "janestreet_eligibility",
+        "jumptrading_eligibility",
+        "oldmissioncapital_eligibility",
+        "openai_eligibility",
+        "point72_eligibility",
+    )
+    for name in boards:
+        assert (eligibility / f"{name}.json").exists(), f"missing eligibility fixture {name}"
+        assert (eligibility / f"{name}.meta.json").exists(), f"missing eligibility meta {name}"

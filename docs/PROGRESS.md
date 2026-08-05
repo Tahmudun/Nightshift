@@ -12,15 +12,487 @@
 **M2a: COMPLETE, reviewed, CI-green at `76190c8`, merged to `main` as PR #5 (`910027a`).**
 **M2b: COMPLETE, reviewed, CI-green at `6a10bb6`, merged to `main` as PR #6 (`2f984f3`).**
 **M2c: COMPLETE, reviewed, CI-green at `e63ec2f`, merged to `main` as PR #7 (`e42d612`).**
-**M2d: COMPLETE, reviewed, CI-green at `c6e5a97`, open as PR #8 and unmerged.**
-**Current milestone: M2 — the functional command center. M2d was the last slice; M2's deliverable list is complete.**
-**Last updated: 2026-08-04**
+**M2d: COMPLETE, reviewed, CI-green at `c6e5a97`, merged to `main` as PR #8 (`77e52ea`).**
+**M2: CLOSED. All four acceptance criteria verified, all four PRs merged.**
+**M3a: COMPLETE and reviewed. [PR #9](https://github.com/Tahmudun/Nightshift/pull/9) is open and CI is green at `90cdfda`.**
+**M3a.1: COMPLETE. Recall 0.459 → 0.861, precision 0.659 → 0.847, necessity 0.668 → 0.915.**
+**Current milestone: M3 — explainable matching. M3a.1 is done; M3b (the eligibility gate) is next.**
+**Last updated: 2026-08-05**
 
 ---
 
 ## Next exact action
 
-### Next: merge PR #8 (a human's call), then plan M3 — explainable matching.
+### Next: merge PR #9, then M3b — the eligibility gate.
+
+**PR #9 is open and CI is green on all five jobs**, run
+[31039059510](https://github.com/Tahmudun/Nightshift/actions/runs/31039059510).
+Counts read from the job logs rather than inferred:
+
+```
+python       5m11s   1282 passed
+e2e          2m50s   41 seeded passed, 1 skipped
+migrations   1m17s   up, down, up, and no drift
+web            59s   159 tests
+secret scan      7s
+```
+
+`headSha` is `3fbffd6ef6afb0cbdf29ff62c32386bdb727f7d0`, checked against the
+branch head rather than assumed. **1282 in CI matches 1282 locally**, so the
+database-backed tests really ran there too. The single e2e skip is the
+pre-existing honest one: `an unchanged board is not presented as a problem`
+needs a board that has answered `304`.
+
+`3fbffd6` is the last commit containing anything CI executes, so the pre-merge
+invariant is one command:
+
+```
+git diff 3fbffd6..HEAD --stat    # must list nothing outside docs/
+```
+
+**This branch took three CI runs, and only the first found anything** — the
+check-constraint defect below. The second and third were green first time.
+
+---
+
+## CI's first run on this branch, and the defect it found
+
+**The migrations job failed on the first run — the seventh CI failure in this
+project, and the seventh to find something no local command had executed.**
+
+The drift probe emitted forty operations. The cause was older than the branch:
+`NAMING_CONVENTION` in `nightshift/db/base.py` renders
+`ck_%(table_name)s_%(constraint_name)s`, five migrations wrote the *rendered*
+name into `name=` rather than the bare one, and `op.create_table` applies the
+convention to whatever it is given. **The database has carried
+`ck_jobs_ck_jobs_closed_at_matches_status` since 2026-07-29** while the models
+called it `ck_jobs_closed_at_matches_status`. Ten constraints, across `users`,
+`jobs`, `job_locations`, `job_source_links` and `ingestion_runs`.
+
+**The constraints were never wrong, only misnamed**, which is exactly why no
+behavioural test noticed — each enforces what it was written to enforce. Two of
+the ten were long enough that the doubled prefix pushed them past PostgreSQL's
+63-character limit and SQLAlchemy truncated them with a hash suffix
+(`ck_job_locations_ck_job_locations_confidence_matches_co_b8be`), so nobody
+could predict those names at all.
+
+**Why it surfaced on 2026-08-05 and not before, measured in both directions:**
+
+```
+alembic 1.18.5   0 autogenerate operations     <- the developer venv
+alembic 1.19.0   40 autogenerate operations    <- what CI installed that day
+```
+
+Alembic did not compare check constraints during autogenerate until 1.19.0. CI
+runs `pip install -e "services/api[dev]"` unpinned and picked the release up the
+day it shipped. **No local command could have found this**, and that is the
+finding worth keeping: `make check` never ran a drift probe at all, so local
+evidence and CI evidence were never the same claim.
+
+Fixed by migration `0012_check_constraint_names`, which renames all ten and
+reverses cleanly. `tests/test_check_constraint_names.py` is the guard that does
+**not** depend on an alembic version — it reads `pg_constraint` and
+`Base.metadata` directly. Both its assertions fail before the migration and pass
+after. The local venv is now on 1.19.0 so `make check` means what CI means.
+
+**A third assertion was written and deleted rather than kept green.** It flagged
+constraint names at the 63-character limit; the truncated names are 60, so it
+could not have caught this defect and guarded nothing the first test does not.
+
+### Still open, and deliberately not done in this session
+
+**`pip install -e` stays unpinned.** Pinning would have prevented this bug
+report, which is the argument against pinning. The real gap was that local and
+CI ran different versions with nobody noticing, and upgrading the venv closes
+that for now. **A `make` target that runs the drift probe locally does not
+exist and should** — it is the one CI assertion with no local counterpart.
+
+---
+
+## M3a.1 — COMPLETE. What moved, and what was measurement rather than progress
+
+**Recall 0.459 → 0.861. Precision 0.659 → 0.847. Necessity 0.668 → 0.915.
+Nice-to-haves reported as required: still 0, and now a stronger claim than it
+was.**
+
+Floors in CI are now **0.84 / 0.86 / 0.91**, set after measuring and just under
+what the extractor achieves.
+
+### The first change was not an improvement, and is recorded as such
+
+**The grader compared raw strings.** A posting the human labeled `GCP` scored as
+a miss *and* a false positive against an extractor that had correctly found it
+and emitted the vocabulary's canonical `Google Cloud`. Same technology,
+penalised twice. The same defect covered `python`/`Python`, `Pytorch`/`PyTorch`,
+`Golang`/`Go`, `Microsoft Azure`/`Azure`.
+
+That this was a defect rather than a decision is visible inside the one file:
+the necessity-accuracy loop already casefolded both sides while `score_sets` did
+not, so two metrics over the same labels disagreed about whether `python` and
+`Python` are the same word.
+
+Both sides now resolve through the same vocabulary, and **only a match spanning
+the whole term counts**. A substring rule would have resolved the label
+`Entra ID/Azure AD` to `Azure` — it contains the word — merging Microsoft's
+identity product into its cloud platform. Measured: the substring rule collapses
+two distinct labels into one on `akunacapital/8047104`; the whole-term rule
+collapses none.
+
+```
+before, raw strings         precision 0.659  recall 0.459  necessity 0.668
+after, both canonicalised   precision 0.706  recall 0.492  necessity 0.683
+```
+
+**No extraction rule changed between those two lines.** The human's decision on
+2026-08-05 was to fix it, re-baseline, and keep the old numbers on record so
+nobody reads the jump as the extractor improving.
+
+### It also un-hid a real violation that had never been at zero
+
+`test_no_nice_to_have_is_ever_reported_as_required` reported **0 violations**
+before this change and **1** immediately after: Databricks 8290810002, where the
+human labeled `Apache Spark` a nice-to-have and the extractor called canonical
+`Spark` required. The raw-string comparison could not see it because the strings
+differ. **The assertion with no floor had never actually been at zero** — it was
+at zero the way a test that cannot fail is at zero.
+
+Chasing it found the deeper defect. The "heading" governing that sentence was
+the bare word *requirements* occurring in prose — "requirements, when we ingest
+terabytes per second across 100…" — because `_REQUIRED_HEADINGS` matched
+anywhere in the text.
+
+### The rule that fixed it already existed, one directory away
+
+`scripts/make_label_worksheet.py` has demanded since its first real run that an
+ambiguous heading **prove itself** — a colon follows, it is capitalised, or it
+opens a sentence — after *30 of 60* worksheet excerpts anchored inside ordinary
+prose. **The extractor was graded against an answer key built with that rule
+while using a looser one itself.** Now ported, with the same ambiguous list.
+
+One correction the port needed, found by measuring rather than supposing:
+Databricks writes `[Preferred] Experience using ... Apache Spark`, and with
+brackets absent from the sentence-opener set that heading failed its own proof,
+the preferred block never opened, and Apache Spark was reported required on two
+*more* postings. `[` and `(` were added to both files, which stay identical on
+purpose.
+
+### Each step measured on its own, so the movement is attributable
+
+```
+canonicalised comparison (measurement)   0.706 / 0.492 / 0.683
++ headings must prove themselves         0.700 / 0.516 / 0.693
++ a bracketed heading is a heading       0.716 / 0.516 / 0.704
++ skills.yaml gains 33 terms             0.800 / 0.820 / 0.889
++ VPNs, firewalls, Entra ID aliases      0.805 / 0.844 / 0.905
++ "candidates must be" heading           0.784 / 0.861 / 0.915
++ React and Outlook case-sensitive       0.847 / 0.861 / 0.915
+```
+
+**The sixth line cost precision** and was kept anyway, because the two postings
+behind it say "Candidates must be: Fluent in Python programming" — the extractor
+was getting a plain statement wrong. The seventh line then returned the
+precision and more, from a defect the sixth made visible.
+
+### Two ordinary English words were required technologies
+
+Found by grading, not by reading:
+
+- **`react`** — "the ability to react quickly and accurately to rapidly changing
+  market conditions" is a line in four Akuna trading postings, and bare `react`
+  made the JavaScript library a **required** technology on eight postings that
+  never mention it.
+- **`outlook`** — "eager to solve challenging problems with a pragmatic outlook"
+  made the mail client required on two Jump research postings. This one was
+  self-inflicted, added earlier in the same session.
+
+Both are now `case_sensitive: true`, which is the rule `skills.yaml` already
+documented for `Go` and `Rust` and which nobody had applied to these.
+
+### The heading was harvested, not invented
+
+Per the lesson Task 7 paid for. A harvest of heading-shaped phrases across the
+60 labeled postings found `candidates must be` in exactly the 2 postings whose
+`Python` was missing. The same harvest is what kept the other candidates out —
+`the impact you will have`, `your core responsibilities` and `visa sponsorship`
+are heading-shaped and are not requirements headings.
+
+### What is still missed, and why it is a decision rather than a gap
+
+17 of 122 labeled required technologies. Every one is a term `data/skills.yaml`
+deliberately does not carry:
+
+```
+ACI 318, ASCE 7, IBC, IFC, AISC, FM Global     structural engineering codes
+Kyriba, GTreasury, Trovata, TMS, Quantum       treasury management systems
+US GAAP, IFRS                                  accounting standards
+MS Office, Word                                too ambiguous to match safely
+Excel, Google Sheets (1 posting)               a necessity call, not a miss
+```
+
+**The vocabulary is what the product knows, and it is a NYC *tech* product.**
+Building codes and accounting standards are real requirements of real postings
+in the corpus and they are not software skills; adding them would raise recall
+by teaching the product a domain it does not serve. `Word` and `MS Office` are
+left out for the reason `skills.yaml` already leaves out bare `node` and bare
+`rest` — the word is too ordinary to match without inventing requirements.
+
+This is a cap on recall and it is stated rather than papered over.
+
+### `skills.yaml` is shared with resume extraction, and that was checked
+
+34 entries were added, so a resume can now propose `SIEM` or `CUDA` too — that is
+intended. What was verified rather than assumed: the fixture resume produces
+**16 proposals before and 16 after, identical but for the vocabulary version**.
+The additions introduce zero spurious resume proposals.
+
+### `EXTRACTOR_VERSION` moved to `m3a.2`, and stored rows lag
+
+The rules changed, so the stamp changed. **Rows written by `m3a.1` keep that
+value until their posting is re-seeded or its description moves** — the
+description-change trigger cannot help, because the text is identical and only
+the rules changed. `make seed` refreshes them, and `make acceptance` confirms
+`m3a.2` on the seeded corpus.
+
+`sync_requirements`'s docstring claimed "the backfill script calls it". **There
+is no backfill script** — the ninth instance in this project of a claim that
+went stale in the direction nobody re-reads. Corrected to say what is true.
+
+### What must not happen
+
+**Do not tune against the answer key by editing the answer key.** It was
+committed before any extraction rule existed, and that ordering is the only
+reason these numbers mean anything. If a label looks wrong, it is fixed with a
+recorded reason in the review, never quietly. **No label was edited in M3a.1.**
+
+**All twelve M3a tasks are done and committed.** The three commands were run
+locally at the branch head and their counts are read from the output, not
+inferred:
+
+```
+make check        1280 Python, 159 web, ruff/mypy/eslint/tsc clean
+make acceptance   57 verify checks + 41 seeded browser tests, 1 skip
+make test-e2e     5 degraded-path tests        <- the third command, run separately
+alembic           down, up, no drift; both triggers present after the cycle
+```
+
+**`make acceptance` was run three times back to back and passed all three**,
+which is the idempotency evidence rather than a hope about it. The single e2e
+skip is the pre-existing honest one: `an unchanged board is not presented as a
+problem` needs a board that has answered `304`.
+
+**CI has not run on this branch.** Every previous milestone's PROGRESS entry at
+this point carried a CI result; this one cannot. Six CI runs across this project
+have failed and every one found something no local command had executed, so the
+three green commands above are evidence about this machine and not yet evidence
+about the branch. Pushing alone does not change that — see the top of this
+section.
+
+Once CI has run, the invariant this project learned twice applies before
+merging — name the last commit CI executed, and check nothing outside `docs/`
+follows it:
+
+```
+git diff <that-sha>..HEAD --stat    # must list nothing outside docs/
+```
+
+### What M3a is
+
+The reading half of matching, and nothing else. A posting's requirements are
+extracted by rules, stored with the characters they came from, and shown on the
+job page quoting the posting's own words. **Nothing is compared against a person
+yet** — no eligibility gate, no score, no `uncertain`.
+
+| Task | Commit | What it did |
+|---|---|---|
+| 1 | `c577d56` | Fixture selectors by eligibility shape, not location |
+| 2 | `6a9b7cf` | Nine boards recorded, 153 postings |
+| 3 | `b297c36`¹ | The labeling worksheet — six fix rounds, each measured |
+| 4 | `9929aa0` | The answer key's schema, loader, and the two gate tests |
+| 4b | `0f10284` | The key filled: 60 postings × 9 fields, audited |
+| 5 | `44a70e7`² | `job_requirements`, migration `0011`, both triggers |
+| 6 | `3722026` | The extractor — every proposal carrying its span |
+| 6b | `7eb3750` | `match_all`, which keeps repeated occurrences |
+| 7 | `7134094` | Grading against the answer key, and the rules it demanded |
+| 8 | `7c950d5` | `sync_requirements` — extraction follows the description |
+| 9 | `7f52a8f` | `GET /jobs/{id}` returns requirements with their spans |
+| 10 | `38d5e69` | The job page, the Zod refinement, the parity guard |
+| 11 | `7cff577` | The fifth coverage blind spot |
+| 12 | this | The browser walk, `verify.py`, ADR 0015, the review |
+
+¹ Task 3 landed across five commits of fix rounds; `b297c36` is the last.
+² Task 5's trigger fix landed separately in `aa0235b`.
+
+### The measured numbers
+
+**Extraction, graded against the 60-posting answer key.** The key was committed
+*before* any extraction rule existed, so this measures the rules rather than the
+choice of examples:
+
+**These are M3a's numbers, kept as they were when M3a closed. M3a.1 superseded
+them — see the section above for the current figures and for why part of the
+movement was the meter being fixed rather than the extractor improving.**
+
+```
+required technology   precision 0.659   recall 0.459   (tp 56, fp 29, fn 66)
+necessity accuracy    0.668             over 199 labeled technologies
+nice-to-haves reported as required      0            <- see below; this was wrong
+```
+
+Floors in CI at M3a: 0.65 / 0.45 / 0.66. Set *after* measuring, just under what
+the extractor achieves — a floor picked before measuring is either unreachable
+or vacuous and there is no way to tell which from the outside.
+
+**The last line of that block was not true**, and M3a.1 is what proved it. The
+comparison was raw-string, so a nice-to-have labeled `Apache Spark` reported as
+canonical `Spark` did not register as a violation. The honest M3a figure is 1,
+not 0.
+
+**The first measurement was 0.432 / 0.156 / 0.447**, with an imagined heading
+list. Setting a floor under that would have enshrined a broken extractor. The
+103 misses were split by cause first: 60 are terms `data/skills.yaml` does not
+carry and no rule can reach; 43 the extractor found and filed under the wrong
+necessity. Only the second kind is an extraction defect.
+
+**The answer key holds 60 postings across seven boards:**
+
+```
+akunacapital 15   anthropic 15   databricks 10   imc 7
+openai 8          jumptrading 3  janestreet 2
+```
+
+**What the corpus could not demonstrate**, from the union of the nine boards'
+`coverage_not_available_on_this_board` lists — the number is how many of the
+nine boards lack that shape:
+
+```
+multi-level posting spanning an eligibility boundary      8 of 9
+sponsorship stated in writing                             4 of 9
+new grad / university programme in the title              3 of 9
+internship in the title                                   2 of 9
+a preferred section whose contents are not gaps           2 of 9
+senior or above in the title — the seniority mismatch     1 of 9
+a graduation year stated numerically                      1 of 9
+internship employmentType                                 1 of 9
+```
+
+The first line is the important one. **A posting spanning an eligibility
+boundary is absent from eight of nine boards**, so the case A13 calls hardest —
+a role open to both a new grad and a senior — is the one the answer key can say
+least about. M3b must not read its grading as evidence there.
+
+### The queue's own acceptance, measured
+
+`check_job_requirements` in `make acceptance`, compared **before and after**
+rather than against an absolute state:
+
+```
+✓ the job detail answers                          HTTP 200, 4 required, 5 preferred
+✓ requirements carry an extractor version         m3a.1
+✓ every span quotes the description it points at  9 spans
+✓ no single span is both required and preferred   4 required, 5 preferred
+✓ changing the description clears the old rows    9 -> 0
+✓ a description change replaces the requirements  9 -> 1
+✓ the job is left as it was found                 nothing is left behind
+```
+
+**Its first version passed with nothing on either side.** It picked the first
+posting with any requirements; that posting's three rows were all `mentioned`,
+so the necessity line read "0 required, 0 preferred" and ticked green. It now
+prefers a posting that can fail the check and prints the mix either way, so a
+vacuous case is visible in the output rather than hidden behind a passing line.
+
+### What M3a found that the plan did not predict
+
+Eleven in Tasks 8–12 and **eight were in code or tests that reported success** —
+the ninth milestone running. Tasks 1–7's are in their commit messages. Full
+detail in `docs/reviews/milestone-3a-review.md`; the four worth reading here:
+
+1. **The plan credited the wrong guard, and measuring said so.** The plan said
+   delete-then-insert is what keeps a span honest when a description changes.
+   It is not — Task 5's `jobs_description_change_clears_requirements` trigger
+   already does, and **removing the delete leaves every description-change test
+   green**. The delete's real job is idempotency: a second sync over unchanged
+   text re-emits the same `(kind, value, char_start)` tuples and the unique
+   constraint rejects them. This matters beyond a docstring — a reader who
+   believes the delete is the integrity guarantee will delete the trigger,
+   because the trigger looks redundant. It is the other way round.
+2. **An unconditional re-extract on the update path churns invisibly.**
+   Identical row counts, every row replaced, `created_at` reset across the
+   corpus each time any board answers. A salary edit changes fields and moves
+   no character. Gated on the description hash; the guard compares row **ids**
+   rather than counts, because counts are exactly what this failure preserves.
+3. **A "not built" reason had gone stale, for the third milestone running.**
+   The `skill` filter still blamed the absence of the skill taxonomy, which
+   shipped at M2c. It is always the same direction: nobody re-reads that list
+   when the thing it waits on lands. The filter stays deferred for a reason
+   that is now measured — at 0.459 recall it would hide more than half the
+   postings that ask for a skill and return them as an empty result, which
+   reads as "no such job".
+
+   **That reason is itself now stale, one milestone later, in the same
+   direction.** M3a.1 took recall to 0.861, so "it would hide more than half"
+   is no longer true. The `skill` filter's deferral needs re-deciding on the
+   current number rather than inheriting this one — which is the fourth
+   milestone running that this exact pattern has appeared, and the first time
+   it has been caught in the same session that invalidated it.
+4. **A component-test fixture was a cast, not a check.**
+   `const BASE: JobDetail = {...}` asserts a shape without verifying one, so it
+   went stale the instant this milestone added two fields and said nothing —
+   the render crashed instead. Now parsed through `jobDetailSchema`. Second
+   time this project has shipped that exact mistake.
+
+### The mutation that should have failed and did not
+
+Moving the delete after the empty-text guard in `sync_requirements` fails
+**zero** tests. Chasing why is what produced finding 1 above. It is recorded
+because a mutation that survives is the more useful result and the one easiest
+to write off as "the mutation was not meaningful".
+
+### Not real yet — M3a
+
+- **Recall was 0.459 at M3a and is 0.861 after M3a.1.** The remaining 17 misses
+  are all terms `data/skills.yaml` deliberately does not carry — building codes,
+  treasury systems, accounting standards — and that cap is a decision recorded
+  in the M3a.1 section above, not a gap waiting to be closed.
+- **Necessity accuracy was 0.668 at M3a and is 0.915 after M3a.1.** It is not
+  1.0, so some technologies are still filed under the wrong heading. **The job
+  page makes this visible rather than hiding it**: measured on the seeded
+  corpus at M3a, 2 of 32 rows shown as `required` sat beside a quoted sentence
+  that itself says "preferred" or "a plus". A reader can see the disagreement
+  because the sentence is printed next to the claim. That is the argument for
+  showing the quote. **That 2-of-32 count was measured before M3a.1 and has not
+  been re-measured since** — the numbers behind it moved and this line has not.
+- **The answer key is model-labeled, not human-verified.** Two `+equivalent`
+  calls read an escape hatch worded without the word "equivalent" — Akuna
+  8035515's *"or evidence of mathematical and quantitative skill"* and OpenAI
+  8fb1615c's *"or have a demonstrated track record"*. Both are kept, because
+  `+equivalent` resolves to `uncertain` and the alternative tells a qualified
+  person they are blocked. They are the two entries most likely to be wrong.
+- **93 of the 153 recorded postings are committed and unlabeled.** Deliberate:
+  the payloads are real and cheap to keep, and re-recording later costs a
+  network round against nine live boards.
+- **`has_equivalence` is stored and read by nothing** but the tests and a badge
+  on the job page. A13 requires M3b's gate resolve it to `uncertain` rather
+  than `ineligible`; storing it now is what makes that possible without
+  re-extracting.
+- **The `jobs_description_change_clears_requirements` trigger is guarded by
+  exactly one test.** Dropping it turns exactly that one red. Thin for a
+  structural guarantee, and recorded rather than padded — its whole purpose is
+  the writer that does *not* call `sync_requirements`.
+- **Everything in `matching.md` §9 is M3b or later**: the eligibility gate, the
+  score and its components, role-family and seniority classification, the
+  project evidence graph, and the `uncertain` resolution. None is stubbed.
+
+### The M3a plan
+
+`docs/plans/2026-08-04-m3a-answer-key.md`. Two merged remote branches are still
+there — `origin/m2c-profile-and-resume` and `origin/m1a-provider-breadth` — both
+fully merged into `main` with nothing ahead. Deleting them needs a permission
+this session did not have; it is one `git push origin --delete`.
+
+---
+
+### The M2d record, kept below
 
 All seven tasks are done, committed, pushed, and CI-green. The three commands
 were run locally at the branch head and their counts are read from the output,
@@ -1756,6 +2228,10 @@ presented to a user as working.
 
 | Thing | What it actually is | Real at |
 |---|---|---|
+| `data/skills.yaml` coverage against real postings | **Largely addressed at M3a.1, and the remainder is now a decision rather than a gap.** The vocabulary went from **73 entries to 107** — 34 added, counted from the file
+rather than from memory, because the commit message for this work says 36 and is
+wrong: ML frameworks (JAX, LangChain, HuggingFace, DSPy), accelerators (CUDA, ROCm, Triton, SYCL), HDLs (Verilog, VHDL, SystemVerilog), Windows/network/security administration (Active Directory, SIEM, EDR, SSO, MFA, VPN, DNS, TCP/IP, PowerShell, Windows, macOS, firewalls), and business systems (Salesforce, Google Sheets, Microsoft 365). Recall moved 0.459 → 0.861. **What is deliberately still absent**: structural engineering codes (ACI 318, ASCE 7, IBC, IFC, AISC, FM Global), treasury systems (Kyriba, GTreasury, Trovata, TMS), accounting standards (US GAAP, IFRS), and words too ordinary to match safely (`Word`, `MS Office`). Those are real requirements of real postings in the corpus and are not software skills — adding them would raise recall by teaching the product a domain it does not serve | Closed as vocabulary work. The residual absences are a scope decision, revisited only if the product's scope changes |
+| Eligibility answer key (`tests/fixtures/eligibility/labels.yaml`) | **Filled in, and model-labeled rather than human-verified.** All 60 postings × 9 fields were labeled 2026-08-04 by a browser-side Claude reading the recorded excerpts, with the web explicitly off — the grader compares against text the extractor also sees, so a label sourced from outside that text marks a correct extractor wrong. Audited on install: 0 of 199 named technologies absent from the posting text, and no sponsorship, graduation-window, internship or years claim unsupported by the text. Two `+equivalent` calls read an escape hatch worded without the word "equivalent" (`akunacapital/8035515`, `openai/8fb1615c…`) and are the entries most likely to be wrong. Not spot-checked by a human | Human spot-check of ~10 entries, unscheduled |
 | `FixtureGreenhouseAdapter` (`cli.py`) | Subclasses the real adapter, overrides only `fetch_board` to read a committed JSON file. Constructed with no HTTP client, so it cannot make a request. Attributed to source `greenhouse_fixture` with `source_type='fixture'`, badged **"committed fixture"** in the Operate UI. ADR 0004 | Permanent — this is the offline demo path, not a stopgap |
 | Geocoding | **Does not exist.** No coordinate has ever been written. Every location is `city_only`, `remote`, or `unknown`; `mappable_locations` reads 0 and the UI says "nothing geocoded yet" | M1 (NYC GeoSearch, A4) |
 | Dedupe similarity threshold | **Real, thinly calibrated, and now with one real-world data point.** `SIMILARITY_THRESHOLD = 0.85` was derived from three labelled pairs. M1d's live Datadog poll merged two genuine postings on `similar_description` at **0.864** — the first evidence from outside the labelled set, and it landed close to the line. One observation is not a calibration and nothing was changed on the strength of it, but it is the first sign the number is doing real work at a real boundary. Re-derive as the fixture set grows | Unscheduled; revisit when more live boards are polled |

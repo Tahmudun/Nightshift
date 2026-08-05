@@ -54,7 +54,12 @@ function contrast(foreground: string, background: string): number {
 
 // Every surface that text is actually placed on. ink-800 is the JobRow hover
 // state, so a colour must clear the threshold on the lightest of these too.
-const SURFACES = ['ink-950', 'ink-900', 'ink-800'] as const;
+//
+// M3a added ink-700, which had been a border shade everywhere until
+// `JobRequirements` used it as the fill of the "or equivalent" badge. It is the
+// lightest surface here and therefore the binding one: paper-faint clears it at
+// 4.63:1, with less than a shade to spare. Lightening ink-700 fails this.
+const SURFACES = ['ink-950', 'ink-900', 'ink-800', 'ink-700'] as const;
 
 describe('text colours meet WCAG AA on every surface they appear on', () => {
   // The three text weights. There is no fourth: see globals.css.

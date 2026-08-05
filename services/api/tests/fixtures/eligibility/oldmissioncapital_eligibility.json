@@ -1,0 +1,1055 @@
+{
+  "jobs": [
+    {
+      "absolute_url": "https://www.oldmissioncapital.com/careers/?gh_jid=7796180003",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_required",
+      "internal_job_id": 5791228003,
+      "location": {
+        "name": "Chicago, IL, United States"
+      },
+      "metadata": [
+        {
+          "id": 4658361003,
+          "name": "Employment Type",
+          "value": "Intern",
+          "value_type": "single_select"
+        },
+        {
+          "id": 5412626003,
+          "name": "Team Assignment",
+          "value": "TBD",
+          "value_type": "long_text"
+        }
+      ],
+      "id": 7796180003,
+      "updated_at": "2026-07-15T13:45:13-04:00",
+      "requisition_id": "294",
+      "title": "Software Engineer – 2027 Internship Program (June Start)",
+      "company_name": "Old Mission",
+      "first_published": "2026-07-15T13:45:13-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Old Mission is a global proprietary trading firm that leverages state-of-the-art technology and research to identify and execute profitable trading strategies across multiple asset classes around the world. Our offices in Chicago, New York, and London are all composed of naturally-curious individuals who thrive in a team environment and constantly strive for improvement.&lt;/p&gt;\n&lt;p&gt;Old Mission does not seek capital from outside investors, allowing us the flexibility to aggressively invest in our team members and keep them engaged in the firm’s growth.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;About the Position&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Our internship program is geared for current students who want to work alongside our talented software engineers creating impactful solutions to further the firm&#39;s market initiatives. We are&amp;nbsp;a smaller firm, which means you&#39;ll get to know the people you&#39;re working with and they&#39;ll get to know you. Responsibilities include supporting the development of C++ based trading applications and tools. You will be given hands-on projects that contribute to the firm&#39;s daily activities, giving you real exposure to how our business runs, not just observation. In this role, you&#39;ll have the opportunity to learn more about creative programming and the tools needed to support electronic trading. If you&#39;re looking to make an immediate contribution this summer and get a firsthand look at building out our business, feel free to apply today!&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;What you will get to do&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Gain exposure to how trading works, from the underlying theory to the systems and tools we build around it&lt;/li&gt;\n&lt;li&gt;Regular sessions with senior engineers covering the fundamentals of the systems and tools we use&lt;/li&gt;\n&lt;li&gt;Get direct feedback from the engineers you&#39;re working alongside, learning in real time&lt;/li&gt;\n&lt;li&gt;Work directly with engineers, traders, and other teams on projects that matter to the firm day to day&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Required Skills&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Currently pursuing a bachelor&#39;s or master&#39;s in Computer Science, Computer Engineering, or a similar technical field&lt;/li&gt;\n&lt;li&gt;Minimum 3.0 GPA&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;A strong work ethic and ability to adapt quickly in a fast-paced environment&lt;/li&gt;\n&lt;li&gt;At least junior standing, with a graduation date of December 2027 or May 2028&lt;/li&gt;\n&lt;li&gt;Comfortable with one or more of C++, Python or TypeScript&lt;/li&gt;\n&lt;li&gt;A solid grasp of computer science fundamentals: data structures, algorithms, systems&lt;/li&gt;\n&lt;li&gt;Genuine interest in markets and how software supports them&lt;/li&gt;\n&lt;li&gt;Ability to start the internship on June 1, 2027&lt;/li&gt;\n&lt;li&gt;No finance experience is required&lt;/li&gt;\n&lt;/ul&gt;\n&lt;div class=&quot;p-rich_text_section&quot;&gt;&lt;strong data-stringify-type=&quot;bold&quot;&gt;Benefits and Perks&lt;/strong&gt;&lt;/div&gt;\n&lt;ul class=&quot;p-rich_text_list p-rich_text_list__bullet&quot; data-stringify-type=&quot;unordered-list&quot; data-indent=&quot;0&quot; data-border=&quot;0&quot;&gt;\n&lt;li&gt;Fully stocked kitchen; free breakfast and lunch every day on-site&lt;/li&gt;\n&lt;li&gt;Corporate housing at no cost to you&lt;/li&gt;\n&lt;li&gt;Access to people across the firm — traders, researchers, and engineers&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Base Salary Range&lt;/strong&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;$150,000 - $200,000 - Salaries are based on numerous factors such as skills, experience, and education. For more information, reach out to your recruiter.&amp;nbsp;&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;p&gt;&lt;em&gt;Old Mission is not accepting unsolicited resumes from any staffing/search firms. All resumes submitted by staffing/search firms to any employee at Old Mission via-email, the Internet or directly without a valid signed search agreement will be deemed the sole property of Old Mission, and no fee will be paid in the event the candidate is hired by Old Mission.&lt;/em&gt;&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4170700003,
+          "name": "University",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4020496003,
+          "name": "Chicago, IL",
+          "location": "Chicago, IL, United States",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://www.oldmissioncapital.com/careers/?gh_jid=7791877003",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_required",
+      "internal_job_id": 5789113003,
+      "location": {
+        "name": "Chicago, IL, United States"
+      },
+      "metadata": [
+        {
+          "id": 4658361003,
+          "name": "Employment Type",
+          "value": "Full-time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 5412626003,
+          "name": "Team Assignment",
+          "value": "Recruiting",
+          "value_type": "long_text"
+        }
+      ],
+      "id": 7791877003,
+      "updated_at": "2026-07-07T15:30:36-04:00",
+      "requisition_id": "287",
+      "title": "University Recruiter",
+      "company_name": "Old Mission",
+      "first_published": "2026-07-07T15:17:30-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Old Mission is a global proprietary trading firm that leverages state-of-the-art technology and research to identify and execute profitable trading strategies across multiple asset classes around the world. Our offices in Chicago, New York, and London are all composed of naturally-curious individuals who thrive in a team environment and constantly strive for improvement.&lt;/p&gt;\n&lt;p&gt;Old Mission does not seek capital from outside investors, allowing us the flexibility to aggressively invest in our team members and keep them engaged in the firm’s growth.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;About the Position&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Old Mission is recruiting for a University Recruiter to join our Chicago office. As a University Recruiter, you will play a pivotal role in identifying, engaging, and recruiting top talent from universities and colleges to join Old Mission. You will serve as a brand ambassador on campus, building relationships with students, faculty, and career services offices to ensure a robust pipeline of talent. This role offers a unique opportunity to shape the future of our organization by bringing in diverse perspectives and skill sets from the next generation of professionals. This position offers a dynamic opportunity to showcase your recruitment skills, creativity, and passion for connecting with students around the globe.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Responsibilities&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Develop and implement comprehensive campus recruitment strategies aligned with business objectives and talent needs&lt;/li&gt;\n&lt;li&gt;Identify target schools and programs to focus recruitment efforts effectively&lt;/li&gt;\n&lt;li&gt;Serve as main point of contact for candidates during their interview process&lt;/li&gt;\n&lt;li&gt;Utilize a variety of sourcing methods, including campus events, job postings, social media, and referrals, to attract high-potential candidates&lt;/li&gt;\n&lt;li&gt;Screen resumes, conduct initial interviews, and assess candidates&#39; qualifications and cultural fit&lt;/li&gt;\n&lt;li&gt;Track and analyze recruitment metrics and KPIs to measure the effectiveness of campus recruitment initiatives&lt;/li&gt;\n&lt;li&gt;Generate reports and insights to inform decision-making and optimize future recruitment strategies&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Required Skills&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Bachelor’s degree&lt;/li&gt;\n&lt;li&gt;2+ years of experience campus recruiting, talent acquisition, or related role&lt;/li&gt;\n&lt;li&gt;Exceptional attention to detail and strong time management and multi-tasking skills&lt;/li&gt;\n&lt;li&gt;Ability to create a thoughtful hiring experience for both new-graduates and interns&lt;/li&gt;\n&lt;li&gt;Excellent communication and presentation skills, both written and verbal&lt;/li&gt;\n&lt;li&gt;Ability to manage multiple priorities and deadlines effectively&lt;/li&gt;\n&lt;li&gt;Desire to work in a fast-paced environment&lt;/li&gt;\n&lt;li&gt;Proficiency in MS Office Suite and applicant tracking systems&lt;/li&gt;\n&lt;li&gt;Willingness to travel to campuses and attend recruitment events as needed&lt;/li&gt;\n&lt;/ul&gt;\n&lt;div&gt;&lt;strong&gt;Benefits and Perks&lt;/strong&gt;&lt;/div&gt;\n&lt;ul data-stringify-type=&quot;unordered-list&quot; data-indent=&quot;0&quot; data-border=&quot;0&quot;&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Fully paid Medical, Dental, Vision, Disability, and Life Insurance&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Fully stocked kitchen; free breakfast and lunch every day on-site&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Tuition Reimbursement Program&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;401(k) with employer match&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Flexible Spending Plan&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Commuter Benefit Program&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;&lt;span data-contrast=&quot;auto&quot;&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;Base Salary Range &lt;/span&gt;&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;335559738&amp;quot;:0,&amp;quot;335559739&amp;quot;:0}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;$110,000 - $15&lt;/span&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;0&lt;/span&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;,000 - Salaries are based on&amp;nbsp;&lt;/span&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;numerous&lt;/span&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;&amp;nbsp;factors such as skills, experience, and education. Our compensation package also includes a discretionary bonus and a comprehensive benefits program for full-time employees.&amp;nbsp;&lt;/span&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;For more information, reach out to your recruiter.&lt;/span&gt;&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;p&gt;&lt;em&gt;Old Mission is not accepting unsolicited resumes from any staffing/search firms. All resumes submitted by staffing/search firms to any employee at Old Mission via-email, the Internet or directly without a valid signed search agreement will be deemed the sole property of Old Mission, and no fee will be paid in the event the candidate is hired by Old Mission.&lt;/em&gt;&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4029401003,
+          "name": "Operations",
+          "child_ids": [
+            4057340003,
+            4057341003,
+            4057342003,
+            4057343003
+          ],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4020496003,
+          "name": "Chicago, IL",
+          "location": "Chicago, IL, United States",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://www.oldmissioncapital.com/careers/?gh_jid=6309652003",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 5093731003,
+      "location": {
+        "name": "Chicago, IL, United States"
+      },
+      "metadata": [
+        {
+          "id": 4658361003,
+          "name": "Employment Type",
+          "value": "Full-time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 5412626003,
+          "name": "Team Assignment",
+          "value": "Options",
+          "value_type": "long_text"
+        }
+      ],
+      "id": 6309652003,
+      "updated_at": "2026-07-21T14:45:56-04:00",
+      "requisition_id": "202",
+      "title": "Junior Quantitative Researcher (Ph.D.)",
+      "company_name": "Old Mission",
+      "first_published": "2024-12-24T12:22:14-05:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Old Mission is a global proprietary trading firm that leverages state-of-the-art technology and research to identify and execute profitable trading strategies across multiple asset classes around the world. Our offices in Chicago, New York, and London are all composed of naturally-curious individuals who thrive in a team environment and constantly strive for improvement.&lt;/p&gt;\n&lt;p&gt;Old Mission does not seek capital from outside investors, allowing us the flexibility to aggressively invest in our team members and keep them engaged in the firm’s growth.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;About the Position&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;We are actively seeking a Junior Quantitative Researcher (Ph.D.) to join our Chicago office. In this role, you will collaborate directly with our options trading group, contributing to the enhancement of existing pricing models, and spearheading the development of cutting-edge models and tools. The primary focus will be on efficiently pricing volatility-based derivatives across diverse asset classes. As a key member of the team, you will actively participate in the options research idea generation process and may also take the lead in expanding the capabilities of the quant team to further enhance the options desk.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Responsibilities&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Conceptualize and implement cutting-edge derivative pricing models for single-asset derivatives, as well as pricing models for widely traded equity volatility products such as variance swaps, volatility swaps, and VIX options.&lt;/li&gt;\n&lt;li&gt;Evaluate existing options pricing models, scrutinizing aspects such as calibration accuracy and Greeks stability to identify any anomalies. Investigate and propose enhancements to address identified issues.&lt;/li&gt;\n&lt;li&gt;Develop more resilient and stable alternative options pricing models, including exploring and suggesting new parameterizations for the volatility surface and designing improved filtering rules for market data quotes during calibration.&lt;/li&gt;\n&lt;li&gt;Develop options specific research infrastructure and libraries in Python.&lt;/li&gt;\n&lt;li&gt;Analyze market data and microstructure to identify patterns, facilitating the exploration of trading ideas.&lt;/li&gt;\n&lt;li&gt;Actively participate in the idea generation process for options research, contributing insights and innovations.&lt;/li&gt;\n&lt;li&gt;Collaborate closely with traders, engaging in the analysis of data and jointly developing new tools and ideas to identify patterns in the market.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Required Skills&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Must have a Masters or Ph.D. in a quantitative discipline, encompassing fields such as computer science, engineering, physics, mathematics, statistics, or other hard sciences, with an anticipated graduation date of Summer 2027.&lt;/li&gt;\n&lt;li&gt;Proficient in derivatives and volatility modeling, including the construction and calibration of forward curves and volatility surfaces. Possess extensive knowledge of equity and index derivative products, including variance derivatives, VIX, and other related instruments. Experience with dividend swaps and futures is considered advantageous.&lt;/li&gt;\n&lt;li&gt;Must have programming skills in Python and C++ are a prerequisite&lt;/li&gt;\n&lt;li&gt;Demonstrated exceptional written and verbal communication skills, with the ability to manage multiple tasks in a time-sensitive, collaborative, and fast-paced environment.&lt;/li&gt;\n&lt;li&gt;A team-oriented problem solver with the capacity to thrive under pressure, exhibiting a genuine passion for the financial markets.&lt;/li&gt;\n&lt;li&gt;Highly organized, detail-oriented, and adept at managing multiple work streams concurrently.&lt;/li&gt;\n&lt;li&gt;Proven track record of trustworthiness and performance, consistently adhering to the highest ethical standards.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Benefits and Perks&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Fully paid Medical, Dental, Vision, Disability, and Life Insurance&lt;/li&gt;\n&lt;li&gt;Fully stocked kitchen; free breakfast and lunch every day on-site&lt;/li&gt;\n&lt;li&gt;Tuition Reimbursement Program&lt;/li&gt;\n&lt;li&gt;401(k) with employer match&lt;/li&gt;\n&lt;li&gt;Paid Vacation, Sick, and Parental leaves&lt;/li&gt;\n&lt;li&gt;Commuter and Flexible Spending Programs&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Base Salary Range&lt;/strong&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;$175,000 - $250,000 - Salaries are based on numerous factors such as skills, experience, and education. Our compensation package also includes a discretionary bonus and a comprehensive benefits program for full-time employees. For more information, reach out to your recruiter.&amp;nbsp;&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;p&gt;&lt;em&gt;Old Mission is not accepting unsolicited resumes from any staffing/search firms. All resumes submitted by staffing/search firms to any employee at Old Mission via-email, the Internet or directly without a valid signed search agreement will be deemed the sole property of Old Mission, and no fee will be paid in the event the candidate is hired by Old Mission.&lt;/em&gt;&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4029400003,
+          "name": "Trading",
+          "child_ids": [
+            4089706003,
+            4089710003,
+            4089716003,
+            4029403003
+          ],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4020496003,
+          "name": "Chicago, IL",
+          "location": "Chicago, IL, United States",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://www.oldmissioncapital.com/careers/?gh_jid=7513238003",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 5672552003,
+      "location": {
+        "name": "Chicago, IL, United States"
+      },
+      "metadata": [
+        {
+          "id": 4658361003,
+          "name": "Employment Type",
+          "value": "Full-time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 5412626003,
+          "name": "Team Assignment",
+          "value": "Options",
+          "value_type": "long_text"
+        }
+      ],
+      "id": 7513238003,
+      "updated_at": "2026-07-21T14:43:57-04:00",
+      "requisition_id": "260",
+      "title": "Quantitative Researcher (Experienced - Ph.D.)",
+      "company_name": "Old Mission",
+      "first_published": "2026-03-16T11:46:58-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Old Mission is a global proprietary trading firm that leverages state-of-the-art technology and research to identify and execute profitable trading strategies across multiple asset classes around the world. Our offices in Chicago, New York, and London are all composed of naturally-curious individuals who thrive in a team environment and constantly strive for improvement.&lt;/p&gt;\n&lt;p&gt;Old Mission does not seek capital from outside investors, allowing us the flexibility to aggressively invest in our team members and keep them engaged in the firm’s growth.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;About the Position&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;We are actively seeking a Quantitative Researcher (Ph.D.) to join our Chicago office. In this role, you will collaborate directly with our options trading group, contributing to the enhancement of existing pricing models, and spearheading the development of cutting-edge models and tools. The primary focus will be on efficiently pricing volatility-based derivatives across diverse asset classes. As a key member of the team, you will actively participate in the options research idea generation process and may also take the lead in expanding the capabilities of the quant team to further enhance the options desk.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Responsibilities&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Conceptualize and implement cutting-edge derivative pricing models for single-asset derivatives, as well as pricing models for widely traded equity volatility products such as variance swaps, volatility swaps, and VIX options.&lt;/li&gt;\n&lt;li&gt;Evaluate existing options pricing models, scrutinizing aspects such as calibration accuracy and Greeks stability to identify any anomalies. Investigate and propose enhancements to address identified issues.&lt;/li&gt;\n&lt;li&gt;Develop more resilient and stable alternative options pricing models, including exploring and suggesting new parameterizations for the volatility surface and designing improved filtering rules for market data quotes during calibration.&lt;/li&gt;\n&lt;li&gt;Develop options specific research infrastructure and libraries in Python.&lt;/li&gt;\n&lt;li&gt;Analyze market data and microstructure to identify patterns, facilitating the exploration of trading ideas.&lt;/li&gt;\n&lt;li&gt;Actively participate in the idea generation process for options research, contributing insights and innovations.&lt;/li&gt;\n&lt;li&gt;Collaborate closely with traders, engaging in the analysis of data and jointly developing new tools and ideas to identify patterns in the market.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Required Skills&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Must have a Masters or Ph.D. in a quantitative discipline, encompassing fields such as computer science, engineering, physics, mathematics, statistics, or other hard sciences.&lt;/li&gt;\n&lt;li&gt;Proficient in derivatives and volatility modeling, including the construction and calibration of forward curves and volatility surfaces. Possess extensive knowledge of equity and index derivative products, including variance derivatives, VIX, and other related instruments. Experience with dividend swaps and futures is considered advantageous.&lt;/li&gt;\n&lt;li&gt;Must have programming skills in Python and C++ are a prerequisite.&lt;/li&gt;\n&lt;li&gt;Demonstrated exceptional written and verbal communication skills, with the ability to manage multiple tasks in a time-sensitive, collaborative, and fast-paced environment.&lt;/li&gt;\n&lt;li&gt;A team-oriented problem solver with the capacity to thrive under pressure, exhibiting a genuine passion for the financial markets.&lt;/li&gt;\n&lt;li&gt;Highly organized, detail-oriented, and adept at managing multiple work streams concurrently.&lt;/li&gt;\n&lt;li&gt;Proven track record of trustworthiness and performance, consistently adhering to the highest ethical standards.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Benefits and Perks&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Fully paid Medical, Dental, Vision, Disability, and Life Insurance&lt;/li&gt;\n&lt;li&gt;Fully stocked kitchen; free breakfast and lunch every day on-site&lt;/li&gt;\n&lt;li&gt;Tuition Reimbursement Program&lt;/li&gt;\n&lt;li&gt;401(k) with employer match&lt;/li&gt;\n&lt;li&gt;Paid Vacation, Sick, and Parental leaves&lt;/li&gt;\n&lt;li&gt;Commuter and Flexible Spending Programs&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Base Salary Range&lt;/strong&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;$175,000 - $250,000 - Salaries are based on numerous factors such as skills, experience, and education. Our compensation package also includes a discretionary bonus and a comprehensive benefits program for full-time employees. For more information, reach out to your recruiter.&amp;nbsp;&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;p&gt;&lt;em&gt;Old Mission is not accepting unsolicited resumes from any staffing/search firms. All resumes submitted by staffing/search firms to any employee at Old Mission via-email, the Internet or directly without a valid signed search agreement will be deemed the sole property of Old Mission, and no fee will be paid in the event the candidate is hired by Old Mission.&lt;/em&gt;&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4029400003,
+          "name": "Trading",
+          "child_ids": [
+            4089706003,
+            4089710003,
+            4089716003,
+            4029403003
+          ],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4020496003,
+          "name": "Chicago, IL",
+          "location": "Chicago, IL, United States",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://www.oldmissioncapital.com/careers/?gh_jid=6519353003",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 5191972003,
+      "location": {
+        "name": "Chicago, IL, United States"
+      },
+      "metadata": [
+        {
+          "id": 4658361003,
+          "name": "Employment Type",
+          "value": "Full-time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 5412626003,
+          "name": "Team Assignment",
+          "value": "Fixed Income",
+          "value_type": "long_text"
+        }
+      ],
+      "id": 6519353003,
+      "updated_at": "2026-05-26T10:31:46-04:00",
+      "requisition_id": "219",
+      "title": "Quantitative Researcher (Fixed Income)",
+      "company_name": "Old Mission",
+      "first_published": "2025-03-24T10:33:06-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Old Mission is a global proprietary trading firm that leverages state-of-the-art technology and research to identify and execute profitable trading strategies across multiple asset classes around the world. Our offices in Chicago, New York, and London are all composed of naturally-curious individuals who thrive in a team environment and constantly strive for improvement.&lt;/p&gt;\n&lt;p&gt;Old Mission does not seek capital from outside investors, allowing us the flexibility to aggressively invest in our team members and keep them engaged in the firm’s growth.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;About the Position&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Old Mission Capital, a global quantitative proprietary trading firm, is currently hiring a talented Quantitative Researcher to join our growing Fixed Income operation. The ideal candidate will have experience trading fixed income assets, corporate bonds, and other debt instruments. This Quantitative Researcher will be familiar with building and improving the firm’s risk and pricing models, as well as understanding the risks in trading these assets.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Responsibilities&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Perform exploratory data analysis on various market datasets, including bond data, exchange quote data, and third-party pricing data, generate trading signals and evaluate how they might be applied.&lt;/li&gt;\n&lt;li&gt;Research and develop quantitative models to forecast bonds and commodities’ various metrics, including price, bid-ask spread, liquidity, etc, prototype predictive models, and perform regressions and other machine learning analysis to validate, backtest, and improve quantitative models.&lt;/li&gt;\n&lt;li&gt;Contribute to the development and continuous assessment of trade execution.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Required Skills&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Qualified candidates will have an advanced degree in a quantitative field (preferably a Ph.D. in engineering, statistics, mathematics or a hard science).&lt;/li&gt;\n&lt;li&gt;Candidates need to have exceptionally high mathematical and programming skills (must be proficient in Python, VBA, or R).&lt;/li&gt;\n&lt;li&gt;Strong quantitative, analytical, research-oriented and problem-solving skills.&lt;/li&gt;\n&lt;li&gt;Superior communication, both written and verbal, and has the ability to handle multiple tasks in a time-sensitive, fast-paced, collaborative, collegial environment.&lt;/li&gt;\n&lt;li&gt;Successful candidates will have a passion for the financial markets and will have an entrepreneurial mindset as the team is growing and this individual will be a value-added contributor who will have an immediate impact.&lt;/li&gt;\n&lt;li&gt;Demonstrated experience in US corporate bonds is required.&lt;/li&gt;\n&lt;li&gt;Qualified candidates will have previous experience in TCA, execution quality assessment, and execution algorithms with a focus on US Credit.&lt;/li&gt;\n&lt;li&gt;Must have experience with credit pricing, credit curve models, and RFQ-based trading is desirable.&lt;/li&gt;\n&lt;li&gt;Must have experience with Bayesian filtering/Hidden Markov Models is desirable.&lt;/li&gt;\n&lt;li&gt;Intra-day credit curve modeling is a plus.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Benefits and Perks&lt;br&gt;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Fully paid Medical, Dental, Vision, Disability, and LIfe Insurance&lt;/li&gt;\n&lt;li&gt;Fully stocked kitchen; free breakfast and lunch every day on-site&lt;/li&gt;\n&lt;li&gt;Tuition Reimbursement Program&lt;/li&gt;\n&lt;li&gt;401(k) with employer match&lt;/li&gt;\n&lt;li&gt;Paid Vacation, Sick, and Parental leaves&lt;/li&gt;\n&lt;li&gt;Commuter and Flexible Spending Program&amp;nbsp;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Base Salary Range&amp;nbsp;&lt;/strong&gt;&lt;br&gt;$175,000 - $250,000 - Salaries are based on numerous factors such as skills, experience, and education. Our compensation package also includes a discretionary bonus&amp;nbsp;&lt;br&gt;and a comprehensive benefits program for full-time employees. For more information, reach out to your recruiter.&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;p&gt;&lt;em&gt;Old Mission is not accepting unsolicited resumes from any staffing/search firms. All resumes submitted by staffing/search firms to any employee at Old Mission via-email, the Internet or directly without a valid signed search agreement will be deemed the sole property of Old Mission, and no fee will be paid in the event the candidate is hired by Old Mission.&lt;/em&gt;&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4029400003,
+          "name": "Trading",
+          "child_ids": [
+            4089706003,
+            4089710003,
+            4089716003,
+            4029403003
+          ],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4020496003,
+          "name": "Chicago, IL",
+          "location": "Chicago, IL, United States",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://www.oldmissioncapital.com/careers/?gh_jid=7819322003",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 5801745003,
+      "location": {
+        "name": "Chicago, IL, United States"
+      },
+      "metadata": [
+        {
+          "id": 4658361003,
+          "name": "Employment Type",
+          "value": "Full-time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 5412626003,
+          "name": "Team Assignment",
+          "value": "HR",
+          "value_type": "long_text"
+        }
+      ],
+      "id": 7819322003,
+      "updated_at": "2026-07-28T18:45:04-04:00",
+      "requisition_id": "300",
+      "title": "Senior Compensation Manager",
+      "company_name": "Old Mission",
+      "first_published": "2026-07-28T18:45:04-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Old Mission is a global proprietary trading firm that leverages state-of-the-art technology and research to identify and execute profitable trading strategies across multiple asset classes around the world. Our offices in Chicago, New York, and London are all composed of naturally-curious individuals who thrive in a team environment and constantly strive for improvement.&lt;/p&gt;\n&lt;p&gt;Old Mission does not seek capital from outside investors, allowing us the flexibility to aggressively invest in our team members and keep them engaged in the firm’s growth.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;&lt;/p&gt;\n&lt;h4&gt;About This Role&lt;/h4&gt;\n&lt;p&gt;We&#39;re looking for a Senior Compensation Manager to lead compensation strategy and operations for the firm. This role owns the day-to-day design, analysis, and administration of our pay programs - from market benchmarking to pay equity to merit cycles - and serves as the go-to expert on compensation matters for HR and business leaders. You&#39;ll have real ownership over how we pay people, with the opportunity to shape and mature our total rewards programs as the firm grows. Just as important, this is a people-facing role. You&#39;ll sit across from candidates, employees, and managers to explain and, where appropriate, negotiate compensation directly - listening closely, building trust, and gathering the context that leads to better pay decisions.&lt;/p&gt;\n&lt;h4&gt;What You&#39;ll Do&lt;/h4&gt;\n&lt;ul&gt;\n&lt;li&gt;Partner with leadership in designing, benchmarking, and managing competitive compensation structures&lt;/li&gt;\n&lt;li&gt;Manage bonus and promotion cycles, including budget modeling and analysis&lt;/li&gt;\n&lt;li&gt;Analyze compensation trends and present findings/recommendations to leadership&lt;/li&gt;\n&lt;li&gt;Support benefits program administration and vendor relationships (with room to shape broader total rewards strategy over time)&lt;/li&gt;\n&lt;li&gt;Serve as the primary point of contact for compensation questions from employees, managers, and HR partners, and guide them through pay decisions in direct conversations&lt;/li&gt;\n&lt;li&gt;Communicate compensation decisions and the reasoning behind them directly to candidates and employees, and help shape how the firm frames and delivers pay conversations&lt;/li&gt;\n&lt;li&gt;Lead and support compensation negotiations for offers, promotions, and retention, balancing individual expectations against internal budget&lt;/li&gt;\n&lt;li&gt;Listen for and surface the information gathered during compensation conversations, feeding those insights back into strategy, program design, and market positioning&lt;/li&gt;\n&lt;li&gt;Own the company&#39;s participation in compensation surveys and lead market benchmarking for all roles&lt;/li&gt;\n&lt;li&gt;Build and maintain dashboards and reporting for compensation and total rewards metrics&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h4&gt;What We&#39;re Looking For&lt;/h4&gt;\n&lt;ul&gt;\n&lt;li&gt;8+ years of experience in compensation, HR analytics, or a related total rewards function&lt;/li&gt;\n&lt;li&gt;Strong Excel skills (pivot tables, VLOOKUP/XLOOKUP, modeling); advanced HRIS experience (ADP preferred)&lt;/li&gt;\n&lt;li&gt;Deep familiarity with compensation surveys (Radford, Mercer, Willis Towers Watson, etc.) and market pricing methodology&lt;/li&gt;\n&lt;li&gt;Solid understanding of pay equity principles and pay transparency regulations, with experience implementing related processes&lt;/li&gt;\n&lt;li&gt;Strong analytical and problem-solving skills with high attention to detail&lt;/li&gt;\n&lt;li&gt;Ability to handle sensitive/confidential data with discretion&lt;/li&gt;\n&lt;li&gt;Excellent communication skills, ability to translate data into clear recommendations for stakeholders and leadership, and to communicate pay decisions clearly and confidently in direct conversations with employees and candidates&lt;/li&gt;\n&lt;li&gt;Strong negotiation skills, with the ability to reach outcomes that work for both the individual and the firm&lt;/li&gt;\n&lt;li&gt;Strategic mindset - able to connect individual pay conversations and offers to the firm&#39;s broader compensation strategy and business goals&lt;/li&gt;\n&lt;li&gt;Strong active listening and interpersonal skills, with the ability to build trust and draw out important information during sensitive conversations&lt;/li&gt;\n&lt;li&gt;Demonstrated ability to independently own projects from analysis through implementation&lt;/li&gt;\n&lt;li&gt;Bachelor&#39;s degree in HR, Business, Finance, Accounting, Economics, or related field (or equivalent experience)&lt;/li&gt;\n&lt;li&gt;Certified Compensation Professional (CCP) certification preferred&lt;/li&gt;\n&lt;li&gt;Designing, benchmarking, and managing competitive, legally compliant compensation structures&lt;/li&gt;\n&lt;/ul&gt;\n&lt;h4&gt;Why This Role&lt;/h4&gt;\n&lt;p&gt;This is an opportunity to lead and shape total rewards strategy at a growing firm, with real visibility into leadership decisions and a clear path to expand scope as the function matures.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Benefits and Perks&lt;/strong&gt;&amp;nbsp;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Fully paid Medical, Dental, Vision, Disability, and Life Insurance&lt;/li&gt;\n&lt;li&gt;Fully stocked kitchen; free breakfast and lunch every day on-site&lt;/li&gt;\n&lt;li&gt;Tuition Reimbursement Program&lt;/li&gt;\n&lt;li&gt;401(k) with employer match&lt;/li&gt;\n&lt;li&gt;Paid Vacation, Sick, and Parental leaves&lt;/li&gt;\n&lt;li&gt;Commuter and Flexible Spending Programs&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Base Salary Range&lt;/strong&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;$150,000 - $250,000 - Salaries are based on numerous factors such as skills, experience, and education. Our compensation package also includes a discretionary bonus and a comprehensive benefits program for full-time employees. For more information, reach out to your recruiter.&amp;nbsp;&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;p&gt;&lt;em&gt;Old Mission is not accepting unsolicited resumes from any staffing/search firms. All resumes submitted by staffing/search firms to any employee at Old Mission via-email, the Internet or directly without a valid signed search agreement will be deemed the sole property of Old Mission, and no fee will be paid in the event the candidate is hired by Old Mission.&lt;/em&gt;&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4029401003,
+          "name": "Operations",
+          "child_ids": [
+            4057340003,
+            4057341003,
+            4057342003,
+            4057343003
+          ],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4020496003,
+          "name": "Chicago, IL",
+          "location": "Chicago, IL, United States",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://www.oldmissioncapital.com/careers/?gh_jid=6309309003",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 5093789003,
+      "location": {
+        "name": "New York, NY, United States"
+      },
+      "metadata": [
+        {
+          "id": 4658361003,
+          "name": "Employment Type",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 5412626003,
+          "name": "Team Assignment",
+          "value": "Systematic Equities",
+          "value_type": "long_text"
+        }
+      ],
+      "id": 6309309003,
+      "updated_at": "2026-05-26T10:31:46-04:00",
+      "requisition_id": "203",
+      "title": "Systematic Equity Trader ",
+      "company_name": "Old Mission",
+      "first_published": "2024-12-24T12:19:47-05:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Old Mission is a global proprietary trading firm that leverages state-of-the-art technology and research to identify and execute profitable trading strategies across multiple asset classes around the world. Our offices in Chicago, New York, and London are all composed of naturally-curious individuals who thrive in a team environment and constantly strive for improvement.&lt;/p&gt;\n&lt;p&gt;Old Mission does not seek capital from outside investors, allowing us the flexibility to aggressively invest in our team members and keep them engaged in the firm’s growth.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;About the Position&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Old Mission Capital, a global quantitative proprietary trading firm, is hiring a Systematic Equity Trader to work in our New York City office.&amp;nbsp; The Systematic Equity Trader will be responsible for developing and implementing systematic equity strategies.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Responsibilities&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Work closely with internal engineering and research teams to develop proprietary trading strategies, theoretical pricing models, and risk management techniques.&lt;/li&gt;\n&lt;li&gt;Collaborate with the team on intraday/short-term alpha research, focusing on idea generation, data gathering, research/analysis, and model implementation for systematic trading strategies.&lt;/li&gt;\n&lt;li&gt;Utilize sound financial insight and statistical learning techniques to explore, analyze, and harness a wide range of datasets building predictive models.&lt;/li&gt;\n&lt;li&gt;Design and implement short-term trading strategies using Python and C++ which use Old Mission’s low-latency trading infrastructure to produce superior risk-adjusted returns.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Required Skills&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Bachelor’s degree or equivalent degree in Computer Science, Engineering, Mathematics, Statistics, Finance, Economics, or a related technical or scientific field.&lt;/li&gt;\n&lt;li&gt;Extensive experience in quantitative/systematic trading, ideally in cash equities (domestic and foreign markets) or equity derivatives (futures, ETFs, etc).&lt;/li&gt;\n&lt;li&gt;Full stack trading strategy development skills and experience, including model/signal generation, strategy, execution, optimization, and risk management.&lt;/li&gt;\n&lt;li&gt;Ability to write software in Python, C++, or both.&lt;/li&gt;\n&lt;li&gt;Excellent written and oral communication skills.&lt;/li&gt;\n&lt;li&gt;Self-starter with a strong desire to build a successful trading desk at Old Mission.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Benefits and Perks&lt;/strong&gt;&lt;/p&gt;\n&lt;ul class=&quot;p-rich_text_list p-rich_text_list__bullet&quot; data-stringify-type=&quot;unordered-list&quot; data-indent=&quot;0&quot; data-border=&quot;0&quot;&gt;\n&lt;li&gt;Fully paid Medical, Dental, Vision, Disability, and Life Insurance&lt;/li&gt;\n&lt;li&gt;Fully stocked kitchen; free breakfast and lunch every day on-site&lt;/li&gt;\n&lt;li&gt;Tuition Reimbursement Program&lt;/li&gt;\n&lt;li&gt;401(k) with employer match&lt;/li&gt;\n&lt;li&gt;Paid Vacation, Sick, and Parental leaves&lt;/li&gt;\n&lt;li&gt;Commuter and Flexible Spending Programs&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Base Salary Range&lt;/strong&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;$150,000 - $225,000 - Salaries are based on numerous factors such as skills, experience, and education. Our compensation package also includes a discretionary bonus and a comprehensive benefits program for full-time employees. For more information, reach out to your recruiter.&amp;nbsp;&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;p&gt;&lt;em&gt;Old Mission is not accepting unsolicited resumes from any staffing/search firms. All resumes submitted by staffing/search firms to any employee at Old Mission via-email, the Internet or directly without a valid signed search agreement will be deemed the sole property of Old Mission, and no fee will be paid in the event the candidate is hired by Old Mission.&lt;/em&gt;&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4029400003,
+          "name": "Trading",
+          "child_ids": [
+            4089706003,
+            4089710003,
+            4089716003,
+            4029403003
+          ],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4020497003,
+          "name": "New York, NY",
+          "location": "New York, NY, United States",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://www.oldmissioncapital.com/careers/?gh_jid=6286727003",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 5083658003,
+      "location": {
+        "name": "Chicago, IL, United States"
+      },
+      "metadata": [
+        {
+          "id": 4658361003,
+          "name": "Employment Type",
+          "value": "Full-time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 5412626003,
+          "name": "Team Assignment",
+          "value": "Technology",
+          "value_type": "long_text"
+        }
+      ],
+      "id": 6286727003,
+      "updated_at": "2026-05-26T10:31:46-04:00",
+      "requisition_id": "197",
+      "title": "Bazel Engineer",
+      "company_name": "Old Mission",
+      "first_published": "2024-12-05T14:43:12-05:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Old Mission is a global proprietary trading firm that leverages state-of-the-art technology and research to identify and execute profitable trading strategies across multiple asset classes around the world. Our offices in Chicago, New York, and London are all composed of naturally-curious individuals who thrive in a team environment and constantly strive for improvement.&lt;/p&gt;\n&lt;p&gt;Old Mission does not seek capital from outside investors, allowing us the flexibility to aggressively invest in our team members and keep them engaged in the firm’s growth.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;About the position&amp;nbsp;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;As a Bazel Engineer, you will play a pivotal role in optimizing our software development process by leveraging Bazel&#39;s build system. You will collaborate with cross-functional teams to streamline our build, test, and deployment pipelines, ensuring scalability, efficiency, and reliability across our software projects.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Responsibilities&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Develop, configure, and maintain Bazel build rules, macros, and toolchains to enhance the software development workflow&lt;/li&gt;\n&lt;li&gt;Collaborate with software engineers to integrate Bazel into the build system and migrate existing projects&lt;/li&gt;\n&lt;li&gt;Optimize build performance and efficiency by identifying bottlenecks and implementing improvements&lt;/li&gt;\n&lt;li&gt;Design and implement CI/CD pipelines using Bazel for automated testing, building, and deployment&lt;/li&gt;\n&lt;li&gt;Troubleshoot build failures, resolve issues, and provide technical support to the development teams&lt;/li&gt;\n&lt;li&gt;Stay updated with the latest Bazel features, best practices, and industry trends to drive continuous improvement&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Required Skills&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Bachelor’s or Master’s degree in Computer Science, Engineering, or related field&lt;/li&gt;\n&lt;li&gt;Proven experience working with Bazel build system in a production environment&lt;/li&gt;\n&lt;li&gt;Experience optimizing Bazel builds for large-scale projects&lt;/li&gt;\n&lt;li&gt;Strong understanding of software development principles, build processes, and CI/CD methodologies&lt;/li&gt;\n&lt;li&gt;5+ years of professional C++ experience in a production environment is strongly preferred&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Experience with version control systems (Git, Mercurial, etc.) and build tools (Make, CMake, etc.)&lt;/li&gt;\n&lt;li&gt;Excellent problem-solving skills and the ability to analyze complex systems&lt;/li&gt;\n&lt;li&gt;Strong communication skills and the ability to collaborate effectively within a team environment&lt;/li&gt;\n&lt;li&gt;Knowledge of containerization technologies (Docker, Kubernetes)&lt;/li&gt;\n&lt;li&gt;Familiarity with continuous integration tools (Jenkins, Travis CI, CircleCI, etc.)&lt;/li&gt;\n&lt;li&gt;Contributions to open-source projects related to Bazel or similar build systems&lt;/li&gt;\n&lt;/ul&gt;\n&lt;div class=&quot;p-rich_text_section&quot;&gt;&lt;strong data-stringify-type=&quot;bold&quot;&gt;Benefits and Perks&lt;/strong&gt;&lt;/div&gt;\n&lt;ul class=&quot;p-rich_text_list p-rich_text_list__bullet&quot; data-stringify-type=&quot;unordered-list&quot; data-indent=&quot;0&quot; data-border=&quot;0&quot;&gt;\n&lt;li&gt;Fully paid Medical, Dental, Vision, Disability, and Life Insurance&lt;/li&gt;\n&lt;li&gt;Fully stocked kitchen; free breakfast and lunch every day on-site&lt;/li&gt;\n&lt;li&gt;Tuition Reimbursement Program&lt;/li&gt;\n&lt;li&gt;401(k) with employer match&lt;/li&gt;\n&lt;li&gt;Paid Vacation, Sick, and Parental leaves&lt;/li&gt;\n&lt;li&gt;Commuter and Flexible Spending Programs&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Base Salary Range&lt;/strong&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;$175,000 to $225,000 - Salaries are based on numerous factors such as skills, experience, and education. Our compensation package also includes a discretionary bonus and a comprehensive benefits program for full-time employees. For more information, reach out to your recruiter.&amp;nbsp;&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;p&gt;&lt;em&gt;Old Mission is not accepting unsolicited resumes from any staffing/search firms. All resumes submitted by staffing/search firms to any employee at Old Mission via-email, the Internet or directly without a valid signed search agreement will be deemed the sole property of Old Mission, and no fee will be paid in the event the candidate is hired by Old Mission.&lt;/em&gt;&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4029399003,
+          "name": "Technology",
+          "child_ids": [
+            4089707003,
+            4089708003,
+            4089709003,
+            4052543003
+          ],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4020496003,
+          "name": "Chicago, IL",
+          "location": "Chicago, IL, United States",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://www.oldmissioncapital.com/careers/?gh_jid=6515984003",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 5190701003,
+      "location": {
+        "name": "London"
+      },
+      "metadata": [
+        {
+          "id": 4658361003,
+          "name": "Employment Type",
+          "value": "Full-time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 5412626003,
+          "name": "Team Assignment",
+          "value": "Options\nResearch Infrastructure\nPosition System\nEquity System\nTrading Support",
+          "value_type": "long_text"
+        }
+      ],
+      "id": 6515984003,
+      "updated_at": "2026-07-09T17:20:48-04:00",
+      "requisition_id": "217",
+      "title": "C++ Software Engineer",
+      "company_name": "Old Mission",
+      "first_published": "2025-03-20T13:49:53-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Old Mission is a global proprietary trading firm that leverages state-of-the-art technology and research to identify and execute profitable trading strategies across multiple asset classes around the world. Our offices in Chicago, New York, and London are all composed of naturally-curious individuals who thrive in a team environment and constantly strive for improvement.&lt;/p&gt;\n&lt;p&gt;Old Mission does not seek capital from outside investors, allowing us the flexibility to aggressively invest in our team members and keep them engaged in the firm’s growth.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;About the Position&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Old Mission Capital LLC, is looking to add a C++ Software Engineer to join our team in London. In this role, you will be building and optimizing our current automated trading infrastructure, and you will also be tasked with working directly with our Traders and Quants to develop the next generation of the firm’s trading algorithms and strategies. Additionally, you will be responsible for creating and developing scalable multi-tiered applications. Our Software Engineers work on small collaborative teams and are a key component for our success.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Required Skills&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;BS/BA degree in Computer Science, Engineering, or another technical related field&lt;/li&gt;\n&lt;li&gt;7+ years of experience developing applications in modern C++&amp;nbsp;&lt;/li&gt;\n&lt;li&gt;Experience with C++ 11/14/17/20, Linux and Python and BASH scripting&lt;/li&gt;\n&lt;li&gt;In-depth knowledge of the Linux kernel, systems programming&lt;/li&gt;\n&lt;li&gt;A passion for solving challenging problems&lt;/li&gt;\n&lt;li&gt;Strong systems knowledge and prefer some experience in developing low latency systems&lt;/li&gt;\n&lt;li&gt;Experience with writing applications connecting to exchange API’s or using network protocols&lt;/li&gt;\n&lt;li&gt;Experience with parallel, concurrent, and multi-threaded programming&lt;/li&gt;\n&lt;li&gt;Prefer experience with low-latency computing and hardware-level design&lt;/li&gt;\n&lt;li&gt;Experience with Git, SVN, Mercurial&amp;nbsp;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;div class=&quot;p-rich_text_section&quot;&gt;&lt;strong data-stringify-type=&quot;bold&quot;&gt;Benefits and Perks&lt;/strong&gt;&lt;/div&gt;\n&lt;ul class=&quot;p-rich_text_list p-rich_text_list__bullet&quot; data-stringify-type=&quot;unordered-list&quot; data-indent=&quot;0&quot; data-border=&quot;0&quot;&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Competitive salary with discretionary annual bonus&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Fully paid private medical, dental, vision with extended coverage and life insurance&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Robust Pension Scheme, income protection, and salary exchange&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Fully stocked kitchen and free on-site lunch daily&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Season Ticket Loan Scheme&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Tuition Reimbursement Program&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Cycle to Work Scheme&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;p&gt;&lt;em&gt;Old Mission is not accepting unsolicited resumes from any staffing/search firms. All resumes submitted by staffing/search firms to any employee at Old Mission via-email, the Internet or directly without a valid signed search agreement will be deemed the sole property of Old Mission, and no fee will be paid in the event the candidate is hired by Old Mission.&lt;/em&gt;&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4029399003,
+          "name": "Technology",
+          "child_ids": [
+            4089707003,
+            4089708003,
+            4089709003,
+            4052543003
+          ],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4020503003,
+          "name": "London",
+          "location": "London",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://www.oldmissioncapital.com/careers/?gh_jid=5607340003",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_required",
+      "internal_job_id": 4793365003,
+      "location": {
+        "name": "Chicago, IL, United States"
+      },
+      "metadata": [
+        {
+          "id": 4658361003,
+          "name": "Employment Type",
+          "value": "Full-time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 5412626003,
+          "name": "Team Assignment",
+          "value": "Core Technology",
+          "value_type": "long_text"
+        }
+      ],
+      "id": 5607340003,
+      "updated_at": "2026-05-26T10:31:46-04:00",
+      "requisition_id": "109",
+      "title": "C++ Software Engineer ",
+      "company_name": "Old Mission",
+      "first_published": "2023-05-08T12:41:36-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Old Mission is a global proprietary trading firm that leverages state-of-the-art technology and research to identify and execute profitable trading strategies across multiple asset classes around the world. Our offices in Chicago, New York, and London are all composed of naturally-curious individuals who thrive in a team environment and constantly strive for improvement.&lt;/p&gt;\n&lt;p&gt;Old Mission does not seek capital from outside investors, allowing us the flexibility to aggressively invest in our team members and keep them engaged in the firm’s growth.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;About the Position&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Old Mission Capital LLC, is looking to add several C++ Software Engineers to join our team in Chicago. In this role, you will be building and optimizing our current automated trading infrastructure, and you will also be tasked with working directly with our Traders and Quants to develop the next generation of the firm’s trading algorithms and strategies. Additionally, you will be responsible for creating and developing scalable multi-tiered applications. Our Software Engineers work on small collaborative teams and are a key component for our success.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Required Skills&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;BS/BA degree in Computer Science, Engineering, or another technical related field&lt;/li&gt;\n&lt;li&gt;2+ years of experience developing applications in C++, preferably with high availability systems with very tight latency constraints&lt;/li&gt;\n&lt;li&gt;Experience with C++ 11/14/17/20, Linux and Python and BASH scripting&lt;/li&gt;\n&lt;li&gt;In-depth knowledge of the Linux kernel, systems programming&lt;/li&gt;\n&lt;li&gt;A passion for solving challenging problems&lt;/li&gt;\n&lt;li&gt;Strong systems knowledge and prefer some experience in developing low latency systems&lt;/li&gt;\n&lt;li&gt;Experience with writing applications connecting to exchange API’s or using network protocols&lt;/li&gt;\n&lt;li&gt;Experience with parallel, concurrent, and multi-threaded programming&lt;/li&gt;\n&lt;li&gt;Prefer experience with low-latency computing and hardware-level design&lt;/li&gt;\n&lt;li&gt;Experience with Git, SVN, Mercurial&amp;nbsp;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;div class=&quot;p-rich_text_section&quot;&gt;&lt;strong data-stringify-type=&quot;bold&quot;&gt;Benefits and Perks&lt;/strong&gt;&lt;/div&gt;\n&lt;ul class=&quot;p-rich_text_list p-rich_text_list__bullet&quot; data-stringify-type=&quot;unordered-list&quot; data-indent=&quot;0&quot; data-border=&quot;0&quot;&gt;\n&lt;li&gt;Fully paid Medical, Dental, Vision, Disability, and Life Insurance&lt;/li&gt;\n&lt;li&gt;Fully stocked kitchen; free breakfast and lunch every day on-site&lt;/li&gt;\n&lt;li&gt;Tuition Reimbursement Program&lt;/li&gt;\n&lt;li&gt;401(k) with employer match&lt;/li&gt;\n&lt;li&gt;Paid Vacation, Sick, and Parental leaves&lt;/li&gt;\n&lt;li&gt;Commuter and Flexible Spending Programs&lt;/li&gt;\n&lt;li&gt;In office M-F with 10 remote days per year&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Base Salary Range&lt;/strong&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;$175,000 - $300,000 - Salaries are based on numerous factors such as skills, experience, and education. Our compensation package also includes a discretionary bonus and a comprehensive benefits program for full-time employees. For more information, reach out to your recruiter.&amp;nbsp;&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;p&gt;&lt;em&gt;Old Mission is not accepting unsolicited resumes from any staffing/search firms. All resumes submitted by staffing/search firms to any employee at Old Mission via-email, the Internet or directly without a valid signed search agreement will be deemed the sole property of Old Mission, and no fee will be paid in the event the candidate is hired by Old Mission.&lt;/em&gt;&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4029399003,
+          "name": "Technology",
+          "child_ids": [
+            4089707003,
+            4089708003,
+            4089709003,
+            4052543003
+          ],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4020496003,
+          "name": "Chicago, IL",
+          "location": "Chicago, IL, United States",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://www.oldmissioncapital.com/careers/?gh_jid=6551116003",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 5203331003,
+      "location": {
+        "name": "Chicago, IL, United States"
+      },
+      "metadata": [
+        {
+          "id": 4658361003,
+          "name": "Employment Type",
+          "value": "Full-time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 5412626003,
+          "name": "Team Assignment",
+          "value": "Research Analyst on Options Desk",
+          "value_type": "long_text"
+        }
+      ],
+      "id": 6551116003,
+      "updated_at": "2026-05-26T10:31:46-04:00",
+      "requisition_id": "227",
+      "title": "Fundamental Research Analyst ",
+      "company_name": "Old Mission",
+      "first_published": "2025-04-22T10:08:21-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Old Mission is a global proprietary trading firm that leverages state-of-the-art technology and research to identify and execute profitable trading strategies across multiple asset classes around the world. Our offices in Chicago, New York, and London are all composed of naturally-curious individuals who thrive in a team environment and constantly strive for improvement.&lt;/p&gt;\n&lt;p&gt;Old Mission does not seek capital from outside investors, allowing us the flexibility to aggressively invest in our team members and keep them engaged in the firm’s growth.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;About the Position&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Old Mission is a quantitative proprietary trading firm that is currently recruiting a Fundamental Research Analyst to join our Chicago HQ. As a Fundamental Research Analyst, you will be responsible for conducting research and monitoring news around the globe with the goal of discovering new investment opportunities. You’ll work closely with the desk leads to produce reports that will have an impact on our trading strategies.&amp;nbsp; Staying current and sharing information with our traders will make you a valuable member of our team.&amp;nbsp;&amp;nbsp; News junkies are encouraged to apply and help our firm make real-time trading decisions.&amp;nbsp;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Responsibilities&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Identify and analyze news/events/information that will have an impact on our trading group(s) and report pertinent information.&lt;/li&gt;\n&lt;li&gt;Support traders by being the sole point of contact for conducting research and following all global macro events that could impact the price of certain securities.&lt;/li&gt;\n&lt;li&gt;Collaborate and work directly with small trading groups on analyzing data for patterns as well as&amp;nbsp;developing new ideas/tools.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Required Skills&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;A Bachelor’s degree in a quantitative field.&lt;/li&gt;\n&lt;li&gt;4+&amp;nbsp; years of relevant work experience in a Research Analyst Role.&lt;/li&gt;\n&lt;li&gt;A demonstrable passion for the financial markets as well as for problem solving and pattern recognition.&lt;/li&gt;\n&lt;li&gt;Exceptional communication, both written and verbal, with the ability to handle multiple tasks in a time-sensitive, fast-paced, collaborative, and collegial environment.&lt;/li&gt;\n&lt;li&gt;A strong quantitative, analytical and research-oriented skill set.&lt;/li&gt;\n&lt;li&gt;Familiarity with Bloomberg and/or Reuters.&lt;/li&gt;\n&lt;li&gt;Programming skills in Python will get you bonus points!&amp;nbsp;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Benefits and Perks&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Fully paid Medical, Dental, Vision, Disability, and Life Insurance&lt;/li&gt;\n&lt;li&gt;Fully stocked kitchen; free breakfast and lunch every day on-site&lt;/li&gt;\n&lt;li&gt;Tuition Reimbursement Program&lt;/li&gt;\n&lt;li&gt;401(k) with employer match&lt;/li&gt;\n&lt;li&gt;Paid Vacation, Sick, and Parental leaves&lt;/li&gt;\n&lt;li&gt;Commuter and Flexible Spending Programs&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Base Salary Range&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;$170,000 - $200,000 - Salaries are based on numerous factors such as skills, experience, and education. Our compensation package also includes a discretionary bonus and a comprehensive benefits program for full-time employees. For more information, reach out to your recruiter.&amp;nbsp;&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;p&gt;&lt;em&gt;Old Mission is not accepting unsolicited resumes from any staffing/search firms. All resumes submitted by staffing/search firms to any employee at Old Mission via-email, the Internet or directly without a valid signed search agreement will be deemed the sole property of Old Mission, and no fee will be paid in the event the candidate is hired by Old Mission.&lt;/em&gt;&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4029400003,
+          "name": "Trading",
+          "child_ids": [
+            4089706003,
+            4089710003,
+            4089716003,
+            4029403003
+          ],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4020496003,
+          "name": "Chicago, IL",
+          "location": "Chicago, IL, United States",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://www.oldmissioncapital.com/careers/?gh_jid=7790586003",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 5788602003,
+      "location": {
+        "name": "Chicago, IL, United States"
+      },
+      "metadata": [
+        {
+          "id": 4658361003,
+          "name": "Employment Type",
+          "value": "Full-time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 5412626003,
+          "name": "Team Assignment",
+          "value": "Research Analyst on INTL Desk assisting with US/Korea/Taiwan coverage",
+          "value_type": "long_text"
+        }
+      ],
+      "id": 7790586003,
+      "updated_at": "2026-06-30T18:02:35-04:00",
+      "requisition_id": "286",
+      "title": "Fundamental Research Analyst (Asian Market Hours)",
+      "company_name": "Old Mission",
+      "first_published": "2026-06-30T17:45:43-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Old Mission is a global proprietary trading firm that leverages state-of-the-art technology and research to identify and execute profitable trading strategies across multiple asset classes around the world. Our offices in Chicago, New York, and London are all composed of naturally-curious individuals who thrive in a team environment and constantly strive for improvement.&lt;/p&gt;\n&lt;p&gt;Old Mission does not seek capital from outside investors, allowing us the flexibility to aggressively invest in our team members and keep them engaged in the firm’s growth.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;About the Position&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;Old Mission is a quantitative proprietary trading firm that is currently recruiting a Fundamental Research Analyst to support our International Trading desk between 5:00 pm CT - 4:00 am CT in our Chicago Headquarters. As a Fundamental Research Analyst, you will be responsible for conducting research and monitoring news around the globe with the goal of discovering new investment opportunities. You’ll work closely with the desk leads to produce reports that will have an impact on our trading strategies.&amp;nbsp; Staying current and sharing information with our traders will make you a valuable member of our team.&amp;nbsp;&amp;nbsp; News junkies are encouraged to apply and help our firm make real-time trading decisions.&amp;nbsp;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Responsibilities&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Identify and analyze news/events/information that will have an impact on our trading group(s) and report pertinent information.&lt;/li&gt;\n&lt;li&gt;Support traders by being the sole point of contact for conducting research and following all global macro events that could impact the price of certain securities.&lt;/li&gt;\n&lt;li&gt;Collaborate and work directly with small trading groups on analyzing data for patterns as well as&amp;nbsp;developing new ideas/tools.&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Required Skills&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;A Bachelor’s degree in a quantitative field.&lt;/li&gt;\n&lt;li&gt;1+&amp;nbsp; years of relevant work experience in a Research Analyst Role.&lt;/li&gt;\n&lt;li&gt;A demonstrable passion for the financial markets as well as for problem solving and pattern recognition.&lt;/li&gt;\n&lt;li&gt;Exceptional communication, both written and verbal, with the ability to handle multiple tasks in a time-sensitive, fast-paced, collaborative, and collegial environment.&lt;/li&gt;\n&lt;li&gt;A strong quantitative, analytical and research-oriented skill set.&lt;/li&gt;\n&lt;li&gt;Familiarity with Bloomberg and/or Reuters.&lt;/li&gt;\n&lt;li&gt;Programming skills in Python will get you bonus points!&amp;nbsp;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Benefits and Perks&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Fully paid Medical, Dental, Vision, Disability, and Life Insurance&lt;/li&gt;\n&lt;li&gt;Fully stocked kitchen; free breakfast and lunch every day on-site&lt;/li&gt;\n&lt;li&gt;Tuition Reimbursement Program&lt;/li&gt;\n&lt;li&gt;401(k) with employer match&lt;/li&gt;\n&lt;li&gt;Paid Vacation, Sick, and Parental leaves&lt;/li&gt;\n&lt;li&gt;Commuter and Flexible Spending Programs&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Base Salary Range&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;$150,000 - $200,000 - Salaries are based on numerous factors such as skills, experience, and education. Our compensation package also includes a discretionary bonus and a comprehensive benefits program for full-time employees. For more information, reach out to your recruiter.&amp;nbsp;&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;p&gt;&lt;em&gt;Old Mission is not accepting unsolicited resumes from any staffing/search firms. All resumes submitted by staffing/search firms to any employee at Old Mission via-email, the Internet or directly without a valid signed search agreement will be deemed the sole property of Old Mission, and no fee will be paid in the event the candidate is hired by Old Mission.&lt;/em&gt;&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4029400003,
+          "name": "Trading",
+          "child_ids": [
+            4089706003,
+            4089710003,
+            4089716003,
+            4029403003
+          ],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4020496003,
+          "name": "Chicago, IL",
+          "location": "Chicago, IL, United States",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://www.oldmissioncapital.com/careers/?gh_jid=7532685003",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 5680394003,
+      "location": {
+        "name": "Chicago, IL, United States"
+      },
+      "metadata": [
+        {
+          "id": 4658361003,
+          "name": "Employment Type",
+          "value": "Full-time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 5412626003,
+          "name": "Team Assignment",
+          "value": "Options",
+          "value_type": "long_text"
+        }
+      ],
+      "id": 7532685003,
+      "updated_at": "2026-05-26T10:31:46-04:00",
+      "requisition_id": "262",
+      "title": "Systematic Equity Options Trader",
+      "company_name": "Old Mission",
+      "first_published": "2025-11-18T15:59:17-05:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Old Mission is a global proprietary trading firm that leverages state-of-the-art technology and research to identify and execute profitable trading strategies across multiple asset classes around the world. Our offices in Chicago, New York, and London are all composed of naturally-curious individuals who thrive in a team environment and constantly strive for improvement.&lt;/p&gt;\n&lt;p&gt;Old Mission does not seek capital from outside investors, allowing us the flexibility to aggressively invest in our team members and keep them engaged in the firm’s growth.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;Old Mission is seeking a Systematic Equity Options Trader to join our growing options trading desk in our Chicago HQ. This Equity Options trader will be responsible for developing, implementing, and managing systematic trading strategies across equity options markets. This Equity Options Trader will work closely with our quantitative research and technology teams to develop systematic approaches that capitalize on market inefficiencies while effectively managing risk.&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;Responsibilities&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Design and implement systematic trading strategies for equity options, including single-name options, index options, and volatility products&lt;/li&gt;\n&lt;li&gt;Build and maintain quantitative models for options pricing, volatility forecasting, and risk management&lt;/li&gt;\n&lt;li&gt;Monitor and optimize existing strategies, identifying opportunities for enhancement and improvement&lt;/li&gt;\n&lt;li&gt;Collaborate with quantitative researchers to translate research insights into production trading strategies&lt;/li&gt;\n&lt;li&gt;Manage portfolio risk through systematic hedging and position management&lt;/li&gt;\n&lt;li&gt;Analyze market microstructure and develop strategies to optimize execution quality&lt;/li&gt;\n&lt;li&gt;Work with technology teams to build robust, scalable trading infrastructure&lt;/li&gt;\n&lt;li&gt;Conduct post-trade analysis to evaluate strategy performance and identify areas for improvement&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Required Qualifications&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Bachelor&#39;s degree in Mathematics, Statistics, Computer Science, Physics, Engineering, or related quantitative field; advanced degree preferred&lt;/li&gt;\n&lt;li&gt;4+ years of experience in systematic options trading, quantitative trading, or quantitative research&lt;/li&gt;\n&lt;li&gt;Strong understanding of options pricing theory, Greeks, and volatility dynamics&lt;/li&gt;\n&lt;li&gt;Proficiency in Python or C++ is a prerequisite&lt;/li&gt;\n&lt;li&gt;Experience with statistical analysis, machine learning, and quantitative modeling techniques&lt;/li&gt;\n&lt;li&gt;Must have a strong understanding of the market microstructure and execution algorithms&lt;/li&gt;\n&lt;li&gt;Excellent analytical and problem-solving skills&lt;/li&gt;\n&lt;li&gt;Ability to work effectively in a fast-paced, collaborative environment&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Preferred Qualifications&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;Experience trading equity options or volatility products systematically&lt;/li&gt;\n&lt;li&gt;Knowledge of order book dynamics and high-frequency trading concepts&lt;/li&gt;\n&lt;li&gt;Familiarity with real-time data processing and low-latency systems&lt;/li&gt;\n&lt;li&gt;Track record of developing profitable quantitative trading strategies&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Base Salary Range&lt;/strong&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;$170,000 - $250,000 - Salaries are based on numerous factors such as skills, experience, and education. Our compensation package also includes a discretionary bonus and a comprehensive benefits program for full-time employees. For more information, reach out to your recruiter.&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;p&gt;&lt;em&gt;Old Mission is not accepting unsolicited resumes from any staffing/search firms. All resumes submitted by staffing/search firms to any employee at Old Mission via-email, the Internet or directly without a valid signed search agreement will be deemed the sole property of Old Mission, and no fee will be paid in the event the candidate is hired by Old Mission.&lt;/em&gt;&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4029400003,
+          "name": "Trading",
+          "child_ids": [
+            4089706003,
+            4089710003,
+            4089716003,
+            4029403003
+          ],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4020496003,
+          "name": "Chicago, IL",
+          "location": "Chicago, IL, United States",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://www.oldmissioncapital.com/careers/?gh_jid=7792553003",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 5789336003,
+      "location": {
+        "name": "Chicago, IL, United States"
+      },
+      "metadata": [
+        {
+          "id": 4658361003,
+          "name": "Employment Type",
+          "value": null,
+          "value_type": "single_select"
+        },
+        {
+          "id": 5412626003,
+          "name": "Team Assignment",
+          "value": "Middle Office",
+          "value_type": "long_text"
+        }
+      ],
+      "id": 7792553003,
+      "updated_at": "2026-07-02T17:35:33-04:00",
+      "requisition_id": "288",
+      "title": "Tax Manager/Senior Tax Manager",
+      "company_name": "Old Mission",
+      "first_published": "2026-07-02T17:13:30-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Old Mission is a global proprietary trading firm that leverages state-of-the-art technology and research to identify and execute profitable trading strategies across multiple asset classes around the world. Our offices in Chicago, New York, and London are all composed of naturally-curious individuals who thrive in a team environment and constantly strive for improvement.&lt;/p&gt;\n&lt;p&gt;Old Mission does not seek capital from outside investors, allowing us the flexibility to aggressively invest in our team members and keep them engaged in the firm’s growth.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;&lt;span data-contrast=&quot;auto&quot;&gt;About the position&lt;/span&gt;&lt;/strong&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:true,&amp;quot;134233118&amp;quot;:true}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span data-contrast=&quot;auto&quot;&gt;This is a hands-on role in every sense. The Tax Manager works alongside the Tax Director, not behind them. Both positions are expected to work together: preparing workpapers, reviewing returns, conducting primary research, owning compliance deadlines, and building the analysis that informs the firm’s tax positions. &lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:true,&amp;quot;134233118&amp;quot;:true}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Responsibilities&lt;/span&gt;&lt;/strong&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:true,&amp;quot;134233118&amp;quot;:true}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;&lt;span data-contrast=&quot;none&quot;&gt;U.S. International Tax&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;335559738&amp;quot;:120,&amp;quot;335559739&amp;quot;:50}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/em&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Prepare and own U.S. international tax compliance workpapers and supporting schedules across the firm&#39;s controlled foreign corporations and partnerships, including GILTI/NCTI, FDII/FDDEI, BEAT, Subpart F, foreign tax credits and FTC limitation analysis, and foreign withholding and treaty positions&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Maintain and update CFC and partnership analyses including tested income, tested loss, net&amp;nbsp;deemed&amp;nbsp;tangible income return calculations, and high-tax exclusion&amp;nbsp;evaluations;&amp;nbsp;coordinate with external advisors on FTC planning and transfer pricing strategies&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;335559739&amp;quot;:0}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Monitor the impact of OBBBA, evolving IRS guidance, and OECD Pillar Two developments on the firm&#39;s international tax positions and assess implications for compliance and planning&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;335559739&amp;quot;:0}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;none&quot;&gt;Support transfer pricing documentation and intercompany agreements for cross-border transactions between U.S. and foreign entities.&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;em&gt;&lt;span data-contrast=&quot;none&quot;&gt;Federal, State &amp;amp; Local Tax Compliance&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;335559738&amp;quot;:120,&amp;quot;335559739&amp;quot;:50}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/em&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;none&quot;&gt;Prepare tax return information packages and detailed workpapers for external tax consulting firms; independently review all externally prepared federal and state returns prior to submission&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;none&quot;&gt;Support preparation and review of indirect tax filings including VAT, Use Tax, and GST across applicable domestic and international&amp;nbsp;jurisdictions&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;none&quot;&gt;Own withholding and information reporting obligations for Forms 1099, 1042-S, and 8804 for the firm and its related entities&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;none&quot;&gt;Build and&amp;nbsp;maintain&amp;nbsp;the firm’s tax compliance calendar; proactively&amp;nbsp;identify&amp;nbsp;all upcoming deadlines and coordinate&amp;nbsp;timely&amp;nbsp;completion with internal teams and outside advisors&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;em&gt;&lt;span data-contrast=&quot;none&quot;&gt;Research, Planning &amp;amp; Authority Response&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;335559738&amp;quot;:120,&amp;quot;335559739&amp;quot;:50}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/em&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;none&quot;&gt;Conduct primary research on federal,&amp;nbsp;state&amp;nbsp;and local, and international tax issues; prepare well-reasoned technical memos for Tax Director review&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;none&quot;&gt;Prepare substantive responses to information document requests (IDRs) from the IRS, state, and city taxing authorities;&amp;nbsp;maintain&amp;nbsp;organized examination support files&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;none&quot;&gt;Monitor and assess legislative and regulatory developments including IRS guidance, Treasury regulations, and OECD Pillar Two updates; brief the Tax Director on implications for the firm&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;none&quot;&gt;Provide tax analysis in support of proposed transactions, new entity structures, and strategic initiatives&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;em&gt;&lt;span data-contrast=&quot;none&quot;&gt;Process, Data &amp;amp; Technology&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;335559738&amp;quot;:120,&amp;quot;335559739&amp;quot;:50}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/em&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;none&quot;&gt;Identify&amp;nbsp;and implement process improvements to tax workflows; evaluate new tools and procedures for more&amp;nbsp;accurate, efficient compliance&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;none&quot;&gt;Leverage Excel (Power Query, XLOOKUP, PivotTables, array formulas) and AI research tools to streamline workpaper preparation, data manipulation, and reconciliation&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;none&quot;&gt;Document and&amp;nbsp;maintain&amp;nbsp;policies, procedures, and internal controls for the Tax function&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;none&quot;&gt;Work cross-functionally with&amp;nbsp;Accounting, Legal, and Operations on tax matters, regulatory reporting, and ad hoc special projects as directed&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;&lt;span data-contrast=&quot;none&quot;&gt;Required&amp;nbsp;Skills&lt;/span&gt;&lt;/strong&gt;&lt;span data-ccp-props=&quot;{&amp;quot;335559738&amp;quot;:120,&amp;quot;335559739&amp;quot;:50}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;none&quot;&gt;6–8+&amp;nbsp;years of tax experience; public accounting background at the Manager or experienced Senior level strongly preferred (Big 4, national firm, or strong regional with FS practice)&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;none&quot;&gt;Genuine hands-on technical depth in U.S.&amp;nbsp;and&amp;nbsp;international tax,&amp;nbsp;direct experience preparing and reviewing GILTI/NCTI, Subpart F, and foreign tax credit workpapers; conceptual familiarity alone will not meet the bar&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;none&quot;&gt;Experience preparing and independently reviewing federal and&amp;nbsp;state&amp;nbsp;tax returns and workpapers, preferably in a&amp;nbsp;financial services, partnership, or trading firm context&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;none&quot;&gt;Working knowledge of indirect tax,&amp;nbsp;VAT, Use Tax, or GST in a compliance setting&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;none&quot;&gt;CPA licensed or within one exam section of completion (active license strongly preferred)&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;none&quot;&gt;Advanced Excel&amp;nbsp;proficiency,&amp;nbsp;XLOOKUP, PivotTables, Power Query, SUMIF/SUMIFS; comfort manipulating large financial datasets&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;none&quot;&gt;Exceptional attention to detail and organizational discipline; able to manage multiple high-stakes deadlines without dropping the ball&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;none&quot;&gt;Impeccable ethics, integrity, and proven ability to handle confidential and market-sensitive information&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;&lt;span data-contrast=&quot;none&quot;&gt;Preferred&amp;nbsp;Skills&lt;/span&gt;&lt;/strong&gt;&lt;span data-ccp-props=&quot;{&amp;quot;335559738&amp;quot;:120,&amp;quot;335559739&amp;quot;:50}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;none&quot;&gt;Prior experience in a financial services tax environment,&amp;nbsp;proprietary trading firm, hedge fund, or investment partnership&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;none&quot;&gt;Transfer pricing experience, including intercompany agreements and benchmarking documentation&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;none&quot;&gt;Exposure to Pillar Two / OECD Global Minimum Tax framework and its interaction with U.S. GILTI rules&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;none&quot;&gt;Experience with SALT filings and withholding requirements for investment partnerships&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;none&quot;&gt;Familiarity with ASC 740 income tax accounting and quarterly tax provision work&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;none&quot;&gt;Experience with tax research databases,&amp;nbsp;Thomson Reuters Checkpoint, Bloomberg Tax, or CCH&amp;nbsp;AnswerConnect&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;none&quot;&gt;Working knowledge of AI tools applied to tax research, drafting, and workflow automation&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;none&quot;&gt;BS/BA in Accounting or Finance&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;&lt;span data-contrast=&quot;none&quot;&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;Be&lt;/span&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;nefits and Perks &lt;/span&gt;&lt;/span&gt;&lt;/strong&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;335559738&amp;quot;:0,&amp;quot;335559739&amp;quot;:0}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Fully paid Medical, Dental, Vision, Disability, and Life Insurance &lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40,&amp;quot;335559991&amp;quot;:446,&amp;quot;469777462&amp;quot;:[720,630],&amp;quot;469777927&amp;quot;:[0,0],&amp;quot;469777928&amp;quot;:[0,8]}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Fully stocked kitchen; free breakfast and lunch every day on-site &lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233279&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40,&amp;quot;335559991&amp;quot;:446,&amp;quot;469777462&amp;quot;:[720,630],&amp;quot;469777927&amp;quot;:[0,0],&amp;quot;469777928&amp;quot;:[0,8]}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;Tuition Reimbursement Program &lt;/span&gt;&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40,&amp;quot;335559991&amp;quot;:446,&amp;quot;469777462&amp;quot;:[720,630],&amp;quot;469777927&amp;quot;:[0,0],&amp;quot;469777928&amp;quot;:[0,8]}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;401(k) with employer match &lt;/span&gt;&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40,&amp;quot;335559991&amp;quot;:446,&amp;quot;469777462&amp;quot;:[720,630],&amp;quot;469777927&amp;quot;:[0,0],&amp;quot;469777928&amp;quot;:[0,8]}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;Paid Vacation, Sick, and Parental leaves &lt;/span&gt;&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40,&amp;quot;335559991&amp;quot;:446,&amp;quot;469777462&amp;quot;:[720,630],&amp;quot;469777927&amp;quot;:[0,0],&amp;quot;469777928&amp;quot;:[0,8]}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;Commuter and Flexible Spending Programs &lt;/span&gt;&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40,&amp;quot;335559991&amp;quot;:446,&amp;quot;469777462&amp;quot;:[720,630],&amp;quot;469777927&amp;quot;:[0,0],&amp;quot;469777928&amp;quot;:[0,8]}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;On&lt;/span&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;-site&amp;nbsp;&lt;/span&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;5 days a week&amp;nbsp;&lt;/span&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;for&amp;nbsp;&lt;/span&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;the first&amp;nbsp;&lt;/span&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;3 to 6 months&lt;/span&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;,&lt;/span&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;&amp;nbsp;then&lt;/span&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;&amp;nbsp;4 days in&amp;nbsp;&lt;/span&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;the&amp;nbsp;&lt;/span&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;office&lt;/span&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;and&lt;/span&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;&amp;nbsp;1 day remote&lt;/span&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;&amp;nbsp;thereafter&lt;/span&gt;&lt;/span&gt;&amp;nbsp;&lt;br&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;335559738&amp;quot;:40,&amp;quot;335559739&amp;quot;:40,&amp;quot;335559991&amp;quot;:446,&amp;quot;469777462&amp;quot;:[720,630],&amp;quot;469777927&amp;quot;:[0,0],&amp;quot;469777928&amp;quot;:[0,8]}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;&lt;span data-contrast=&quot;auto&quot;&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;Base Salary Range &lt;/span&gt;&lt;/span&gt;&lt;/strong&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;335559738&amp;quot;:0,&amp;quot;335559739&amp;quot;:0}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span data-contrast=&quot;auto&quot;&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;$120,000-1&lt;/span&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;60&lt;/span&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;,000 - Salaries are based on&amp;nbsp;&lt;/span&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;numerous&lt;/span&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;&amp;nbsp;factors such as skills, experience, and education. Our compensation package also includes a discretionary bonus and a comprehensive benefits program for full-time employees.&amp;nbsp;&lt;/span&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt;For more information, reach out to your recruiter.&lt;/span&gt;&lt;span data-ccp-parastyle=&quot;paragraph&quot;&gt; &lt;/span&gt;&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;335559738&amp;quot;:0,&amp;quot;335559739&amp;quot;:0}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span data-ccp-props=&quot;{&amp;quot;335559739&amp;quot;:0}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;p&gt;&lt;em&gt;Old Mission is not accepting unsolicited resumes from any staffing/search firms. All resumes submitted by staffing/search firms to any employee at Old Mission via-email, the Internet or directly without a valid signed search agreement will be deemed the sole property of Old Mission, and no fee will be paid in the event the candidate is hired by Old Mission.&lt;/em&gt;&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4057342003,
+          "name": "Tax and Accounting",
+          "child_ids": [],
+          "parent_id": 4029401003
+        }
+      ],
+      "offices": [
+        {
+          "id": 4020496003,
+          "name": "Chicago, IL",
+          "location": "Chicago, IL, United States",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://www.oldmissioncapital.com/careers/?gh_jid=7790670003",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "internal_job_id": 5785329003,
+      "location": {
+        "name": "Chicago, IL, United States"
+      },
+      "metadata": [
+        {
+          "id": 4658361003,
+          "name": "Employment Type",
+          "value": "Full-time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 5412626003,
+          "name": "Team Assignment",
+          "value": "Administrative Team",
+          "value_type": "long_text"
+        }
+      ],
+      "id": 7790670003,
+      "updated_at": "2026-07-07T13:21:08-04:00",
+      "requisition_id": "285",
+      "title": "Employee Experience Specialist (Receptionist)",
+      "company_name": "Old Mission",
+      "first_published": "2026-07-01T09:24:02-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Old Mission is a global proprietary trading firm that leverages state-of-the-art technology and research to identify and execute profitable trading strategies across multiple asset classes around the world. Our offices in Chicago, New York, and London are all composed of naturally-curious individuals who thrive in a team environment and constantly strive for improvement.&lt;/p&gt;\n&lt;p&gt;Old Mission does not seek capital from outside investors, allowing us the flexibility to aggressively invest in our team members and keep them engaged in the firm’s growth.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;&lt;em&gt;This is a 4-6 month temporary assignment.&lt;/em&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Old Mission is looking for a friendly, organized, and proactive Front Desk Receptionist to be the welcoming face of our Chicago headquarters. This is an excellent opportunity for a recent college graduate eager to launch their career in a professional environment, gain exposure to office operations, and grow alongside a collaborative team. The ideal candidate is dependable, detail-oriented, and takes pride in keeping things running smoothly behind the scenes.&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;201341983&amp;quot;:0,&amp;quot;335551550&amp;quot;:1,&amp;quot;335551620&amp;quot;:1,&amp;quot;335559685&amp;quot;:0,&amp;quot;335559737&amp;quot;:0,&amp;quot;335559738&amp;quot;:0,&amp;quot;335559739&amp;quot;:160,&amp;quot;335559740&amp;quot;:279}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;&lt;span data-contrast=&quot;none&quot;&gt;&lt;span data-ccp-parastyle=&quot;heading 3&quot;&gt;What You&#39;ll Do&lt;/span&gt;&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134245418&amp;quot;:true,&amp;quot;134245529&amp;quot;:true,&amp;quot;335559738&amp;quot;:160,&amp;quot;335559739&amp;quot;:80}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;&lt;em&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Front Desk &amp;amp; Visitor Experience&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/em&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Greet visitors warmly and ensure a polished first impression of Old Mission&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;335559738&amp;quot;:0,&amp;quot;335559739&amp;quot;:0}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Answer and direct incoming phone calls professionally&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;335559738&amp;quot;:0,&amp;quot;335559739&amp;quot;:0}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Manage incoming and outgoing mail, deliveries, shipments, adhering to compliance requirements&amp;nbsp;where&amp;nbsp;needed&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;335559738&amp;quot;:0,&amp;quot;335559739&amp;quot;:0}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Track&amp;nbsp;guests in&amp;nbsp;building registration software&amp;nbsp;and&amp;nbsp;on internal calendars&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;335559738&amp;quot;:0,&amp;quot;335559739&amp;quot;:0}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Facilitate daily lunch offering to in-office employees, ensuring&amp;nbsp;timely&amp;nbsp;delivery and troubleshooting issues&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;335559738&amp;quot;:0,&amp;quot;335559739&amp;quot;:0}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Coordinate seamless meeting room preparation, including scheduling support, setup, refreshments, and post-meeting cleanup&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;335559738&amp;quot;:0,&amp;quot;335559739&amp;quot;:0}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Serve as the most visible point of contact for employee requests&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;335559738&amp;quot;:0,&amp;quot;335559739&amp;quot;:0}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;em&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Office Upkeep &amp;amp; Hospitality&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/em&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li data-leveltext=&quot;&quot; data-font=&quot;Symbol&quot; data-listid=&quot;2&quot; data-list-defn-props=&quot;{&amp;quot;335552541&amp;quot;:1,&amp;quot;335559685&amp;quot;:720,&amp;quot;335559991&amp;quot;:360,&amp;quot;469769226&amp;quot;:&amp;quot;Symbol&amp;quot;,&amp;quot;469769242&amp;quot;:[8226],&amp;quot;469777803&amp;quot;:&amp;quot;left&amp;quot;,&amp;quot;469777804&amp;quot;:&amp;quot;&amp;quot;,&amp;quot;469777815&amp;quot;:&amp;quot;hybridMultilevel&amp;quot;}&quot; data-aria-posinset=&quot;1&quot; data-aria-level=&quot;1&quot;&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Ensure kitchens&amp;nbsp;are fully functional&amp;nbsp;each morning to welcome our employees into the office&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;201341983&amp;quot;:0,&amp;quot;335551550&amp;quot;:1,&amp;quot;335551620&amp;quot;:1,&amp;quot;335559685&amp;quot;:720,&amp;quot;335559737&amp;quot;:0,&amp;quot;335559738&amp;quot;:0,&amp;quot;335559739&amp;quot;:0,&amp;quot;335559740&amp;quot;:279,&amp;quot;335559991&amp;quot;:360}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li data-leveltext=&quot;&quot; data-font=&quot;Symbol&quot; data-listid=&quot;2&quot; data-list-defn-props=&quot;{&amp;quot;335552541&amp;quot;:1,&amp;quot;335559685&amp;quot;:720,&amp;quot;335559991&amp;quot;:360,&amp;quot;469769226&amp;quot;:&amp;quot;Symbol&amp;quot;,&amp;quot;469769242&amp;quot;:[8226],&amp;quot;469777803&amp;quot;:&amp;quot;left&amp;quot;,&amp;quot;469777804&amp;quot;:&amp;quot;&amp;quot;,&amp;quot;469777815&amp;quot;:&amp;quot;hybridMultilevel&amp;quot;}&quot; data-aria-posinset=&quot;2&quot; data-aria-level=&quot;1&quot;&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Keep&amp;nbsp;all&amp;nbsp;common areas&amp;nbsp;clean, organized, and professional&amp;nbsp;throughout the day&amp;nbsp;&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;335559738&amp;quot;:0,&amp;quot;335559739&amp;quot;:0}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;em&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Supplies &amp;amp; Inventory&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/em&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li data-leveltext=&quot;&quot; data-font=&quot;Symbol&quot; data-listid=&quot;3&quot; data-list-defn-props=&quot;{&amp;quot;335552541&amp;quot;:1,&amp;quot;335559685&amp;quot;:720,&amp;quot;335559991&amp;quot;:360,&amp;quot;469769226&amp;quot;:&amp;quot;Symbol&amp;quot;,&amp;quot;469769242&amp;quot;:[8226],&amp;quot;469777803&amp;quot;:&amp;quot;left&amp;quot;,&amp;quot;469777804&amp;quot;:&amp;quot;&amp;quot;,&amp;quot;469777815&amp;quot;:&amp;quot;hybridMultilevel&amp;quot;}&quot; data-aria-posinset=&quot;1&quot; data-aria-level=&quot;1&quot;&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Track and order office&amp;nbsp;supplies, keeping&amp;nbsp;an appropriate inventory, analyzing trends overtime, responding to employee requests, and tracking expenses&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;335559738&amp;quot;:0,&amp;quot;335559739&amp;quot;:0}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;&lt;span data-contrast=&quot;none&quot;&gt;&lt;span data-ccp-parastyle=&quot;heading 3&quot;&gt;What We&#39;re Looking For&lt;/span&gt;&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134245418&amp;quot;:true,&amp;quot;134245529&amp;quot;:true,&amp;quot;335559738&amp;quot;:160,&amp;quot;335559739&amp;quot;:80}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/strong&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Bachelor&#39;s degree (recent graduates encouraged to apply)&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;335559738&amp;quot;:0,&amp;quot;335559739&amp;quot;:0}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Warm, professional demeanor with strong interpersonal skills&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;335559738&amp;quot;:0,&amp;quot;335559739&amp;quot;:0}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Excellent organizational skills and attention to detail&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;335559738&amp;quot;:0,&amp;quot;335559739&amp;quot;:0}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Ability to juggle multiple tasks and shift priorities throughout the day&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;335559738&amp;quot;:0,&amp;quot;335559739&amp;quot;:0}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Reliable, punctual, and takes ownership of their work&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;335559738&amp;quot;:0,&amp;quot;335559739&amp;quot;:0}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;A team player&amp;nbsp;who&#39;s&amp;nbsp;happy to pitch in wherever needed&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;335559738&amp;quot;:0,&amp;quot;335559739&amp;quot;:0}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;Positive attitude and a genuine interest in supporting a great office culture&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;335559738&amp;quot;:0,&amp;quot;335559739&amp;quot;:0}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;li&gt;&lt;span data-contrast=&quot;auto&quot;&gt;In-office presence is&amp;nbsp;required&amp;nbsp;Monday-Friday during regular business hours&lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;335559738&amp;quot;:0,&amp;quot;335559739&amp;quot;:0}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;div class=&quot;p-rich_text_section&quot;&gt;&lt;strong data-stringify-type=&quot;bold&quot;&gt;Benefits and Perks&lt;/strong&gt;&lt;/div&gt;\n&lt;ul class=&quot;p-rich_text_list p-rich_text_list__bullet&quot; data-stringify-type=&quot;unordered-list&quot; data-indent=&quot;0&quot; data-border=&quot;0&quot;&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Competitive salary with discretionary annual bonus&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Fully paid Medical, Dental, Vision, Disability, and Life Insurance&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Fully stocked kitchen; free breakfast and lunch every day on-site&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Tuition Reimbursement Program&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;401(k) with employer match&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Flexible Spending Plan&lt;/li&gt;\n&lt;li data-stringify-indent=&quot;0&quot; data-stringify-border=&quot;0&quot;&gt;Commuter Benefit Program&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;Pay Range&lt;/strong&gt;&lt;/p&gt;\n&lt;p&gt;$25/hr. ($52,000 annually based on a 40-hour work week). Compensation is determined based on experience, skills, and qualifications relative to role requirements. This position is classified as non-exempt and is eligible for overtime pay in accordance with the Fair Labor Standards Act and Illinois state wage and hour law.&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;\n&lt;p&gt;&amp;nbsp;&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;p&gt;&lt;em&gt;Old Mission is not accepting unsolicited resumes from any staffing/search firms. All resumes submitted by staffing/search firms to any employee at Old Mission via-email, the Internet or directly without a valid signed search agreement will be deemed the sole property of Old Mission, and no fee will be paid in the event the candidate is hired by Old Mission.&lt;/em&gt;&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4029401003,
+          "name": "Operations",
+          "child_ids": [
+            4057340003,
+            4057341003,
+            4057342003,
+            4057343003
+          ],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4020496003,
+          "name": "Chicago, IL",
+          "location": "Chicago, IL, United States",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    },
+    {
+      "absolute_url": "https://www.oldmissioncapital.com/careers/?gh_jid=4485649003",
+      "data_compliance": [
+        {
+          "type": "gdpr",
+          "requires_consent": false,
+          "requires_processing_consent": false,
+          "requires_retention_consent": false,
+          "retention_period": null,
+          "demographic_data_consent_applies": false
+        }
+      ],
+      "education": "education_required",
+      "internal_job_id": 4312314003,
+      "location": {
+        "name": "Chicago, IL, United States"
+      },
+      "metadata": [
+        {
+          "id": 4658361003,
+          "name": "Employment Type",
+          "value": "Full-time",
+          "value_type": "single_select"
+        },
+        {
+          "id": 5412626003,
+          "name": "Team Assignment",
+          "value": "Opportunistic Positions",
+          "value_type": "long_text"
+        }
+      ],
+      "id": 4485649003,
+      "updated_at": "2026-05-26T10:31:46-04:00",
+      "requisition_id": "27",
+      "title": "General Submission",
+      "company_name": "Old Mission",
+      "first_published": "2021-04-28T16:09:54-04:00",
+      "language": "en",
+      "application_deadline": null,
+      "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;Old Mission is a global proprietary trading firm that leverages state-of-the-art technology and research to identify and execute profitable trading strategies across multiple asset classes around the world. Our offices in Chicago, New York, and London are all composed of naturally-curious individuals who thrive in a team environment and constantly strive for improvement.&lt;/p&gt;\n&lt;p&gt;Old Mission does not seek capital from outside investors, allowing us the flexibility to aggressively invest in our team members and keep them engaged in the firm’s growth.&lt;/p&gt;&lt;/div&gt;&lt;p&gt;&lt;strong&gt;&lt;span data-contrast=&quot;none&quot;&gt;About the Position &lt;/span&gt;&lt;/strong&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span data-contrast=&quot;none&quot;&gt;Don&#39;t see a current opening that matches your skills and interests? We&#39;d still love to hear from you! We&#39;re continuously growing and are always interested in connecting with talented individuals who share our values and could be a great fit for future opportunities.&lt;/span&gt;&lt;span data-ccp-props=&quot;{}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;strong&gt;&lt;span data-contrast=&quot;none&quot;&gt;&lt;span data-ccp-parastyle=&quot;heading 2&quot;&gt;Ideal Candidates&lt;/span&gt;&lt;/span&gt;&lt;/strong&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;134245418&amp;quot;:true,&amp;quot;134245529&amp;quot;:true,&amp;quot;335551550&amp;quot;:0,&amp;quot;335551620&amp;quot;:0,&amp;quot;335559738&amp;quot;:299,&amp;quot;335559739&amp;quot;:299}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;ul&gt;\n&lt;li data-leveltext=&quot;&quot; data-font=&quot;Symbol&quot; data-listid=&quot;1&quot; data-list-defn-props=&quot;{&amp;quot;335552541&amp;quot;:1,&amp;quot;335559683&amp;quot;:0,&amp;quot;335559684&amp;quot;:-2,&amp;quot;335559685&amp;quot;:720,&amp;quot;335559991&amp;quot;:360,&amp;quot;469769226&amp;quot;:&amp;quot;Symbol&amp;quot;,&amp;quot;469769242&amp;quot;:[8226],&amp;quot;469777803&amp;quot;:&amp;quot;left&amp;quot;,&amp;quot;469777804&amp;quot;:&amp;quot;&amp;quot;,&amp;quot;469777815&amp;quot;:&amp;quot;hybridMultilevel&amp;quot;}&quot; data-aria-posinset=&quot;1&quot; data-aria-level=&quot;1&quot;&gt;&lt;span data-contrast=&quot;none&quot;&gt;Passionate professionals who are excited about quantitative finance.&lt;/span&gt;&lt;/li&gt;\n&lt;li data-leveltext=&quot;&quot; data-font=&quot;Symbol&quot; data-listid=&quot;1&quot; data-list-defn-props=&quot;{&amp;quot;335552541&amp;quot;:1,&amp;quot;335559683&amp;quot;:0,&amp;quot;335559684&amp;quot;:-2,&amp;quot;335559685&amp;quot;:720,&amp;quot;335559991&amp;quot;:360,&amp;quot;469769226&amp;quot;:&amp;quot;Symbol&amp;quot;,&amp;quot;469769242&amp;quot;:[8226],&amp;quot;469777803&amp;quot;:&amp;quot;left&amp;quot;,&amp;quot;469777804&amp;quot;:&amp;quot;&amp;quot;,&amp;quot;469777815&amp;quot;:&amp;quot;hybridMultilevel&amp;quot;}&quot; data-aria-posinset=&quot;1&quot; data-aria-level=&quot;1&quot;&gt;Collaborative team players who thrive in a fast-paced environment.&lt;/li&gt;\n&lt;li data-leveltext=&quot;&quot; data-font=&quot;Symbol&quot; data-listid=&quot;1&quot; data-list-defn-props=&quot;{&amp;quot;335552541&amp;quot;:1,&amp;quot;335559683&amp;quot;:0,&amp;quot;335559684&amp;quot;:-2,&amp;quot;335559685&amp;quot;:720,&amp;quot;335559991&amp;quot;:360,&amp;quot;469769226&amp;quot;:&amp;quot;Symbol&amp;quot;,&amp;quot;469769242&amp;quot;:[8226],&amp;quot;469777803&amp;quot;:&amp;quot;left&amp;quot;,&amp;quot;469777804&amp;quot;:&amp;quot;&amp;quot;,&amp;quot;469777815&amp;quot;:&amp;quot;hybridMultilevel&amp;quot;}&quot; data-aria-posinset=&quot;1&quot; data-aria-level=&quot;1&quot;&gt;Continuous learners who embrace growth and new challenges.&lt;/li&gt;\n&lt;li data-leveltext=&quot;&quot; data-font=&quot;Symbol&quot; data-listid=&quot;1&quot; data-list-defn-props=&quot;{&amp;quot;335552541&amp;quot;:1,&amp;quot;335559683&amp;quot;:0,&amp;quot;335559684&amp;quot;:-2,&amp;quot;335559685&amp;quot;:720,&amp;quot;335559991&amp;quot;:360,&amp;quot;469769226&amp;quot;:&amp;quot;Symbol&amp;quot;,&amp;quot;469769242&amp;quot;:[8226],&amp;quot;469777803&amp;quot;:&amp;quot;left&amp;quot;,&amp;quot;469777804&amp;quot;:&amp;quot;&amp;quot;,&amp;quot;469777815&amp;quot;:&amp;quot;hybridMultilevel&amp;quot;}&quot; data-aria-posinset=&quot;1&quot; data-aria-level=&quot;1&quot;&gt;Results-driven individuals who take ownership of their work.&lt;/li&gt;\n&lt;li data-leveltext=&quot;&quot; data-font=&quot;Symbol&quot; data-listid=&quot;1&quot; data-list-defn-props=&quot;{&amp;quot;335552541&amp;quot;:1,&amp;quot;335559683&amp;quot;:0,&amp;quot;335559684&amp;quot;:-2,&amp;quot;335559685&amp;quot;:720,&amp;quot;335559991&amp;quot;:360,&amp;quot;469769226&amp;quot;:&amp;quot;Symbol&amp;quot;,&amp;quot;469769242&amp;quot;:[8226],&amp;quot;469777803&amp;quot;:&amp;quot;left&amp;quot;,&amp;quot;469777804&amp;quot;:&amp;quot;&amp;quot;,&amp;quot;469777815&amp;quot;:&amp;quot;hybridMultilevel&amp;quot;}&quot; data-aria-posinset=&quot;1&quot; data-aria-level=&quot;1&quot;&gt;Strong communicators who can work effectively with diverse teams.&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;335551550&amp;quot;:0,&amp;quot;335551620&amp;quot;:0,&amp;quot;335559738&amp;quot;:0,&amp;quot;335559739&amp;quot;:0}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/li&gt;\n&lt;/ul&gt;\n&lt;p&gt;&lt;strong&gt;&lt;span data-contrast=&quot;none&quot;&gt;&lt;span data-ccp-parastyle=&quot;heading 2&quot;&gt;Benefits and Perks&lt;/span&gt;&lt;/span&gt;&lt;/strong&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;134245418&amp;quot;:true,&amp;quot;134245529&amp;quot;:true,&amp;quot;201341983&amp;quot;:0,&amp;quot;335551550&amp;quot;:1,&amp;quot;335551620&amp;quot;:1,&amp;quot;335559685&amp;quot;:0,&amp;quot;335559737&amp;quot;:0,&amp;quot;335559738&amp;quot;:299,&amp;quot;335559739&amp;quot;:299,&amp;quot;335559740&amp;quot;:279}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;\n&lt;p&gt;&lt;span data-contrast=&quot;none&quot;&gt;These offerings differ between our US-based and UK-based offices. For more information, please contact &lt;/span&gt;&lt;a href=&quot;mailto:recruiting@oldmissioncapital.com&quot;&gt;&lt;span data-contrast=&quot;none&quot;&gt;&lt;span data-ccp-charstyle=&quot;Hyperlink&quot;&gt;recruiting@oldmissioncapital.com&lt;/span&gt;&lt;/span&gt;&lt;/a&gt;&lt;span data-contrast=&quot;none&quot;&gt;. &lt;/span&gt;&lt;span data-ccp-props=&quot;{&amp;quot;134233117&amp;quot;:false,&amp;quot;134233118&amp;quot;:false,&amp;quot;201341983&amp;quot;:0,&amp;quot;335551550&amp;quot;:1,&amp;quot;335551620&amp;quot;:1,&amp;quot;335559685&amp;quot;:720,&amp;quot;335559737&amp;quot;:0,&amp;quot;335559738&amp;quot;:0,&amp;quot;335559739&amp;quot;:0,&amp;quot;335559740&amp;quot;:279,&amp;quot;335559991&amp;quot;:360}&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;/p&gt;&lt;div class=&quot;content-conclusion&quot;&gt;&lt;p&gt;&lt;em&gt;Old Mission is not accepting unsolicited resumes from any staffing/search firms. All resumes submitted by staffing/search firms to any employee at Old Mission via-email, the Internet or directly without a valid signed search agreement will be deemed the sole property of Old Mission, and no fee will be paid in the event the candidate is hired by Old Mission.&lt;/em&gt;&lt;/p&gt;&lt;/div&gt;",
+      "departments": [
+        {
+          "id": 4029399003,
+          "name": "Technology",
+          "child_ids": [
+            4089707003,
+            4089708003,
+            4089709003,
+            4052543003
+          ],
+          "parent_id": null
+        }
+      ],
+      "offices": [
+        {
+          "id": 4020496003,
+          "name": "Chicago, IL",
+          "location": "Chicago, IL, United States",
+          "child_ids": [],
+          "parent_id": null
+        },
+        {
+          "id": 4020503003,
+          "name": "London",
+          "location": "London",
+          "child_ids": [],
+          "parent_id": null
+        },
+        {
+          "id": 4020497003,
+          "name": "New York, NY",
+          "location": "New York, NY, United States",
+          "child_ids": [],
+          "parent_id": null
+        }
+      ],
+      "ai_disclaimer": null,
+      "include_ai_disclaimer": null,
+      "ai_opt_out_request_url": null
+    }
+  ],
+  "meta": {
+    "total": 16
+  }
+}

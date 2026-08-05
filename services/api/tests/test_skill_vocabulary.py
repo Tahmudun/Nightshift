@@ -102,3 +102,27 @@ def test_every_canonical_name_is_clean() -> None:
     """A stray space in the YAML is a skill nobody can ever match."""
     for name in VOCABULARY.canonical_names:
         assert name.strip() == name and name
+
+
+def test_match_all_keeps_every_occurrence_and_match_keeps_one() -> None:
+    """The distinction the requirement extractor depends on."""
+    vocab = load_vocabulary()
+    text = "We are a Python shop. REQUIREMENTS Proficiency in Python."
+    assert len(vocab.match(text)) == 1
+    both = [m for m in vocab.match_all(text) if m.canonical_name == "Python"]
+    assert len(both) == 2
+    assert both[0].char_start < both[1].char_start
+
+
+def test_match_all_still_refuses_overlapping_terms() -> None:
+    """ "Tailwind CSS" must not also yield a bare "CSS" inside it."""
+    vocab = load_vocabulary()
+    names = [m.canonical_name for m in vocab.match_all("We use Tailwind CSS here.")]
+    assert names == ["Tailwind CSS"]
+
+
+def test_every_match_all_span_quotes_the_text() -> None:
+    vocab = load_vocabulary()
+    text = "REQUIREMENTS Python, Kotlin, and Rust. NICE TO HAVES Python."
+    for m in vocab.match_all(text):
+        assert text[m.char_start : m.char_end].casefold() != ""

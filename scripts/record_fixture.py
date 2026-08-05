@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import html
 import json
 import re
 import sys
@@ -93,11 +94,118 @@ GREENHOUSE_SELECTORS: list[tuple[str, Callable[[dict[str, Any]], bool], int]] = 
 ]
 
 
-def curate(jobs: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, str]]:
+def _content_text(job: dict[str, Any]) -> str:
+    """Greenhouse ships the description as escaped HTML inside `content`.
+
+    Unescaped twice on purpose: the payload is HTML-escaped, and the HTML it
+    decodes to contains its own entities (`&amp;nbsp;` is common).
+    """
+    raw = job.get("content") or ""
+    text = html.unescape(html.unescape(str(raw)))
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", text)).strip()
+
+
+def _mentions_doctorate(job: dict[str, Any]) -> bool:
+    return bool(re.search(r"\b(ph\.?d|doctorate)\b", _content_text(job), re.I))
+
+
+def _mentions_equivalence(job: dict[str, Any]) -> bool:
+    """"or equivalent experience" — the escape hatch A13 names by hand."""
+    return bool(re.search(r"\bor\s+(have\s+)?equivalent\b", _content_text(job), re.I))
+
+
+#: Words that make a "sponsor" an immigration statement rather than a sales one.
+_IMMIGRATION_CONTEXT = (
+    r"visa|immigration|work(?:ing)? authori[sz]ation|work permit|right to work|"
+    r"h-?1-?b|green card|employment eligibility|citizenship"
+)
+
+
+def _mentions_sponsorship(job: dict[str, Any]) -> bool:
+    """Visa sponsorship, not "executive sponsor for strategic customers".
+
+    A corpus whose one example of a shape is the wrong shape is worse than one
+    with a hole: the hole is recorded in `coverage_not_available_on_this_board`
+    and the wrong example is not.
+    """
+    text = _content_text(job)
+    if re.search(r"\b(visa|immigration)\s+sponsor", text, re.I):
+        return True
+    if re.search(r"sponsorship\s+(is|are)?\s*(not\s+)?(available|offered|provided)", text, re.I):
+        return True
+    for sentence in re.split(r"(?<=[.;!?])\s+", text):
+        if re.search(r"\bsponsor(ship|ing|ed|s)?\b", sentence, re.I) and re.search(
+            _IMMIGRATION_CONTEXT, sentence, re.I
+        ):
+            return True
+    return False
+
+
+def _states_graduation_year(job: dict[str, Any]) -> bool:
+    """A graduation window stated numerically — "graduating in 2027"."""
+    text = _content_text(job)
+    return bool(re.search(r"graduat\w*[^.]{0,60}\b20\d{2}\b", text, re.I))
+
+
+def _states_years_of_experience(job: dict[str, Any]) -> bool:
+    return bool(re.search(r"\b\d{1,2}\s*\+?\s*years?\b", _content_text(job), re.I))
+
+
+def _has_preferred_section(job: dict[str, Any]) -> bool:
+    """The section whose contents must never become a gap."""
+    return bool(
+        re.search(
+            r"(nice[- ]to[- ]have|bonus points|preferred qualifications|"
+            r"pluses|it'?s a plus)",
+            _content_text(job),
+            re.I,
+        )
+    )
+
+
+def _title_matches(job: dict[str, Any], pattern: str) -> bool:
+    return bool(re.search(pattern, job.get("title", ""), re.I))
+
+
+#: Chosen for *eligibility* shape. The existing GREENHOUSE_SELECTORS choose for
+#: location shape, which was M1's invariant (I1) and is a different question.
+#: Every reason here names a case AMENDMENTS A13 lists as genuinely hard.
+ELIGIBILITY_SELECTORS: list[tuple[str, Callable[[dict[str, Any]], bool], int]] = [
+    ("internship in the title",
+     lambda j: _title_matches(j, r"\b(intern|internship|co-?op)\b"), 3),
+    ("new grad / university programme in the title",
+     lambda j: _title_matches(j, r"\b(new ?grad|university|campus|early career)\b"), 2),
+    ("a graduation year stated numerically",
+     _states_graduation_year, 3),
+    ("sponsorship stated in writing",
+     _mentions_sponsorship, 2),
+    ("a doctorate named as a requirement",
+     _mentions_doctorate, 2),
+    ("'or equivalent experience' — the A13 escape hatch",
+     _mentions_equivalence, 2),
+    ("a numeric years-of-experience requirement",
+     _states_years_of_experience, 3),
+    ("a preferred / nice-to-have section, whose contents are not gaps",
+     _has_preferred_section, 3),
+    ("senior or above in the title — the seniority mismatch case",
+     lambda j: _title_matches(j, r"\b(senior|staff|principal|lead|director|vp)\b"), 2),
+    ("multi-level posting spanning an eligibility boundary",
+     lambda j: _title_matches(j, r"\b(i{1,3}|1|2|3)\s*/\s*(i{1,3}|1|2|3)\b"), 1),
+    ("non-engineering role at a technical employer",
+     lambda j: not _title_matches(
+         j, r"\b(engineer|developer|scientist|researcher|swe|programmer)\b"), 2),
+]
+
+
+def curate(
+    jobs: list[dict[str, Any]],
+    selectors: list[tuple[str, Callable[[dict[str, Any]], bool], int]] | None = None,
+) -> tuple[list[dict[str, Any]], dict[str, str]]:
+    selectors = selectors if selectors is not None else GREENHOUSE_SELECTORS
     picked: list[dict[str, Any]] = []
     chosen_ids: set[Any] = set()
     reasons: dict[str, str] = {}
-    for why, predicate, limit in GREENHOUSE_SELECTORS:
+    for why, predicate, limit in selectors:
         found = 0
         for job in jobs:
             if found >= limit:
@@ -109,6 +217,20 @@ def curate(jobs: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, 
             reasons[str(job["id"])] = why
             found += 1
     return picked, reasons
+
+
+def unmatched_shapes(
+    jobs: list[dict[str, Any]],
+    selectors: list[tuple[str, Callable[[dict[str, Any]], bool], int]],
+) -> list[str]:
+    """Shapes no posting on this board has at all.
+
+    Deliberately not computed from which selectors *contributed* a posting:
+    `curate` is greedy, so a shape claimed by an earlier selector would be
+    reported absent from a board that demonstrably has it. A coverage list that
+    reports a gap where there is none teaches its reader to stop believing it.
+    """
+    return [why for why, predicate, _ in selectors if not any(predicate(j) for j in jobs)]
 
 
 def _reduce_lever(payload: Any, limit: int) -> tuple[Any, dict[str, str], list[str]]:
@@ -201,6 +323,17 @@ def main() -> int:
         default=12,
         help="max postings kept per distinct shape (lever, ashby)",
     )
+    parser.add_argument(
+        "--profile",
+        choices=("locations", "eligibility"),
+        default="locations",
+        help="which selector set to curate with (greenhouse only)",
+    )
+    parser.add_argument(
+        "--out-dir",
+        default=None,
+        help="fixture subdirectory (default: the provider name)",
+    )
     args = parser.parse_args()
 
     if args.provider not in _SUPPORTED_PROVIDERS:
@@ -221,8 +354,12 @@ def main() -> int:
         if not jobs:
             print("board returned no jobs — refusing to write an empty fixture", file=sys.stderr)
             return 1
-        picked, reasons = curate(jobs)
-        missing = [why for why, _, _ in GREENHOUSE_SELECTORS if why not in reasons.values()]
+        selectors = (
+            ELIGIBILITY_SELECTORS if args.profile == "eligibility"
+            else GREENHOUSE_SELECTORS
+        )
+        picked, reasons = curate(jobs, selectors)
+        missing = unmatched_shapes(jobs, selectors)
         full_count = payload.get("meta", {}).get("total", len(jobs))
         fixture_body = {"jobs": picked, "meta": {"total": len(picked)}}
     elif args.provider == "lever":
@@ -246,7 +383,7 @@ def main() -> int:
         picked = fixture_body["jobs"]
 
     basename = args.name or f"{args.token}_board"
-    out_dir = FIXTURE_ROOT / args.provider
+    out_dir = FIXTURE_ROOT / (args.out_dir or args.provider)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     fixture_path = out_dir / f"{basename}.json"

@@ -28,7 +28,7 @@ from datetime import datetime
 from typing import Any, cast
 
 import structlog
-from sqlalchemy import CursorResult, func, select, update
+from sqlalchemy import CursorResult, delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -45,6 +45,8 @@ from nightshift.db.base import (
     IngestionRunStatus,
     JobStatus,
     RemotePolicy,
+    RequirementKind,
+    RequirementNecessity,
     SourceStatus,
 )
 from nightshift.db.models import (
@@ -54,6 +56,7 @@ from nightshift.db.models import (
     JobEmbedding,
     JobLocation,
     JobMergeEvent,
+    JobRequirement,
     JobSourceLink,
     JobStatusEvent,
     Source,
@@ -75,6 +78,10 @@ from nightshift.domain.embeddings import (
     default_embedder,
 )
 from nightshift.domain.freshness import RecordObservation, decide_job_status
+from nightshift.domain.requirement_extraction import (
+    EXTRACTOR_VERSION,
+    extract_requirements,
+)
 
 log = structlog.get_logger(__name__)
 
@@ -325,6 +332,7 @@ async def persist_source_job(
         )
         await session.flush()
         await _store_embedding(session, job)
+        await sync_requirements(session, job)
 
         # Dedupe runs only on creation. An existing record already resolves to
         # its canonical job through the link table, and re-running the matcher
@@ -373,10 +381,20 @@ async def persist_source_job(
         or job.source_updated_at != normalized.source_updated_at
     )
 
+    # Read before the write, because `_apply_normalized_fields` overwrites the
+    # hash it is compared against. `field_changed` already contains this term,
+    # so a description change always reaches the branch below — but the two are
+    # not the same question: a salary edit changes fields and moves no
+    # character, and re-extracting for it would delete and re-insert identical
+    # rows on a poll that changed nothing about what the posting requires.
+    description_changed = job.canonical_description_hash != normalized.description_hash
+
     if content_changed or field_changed:
         _apply_normalized_fields(job, normalized)
     if location_changed:
         await _replace_locations(session, job, normalized)
+    if description_changed:
+        await sync_requirements(session, job)
 
     await session.flush()
     return "updated" if (content_changed or field_changed or location_changed) else "unchanged"
@@ -458,6 +476,64 @@ async def _candidate_for(session: AsyncSession, job: Job) -> DedupeCandidate:
         description=job.description_text,
         embedding=tuple(embedding) if embedding is not None else None,
     )
+
+
+async def sync_requirements(session: AsyncSession, job: Job) -> int:
+    """Replace a job's requirements from its current description text.
+
+    Delete-then-insert rather than a diff, deliberately — but *not* because it is
+    what keeps a span honest when the text moves. The database already does that:
+    Task 5's ``jobs_description_change_clears_requirements`` fires on any UPDATE
+    that changes ``description_text`` and clears the job's rows, so a stale span
+    cannot survive a re-poll even if nothing ever calls this function. Measured:
+    removing the delete below leaves every description-change test green.
+
+    What the delete is for is the *unchanged* case. Re-running the extractor over
+    text that did not move re-emits the same ``(kind, value, char_start)`` tuples,
+    and ``uq_job_requirements_span`` rejects the second insert — so without it a
+    second sync raises rather than being a no-op. Idempotency, not integrity.
+
+    Public rather than underscored so a re-extraction can call it when
+    ``EXTRACTOR_VERSION`` moves — the one case the trigger cannot serve, because
+    the text is identical and only the rules changed.
+
+    **There is no backfill script, and this docstring claimed there was one
+    until 2026-08-05.** What actually refreshes stored rows today is
+    re-ingestion: both callers above run this on every poll of a job whose
+    description changed, and ``make seed`` re-ingests the corpus from scratch.
+    So after a version bump, rows written by the previous version keep their old
+    ``extractor_version`` until their posting is re-seeded or its text moves.
+    Recorded rather than papered over — it is visible in the column, which is
+    what the column is for.
+    """
+    # This statement also fixes an ordering hazard, which is why it is a DELETE
+    # and not a collection clear. A caller assigns `job.description_text` and
+    # calls straight in; executing SQL here autoflushes that UPDATE *first*, so
+    # the trigger it fires clears the old rows before any new one is inserted.
+    # Without a statement to force it, the unit of work is free to order the
+    # inserts ahead of the UPDATE — and the trigger would then delete the rows
+    # this function had just written.
+    await session.execute(delete(JobRequirement).where(JobRequirement.job_id == job.id))
+    text = job.description_text
+    if not text:
+        return 0
+
+    proposals = extract_requirements(text)
+    for proposal in proposals:
+        session.add(
+            JobRequirement(
+                job_id=job.id,
+                kind=RequirementKind(proposal.kind),
+                value=proposal.value,
+                raw_text=proposal.raw_text,
+                char_start=proposal.char_start,
+                char_end=proposal.char_end,
+                necessity=RequirementNecessity(proposal.necessity),
+                has_equivalence=proposal.has_equivalence,
+                extractor_version=EXTRACTOR_VERSION,
+            )
+        )
+    return len(proposals)
 
 
 async def _store_embedding(session: AsyncSession, job: Job) -> None:

@@ -159,8 +159,74 @@ describe('jobDetailSchema', () => {
       description_text: null,
       description_html: null,
       sources: [],
+      requirements: [],
+      requirements_extractor_version: null,
     });
     expect(parsed.description_text).toBeNull();
+  });
+
+  const withDescription = (
+    description: string | null,
+    requirements: unknown[],
+    version: string | null = 'm3a.1',
+  ) => ({
+    id: '11111111-1111-4111-8111-111111111111',
+    title: 'Engineer',
+    company: {
+      id: '22222222-2222-4222-8222-222222222222',
+      canonical_name: 'X',
+      website: null,
+    },
+    employment_type: 'full_time',
+    remote_policy: 'unknown',
+    status: 'open',
+    locations: [],
+    salary: { provided: false },
+    source_published_at: null,
+    source_updated_at: null,
+    first_seen_at: '2026-08-03T00:00:00+00:00',
+    last_seen_at: '2026-08-03T00:00:00+00:00',
+    application_deadline: null,
+    description_text: description,
+    description_html: null,
+    sources: [],
+    requirements,
+    requirements_extractor_version: version,
+  });
+
+  const KOTLIN_TEXT = 'You will need Kotlin.';
+  const kotlin = {
+    kind: 'technology',
+    value: 'Kotlin',
+    raw_text: 'Kotlin',
+    char_start: KOTLIN_TEXT.indexOf('Kotlin'),
+    char_end: KOTLIN_TEXT.indexOf('Kotlin') + 'Kotlin'.length,
+    necessity: 'required',
+    has_equivalence: false,
+  };
+
+  it('accepts a requirement that quotes the text it points at', () => {
+    const parsed = jobDetailSchema.parse(withDescription(KOTLIN_TEXT, [kotlin]));
+    expect(parsed.requirements).toHaveLength(1);
+  });
+
+  it('refuses a requirement whose span has drifted by one character', () => {
+    // The span is still the right *length*, so only a check that holds both
+    // the row and the text can see this. Off by one is the realistic failure:
+    // it renders a plausible highlight over the wrong words.
+    expect(() =>
+      jobDetailSchema.parse(
+        withDescription(KOTLIN_TEXT, [
+          { ...kotlin, char_start: kotlin.char_start + 1, char_end: kotlin.char_end + 1 },
+        ]),
+      ),
+    ).toThrow(/does not quote the text it points at/);
+  });
+
+  it('does not refuse requirements on a job with no description text', () => {
+    // Nothing to check them against. Refusing here would reject a response
+    // the API can legitimately produce.
+    expect(() => jobDetailSchema.parse(withDescription(null, []))).not.toThrow();
   });
 });
 

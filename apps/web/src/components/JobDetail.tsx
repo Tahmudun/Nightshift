@@ -17,6 +17,7 @@ import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 
 import { ConfidenceLadder } from './ConfidenceLadder';
+import { JobRequirements } from './JobRequirements';
 import { SaveJobButton } from './SaveJobButton';
 import { fetchJob } from '@/lib/api';
 import type { JobDetail } from '@/lib/schemas';
@@ -122,6 +123,19 @@ export function JobFacts({ job }: { readonly job: JobDetail }) {
         )}
       </section>
 
+      {/* Above "not yet computed" and "sources", not below the description as
+          the plan had it. Every row here quotes a sentence from the description,
+          so a reader who has already scrolled the whole posting has read them
+          once and is being shown them again; the other way round, the section
+          tells them what to look for. It also keeps the things this page
+          actually knows together, with the deferred list and the provenance
+          after them rather than wedged in between. */}
+      <JobRequirements
+        requirements={job.requirements}
+        descriptionText={job.description_text}
+        extractorVersion={job.requirements_extractor_version}
+      />
+
       <section data-testid="deferred-facts">
         <h2 className={TERM}>Not yet computed</h2>
         <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-paper-dim">
@@ -166,7 +180,10 @@ export function JobFacts({ job }: { readonly job: JobDetail }) {
       {job.description_text !== null && (
         <section>
           <h2 className={TERM}>Description</h2>
-          <p className="mt-3 max-w-3xl whitespace-pre-line text-[14px] leading-relaxed text-paper-dim">
+          <p
+            data-testid="job-description"
+            className="mt-3 max-w-3xl whitespace-pre-line text-[14px] leading-relaxed text-paper-dim"
+          >
             {job.description_text}
           </p>
         </section>

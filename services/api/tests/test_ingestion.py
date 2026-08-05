@@ -11,6 +11,7 @@ decide whether to run.
 from __future__ import annotations
 
 import json
+import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
@@ -29,6 +30,7 @@ from nightshift.db.models import (
     Job,
     JobEmbedding,
     JobLocation,
+    JobRequirement,
     JobSourceLink,
     JobStatusEvent,
     SourceJobRecord,
@@ -234,6 +236,49 @@ async def test_reingestion_is_idempotent(db_session: AsyncSession) -> None:
     assert second.updated == 0, "a re-poll of unchanged data reported an update"
     assert second.unchanged == 9
     assert await _count(db_session, Job) == jobs_after_first
+
+
+async def _requirement_ids(session: AsyncSession) -> set[uuid.UUID]:
+    return set((await session.execute(select(JobRequirement.id))).scalars().all())
+
+
+async def test_ingestion_extracts_requirements(db_session: AsyncSession) -> None:
+    """A posting arrives carrying what it asks for, without a separate pass."""
+    await _ingest(db_session, _lever_outcome())
+
+    rows = (await db_session.execute(select(JobRequirement))).scalars().all()
+    assert rows, "nine recorded postings produced no requirements at all"
+
+    # Every row quotes its own job's text. The trigger enforces this per row;
+    # asserting it across the corpus is what proves the trigger ran on the
+    # pipeline's writes and not only on hand-built ones.
+    texts = dict(
+        (await db_session.execute(select(Job.id, Job.description_text))).all()  # type: ignore[arg-type]
+    )
+    for row in rows:
+        text = texts[row.job_id]
+        assert text is not None
+        assert text[row.char_start : row.char_end] == row.raw_text
+
+
+async def test_repolling_unchanged_postings_does_not_churn_requirements(
+    db_session: AsyncSession,
+) -> None:
+    """The other half of "no spurious updates", on M3a's table.
+
+    Requirements are re-extracted only when the description actually moved.
+    Re-extracting on every poll would keep the row *counts* identical while
+    replacing every row — invisible to a count assertion, and it would reset
+    `created_at` on the whole corpus each time a board answered.
+    """
+    await _ingest(db_session, _lever_outcome())
+    before = await _requirement_ids(db_session)
+    assert before
+
+    _, second = await _ingest(db_session, _lever_outcome())
+    assert second.unchanged == 9
+
+    assert await _requirement_ids(db_session) == before
 
 
 async def test_a_failed_board_closes_nothing(db_session: AsyncSession) -> None:

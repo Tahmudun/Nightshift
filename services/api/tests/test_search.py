@@ -94,8 +94,31 @@ def test_deferred_filters_name_what_blocks_them() -> None:
         "borough",
     }
     for entry in DEFERRED_FILTERS:
-        assert entry.blocked_on in {"M3", "M4"}
+        # M3b, not M3: M3a landed and none of these arrived with it, so a bare
+        # "M3" now points at a milestone that is partly done — which reads as
+        # "any day now" for work that is not scheduled until the next slice.
+        assert entry.blocked_on in {"M3", "M3b", "M4"}
         assert entry.reason.strip() != ""
+
+
+def test_no_deferred_filter_blames_something_that_now_exists() -> None:
+    """The stale-reason check, which this project keeps needing.
+
+    A "not built" list goes stale in the one direction nobody looks: nobody
+    re-reads it when the thing it was waiting for lands. M2c's and M2d's reviews
+    each found one. This found the `skill` filter still blaming the absence of
+    the skill taxonomy, which shipped at M2c.
+
+    Only the named artefacts are checkable here — a test cannot read English —
+    but these are the three that have actually gone stale.
+    """
+    built = ("skill taxonomy", "skills.yaml", "requirement extraction")
+    for entry in DEFERRED_FILTERS:
+        lowered = entry.reason.lower()
+        for artefact in built:
+            assert artefact not in lowered, (
+                f"{entry.name} is deferred on {artefact!r}, which exists"
+            )
 
 
 def test_borough_is_deferred_for_an_invariant_reason_not_a_schedule() -> None:

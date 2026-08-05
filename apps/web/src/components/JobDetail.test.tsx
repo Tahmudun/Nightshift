@@ -2,9 +2,13 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { JobFacts } from './JobDetail';
-import type { JobDetail } from '@/lib/schemas';
+import { jobDetailSchema } from '@/lib/schemas';
 
-const BASE: JobDetail = {
+// Parsed through the real schema rather than cast to its type. A cast asserts
+// the shape; the schema *checks* it, and M2c shipped a component test fed a row
+// its own schema would have refused. This fixture went stale the moment M3a
+// added two fields, and the cast said nothing — the render crashed instead.
+const BASE = jobDetailSchema.parse({
   id: '11111111-1111-4111-8111-111111111111',
   title: 'Platform Engineer',
   company: {
@@ -25,7 +29,9 @@ const BASE: JobDetail = {
   description_text: 'We build things.',
   description_html: null,
   sources: [],
-};
+  requirements: [],
+  requirements_extractor_version: null,
+});
 
 describe('JobFacts', () => {
   it('says a missing salary was not provided rather than hiding the row', () => {
