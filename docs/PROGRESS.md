@@ -48,7 +48,27 @@ branches are still on the remote** — `m1a-provider-breadth`,
 into `main` with nothing ahead. Deleting them still needs a permission this
 session did not have; it is one `git push origin --delete`.
 
-**Branch `ci-pin-and-canary` is open**, answering Q4 before M3b starts.
+**[PR #10](https://github.com/Tahmudun/Nightshift/pull/10) is open and CI is
+green on all five jobs, first attempt**, run
+[31045860049](https://github.com/Tahmudun/Nightshift/actions/runs/31045860049).
+Counts read from the job logs rather than inferred:
+
+```
+python       299s   1282 passed; 72 distributions, all pinned
+e2e          189s   5 degraded + 41 seeded passed, 1 skipped
+migrations    74s   up, down, up, and no drift
+web           69s   18 files, 159 tests
+secret scan    5s
+```
+
+**The step that matters is `The pin covers everything that got installed`, and
+it passed in the real runner** — the constraints file resolved to exactly the 72
+lines it names, on a machine that is not this one. Seven CI runs across this
+project have failed and every one found something no local command had executed;
+this is the fifth first-try pass, recorded because it is not the usual outcome.
+
+`headSha` is `cef574a`, which is also the branch head, so the pre-merge
+invariant is satisfied by inspection rather than by a diff.
 
 ---
 
