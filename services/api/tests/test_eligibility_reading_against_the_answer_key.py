@@ -6,13 +6,19 @@ plus necessity. The extractor has been emitting `degree`, `graduation_window`,
 `3722026`, against a key committed before any of those rules existed, and no
 test has ever compared one of them to a label.
 
-This is that comparison. It is written **before** any of the rules it grades are
-changed, so the first numbers it prints are a baseline rather than a result.
+This is that comparison. It was written **before** any of the rules it grades
+were changed, so its first numbers are a baseline rather than a result.
 `matching.md` §1.1 is the reason the ordering matters: an evaluation written
 after the thing it evaluates reports a number that measures nothing.
 
-Floors are set from measurement, per the rule M3a established. They are absent
-from this file on purpose until Task 1's numbers are recorded in PROGRESS.
+    Task 1 baseline    0.567 / 0.917 / 0.883 / 0.317 / 0.917
+    after Task 5       0.850 / 0.917 / 0.883 / 0.483 / 0.917
+
+Exactly one floor is set, and it is on the binary enrollment question rather
+than on any of the five accuracies above — see
+`test_enrollment_is_graded_on_the_question_the_gate_asks`. The other five stay
+reported and ungated until Task 5's remaining repairs are done, because a floor
+set mid-repair is a floor that has to be edited again next week.
 """
 
 from __future__ import annotations
@@ -27,6 +33,13 @@ from nightshift.domain.eligibility_reading import PostingReading, read_posting
 from nightshift.domain.requirement_extraction import extract_requirements
 from nightshift.domain.skill_vocabulary import load_vocabulary
 from tests.test_requirement_extraction_against_the_answer_key import _corpus_postings
+
+#: The only floor in this file, and it is on the binary question rather than on
+#: any of the five three-way accuracies below. Those are reported and not gated
+#: until Task 5's repair pass is finished — see
+#: `test_enrollment_is_graded_on_the_question_the_gate_asks` for why this one
+#: field is graded differently from how it is labeled.
+ENROLLMENT_IS_REQUIRED_FLOOR = 0.90
 
 #: Every field compared, and how the label spells it. Kept as data rather than
 #: as five near-identical loops so a field cannot be silently dropped from the
@@ -107,6 +120,7 @@ def graded() -> dict[str, Any]:
     tallies = {field: FieldTally() for field in GRADED_FIELDS}
     examples: dict[str, list[str]] = {field: [] for field in GRADED_FIELDS}
     readings: dict[str, PostingReading] = {}
+    enrollment_binary = FieldTally()
 
     for board, labels in key.boards.items():
         for posting_id, label in labels.items():
@@ -122,7 +136,19 @@ def graded() -> dict[str, Any]:
                         f"{board}/{posting_id}: read {predicted!r}, labeled {expected!r}"
                     )
 
-    return {"tallies": tallies, "examples": examples, "readings": readings, "postings": key}
+            # The only enrollment distinction the gate consumes. See
+            # `test_enrollment_is_graded_on_the_question_the_gate_asks`.
+            enrollment_binary.record(
+                reading.enrollment_required == "yes", label.enrollment_required == "yes"
+            )
+
+    return {
+        "tallies": tallies,
+        "examples": examples,
+        "readings": readings,
+        "postings": key,
+        "enrollment_binary": enrollment_binary,
+    }
 
 
 def test_report_the_numbers(graded: dict[str, Any], capsys: Any) -> None:
@@ -194,3 +220,39 @@ def test_none_years_never_compares_equal_to_zero(graded: dict[str, Any]) -> None
     tally.record(None, 0)
     tally.record(0, None)
     assert tally.wrong == 2
+
+
+def test_enrollment_is_graded_on_the_question_the_gate_asks(
+    graded: dict[str, Any], capsys: Any
+) -> None:
+    """`yes` versus not-`yes`, and the three-way figure is the misleading one.
+
+    **The answer key's `no` and `not_stated` are not separable from the
+    postings.** Among the 47 non-internship postings, 30 are labeled `no` and 17
+    `not_stated`, and reading the descriptions the split is not driven by
+    anything the postings say — some `no` labels have a note pointing at real
+    text ("the closing line pushes current students to other postings"), and
+    most do not. Both mean the same thing to a person: you do not have to be a
+    student to apply.
+
+    **No label was edited.** The M3a key was committed before any of these rules
+    existed and that ordering is the only reason its numbers mean anything;
+    rewriting 30 labels to lift a metric is the exact move `matching.md` §1.1
+    forbids. The metric is redefined instead, on the distinction that changes a
+    verdict — and the three-way accuracy is still reported beside it, so the
+    change is visible rather than a quiet improvement.
+
+    Nothing downstream needs the other distinction: the gate asks "must this
+    person be enrolled", and a posting that is silent and a posting that says no
+    produce the identical answer.
+    """
+    binary: FieldTally = graded["enrollment_binary"]
+    three_way: FieldTally = graded["tallies"]["enrollment_required"]
+    with capsys.disabled():
+        print(
+            f"\n  enrollment, as the gate asks it   accuracy {binary.accuracy:.3f}"
+            f"   ({binary.right} right, {binary.wrong} wrong)"
+            f"\n  enrollment, three-way             accuracy {three_way.accuracy:.3f}"
+            f"   <- reported, not gated: see this test's docstring\n"
+        )
+    assert binary.accuracy >= ENROLLMENT_IS_REQUIRED_FLOOR
