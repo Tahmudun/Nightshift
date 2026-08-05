@@ -1,668 +1,1186 @@
 boards:
   akunacapital_eligibility:
     '7496397':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors+equivalent
+      enrollment_required: 'no'
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required:
+      - trading systems
+      min_years_experience: 3
+      note: template metaprogramming and trading familiarity are both 'a plus'; closing
+        line pushes current students and recent grads to other postings, so enrollment
+        is not required
+      required_tech:
+      - C++
+      - Linux
+      - Python
+      sponsorship: not_stated
       title: Software Engineer - C++
     '7496423':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: none
+      enrollment_required: not_stated
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required:
+      - VBA
+      - Python
+      min_years_experience: 2
+      note: options market making is domain experience, not a named technology, so
+        required_tech is empty even though 2+ years is required. VBA and Python are
+        explicitly 'a plus, but not required'
+      required_tech: []
+      sponsorship: not_stated
       title: Broker Trader
     '7496425':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors
+      enrollment_required: 'no'
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required: []
+      min_years_experience: 2
+      note: '''Bachelor''s Degree in ... or a related/equivalent field'' is field
+        equivalence, so no +equivalent — contrast [19], where ''or equivalent'' follows
+        the degree itself. Market making, PnL and risk are domain experience, not
+        named technologies'
+      required_tech: []
+      sponsorship: not_stated
       title: Experienced Options Trader
     '7496427':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors+equivalent
+      enrollment_required: 'no'
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required: []
+      min_years_experience: 2
+      note: '''BS/MS in Finance, Economics, Business, Mathematics, or equivalent''
+        puts ''or equivalent'' after the degree list itself, the same shape as [1],
+        so +equivalent applies here where it did not in [2], [3] or [20]. The separate
+        ''SPX pit experience in the last 18 months'' is a recency constraint, not
+        a second years-of-experience minimum, so 2 stands. CBOE and SPX are a venue
+        and a product, not named technologies'
+      required_tech: []
+      sponsorship: not_stated
       title: Floor Trader- SPX
     '7901833':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors
+      enrollment_required: 'no'
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required:
+      - Python
+      - C++
+      min_years_experience: 2
+      note: '''Additional Experience We Value'' is the nice-to-have section, so the
+        languages land there. SOFR, Eurodollar, CME SR3, OIS and Fed Funds are financial
+        products and venues, and Greeks and vol surface construction are options theory
+        — none are named technologies, so required_tech is empty despite the role
+        being technical. ''or a related quantitative field'' is field scope, so no
+        +equivalent'
+      required_tech: []
+      sponsorship: not_stated
       title: Experienced Options Trader - SOFR
     '7986086':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors
+      enrollment_required: 'yes'
+      graduation_window: 2027-2028
+      is_internship: unclear
+      mentioned_not_required: []
+      min_years_experience: not_stated
+      note: 'unclear rather than yes — this is an expression of interest in a sneak
+        peek week, not an internship. ''Pursuing a BS/MS/PhD'' gives enrollment yes
+        and degree bachelors as the lowest bar; ''related/equivalent field'' is field
+        equivalence, not a degree escape hatch. Sponsorship not_stated: ''Legal authorization
+        to work in the U.S. is required on the first day of employment including F-1
+        students using OPT or STEM'''
+      required_tech: []
+      sponsorship: not_stated
       title: 'Expression of Interest: 2027 Trading Sneak Peek Weeks'
     '7993921':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors
+      enrollment_required: 'yes'
+      graduation_window: 2026-2028
+      is_internship: unclear
+      mentioned_not_required: []
+      min_years_experience: not_stated
+      note: 'unclear — this is a five-day challenge with expedited interviews for
+        top performers, not an internship, matching the competition case. ''Graduating
+        between December 2026 – August 2028'' is a stated range. ''related/equivalent
+        field'' is field equivalence, so no +equivalent. The right-to-work line is
+        candidate-side only: ''contingent on verification of your right to work in
+        the United States on the first day of employment'''
+      required_tech:
+      - Python
+      sponsorship: not_stated
       title: 'Akuna Capital’s 2026 Virtual Quant Trading Challenge '
     '8003751':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors
+      enrollment_required: 'no'
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required: []
+      min_years_experience: not_stated
+      note: 'no +equivalent — ''or a related/equivalent field'' loosens the field
+        of study, not the degree level, unlike [1] where ''or equivalent'' follows
+        the degree itself. Degree ''must be completed upon employment'' so enrollment_required
+        is no. August 2027 start date is not a graduation statement. Sponsorship line
+        is candidate-side only: ''Legal authorization to work in the U.S. is required
+        on the first day of employment including F-1 students using OPT or STEM''.
+        Collegiate team sports is preferred but not a technology'
+      required_tech: []
+      sponsorship: not_stated
       title: Junior Pit Trader
     '8016687':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors
+      enrollment_required: 'no'
+      graduation_window: through-2027
+      is_internship: 'no'
+      mentioned_not_required: []
+      min_years_experience: not_stated
+      note: '''Additional qualities that make great candidates'' is the nice-to-have
+        section, but everything in it is a paradigm (generic and parallel programming)
+        or an academic field (Linear Algebra, Signal Processing, Machine Learning),
+        so mentioned_not_required is empty rather than long. Same as [20]: degree
+        ''must be completed upon employment'' gives enrollment no despite the August
+        2027 graduation deadline, and ''(or related subject)'' is field scope. Sponsorship
+        not_stated: ''Legal authorization to work in the U.S. is required on the first
+        day of employment including F-1 students using OPT or STEM'''
+      required_tech:
+      - Python
+      sponsorship: not_stated
       title: Junior Quantitative Developer & Strategist
     '8018856':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors
+      enrollment_required: 'yes'
+      graduation_window: through-2028
+      is_internship: 'yes'
+      mentioned_not_required:
+      - Infrastructure as Code
+      - Kubernetes
+      - AWS
+      min_years_experience: not_stated
+      note: 'this posting has a real ''Requirements for this role'' header, so the
+        later ''Qualities that make great candidates'' block reads as the nice-to-have
+        list — that is where IaC, Kubernetes and AWS live, and the requirements block
+        names no technology at all. Contrast [1] and [5], where ''Qualities'' is the
+        only list and therefore carries the requirements. ''or equivalent'' sits inside
+        the parenthetical list of fields, so no +equivalent on the degree. Sponsorship
+        not_stated: ''Legal authorization to work in the U.S. is required on the first
+        day of employment including F-1 students using OPT or STEM'''
+      required_tech: []
+      sponsorship: not_stated
       title: Platform Engineer Intern, Summer 2027
     '8018880':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors
+      enrollment_required: 'yes'
+      graduation_window: through-2029
+      is_internship: 'yes'
+      mentioned_not_required:
+      - Verilog
+      - SystemVerilog
+      - VHDL
+      min_years_experience: not_stated
+      note: 'same two-header structure as [6] — ''Requirements for this role'' names
+        no technology, and the later ''Qualities that make great candidates for the
+        FPGA team'' is the nice-to-have list, so the HDLs go there. FPGA names the
+        team in that header rather than being asked for as a skill, so it is not listed.
+        ''or a related field'' never says equivalent, so no +equivalent. Sponsorship
+        not_stated: ''Legal authorization to work in the U.S. is required on the first
+        day of employment including F-1 students using CPT, OPT or STEM'''
+      required_tech: []
+      sponsorship: not_stated
       title: Hardware Engineer Intern, Summer 2027
     '8021481':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors
+      enrollment_required: 'yes'
+      graduation_window: through-2028
+      is_internship: 'yes'
+      mentioned_not_required: []
+      min_years_experience: not_stated
+      note: 'unlike [6] and [24], the ''Requirements for these roles'' block here
+        does name a technology — ''Strong Python programming background'' — so Python
+        is required_tech. The later ''Qualities that make great candidates'' block
+        names only paradigms and fields, so mentioned_not_required is empty. Sponsorship
+        not_stated: ''Legal authorization to work in the U.S. is required on the first
+        day of employment including F-1 students using CPT, OPT or STEM'''
+      required_tech:
+      - Python
+      sponsorship: not_stated
       title: Quantitative Development & Strategy Intern, Summer 2027
     '8035515':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors+equivalent
+      enrollment_required: 'no'
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required:
+      - SQL
+      min_years_experience: not_stated
+      note: '''A degree in a quantitative field, or evidence of mathematical and quantitative
+        skill'' names no level, so bachelors is the lowest that satisfies it, and
+        the evidence-of-skill alternative is a real way around the degree — same shape
+        as [9]. Python is an example (''e.g.'') but sits inside a required bullet
+        about programming experience; SQL is explicitly ''preferred but not required''.
+        Options theory is domain knowledge, not a technology'
+      required_tech:
+      - Python
+      sponsorship: not_stated
       title: Junior Quantitative Risk Analyst
     '8036541':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors
+      enrollment_required: 'no'
+      graduation_window: through-2027
+      is_internship: 'no'
+      mentioned_not_required: []
+      min_years_experience: not_stated
+      note: 'enrollment_required is no despite the graduation deadline, because the
+        degree ''must be completed upon employment'' and ''August 2027 or prior''
+        also admits someone who already graduated — the text never says the candidate
+        must currently be a student. ''(or a related subject)'' is field equivalence,
+        so no +equivalent. Machine learning and statistics are fields, not named technologies.
+        ''Financial experience is not a requirement'' names no technology, so mentioned_not_required
+        stays empty. Sponsorship not_stated: ''Legal authorization to work in the
+        U.S. is required on the first day of employment including F-1 students using
+        OPT or STEM'''
+      required_tech:
+      - Python
+      sponsorship: not_stated
       title: Junior Quantitative Researcher
     '8047104':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: none
+      enrollment_required: not_stated
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required:
+      - SOAR
+      - Cortex XSOAR
+      - Splunk SOAR
+      - Tines
+      - Torq
+      - Microsoft Defender XDR
+      - Microsoft Sentinel
+      - CrowdStrike
+      - SentinelOne
+      - NIST Cybersecurity Framework
+      - CIS Controls
+      - MITRE ATT&CK
+      - ISO 27001
+      - DLP
+      - CASB
+      - Zero Trust
+      - OWASP LLM Top 10
+      - MITRE ATLAS
+      min_years_experience: 3
+      note: EDR appears in both the requirements list and the Preferred Qualifications
+        list; kept in required_tech only, since the two lists may not share a name.
+        '3-5 years' takes the low end. No degree named anywhere, so degree is none.
+        Named security categories (SIEM, EDR, IDS/IPS, SOAR, DLP, CASB) treated as
+        named systems rather than domain knowledge; named frameworks (MITRE ATT&CK,
+        ISO 27001, NIST CSF, CIS Controls) kept in the not-required list where the
+        text puts them
+      required_tech:
+      - SIEM
+      - EDR
+      - firewalls
+      - IDS/IPS
+      - Active Directory
+      - Entra ID/Azure AD
+      - SSO
+      - MFA
+      - Microsoft 365
+      - Azure
+      - AWS
+      - GCP
+      - Windows
+      - Linux
+      - macOS
+      - PowerShell
+      - Python
+      - TCP/IP
+      - DNS
+      - HTTP/S
+      - VPN
+      - Next-Generation Antivirus
+      sponsorship: not_stated
       title: Security Engineer II
   anthropic_eligibility:
     '5023394008':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: none
+      enrollment_required: not_stated
+      graduation_window: not_stated
+      is_internship: unclear
+      mentioned_not_required: []
+      min_years_experience: not_stated
+      note: 'the biggest call in this batch. The posting ends with Anthropic''s standard
+        Logistics block, but it is preceded by ''The below are Anthropic''s policies
+        for full time roles. These do NOT apply to the Fellows Program.'' So the bachelors+equivalent
+        line and ''We do sponsor visas!'' are both explicitly disclaimed here, and
+        the governing text is the fellows-specific logistics: ''We are not currently
+        able to sponsor visas for fellows'' — hence not_offered, and degree none,
+        since the fellows criteria ask for a technical background but never a degree.
+        is_internship is unclear rather than yes: a four-month full-time research
+        program open to career-changers, never called an internship or co-op, with
+        no enrollment requirement. Python is required outright under ''Candidates
+        must be''. The workstream wish-lists name research areas and capabilities
+        (LLMs, pentesting, RL environments) but no specific tool, so mentioned_not_required
+        is empty'
+      required_tech:
+      - Python
+      sponsorship: not_offered
       title: Anthropic Fellows Program
     '5076109008':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors+equivalent
+      enrollment_required: 'no'
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required: []
+      min_years_experience: 5
+      note: near-duplicate of [29] with a higher bar — 5+ years here against 3+ there
+        — and a Japanese fluency requirement, which is a human language and not a
+        technology. 'Comfortable with python' is written lowercase in the posting
+        and kept that way; 'common LLM frameworks and tools' names nothing specific.
+        Degree and sponsorship come from the standard Logistics block
+      required_tech:
+      - python
+      sponsorship: offered
       title: Applied AI Architect
     '5101378008':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors+equivalent
+      enrollment_required: 'no'
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required: []
+      min_years_experience: 10
+      note: 'same Logistics block as [17]: bachelors+equivalent, and ''We do sponsor
+        visas!'' with the every-role-every-candidate caveat. Security clearances and
+        government procurement frameworks are eligibility and domain requirements,
+        not named technologies'
+      required_tech: []
+      sponsorship: offered
       title: Account Executive, Public Sector
     '5176201008':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors+equivalent
+      enrollment_required: 'no'
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required: []
+      min_years_experience: not_stated
+      note: 'min_years_experience is not_stated on purpose: the only number, ''12+
+        years of B2B brand marketing experience'', sits under Preferred qualifications,
+        and the Minimum qualifications block gives no number at all. AI, developer
+        platforms and cloud infrastructure appear as marketing subject matter, not
+        as tools the candidate must use, so both tech lists are empty. Standard Anthropic
+        Logistics block supplies bachelors+equivalent and ''We do sponsor visas!''
+        with the every-role-every-candidate caveat'
+      required_tech: []
+      sponsorship: offered
       title: Brand Marketing Lead, Enterprise
     '5183044008':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: none
+      enrollment_required: not_stated
+      graduation_window: not_stated
+      is_internship: unclear
+      mentioned_not_required: []
+      min_years_experience: not_stated
+      note: 'the AI Safety workstream cut of [26], and labeled identically for the
+        same reason: the trailing standard Logistics block is preceded by ''The below
+        are Anthropic''s policies for full time roles. These do NOT apply to the Fellows
+        Program.'', so the governing text is ''We are not currently able to sponsor
+        visas for fellows'' and there is no degree requirement. Python is required
+        under ''Candidates must be''. Mentor names and research areas are not technologies'
+      required_tech:
+      - Python
+      sponsorship: not_offered
       title: Anthropic Fellows Program, AI Safety
     '5192805008':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors+equivalent
+      enrollment_required: 'no'
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required: []
+      min_years_experience: 3
+      note: both arms of the OR require 3+ years, so 3 either way. The '(or equivalent)'
+        in the body attaches to 'software engineer', not to a degree — but the Logistics
+        block independently supplies bachelors+equivalent, so the value is the same
+        by a different route. 'Comfort with Python expected' is the only named technology;
+        'common LLM frameworks and tools' and 'scalable cloud architectures' name
+        nothing specific
+      required_tech:
+      - Python
+      sponsorship: offered
       title: Applied AI Architect, Commercial
     '5208218008':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors+equivalent
+      enrollment_required: 'no'
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required:
+      - NIST AI RMF
+      - ISO/IEC 42001
+      min_years_experience: not_stated
+      note: '''8+ years'' appears only under Preferred qualifications, so min_years_experience
+        is not_stated. From the same preferred block I kept the named frameworks (NIST
+        AI RMF, ISO/IEC 42001), matching how [5] treated NIST CSF and ISO 27001, but
+        excluded the EU AI Act and SB 53 as legislation rather than technology, and
+        CCEP, CIPP/E and IAPP AIGP as credentials rather than technology'
+      required_tech: []
+      sponsorship: offered
       title: AI Compliance Officer
     '5215052008':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors+equivalent
+      enrollment_required: 'no'
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required:
+      - AWS
+      min_years_experience: not_stated
+      note: 'tagged as a numeric years requirement, but the only number, ''8+ years
+        of enterprise sales or business development experience'', is under Preferred
+        qualifications, so min_years_experience is not_stated — the tag looks like
+        a keyword hit rather than a label. The ''25% travel is required'' in the Minimum
+        block is a travel share, not years. AWS is listed as borderline: it is a named
+        platform in a preferred bullet, though the experience described is commercial
+        partnership work rather than using the platform. AI/ML and enterprise software
+        are too generic to name'
+      required_tech: []
+      sponsorship: offered
       title: Amazon GTM Partnership, Startups
     '5258579008':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors+equivalent
+      enrollment_required: 'no'
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required: []
+      min_years_experience: 12
+      note: 'sponsorship is offered — ''We do sponsor visas!'' — with the caveat that
+        they cannot sponsor for every role and every candidate, which per the rules
+        is an exclusion recorded here rather than a downgrade. Degree comes from the
+        Logistics block: ''Bachelor''s degree or an equivalent combination of education,
+        training, and/or experience''. The Logistics line on years is circular (''will
+        correlate with the internal job level requirements''), so the 12+ from the
+        body is the only real number. Campaign work, shoots and production are craft,
+        not named technology'
+      required_tech: []
+      sponsorship: offered
       title: Art Director, Claude
     '5339199008':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors+equivalent
+      enrollment_required: 'no'
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required:
+      - Autodesk Construction Cloud
+      - Revit
+      - Navisworks
+      min_years_experience: 10
+      note: '''10+ years ... with at least 6 years directly in hyperscale'' nests
+        the 6 inside the 10, so 10, consistent with [11] and [37]. The building codes
+        and standards are treated as named standards and kept in required_tech, matching
+        how ISO 27001 and NIST CSF were handled in [5] and [28] — flag if you would
+        rather standards never count as technology. The design tools under Preferred
+        are unambiguous. PE, AIA/RA, LEED and Uptime Institute AOS/M&O are credentials,
+        excluded as in [28]'
+      required_tech:
+      - IBC
+      - IFC
+      - ASCE 7
+      - ACI 318
+      - AISC
+      - FM Global
+      sponsorship: offered
       title: Data Center Architect, CSA
     '5357746008':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors+equivalent
+      enrollment_required: 'no'
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required: []
+      min_years_experience: not_stated
+      note: the doctorate here is named in order to be waived — 'MD/PhD not required'
+        — so degree comes from the Logistics block, not from the body, and must not
+        be phd. '7+ years' is under Preferred qualifications only, so min_years_experience
+        is not_stated. Scientific taste and entrepreneurial instinct are not technologies
+      required_tech: []
+      sponsorship: offered
       title: Life Sciences Operator, Lead
     '5358112008':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors+equivalent
+      enrollment_required: 'no'
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required:
+      - SWIFT
+      min_years_experience: not_stated
+      note: 'collision case: Trovata and Kyriba are named in both Minimum qualifications
+        (''Hands-on TMS experience ... configured it, broken it, fixed it'') and Preferred
+        qualifications, so per the no-overlap rule they stay in required_tech only,
+        which leaves the preferred list holding just SWIFT — bank APIs and Treasury
+        aggregators are too generic to name. ''5–8 years'' appears only under Preferred,
+        so min_years_experience is not_stated. SOX is excluded as legislation and
+        CTP as a credential, matching [28]'
+      required_tech:
+      - TMS
+      - Kyriba
+      - GTreasury
+      - Trovata
+      - Quantum
+      sponsorship: offered
       title: Cash Manager, Treasury
     '5362838008':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: masters
+      enrollment_required: 'no'
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required:
+      - BigQuery
+      - Greenhouse
+      - Gem
+      - ModernLoop
+      min_years_experience: not_stated
+      note: 'the degree is the contested one. Minimum Qualifications say ''Hold an
+        advanced degree (Master''s or PhD)'', while the boilerplate Logistics block
+        says ''Minimum education: Bachelor''s degree or an equivalent combination''.
+        A bachelor''s does not satisfy the role''s own stated minimum, so the role-specific
+        bar governs and this is masters, not bachelors+equivalent — the opposite direction
+        from [26], where the boilerplate was explicitly disclaimed. Worth a second
+        opinion. ''5 + years'' is Preferred-only, so min_years_experience is not_stated.
+        ''Python/R'' split into two names'
+      required_tech:
+      - SQL
+      - Python
+      - R
+      sponsorship: offered
       title: People Research Scientist, Recruiting
     '5364336008':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors+equivalent
+      enrollment_required: 'no'
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required: []
+      min_years_experience: not_stated
+      note: '''8-10 years of experience across infrastructure investing, private equity,
+        private credit, and/or investment banking'' is the only number and it sits
+        under Preferred qualifications, so min_years_experience is not_stated — the
+        Minimum qualifications block is entirely unquantified. Financial modeling,
+        structuring and credit analysis are domain skills, not named technologies'
+      required_tech: []
+      sponsorship: offered
       title: 'Capital Markets - Infrastructure Financing '
     '5369181008':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors+equivalent
+      enrollment_required: 'no'
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required:
+      - LMS
+      min_years_experience: not_stated
+      note: the three clouds are named in a required bullet ('Direct experience with
+        one or more of'), so they are required_tech even though only one is needed.
+        From 'Strong candidates may also have', LMS is a named system type and is
+        listed; 'partner portal platforms' and 'LLM and AI developer tooling' are
+        too generic to name, consistent with skipping bare AI in [12]. No number anywhere
+        — the Logistics line on years is circular
+      required_tech:
+      - AWS
+      - Google Cloud
+      - Microsoft Azure
+      sponsorship: offered
       title: Cloud Partner Enablement Lead
   databricks_eligibility:
     '6883068002':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors
+      enrollment_required: 'yes'
+      graduation_window: 2027-2028
+      is_internship: 'yes'
+      mentioned_not_required: []
+      min_years_experience: not_stated
+      note: 'the intern sibling of [15], and the only differences are the title and
+        the years: ''Fall 2027 or Spring 2028'' is a stated range, so 2027-2028. ''SQL
+        and/or Python'' is a disjunction but both are named under ''What we look for'';
+        ''AI tooling'' stays unlisted as too generic'
+      required_tech:
+      - SQL
+      - Python
+      sponsorship: not_stated
       title: Product Management Intern (Summer 2027)
     '7011263002':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: phd
+      enrollment_required: 'yes'
+      graduation_window: not_stated
+      is_internship: 'yes'
+      mentioned_not_required: []
+      min_years_experience: not_stated
+      note: '''Pursuing a PhD in computer science or related fields'' is explicit
+        on both enrollment and level, and the parenthetical list of related fields
+        widens the discipline, not the degree, so no +equivalent. Deep learning is
+        the research area; PyTorch is the only named tool. No graduation timing anywhere
+        despite this being an internship'
+      required_tech:
+      - PyTorch
+      sponsorship: not_stated
       title: PhD GenAI Research Scientist Intern
     '7586263002':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors
+      enrollment_required: 'yes'
+      graduation_window: 2026-2027
+      is_internship: 'no'
+      mentioned_not_required: []
+      min_years_experience: not_stated
+      note: new grad is a normal full-time role, so is_internship is no. 'Graduate
+        in Fall 2026 or Spring 2027' is a stated range, hence 2026-2027 rather than
+        through-2027. 'Pursuing a bachelor's or master's' makes enrollment yes and
+        bachelors the lowest bar; 'related engineering practice/field' is field scope
+        and offers no equivalent escape. 'SQL and/or Python' is a disjunction — either
+        satisfies — but both are named under 'What we look for'. 'AI tooling' is too
+        generic to list
+      required_tech:
+      - SQL
+      - Python
+      sponsorship: not_stated
       title: Associate Product Manager, New Grad (2027 Start)
     '7896551002':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors
+      enrollment_required: 'no'
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required: []
+      min_years_experience: 15
+      note: '''BS in Computer Science or Masters or PhD'' lists three levels, so bachelors
+        is the bar, and nothing offers a way around the degree, so no +equivalent.
+        Cloud platforms, SaaS and large-scale distributed systems are described generically
+        with no product named, so both tech lists are empty. The Databricks boilerplate
+        at the end names Spark, Delta Lake and MLflow, but as company description,
+        not as anything asked of the candidate'
+      required_tech: []
+      sponsorship: not_stated
       title: Director of Engineering
     '8099751002':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: masters+equivalent
+      enrollment_required: 'no'
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required:
+      - Databricks Intelligence Platform
+      - Apache Spark
+      min_years_experience: not_stated
+      note: '''Graduate degree in a quantitative discipline ... or equivalent practical
+        experience'' — masters is the lowest graduate degree, and the escape hatch
+        is explicit, so masters+equivalent. ''Extensive years of hands-on industry
+        data science experience'' is exactly the vague-phrase case, so min_years_experience
+        is not_stated. RAG, Text2SQL, multi-agent systems and fine-tuning are techniques
+        and task types rather than named tools, so only the named tools are listed
+        — same reasoning that kept transformers and SSMs out of [35]. The [Preferred]
+        marker puts the Databricks platform and Spark in the not-required list; trademark
+        symbol stripped'
+      required_tech:
+      - HuggingFace
+      - LangChain
+      - DSPy
+      - pandas
+      - scikit-learn
+      - PyTorch
+      - AWS
+      - Azure
+      - GCP
+      sponsorship: not_stated
       title: AI Engineer - FDE (Forward Deployed Engineer)
     '8290810002':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors
+      enrollment_required: 'no'
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required:
+      - Apache Spark
+      - Delta Lake
+      min_years_experience: 14
+      note: '''BS in Computer Science or Engineering; MS or Ph.D. preferred'' makes
+        bachelors the bar with the doctorate explicitly optional, and nothing offers
+        a way around the degree. ''14+ years ... with 6+ years leading infrastructure
+        organizations and 4+ years managing managers'' is the nested shape again,
+        so 14. Kafka appears only inside a quoted illustration of the kind of question
+        the candidate should be able to engage with, but it sits in a required bullet,
+        so it is treated like the ''e.g.'' names in [10]. SLOs/SLIs, chaos engineering
+        and observability are practices, not named tools. Spark and Delta Lake are
+        ''strongly preferred'''
+      required_tech:
+      - Kafka
+      sponsorship: not_stated
       title: Director of Engineering (Data Infrastructure)
     '8431935002':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: none
+      enrollment_required: not_stated
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required:
+      - Databricks Genie
+      - Tableau
+      - Power BI
+      - Databricks Apps
+      - REST APIs
+      min_years_experience: not_stated
+      note: the excerpt for this one contains only the 'Bonus Points' block and the
+        'Why This Role, Why Now' pitch — there is no requirements section in the quoted
+        text at all, so required_tech is empty by construction rather than because
+        the role asks for nothing. Everything nameable is therefore in the not-required
+        list. Databricks certifications and the Data Engineer Associate are credentials,
+        excluded as in [28] and [39]; SaaS, cloud, data platforms and 'AI agent concepts'
+        name no product
+      required_tech: []
+      sponsorship: not_stated
       title: Customer Enablement Specialist
     '8569392002':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: masters+equivalent
+      enrollment_required: 'no'
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required:
+      - Databricks Intelligence Platform
+      - Apache Spark
+      min_years_experience: not_stated
+      note: 'the same posting as [49] with two additions — ''Native-level fluency
+        in Japanese and professional working proficiency in English'', which are human
+        languages and not technologies, and a travel cadence of ''once every 4-8 weeks'',
+        which is a frequency and must not be read as years of experience. Every field
+        is therefore identical to [49]: ''Graduate degree ... or equivalent practical
+        experience'' gives masters+equivalent, and ''Extensive years'' gives not_stated'
+      required_tech:
+      - HuggingFace
+      - LangChain
+      - DSPy
+      - pandas
+      - scikit-learn
+      - PyTorch
+      - AWS
+      - Azure
+      - GCP
+      sponsorship: not_stated
       title: AI Engineer - FDE (Forward Deployed Engineer)
     '8627553002':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: none
+      enrollment_required: not_stated
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required:
+      - Tableau
+      - SQL
+      - Python
+      min_years_experience: 10
+      note: 'the posting states the same split twice and both times agrees: gSheets
+        and Excel are ''advanced capabilities'' expected, while Tableau, SQL and Python
+        are ''a strong plus'' and ''ideally''. ''10+ years of progressive compensation
+        experience, with at least 3 years in a people management role'' nests the
+        3 inside the 10, so 10 is the entry bar — same treatment as [11]. No degree
+        named anywhere'
+      required_tech:
+      - gSheets
+      - Excel
+      sponsorship: not_stated
       title: Director, Compensation
     '8636157002':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: none
+      enrollment_required: not_stated
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required: []
+      min_years_experience: 10
+      note: third variant of the years problem, and the trickiest. This posting states
+        10+, 7+ and 5+ years as three separate parallel requirements — field programs,
+        hyper-growth scaling, team leadership — not as a range and not nested, so
+        all three must hold at once and the effective entry bar is 10. A literal reading
+        of 'smallest number stated as required' would give 5. Resolved the same direction
+        as [11], [37] and [39]. 'marketing automation platforms' names no product,
+        so only SFDC and Tableau are listed. No degree named
+      required_tech:
+      - SFDC
+      - Tableau
+      sponsorship: not_stated
       title: Director, Americas Field Marketing at Databricks
   imc_eligibility:
     '4577504101':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors
+      enrollment_required: 'no'
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required:
+      - Java
+      - C++
+      min_years_experience: 1
+      note: 'the split matters here: ''Proficiency in a programming language is required
+        (Java or C++ preferred)'' requires an unnamed language and only prefers the
+        named ones, so Java and C++ go to mentioned_not_required and required_tech
+        is empty. Algorithms and data structures are CS fundamentals, not named technologies.
+        ''1-3 years of full-time professional work experience'' takes the low end.
+        ''post-graduation'' describes when the experience was earned, not a graduation
+        date, so graduation_window is not_stated; ''or related degree'' is field scope,
+        so no +equivalent'
+      required_tech: []
+      sponsorship: not_stated
       title: Software Engineer, Early Career
     '4658374101':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors
+      enrollment_required: 'no'
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required: []
+      min_years_experience: 2
+      note: '''BS, MS preferably in business, economics or STEM'' names two levels
+        with no escape hatch, so bachelors. ''Strong technical skills in Statistics
+        and Python'' — Statistics is a field, Python is the one named technology.
+        The ''preferably'' attaches to the field of study, not to the degree level'
+      required_tech:
+      - Python
+      sponsorship: not_stated
       title: 'Commodities Broker Trader '
     '4823805101':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors
+      enrollment_required: 'yes'
+      graduation_window: 2026-2027
+      is_internship: 'no'
+      mentioned_not_required:
+      - C++
+      - Python
+      min_years_experience: not_stated
+      note: '''Current university student graduating between September 2026 – July
+        2027 that is pursuing a degree'' gives enrollment yes and a stated range;
+        the degree level is never named, so bachelors is the lowest that satisfies
+        it, and ''or a related degree'' is field scope rather than an escape hatch.
+        The HDLs are required outright — contrast [24], where the same three languages
+        sat in the nice-to-have block — while ''(additional software experience is
+        a plus; C++, Python, or similar)'' marks those two as not required. ''or other
+        RTL programming'' is a category, not a name, so it is not listed'
+      required_tech:
+      - SystemVerilog
+      - Verilog
+      - VHDL
+      sponsorship: not_stated
       title: Graduate Hardware Engineer
     '4869766101':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: none
+      enrollment_required: not_stated
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required:
+      - Bash
+      - Python
+      min_years_experience: 5
+      note: 'sponsorship is stated plainly: ''Please note that immigration sponsorship
+        is not offered for this specific opening.'' Linux is named in a required bullet
+        and again inside the ''is a plus'' scripting line, so it stays in required_tech
+        only and just Bash and Python go to the preferred list. Server hardware, network
+        devices, storage systems, fiber optics and cabling are physical infrastructure
+        categories rather than named tools, so they are not listed — a narrower reading
+        than the software categories kept in [5]'
+      required_tech:
+      - Linux
+      sponsorship: not_offered
       title: Data Center Engineer
     '4907368101':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors
+      enrollment_required: 'yes'
+      graduation_window: 2026-2027
+      is_internship: 'no'
+      mentioned_not_required:
+      - Python
+      - C
+      - C++
+      min_years_experience: not_stated
+      note: '''Proficiency in a programming language (Python, C, C++, etc) is highly
+        desired'' — desired, not required, so all three names go to the not-required
+        list and required_tech is empty. This is the same trap as [25] but weaker:
+        there the language requirement was real and only the names were preferred,
+        here even the requirement is soft. ''Current university student ... pursuing
+        a Bachelor''s or Master''s'' gives enrollment yes and bachelors; February
+        or August 2027 is a start date, not a graduation date, so the window comes
+        from ''graduating between September 2026 – July 2027'''
+      required_tech: []
+      sponsorship: not_stated
       title: Graduate Quantitative Researcher (BS/MS)
     '4913612101':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: none
+      enrollment_required: not_stated
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required: []
+      min_years_experience: 4
+      note: '''Please note that immigration sponsorship is not offered for this specific
+        opening.'' — same explicit line as [38]. ''experience supporting multiple
+        people preferred'' is the only preferred item and names no technology. MS
+        Office and its three named components are all required; no degree is mentioned'
+      required_tech:
+      - MS Office
+      - Outlook
+      - Excel
+      - Word
+      sponsorship: not_offered
       title: Administrative Assistant
     '4914883101':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: masters
+      enrollment_required: 'yes'
+      graduation_window: 2027-2027
+      is_internship: 'no'
+      mentioned_not_required: []
+      min_years_experience: not_stated
+      note: 'sponsorship is offered in the general case with a citizenship exclusion,
+        per the exclusion rule: IMC states it ''is unable to obtain immigration sponsorship
+        for candidates who currently have citizenship from Russia, Belarus or Iran,
+        and attend university in one of the aforementioned countries'', and separately
+        that for Ukrainian citizens with a biometric passport ''IMC can obtain the
+        correct immigration sponsorship for you'' — that second line is what makes
+        the general case offered rather than not_stated. ''A minimum of an MSc (PhD
+        preferred)'' gives masters. ''Currently in your final year of study, graduating
+        in 2027'' gives both enrollment yes and a single-year window. The Desirable
+        line names publications and research areas, not technologies. Note the excerpt
+        ends mid-sentence, so anything after ''eligible to work without sponsorship,''
+        was not available to label from'
+      required_tech:
+      - Pytorch
+      - Python
+      sponsorship: offered
       title: ' Graduate Machine Learning Researcher - London'
   janestreet_eligibility:
     '8151903002':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: none
+      enrollment_required: 'no'
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required: []
+      min_years_experience: 6
+      note: '''Campus'' here names what the person recruits for, not a student programme
+        — this is a senior recruiting role, so is_internship is no and enrollment_required
+        is no rather than yes. Three things are explicitly marked not required (financial
+        services experience, APAC knowledge, another Asian language) but none is a
+        technology, so mentioned_not_required is empty. English fluency is a human
+        language. No degree named'
+      required_tech: []
+      sponsorship: not_stated
       title: 'Campus Recruiter, Early Careers Partnerships & Initiatives '
     '8564603002':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors
+      enrollment_required: 'no'
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required:
+      - Workday
+      min_years_experience: 10
+      note: US GAAP and IFRS are kept as named standards, consistent with ISO 27001
+        and NIST CSF in [5] and [28] and the building codes in [39]; if you decide
+        named standards are domain knowledge rather than technology, those four postings
+        all change together and this is the one where it feels least comfortable,
+        since 'in-depth knowledge of either US GAAP or IFRS' reads much like domain
+        knowledge. Workday is 'a plus'. 'Have a bachelor's degree and are a qualified
+        accountant with relevant accountancy credentials' gives bachelors with no
+        escape hatch; the accountancy credentials are a separate licence requirement,
+        not a degree equivalent
+      required_tech:
+      - US GAAP
+      - IFRS
+      - Microsoft Excel
+      sponsorship: not_stated
       title: Senior Financial Reporting Accountant
   jumptrading_eligibility:
     '7282220':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: none
+      enrollment_required: not_stated
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required: []
+      min_years_experience: not_stated
+      note: campus role, so is_internship is no. The posting never names a degree,
+        never says the candidate must be enrolled, and says nothing about sponsorship
+        — all three are genuine not_stated / none values here even though the sibling
+        Jump posting [57] does state sponsorship. 'Skills You'll Need' is the only
+        requirements section, so everything named in it is required_tech, hedges like
+        'such as' and 'and/or' notwithstanding. ICML, ICLR, NeurIPS and the rest are
+        conferences; transformers and SSMs are architectures given as examples of
+        technique, so neither group is listed
+      required_tech:
+      - PyTorch
+      - TensorFlow
+      - JAX
+      - Python
+      - C++
+      sponsorship: not_stated
       title: 'Campus AI/ML Researcher (Fall 2026) '
     '8052313':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: none
+      enrollment_required: not_stated
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required: []
+      min_years_experience: not_stated
+      note: '''we sponsor work visas for full-time positions'' and this is the full-time
+        role, so offered. The list opens with ''We don''t expect everyone to have
+        all of these'', which softens it, but there is no separate preferred block
+        here, so it remains the requirements section — worth contrasting with [45],
+        the sibling posting, where CUDA and ROCm sit under an explicit ''Bonus Points''
+        header and therefore land in the other list. enrollment_required stays not_stated:
+        students are welcomed, not required'
+      required_tech:
+      - Python
+      - C++
+      - PyTorch
+      - JAX
+      - TensorFlow
+      - CUDA
+      - Triton
+      - SYCL
+      - ROCm
+      sponsorship: offered
       title: Campus AI Research Engineer (Full-Time)
     '8052343':
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: none
+      enrollment_required: not_stated
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required:
+      - HPC
+      - CUDA
+      - ROCm
+      min_years_experience: not_stated
+      note: 'unlike its sibling [35], this posting does state sponsorship: ''we sponsor
+        work visas for full-time positions'', and this is the full-time role, so offered.
+        enrollment_required is still not_stated — ''INTERNATIONAL STUDENTS are encouraged
+        to apply. We accept students eligible for CPT/OPT'' welcomes students without
+        requiring that the candidate be one. ''Bonus Points'' is the nice-to-have
+        header. Conferences and the transformers/SSMs examples are left out for the
+        same reasons as [35]'
+      required_tech:
+      - Python
+      - C++
+      - PyTorch
+      - JAX
+      - TensorFlow
+      sponsorship: offered
       title: Campus AI Research Engineer – Deep Learning (Full-Time)
   openai_eligibility:
     0322d6d8-6588-4209-a304-83e768063a25:
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: none
+      enrollment_required: not_stated
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required: []
+      min_years_experience: not_stated
+      note: min_years_experience is not_stated because 'Extensive experience in information
+        security' and 'a significant portion of that experience' give no number. The
+        technologies arrive as examples ('such as', 'e.g.') but sit inside required
+        bullets about proficiency and tool knowledge, so they go in required_tech
+      required_tech:
+      - Python
+      - Java
+      - C++
+      - Burp Suite
+      - OWASP ZAP
+      sponsorship: not_stated
       title: Security Engineer, Application Security
     18f58952-c242-4562-8732-073a0ae8029e:
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: none
+      enrollment_required: not_stated
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required: []
+      min_years_experience: not_stated
+      note: proficiency in Japanese and English is a human-language requirement, not
+        a named technology, so both lists stay empty. No degree, no numbers, nothing
+        on sponsorship
+      required_tech: []
+      sponsorship: not_stated
       title: Account Director - Tokyo
     1e4e9985-babf-4bd9-8fe8-a2016250780d:
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: none
+      enrollment_required: not_stated
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required: []
+      min_years_experience: not_stated
+      note: '''such as'' and ''like'' hedge the names, but they sit in the only qualifications
+        list, so they are required_tech — same treatment as [10] and [16]. ''Strong
+        software engineering experience'' gives no number. Databases and SRE are named
+        as domains to pivot between, not as tools'
+      required_tech:
+      - Python
+      - Golang
+      - infrastructure as code
+      - Terraform
+      - Azure
+      sponsorship: not_stated
       title: Software Engineer, Security Observability
     2cba0d45-7a4f-4f38-ac73-3f8633bf0349:
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: none
+      enrollment_required: not_stated
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required:
+      - Kubernetes
+      - Terraform
+      - Buildkite
+      - Postgres
+      - Cosmos DB
+      - Kafka
+      - Python
+      - FastAPI
+      min_years_experience: 5
+      note: two judgment calls. (1) The stack is introduced as 'As technical context
+        ... some core technologies we build with include', which is neither a requirement
+        nor a preferred section — it describes the team's environment. Putting it
+        in required_tech would invent a bar the posting never set, so it goes in mentioned_not_required.
+        (2) '5+ years of experience in engineering, including 3+ years in infrastructure'
+        nests the 3 inside the 5; the entry bar is 5 years total, so 5 rather than
+        3. Flag if the program takes the literal smallest integer. Relocation assistance
+        is not visa sponsorship
+      required_tech: []
+      sponsorship: not_stated
       title: Software Engineer, Developer Productivity
     676d359b-0ef6-40a5-81d5-d4f2eb198eab:
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: none
+      enrollment_required: not_stated
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required: []
+      min_years_experience: 15
+      note: everything named is domain knowledge (power systems, grid constraints,
+        low-carbon energy), not named technology, so both lists are empty. 15+ years
+        sits under the Qualifications header
+      required_tech: []
+      sponsorship: not_stated
       title: Clean Energy and New Technology Lead
     8fb1615c-34bf-47c4-a1d1-b7b2f836bbd3:
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: bachelors+equivalent
+      enrollment_required: 'no'
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required: []
+      min_years_experience: 5
+      note: '''Possess a degree in a hard science, or have a demonstrated track record
+        of engineering expertise'' names no level, so bachelors is taken as the lowest
+        degree that satisfies it, and the track-record alternative is a genuine way
+        around the degree, hence +equivalent. ''Possess'' implies a completed degree,
+        so enrollment_required is no'
+      required_tech: []
+      sponsorship: not_stated
       title: Technical Program Manager, Compute Infrastructure
     c414f15f-60c4-40b5-a896-d2ad6c7f4415:
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: none
+      enrollment_required: not_stated
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required: []
+      min_years_experience: 5
+      note: '''YOU MIGHT THRIVE IN THIS ROLE IF YOU'' is soft phrasing but is the
+        only qualifications list in the posting, so it is read as the requirements
+        section and 5+ years counts. No degree and no named technology anywhere'
+      required_tech: []
+      sponsorship: not_stated
       title: Senior Technical Program Manager - Security
     f01b7084-a68d-4e30-ace9-6b5e6d90c517:
-      degree: TO_LABEL
-      enrollment_required: TO_LABEL
-      graduation_window: TO_LABEL
-      is_internship: TO_LABEL
-      mentioned_not_required: TO_LABEL
-      min_years_experience: TO_LABEL
-      note: TO_LABEL
-      required_tech: TO_LABEL
-      sponsorship: TO_LABEL
+      degree: none
+      enrollment_required: not_stated
+      graduation_window: not_stated
+      is_internship: 'no'
+      mentioned_not_required: []
+      min_years_experience: not_stated
+      note: no number appears anywhere — 'Experience in', 'Solid experience', 'Strong
+        scripting ability' are all unquantified. 'Strong scripting ability' names
+        no language and bare 'AI' is too generic to be a named technology, so required_tech
+        is empty. Relocation assistance is not visa sponsorship
+      required_tech: []
+      sponsorship: not_stated
       title: Technical Threat Investigator, Threat Intel Engineering
