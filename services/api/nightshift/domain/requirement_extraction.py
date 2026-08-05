@@ -313,10 +313,47 @@ _EQUIVALENCE = re.compile(r"\bor\s+(?:an?\s+)?(?:have\s+)?equivalent\b", re.I)
 #: posting never said. U+2019 happens to be one character wide, so the offsets
 #: would have survived — but the rule is not "when the replacement is the same
 #: width", and the next such fix would not be.
+#: The bare two-letter abbreviations must prove themselves, and IMC's
+#: Administrative Assistant posting is why. `m\.?s\.?` matched the `MS` in **MS
+#: Office**, the reading came out `masters`, and the gate hard-blocked a
+#: bachelor's graduate from a role the answer key labels `degree: none`. Found by
+#: `test_no_posting_is_wrongly_reported_ineligible` on its first run — a false
+#: positive that would merely have cost precision at M3a became a person being
+#: told they cannot apply.
+#:
+#: Two constraints together, because either alone is not enough:
+#:
+#: - **Case-sensitive** via `(?-i:...)`. These boards are trading firms and
+#:   `\bms\b` under `re.I` matches the milliseconds in "5 ms in latency". The
+#:   same call `skills.yaml` already makes for `Go`, `Rust`, `React` and
+#:   `Outlook`.
+#: - **A degree context must follow** — a slash, "in", "or", or "degree". "MS
+#:   Office" has none of them; "BS/MS in Finance" and "Pursuing a BS/MS/PhD"
+#:   have all they need.
+#:
+#: The spelled-out and dotted forms (`Bachelor's`, `B.S.`, `MSc`) are
+#: unambiguous on their own and keep matching without either constraint.
+#: A comma counts **only when another degree abbreviation follows it**. IMC
+#: writes "BS, MS preferably in business, economics or STEM", where the comma is
+#: doing the same job the slash does in "BS/MS". Allowing a bare comma would let
+#: "MS, Word, Excel" back in, which is the false positive this whole constraint
+#: exists to keep out.
+_ABBREVIATION_NEEDS = (
+    r"(?=\s*(?:/|,\s*(?-i:BS|MS|BA|BSc|MSc|PhD|Ph\.D)\b|\bin\b|\bor\b|\bdegree\b))"
+)
+
 _DEGREE_PATTERNS: tuple[tuple[str, str], ...] = (
     ("phd", r"\b(ph\.?\s?d\.?|doctorate|doctoral degree)\b"),
-    ("masters", r"\b(master['’]?s(?:\s+degree)?|m\.?s\.?c?\.?|m\.eng\.?)\b"),  # noqa: RUF001
-    ("bachelors", r"\b(bachelor['’]?s(?:\s+degree)?|b\.?s\.?c?\.?|b\.?a\.?|b\.eng\.?)\b"),  # noqa: RUF001
+    (
+        "masters",
+        r"\b(master['’]?s(?:\s+degree)?|m\.\s?s\.?c?\.?|m\.eng\.?"  # noqa: RUF001
+        r"|(?-i:MSc)|(?-i:MS)" + _ABBREVIATION_NEEDS + r")\b",
+    ),
+    (
+        "bachelors",
+        r"\b(bachelor['’]?s(?:\s+degree)?|b\.\s?s\.?c?\.?|b\.\s?a\.?|b\.eng\.?"  # noqa: RUF001
+        r"|(?-i:BSc)|(?-i:BS|BA)" + _ABBREVIATION_NEEDS + r")\b",
+    ),
 )
 
 
@@ -505,6 +542,41 @@ def _degrees(text: str) -> list[RequirementProposal]:
     return out
 
 
+#: "or prior" and friends, which turn a single year into a window with no lower
+#: bound. These follow the year: "Must be graduating August 2027 or prior".
+_OPEN_ENDED_AFTER = re.compile(r"^\W{0,3}or\s+(?:prior|earlier|before|sooner|previously)\b", re.I)
+
+#: ...and these precede it: "graduating by December 2028", "through 2029".
+_OPEN_ENDED_BEFORE = re.compile(
+    r"\b(?:by|through|before|prior\s+to|no\s+later\s+than|on\s+or\s+before)\b[^.;]{0,25}$", re.I
+)
+
+
+def _is_open_ended(text: str, start: int, end: int) -> bool:
+    """Whether a graduation year is a ceiling rather than a single year.
+
+    **This distinction is a wrong-`ineligible` waiting to happen, and it was
+    one.** Akuna's Junior Quantitative Developer posting says "Must be
+    graduating August 2027 or prior". Read as the single year 2027, the gate
+    blocked a 2024 graduate from a role whose own words say they qualify —
+    caught by `test_no_posting_is_wrongly_reported_ineligible` on its first run,
+    against real corpus text and a realistic profile.
+
+    M3b Task 5 recorded this gap and deferred it as an accuracy problem worth 5
+    of 60 labels. It was not an accuracy problem. The gate is what turned the
+    5 labels into a person being told they cannot apply.
+
+    Both sides of the year are checked because employers write it both ways, and
+    the "before" pattern is anchored to the end of the preceding text so that a
+    stray "by" three sentences earlier cannot reach it.
+    """
+    after = text[end : end + 20]
+    if _OPEN_ENDED_AFTER.match(after):
+        return True
+    before = text[max(0, start - 40) : start]
+    return bool(_OPEN_ENDED_BEFORE.search(before))
+
+
 def _graduation_windows(text: str) -> list[RequirementProposal]:
     out: list[RequirementProposal] = []
     # The EN DASH in this alternation is deliberate and load-bearing, so RUF001
@@ -531,6 +603,18 @@ def _graduation_windows(text: str) -> list[RequirementProposal]:
         if any(m.start() in r for r in claimed):
             continue
         if not re.search(r"graduat", text[max(0, m.start() - 90) : m.start()], re.I):
+            continue
+        if _is_open_ended(text, m.start(), m.end()):
+            out.append(
+                RequirementProposal(
+                    kind="graduation_window",
+                    value=f"through-{m.group(1)}",
+                    raw_text=m.group(0),
+                    char_start=m.start(),
+                    char_end=m.end(),
+                    necessity=necessity_at(text, m.start()),
+                )
+            )
             continue
         out.append(
             RequirementProposal(

@@ -115,20 +115,26 @@ def _resolve_graduation_window(
     lowest: a posting naming 2026 in one sentence and 2027-2028 in another is
     open to all three years, and narrowing it invents a blocker.
 
-    **`through-YYYY` cannot be produced here, and the first version of this
-    function pretended otherwise.** That is the answer key's form for an
-    open-ended window — "graduating by December 2028", no lower bound — and it
-    is 5 of the 60 labels. The first draft tested the words `through|by|before`
-    against `RequirementProposal.raw_text`, which for these proposals is the
-    matched year and nothing else: `"2027"`, or `"2027-2028"`. The branch could
-    never fire, so it was a rule that looked like a decision and was dead code.
-    Deleted rather than left in, since removing it changed no number.
+    **An open-ended window stays open**, and this took two attempts to get
+    right. `through-YYYY` is the answer key's form for "graduating by December
+    2028" — a ceiling with no floor — and it is 5 of the 60 labels.
 
-    Producing the distinction needs the words *around* the year, which only the
-    extractor has. That is Task 5's, not a grader's, and until then these five
-    postings read as a closed single-year window and are wrong in the direction
-    of a narrower window than the posting states — the direction that invents
-    blockers. Recorded in PROGRESS rather than left for the review to find.
+    The first draft tested the words `through|by|before` against
+    `RequirementProposal.raw_text`, which for these proposals is the matched
+    year and nothing else. The branch could never fire, and deleting it changed
+    no number, which is what made "dead" a measurement. It was then recorded as
+    a 5-label accuracy gap and deferred.
+
+    **It was not an accuracy gap.** As soon as the gate existed,
+    `test_no_posting_is_wrongly_reported_ineligible` caught what it really
+    was: Akuna's "Must be graduating August 2027 or prior", read as the single
+    year 2027, blocked a 2024 graduate from a role whose own words say they
+    qualify. The distinction needs the text around the year, so it is made in
+    `_is_open_ended` where the text is, and preserved here.
+
+    **One open-ended proposal makes the whole window open.** A posting naming
+    both a range and a ceiling is offering the ceiling; narrowing it back to the
+    range would reinstate exactly the blocker this fixes.
     """
     candidates = [p for p in proposals if p.kind == "graduation_window"]
     if not candidates:
@@ -138,6 +144,8 @@ def _resolve_graduation_window(
         years.extend(int(y) for y in re.findall(r"20\d{2}", p.value))
     if not years:
         return NOT_STATED, ()
+    if any(p.value.startswith("through-") for p in candidates):
+        return f"through-{max(years)}", tuple(candidates)
     return f"{min(years)}-{max(years)}", tuple(candidates)
 
 
