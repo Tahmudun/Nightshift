@@ -7,47 +7,6 @@ the date, because the reasoning is usually worth more than the decision.
 
 ---
 
-## Q3 — Should CI pin its Python dependencies?
-
-**Raised:** 2026-08-05 (M3a.1) · **Type:** engineering policy · **Blocking:** no
-
-CI runs `pip install -e "services/api[dev]"` with no pin and no lockfile, so it
-installs whatever is newest on the day. On 2026-08-05 that was alembic 1.19.0,
-released with a new check-constraint comparator, and the migrations job went red
-on a branch that had not touched a migration in a week.
-
-**It was right to go red.** The drift it found was real and eleven migrations
-old — ten check constraints misnamed since 2026-07-29 (see PROGRESS). Pinning
-would have prevented that bug report, which is the strongest argument *against*
-pinning and the reason this is a question rather than a decision already taken.
-
-The cost of leaving it unpinned is that any library release can turn CI red on
-an unrelated PR, at a moment nobody chose. Today that cost a session's attention
-at the exact point the branch was ready to merge.
-
-The two are separable, and that is the useful framing:
-
-- **Reproducibility** — should a given commit build the same way in six months?
-  That argues for a lockfile.
-- **Early warning** — should this project learn about a breaking release from
-  its own CI rather than from a future upgrade? That argues for an unpinned job
-  somewhere, whether or not the main jobs are pinned.
-
-A common resolution is both: pin the jobs that gate merges, and run one
-scheduled unpinned job whose failure is informational. That costs a workflow
-file and a decision about who reads it.
-
-**Not blocking.** Nothing is pinned today and CI is green.
-
-### The related gap, which is not a question
-
-`make check` has never run a drift probe — the drift assertion exists only in
-CI, so "it passes locally" and "it passes in CI" were never the same claim about
-the schema. That is an engineering task rather than a human decision and it is
-recorded in PROGRESS as next work. It would not have caught this particular
-defect on alembic 1.18.5, but `tests/test_check_constraint_names.py` now does,
-on any version.
-
 ## Q2 — Deployment target for the M4 ship
 
 **Raised:** 2026-07-29 (M0) · **Type:** cost · **Blocking:** no
@@ -107,6 +66,54 @@ Nothing to do now. Flagging at M0 so M7 does not end in a surprise.
 ---
 
 ## Answered
+
+## Q4 — Should CI pin its Python dependencies?
+
+**Raised:** 2026-08-05 (M3a.1) · **Answered:** 2026-08-05
+
+> **Numbering correction.** This was raised as "Q3" and Q3 was already taken by
+> the registry question below. Renumbered on answering rather than left to
+> collide, since these are referred to by number from PROGRESS and the ADRs.
+
+**Both. Pin the jobs that gate a merge; keep one unpinned job that gates
+nothing.** The human's decision on 2026-08-05, taken on the recommendation in
+the question. Full reasoning and what was rejected: **ADR 0016**.
+
+What the question got right, and it is the part worth keeping: reproducibility
+and early warning only conflict if there is one place to install. There are now
+two.
+
+- `ci.yml` installs from `services/api/constraints-ci.txt` — 72 distributions at
+  exact versions, wired in through one workflow-level `PIP_CONSTRAINT` so all
+  three install steps read the same file and cannot drift apart. The `python`
+  job then diffs `pip freeze` against that file, so "CI is pinned" is checked
+  rather than assumed — a dependency added to `pyproject.toml` and never
+  regenerated would otherwise install unpinned with nothing saying so.
+- `dependency-canary.yml` installs unpinned, weekly, and runs the checks a
+  release can break — including the drift probe that started all this. It runs
+  on `schedule` and `workflow_dispatch` only, so it cannot gate a merge. Every
+  run writes a diff of unpinned-versus-pinned to the job summary, green or red.
+
+**Who reads it**, which was the open half of the question: GitHub emails the
+repository owner when a scheduled workflow fails on the default branch. No bot,
+no auto-filed issue — one reader does not need a queue.
+
+**What this gives up, stated plainly:** the alembic finding arrived for free the
+day it shipped. The same finding would now arrive up to seven days later. That
+is the price of an unrelated pull request never going red at a moment nobody
+chose, and it is paid deliberately.
+
+Two things generated the answer that were not in the question:
+
+1. **The constraints file cannot be generated on the developer's machine.**
+   `make constraints` resolves inside a `linux/amd64` container because the two
+   platforms disagree about eleven distributions and one of them irreconcilably:
+   onnxruntime resolves to 1.28.0 on linux and 1.23.2 is the newest release with
+   a macOS x86_64 wheel. So **the pin covers CI and not a developer's machine**,
+   which is a smaller version of the original problem left standing on purpose.
+2. **The related gap is now closed.** `make drift` runs the drift probe against
+   your own stack and is part of `make acceptance`. It is not in `make check`,
+   which must keep working without a database.
 
 ## Q3 — Which boards go in the registry, and who vets them?
 
