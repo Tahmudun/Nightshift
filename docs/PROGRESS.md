@@ -14,6 +14,7 @@
 **M2c: COMPLETE, reviewed, CI-green at `e63ec2f`, merged to `main` as PR #7 (`e42d612`).**
 **M2d: COMPLETE, reviewed, CI-green at `c6e5a97`, merged to `main` as PR #8 (`77e52ea`).**
 **M2: CLOSED. All four acceptance criteria verified, all four PRs merged.**
+**Q4 (CI pinning): ANSWERED and shipped. ADR 0016, merged to `main` as PR #10 (`0c5bcbd`).**
 **M3a: COMPLETE, reviewed, CI-green at `3fbffd6`, merged to `main` as PR #9 (`452ec90`).**
 **M3a.1: COMPLETE. Recall 0.459 → 0.861, precision 0.659 → 0.847, necessity 0.668 → 0.915.**
 **Current milestone: M3 — explainable matching. M3b (the eligibility gate) is in progress.**
@@ -803,13 +804,14 @@ check-constraint defect below. The second and third were green first time.
 
 **All four stale merged branches are deleted, locally and on the remote.**
 `m1a-provider-breadth`, `m2c-profile-and-resume`, `m2d-daily-queue` and
-`m3a-answer-key` are gone; `git branch -a` now lists only `main`,
-`ci-pin-and-canary` and `m3b-eligibility-gate`, checked after a `--prune` rather
-than assumed. This had been carried as an open item since M2c, in four
+`m3a-answer-key` are gone, and `ci-pin-and-canary` followed once PR #10 merged;
+`git branch -a` now lists only `main` and `m3b-eligibility-gate`, checked after
+a `--prune` rather than assumed. This had been carried as an open item since M2c, in four
 consecutive PROGRESS entries, because the permission was not available.
 
-**[PR #10](https://github.com/Tahmudun/Nightshift/pull/10) is open and CI is
-green on all five jobs, first attempt**, run
+**[PR #10](https://github.com/Tahmudun/Nightshift/pull/10) is MERGED** —
+`0c5bcbd` on `main`, 2026-08-05T22:37Z, checked against the PR rather than
+assumed. CI was green on all five jobs, first attempt, run
 [31045860049](https://github.com/Tahmudun/Nightshift/actions/runs/31045860049).
 Counts read from the job logs rather than inferred:
 
