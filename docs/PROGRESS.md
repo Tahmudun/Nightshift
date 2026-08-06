@@ -221,6 +221,26 @@ asking for `summer` hides the internships with no season, asking for `2027`
 hides the ones with no year. One number ignoring which was asked is wrong on
 both.
 
+**Exercised against a running stack, not only in tests**, and the first number
+is larger than expected:
+
+```
+/jobs                             total 31   no_req  0   no_season 0
+/jobs?skill=Python                total  7   no_req 12
+/jobs?skill=GCP                   total  2   == /jobs?skill=Google+Cloud
+/jobs?skill=golang                total  3   == /jobs?skill=Go
+/jobs?internship_season=summer    total  0   no_season 1
+deferred_filters                  match_score, eligibility, borough
+```
+
+**12 of the 31 seeded jobs have no technology extracted from them at all** —
+39%, on a corpus that is mostly customer-success and account-executive postings
+from the recorded Alloy board, which genuinely name few technologies. Whatever
+the cause, it is the number that decides whether `excluded_no_requirements`
+earns its place, and at 12 it plainly does: a person filtering for Python sees
+7 results and a line saying 12 more could not be read either way. Without it
+that reads as a corpus of 7 Python jobs.
+
 ### The guard that caught the untracked files
 
 `test_every_source_file_is_tracked_by_git` failed on `SearchCaveats.tsx` and its
