@@ -35,6 +35,31 @@ make acceptance    57 verify.py assertions, 43 seeded browser tests, 1 skipped
 migrations         0015 up, down, up against a real database; make drift clean
 ```
 
+**CI is green on all five jobs at `b403a8e`, first attempt** — run
+[31062755692](https://github.com/Tahmudun/Nightshift/actions/runs/31062755692).
+Counts read from the job logs rather than inferred:
+
+```
+python       1380 passed; 72 distributions, all pinned
+e2e          5 degraded + 43 seeded passed, 1 skipped
+migrations   up, down, up, and no drift — 0015 included
+web          20 files, 178 tests
+secret scan
+```
+
+The migrations job's log carries the line that matters, after a full
+down-to-base and back up:
+
+```
+Running upgrade 0014_profile_experience -> 0015_internship_season,
+    jobs.internship_season and jobs.internship_year
+```
+
+**Migration 0015 has now run on a machine that is not this one**, which is the
+assertion this project has twice had to learn to make. This is the sixth
+first-try CI pass here, recorded because seven runs across this project have
+failed and every one found something no local command had executed.
+
 `make acceptance` had not run since Task 8 and `verify.py` had not run at all
 since then. Both have now. **What `verify.py` still does not check is the
 eligibility gate** — that is Task 12's `check_eligibility_gate`, and it is the
