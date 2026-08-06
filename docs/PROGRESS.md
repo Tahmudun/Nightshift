@@ -24,10 +24,222 @@
 
 ## Next exact action
 
-### M3b is underway on `m3b-eligibility-gate`. Tasks 1–10 are done. Next: Task 11 — the `internship_season` and `skill` filters.
+### M3b is underway on `m3b-eligibility-gate`. Tasks 1–11 are done. Next: Task 12 — the eligibility browser walk, `check_eligibility_gate` in `verify.py`, ADR 0017, the review.
 
-**Docker Desktop went down on this machine part-way through Task 9 and has not
-come back**, so nothing database-backed could be run locally after that point.
+**Docker came back on 2026-08-05, and everything Tasks 9 and 10 could not verify
+has now been run locally.** The gaps that section records are closed:
+
+```
+make check         1380 python passed, 178 web tests, ruff, mypy, eslint, tsc, prettier
+make acceptance    57 verify.py assertions, 43 seeded browser tests, 1 skipped
+migrations         0015 up, down, up against a real database; make drift clean
+```
+
+`make acceptance` had not run since Task 8 and `verify.py` had not run at all
+since then. Both have now. **What `verify.py` still does not check is the
+eligibility gate** — that is Task 12's `check_eligibility_gate`, and it is the
+one thing on the Task 9/10 "NOT run" list that a working Docker did not close,
+because it is unwritten rather than unrun.
+
+---
+
+## M3b Task 10.5 — the classifier runs on every poll (`cbcd5dc`), unrecorded until now
+
+**This landed on the branch and nothing in this file said so**, which is why the
+"Not real yet" table went on calling `jobs.role_family` and `jobs.seniority`
+always-NULL for a day after they stopped being. Recorded here rather than
+folded into Task 11, because a commit nobody wrote down is the same failure the
+table itself keeps having.
+
+`sync_classification` is **unconditional, unlike `sync_requirements`, and the
+contrast is the point.** Re-extracting requirements on every poll churns
+invisibly, which is why that call is gated on the description hash. This one has
+to be ungated for two reasons: a retitled posting is a re-levelled one with no
+character of the description changing, and — duller but more important — these
+columns were null on every existing row the day they were added, so a poll of an
+*unchanged* posting is precisely the event that would otherwise never fill them.
+
+A comment claiming this cost nothing because SQLAlchemy emits no UPDATE for
+unchanged values was **wrong, and the measurement is what said so**. Reseeding
+twice moved `max(updated_at)`; stashing the call and reseeding twice moved it
+identically. The churn is the poll's own — `last_seen_at` is written on every
+observation — so these columns ride along in a statement already being emitted.
+**The conclusion survived and the reasoning did not**, and the comment now says
+the measured thing. A comment that is right for the wrong reason is the kind
+that gets cited later.
+
+Against a freshly seeded database, checked rather than inferred:
+
+```
+seniority   unclear 16   director 5   senior 4   mid 3   staff 2   internship 1
+```
+
+---
+
+## M3b Task 11 — two filters come on, and the corpus decides a column's shape
+
+Both had been deferred since M2a. Both now exist, and neither ships without
+saying what it hides.
+
+### The plan's premise for this task was wrong, and measuring is what said so
+
+The plan deferred `internship_season` out of Task 3 with its shape undecided —
+"one `summer_2027` string, or a term enum plus a year" — and predicted the
+corpus would settle it, noting **"4 of 5 internships state a season in the
+title"**. That was read off the five internships in the *answer key*. Across all
+153 recorded postings:
+
+```
+internships by title       19
+a season in the title       8 / 19     every one of them "Summer"
+a year in the title        10 / 19
+both                        8 / 19
+neither                     7 / 19
+```
+
+**Two postings state a year and no season** — Old Mission's *"Software Engineer
+– 2027 Internship Program (June Start)"* and Point72's *"2026 Warsaw MI Data –
+Web Scraping Internship"*. A single `summer_2027` value can hold those only by
+inventing the season or by discarding the year. So: two nullable columns, and
+the shape question came out the other way from what the plan expected.
+
+### Two restrictions, both measured, both removing real errors
+
+**The description is never read.** Its years are 2011 (Akuna's founding), 2015,
+2025, 2028 and 2029 — a founding date, a fund launch and a graduation horizon.
+Harvesting one puts a confident season on a posting whose title honestly says
+nothing.
+
+**Only internships get a season.** Six non-internship titles in the corpus carry
+a season or a year:
+
+```
+Akuna Capital's 2026 Virtual Quant Trading Challenge          a competition
+Expression of Interest: 2027 Trading Sneak Peek Weeks         a programme
+Associate Product Manager, New Grad (2027 Start)              a full-time start
+2027 EU Campus Programme Talent Community                     a talent pool
+Campus AI/ML Researcher (Fall 2026)                           a cohort start
+Point72 Academy ... for Upcoming Graduates (2027 – HK)        full-time
+```
+
+The fifth is the one the gate costs something on: it states a term and a year
+plainly. **The answer key labels it `is_internship: no`**, with the labeler's
+reason written beside it — *"campus role, so is_internship is no"*. Following
+the label over the title is the ordering in `matching.md` §1.1 doing its job a
+milestone after it was set up.
+
+### A rule was written and deleted, and the deletion is the finding
+
+The first version refused a year outside a plausible hiring window, so *"Summer
+Intern, Class of 2011 Reunion"* could not claim a 2011 season. Two things killed
+it. It guards nothing observed — every year stated in a corpus internship title
+is 2026 or 2027, and the implausible ones are all in descriptions the rule
+already refuses to read. And **"plausible" can only mean "near now"**, which
+makes the same posting classify differently next year and breaks M3's
+determinism criterion, for a case nobody has seen. A test pins the decision so
+the next person does not rediscover the idea and keep it.
+
+`fall`, `winter` and `spring` are reachable by the rule and stated by no posting
+in the corpus. That is a different situation from `EligibilityState`'s
+`likely_eligible`, which no *rule* could reach; here only the corpus is missing.
+`test_the_rule_is_not_fitted_to_summer` is what keeps it a measured gap rather
+than three enum values nobody can account for.
+
+### The docstring was wrong about autogenerate, and running it is what said so
+
+The migration's first draft claimed autogenerate handled this correctly —
+that an `add_column` introducing a *new* `sa.Enum` emits its `CREATE TYPE`,
+unlike 0013's `alter_column`. That was a guess, so it was checked:
+
+```
+sqlalchemy.exc.ProgrammingError: type "internship_season" does not exist
+[SQL: ALTER TABLE jobs ADD COLUMN internship_season internship_season]
+```
+
+**M2c's finding 2 for the third time in this project, and 0013's for the
+second.** The downgrade emitted no `DROP TYPE` either — M2c's finding 3. The
+pattern was known, written down, and cited in the migration file directly above
+this one, and knowing it still did not prevent writing the wrong sentence. Only
+running it did.
+
+### `skill` outlived two deferral reasons, and the second one was caught in time
+
+```
+M2a  "requires the skill taxonomy and its aliases"   went stale at M2c, unnoticed for a milestone
+M3a  "recall is 0.459 — it would hide more than half" went stale at M3a.1, caught the same session
+```
+
+At 0.861 it hides roughly one matching role in seven. That is on the panel in
+words, next to the control, not in a tooltip and not behind a disclosure — a
+caveat nobody sees is a caveat that is not being made.
+
+`_canonical` moved out of the answer-key grader into `SkillVocabulary.canonical`
+because the filter needs the same resolution in production. Two copies is how
+the filter and the grader come to disagree about whether `GCP` and `Google
+Cloud` are one technology — **M3a.1's opening defect, one layer down**, and the
+one place a user would feel it: an unresolved alias returns zero rows, which is
+indistinguishable from an honest "no such job".
+
+The filter matches **any necessity**, deliberately. Restricting to `required`
+would hide a posting listing Python under "nice to have" — a posting that does
+ask for Python and that a person can apply to. Which list it sits in is shown on
+the job page, where it can be read rather than silently applied.
+
+### The defect this task shipped and then caught, in the browser
+
+Both caveat counts rendered **only in the branch of the list that has rows**.
+Filtering the seeded corpus by Summer returns nothing — its one internship,
+*"Software Engineer Internship, Android"*, states no season — so the screen read:
+
+```
+No roles match these filters.
+```
+
+and nothing else. **The product asserting there are no summer internships**,
+when the truth is that its one internship never says when it runs. That is the
+exact failure the count exists to prevent, in the one state where it matters
+most, and the component test could not see it because it cannot see which branch
+the real page takes.
+
+`SearchCaveats` is now its own component so it renders in both, caveat first.
+**The Playwright test was shown to fail against the pre-fix shape before being
+trusted** — the caveat was removed from the empty branch, the suite went red on
+that one test and green on the other 42, and it was put back.
+
+### What the two counts mean, kept apart on purpose
+
+```
+excluded_no_requirements   postings the skill filter could not have matched
+                           however well it works — nothing was extracted from
+                           them. NOT postings that ask for nothing.
+excluded_no_season         internships stating no season (11 of 19 in the
+                           corpus) or no year (9 of 19)
+```
+
+The season count **takes the query**, because the answer differs by dimension:
+asking for `summer` hides the internships with no season, asking for `2027`
+hides the ones with no year. One number ignoring which was asked is wrong on
+both.
+
+### The guard that caught the untracked files
+
+`test_every_source_file_is_tracked_by_git` failed on `SearchCaveats.tsx` and its
+test — both written, both passing, neither added to git. A component that exists
+on one machine and in no commit is a component CI has never seen.
+
+`InternshipSeason` was added to `test_enum_parity.py` and **shown able to fail**
+by typoing `winter` in the TypeScript. It crosses the boundary as a *filter
+value* rather than as a rendered field, which is the more brittle direction: a
+typo there produces an empty result that looks like an honest answer.
+
+---
+
+## Superseded: what Tasks 9 and 10 could not verify
+
+**Docker Desktop went down on this machine part-way through Task 9**, so nothing
+database-backed could be run locally after that point. **It came back, and the
+section above records what has since been run.** Kept because the record of what
+was and was not verified at the time is the point of keeping it.
 
 **CI closed most of that gap and the record says so rather than leaving the
 scarier version standing.** Green on all five jobs at `38e22ac`, run
@@ -3090,7 +3302,8 @@ wrong: ML frameworks (JAX, LangChain, HuggingFace, DSPy), accelerators (CUDA, RO
 | Later-arising duplicates | Dedupe runs only on creation, deliberately: re-running the matcher every poll is how a settled merge starts oscillating. The consequence is that two jobs which become duplicates *later* — a title corrected on one board to match the other — never merge, and nothing reconciles them | No milestone. Revisit if visible duplicates are reported |
 | `job_locations.geom` | Column and GiST index exist; always NULL | M1 |
 | `normalize_title` | Whitespace and dash folding only. Deliberately does **not** attempt role-family normalization — asserted by `test_does_not_attempt_role_family_normalisation` | M3 |
-| `jobs.role_family`, `jobs.seniority` | Columns exist, always NULL. NULL means "not classified", never a guessed default | M3 |
+| ~~`jobs.role_family`, `jobs.seniority`~~ | **Filled in as of M3b (`cbcd5dc`), and this row said otherwise for a day.** `sync_classification` runs on every poll, ungated, and a freshly seeded database reads 16 `unclear`, 5 `director`, 4 `senior`, 3 `mid`, 2 `staff`, 1 `internship` — checked against Postgres rather than inferred. NULL still means "never classified" and stays distinct from `unclear`. **This is the fifth time a list in this project has quietly stopped describing the thing it names, and the fifth in the same direction**: the code moved and the row did not | Done |
+| `jobs.internship_season`, `jobs.internship_year` | **Real, and null on all 31 seeded jobs — which is the correct answer, not a gap.** The seed holds one internship, "Software Engineer Internship, Android", whose title states no season and no year. Across the wider recorded corpus 8 of 19 internships state a season and 10 of 19 a year. The filter reports what it hid rather than returning an empty list | Done |
 | Stripe board registry entry | Verified live (HTTP 200) but `status: disabled`. Polling more boards before the closure machine exists would mean ingesting jobs the system cannot honestly age out | M1 |
 | `/registry` route | Still read-only. The *crawl-index* half of the resolution pipeline now exists (M1c) and fills `data/board-candidates.yaml`; the careers-page probe does not | M1c partly, careers probe unscheduled |
 | Lever board discovery | **Does not exist and cannot, from the crawl archive.** `jobs.lever.co/robots.txt` disallows CCBot, so no Lever page is in Common Crawl (ADR 0006). `sources/careers_probe.py` is designed but not built: it needs a list of employer domains and nothing in the repo has one, and guessing domains would be the fabrication this milestone exists to prevent. Named as the first blind spot on `/analyze/coverage`, with the structural reason, and a browser test asserts it reaches the screen. **Lever boards enter the registry only by hand** | No milestone. Needs a domain source first |
