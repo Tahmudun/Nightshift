@@ -72,6 +72,7 @@ from nightshift.domain.dedupe import (
     compare,
     location_key,
 )
+from nightshift.domain.eligibility_reading import read_posting
 from nightshift.domain.embeddings import (
     EMBEDDING_DIMENSION,
     EMBEDDING_MODEL_NAME,
@@ -82,6 +83,7 @@ from nightshift.domain.requirement_extraction import (
     EXTRACTOR_VERSION,
     extract_requirements,
 )
+from nightshift.domain.role_classification import classify_role
 
 log = structlog.get_logger(__name__)
 
@@ -333,6 +335,7 @@ async def persist_source_job(
         await session.flush()
         await _store_embedding(session, job)
         await sync_requirements(session, job)
+        sync_classification(job)
 
         # Dedupe runs only on creation. An existing record already resolves to
         # its canonical job through the link table, and re-running the matcher
@@ -395,6 +398,32 @@ async def persist_source_job(
         await _replace_locations(session, job, normalized)
     if description_changed:
         await sync_requirements(session, job)
+    # Unconditional, and the contrast with `sync_requirements` above is the
+    # point. Re-extracting requirements on every poll churns invisibly — same
+    # row counts, every row replaced, `created_at` reset across the corpus each
+    # time any board answers — which is why that call is gated on the
+    # description hash.
+    #
+    # This one costs nothing extra because **the poll writes the row anyway**:
+    # `last_seen_at` moves on every observation, so an UPDATE is emitted for
+    # this job whether or not these two columns changed, and they ride along in
+    # the same statement.
+    #
+    # The first version of this comment claimed something different and better
+    # — that SQLAlchemy emits no UPDATE when the values are unchanged — and the
+    # measurement said otherwise. Reseeding twice moved `max(updated_at)`, and
+    # stashing this call and reseeding twice moved it just the same. So the
+    # churn is the poll's and was already there; the reasoning was wrong and the
+    # conclusion happened to survive it. Recorded because a comment that is
+    # right for the wrong reason is the kind that gets cited later.
+    #
+    # It has to be unconditional for a duller reason too: these columns were
+    # null on every existing row the day M3b added them, and a poll of an
+    # unchanged posting is exactly the event that would otherwise never fill
+    # them in. Gated, they would stay null until each posting's text happened to
+    # move — which is the `EXTRACTOR_VERSION` lag M3a.1 recorded, except that
+    # one at least had a version column making it visible.
+    sync_classification(job)
 
     await session.flush()
     return "updated" if (content_changed or field_changed or location_changed) else "unchanged"
@@ -1175,3 +1204,32 @@ async def _persist_outcome(
             stats.updated += 1
         else:
             stats.unchanged += 1
+
+
+def sync_classification(job: Job) -> None:
+    """Set ``role_family`` and ``seniority`` from the title and description.
+
+    Synchronous and writes no SQL of its own: it assigns two columns on a job
+    already in the session, so the surrounding flush carries it. That is the
+    whole reason it is not `async` — a reader should be able to see that this
+    cannot reorder against the description trigger the way `sync_requirements`
+    can.
+
+    **Null stays meaningful.** `unclear` is the classifier having read a posting
+    and declined to guess; null is a posting it has never seen. A job ingested
+    before M3b keeps null until its next poll, and the coverage figure can tell
+    the two apart — which is the only reason it can be read at all.
+
+    The years figure comes from the same reading the gate uses rather than being
+    re-derived here, so the level rule and the gate cannot disagree about it.
+    """
+    if not job.title:
+        return
+    reading = read_posting(extract_requirements(job.description_text or ""))
+    result = classify_role(
+        job.title,
+        description=job.description_text or "",
+        years=reading.min_years_experience,
+    )
+    job.role_family = result.role_family
+    job.seniority = result.seniority
