@@ -254,6 +254,18 @@ class JobListOut(BaseModel):
     # no salary at all. Zero when no floor was given. Without this number a
     # salary filter silently removes most of the corpus and looks like a result.
     excluded_no_salary: int = 0
+    # M3b Task 11: the same honesty, for the two filters that just came on.
+    #
+    # How many jobs the skill filter could not have matched however well it
+    # works, because nothing was extracted from them. Required-technology recall
+    # is 0.861 against the answer key, so this filter is usable and incomplete,
+    # and a result with no count beside it would be the first in this product to
+    # hide that.
+    excluded_no_requirements: int = 0
+    # How many internships the season filter necessarily hid, because their
+    # titles state no season (11 of 19 in the recorded corpus) or no year (9 of
+    # 19). The most aggressive hider in the product — more than the salary floor.
+    excluded_no_season: int = 0
     deferred_filters: list[DeferredFilterOut] = []
 
 

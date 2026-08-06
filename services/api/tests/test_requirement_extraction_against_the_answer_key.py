@@ -70,30 +70,20 @@ NECESSITY_ACCURACY_FLOOR = 0.91
 
 
 def _canonical(term: str, vocabulary: SkillVocabulary) -> str:
-    """The vocabulary's name for `term`, or `term` when it does not carry it.
+    """Delegates to `SkillVocabulary.canonical`, where this now lives.
 
-    **Only a match spanning the whole term counts**, and that restriction is the
-    whole design. `match_all` finds vocabulary terms anywhere inside a string,
-    so a substring rule would resolve the label ``Entra ID/Azure AD`` to
-    ``Azure`` — it contains the word — and quietly merge Microsoft's identity
-    product into its cloud platform. Measured on this corpus, the substring rule
-    collapsed two distinct labels into one on ``akunacapital/8047104`` and the
-    whole-term rule collapses none.
+    It moved into the domain at M3b Task 11 because the skill filter needs the
+    same resolution in production, and two copies is how the filter and the
+    grader come to disagree about whether ``GCP`` and ``Google Cloud`` are one
+    technology. Kept as a one-line alias so the grading code below still reads
+    as grading code.
 
-    The cost of the stricter rule is that ``Microsoft Excel`` does not reach
-    ``Excel`` unless `data/skills.yaml` says so. That is the right place for it:
-    an alias belongs in the vocabulary, where the extractor benefits too, rather
-    than in a grading helper where only the score improves.
-
-    A term the vocabulary has never heard of is returned unchanged, so a
-    vocabulary gap stays a miss and stays visible. This resolves both sides
-    through the same function, so the extractor cannot gain by renaming
-    anything.
+    The cost of the whole-term rule it implements is that ``Microsoft Excel``
+    does not reach ``Excel`` unless `data/skills.yaml` says so. That is the
+    right place for it: an alias belongs in the vocabulary, where the extractor
+    benefits too, rather than in a grading helper where only the score improves.
     """
-    for hit in vocabulary.match_all(term):
-        if hit.char_start == 0 and hit.char_end == len(term):
-            return hit.canonical_name
-    return term
+    return vocabulary.canonical(term)
 
 
 def _description(job: dict[str, Any]) -> str:

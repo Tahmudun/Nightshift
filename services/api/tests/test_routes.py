@@ -631,6 +631,106 @@ async def test_no_salary_filter_means_no_exclusion_count(seeded_client: AsyncCli
     assert body["excluded_no_salary"] == 0
 
 
+async def test_the_skill_filter_narrows_and_says_what_it_could_not_read(
+    seeded_client: AsyncClient,
+) -> None:
+    """M3b Task 11, and the count is the condition the filter shipped under.
+
+    Required-technology recall is 0.861, so this filter hides roughly one
+    matching role in seven. `excluded_no_requirements` is how many postings it
+    could not have matched at all — nothing was extracted from them — and
+    without it a thin result reads as "there are only two such jobs" rather
+    than "we could not read some of these".
+    """
+    everything = (await seeded_client.get("/jobs", params={"limit": 100})).json()
+    body = (await seeded_client.get("/jobs", params={"skill": "Python", "limit": 100})).json()
+
+    assert 0 < body["total"] < everything["total"], "a filter matching everything is not a filter"
+    assert body["excluded_no_requirements"] >= 0
+    assert everything["excluded_no_requirements"] == 0, "not asked for, not counted"
+
+
+async def test_a_skill_alias_finds_the_same_jobs_as_its_canonical_name(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """`golang` and `Go` are one technology, and the person typing the first
+    must not be told there are no such jobs.
+
+    `job_requirements.value` stores only the canonical name, so an unresolved
+    filter returns zero — indistinguishable from an honest empty result.
+
+    Seeds its own board because the recorded Alloy postings are customer-success
+    and account-executive roles that name no technology the vocabulary carries.
+    Against those, both sides of this assertion are zero and it could never
+    fail — which is the shape of test M3a shipped and this project has since
+    learned to check for.
+    """
+    payload = json.loads((FIXTURES / "lever" / "alloy_board.json").read_text())
+    payload[0]["descriptionPlain"] = "Requirements\n3+ years writing Go and Python daily."
+    await _ingest_alloy(db_session, jobs=payload)
+    await db_session.flush()
+
+    canonical = (await client.get("/jobs", params={"skill": "Go", "limit": 100})).json()
+    alias = (await client.get("/jobs", params={"skill": "golang", "limit": 100})).json()
+
+    assert canonical["total"] == 1, "the seeded corpus must exercise this or it asserts nothing"
+    assert alias["total"] == canonical["total"]
+
+
+async def test_a_season_filter_reports_the_internships_it_necessarily_hid(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """11 of 19 corpus internships state no season, so this filter hides more of
+    its own subject than any other filter in the product.
+
+    Both kinds are seeded, because the count only means something next to a
+    result: one internship states "Summer 2027" and matches, one states nothing
+    and is hidden. Without the second row the count is zero and this test would
+    pass against a filter that reported nothing at all.
+    """
+    payload = json.loads((FIXTURES / "lever" / "alloy_board.json").read_text())
+    payload[0]["text"] = "Software Engineer Intern, Summer 2027"
+    payload[1]["text"] = "Data Science Intern"
+    await _ingest_alloy(db_session, jobs=payload)
+    await db_session.flush()
+
+    body = (await client.get("/jobs", params={"internship_season": "summer"})).json()
+
+    assert body["total"] == 1
+    assert body["items"][0]["title"] == "Software Engineer Intern, Summer 2027"
+    assert body["excluded_no_season"] == 1, "the internship stating no season must be counted"
+
+
+async def test_a_year_filter_and_a_season_filter_hide_different_internships(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """The reason the count takes the query rather than being one number.
+
+    "2027 Internship Program" states a year and no season. Asking for `2027`
+    finds it; asking for `summer` hides it and must say so. One count that
+    ignored which dimension was asked about would be wrong on both.
+    """
+    payload = json.loads((FIXTURES / "lever" / "alloy_board.json").read_text())
+    payload[0]["text"] = "Software Engineer, 2027 Internship Program"
+    await _ingest_alloy(db_session, jobs=payload)
+    await db_session.flush()
+
+    by_year = (await client.get("/jobs", params={"internship_year": 2027})).json()
+    by_season = (await client.get("/jobs", params={"internship_season": "summer"})).json()
+
+    assert by_year["total"] == 1
+    assert by_year["excluded_no_season"] == 0, "it states the year that was asked for"
+    assert by_season["total"] == 0
+    assert by_season["excluded_no_season"] == 1, "it states no season"
+
+
+async def test_no_season_filter_means_no_season_exclusion_count(
+    seeded_client: AsyncClient,
+) -> None:
+    body = (await seeded_client.get("/jobs")).json()
+    assert body["excluded_no_season"] == 0
+
+
 async def test_filters_compose(seeded_client: AsyncClient) -> None:
     """Two filters must intersect, not union — the classic and silent bug."""
     open_only = (await seeded_client.get("/jobs", params={"status": "open"})).json()["total"]

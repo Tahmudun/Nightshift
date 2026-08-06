@@ -41,7 +41,13 @@ from nightshift.api.schemas import (
     JobSummaryOut,
     SalaryOut,
 )
-from nightshift.db.base import EmploymentType, JobStatus, LocationConfidence, RemotePolicy
+from nightshift.db.base import (
+    EmploymentType,
+    InternshipSeason,
+    JobStatus,
+    LocationConfidence,
+    RemotePolicy,
+)
 from nightshift.db.models import (
     Company,
     Job,
@@ -62,6 +68,8 @@ from nightshift.domain.search import (
     JobSearchQuery,
     build_filters,
     salary_excluded_filter,
+    season_excluded_filter,
+    skill_excluded_filter,
 )
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
@@ -144,6 +152,24 @@ async def list_jobs(
     source: Annotated[str | None, Query(description="Source name substring")] = None,
     first_seen_after: Annotated[datetime | None, Query()] = None,
     salary_at_least: Annotated[float | None, Query(ge=0)] = None,
+    skill: Annotated[
+        str | None,
+        Query(
+            description=(
+                "A technology the posting names. Resolved through data/skills.yaml, "
+                "so 'GCP' finds postings stored as 'Google Cloud'. Incomplete: see "
+                "excluded_no_requirements."
+            )
+        ),
+    ] = None,
+    internship_season: Annotated[
+        InternshipSeason | None,
+        Query(description="Only internships whose title states this season"),
+    ] = None,
+    internship_year: Annotated[
+        int | None,
+        Query(ge=2000, description="Only internships whose title states this year"),
+    ] = None,
 ) -> JobListOut:
     """Search canonical jobs, most-recently-seen first.
 
@@ -163,6 +189,9 @@ async def list_jobs(
         source=source,
         first_seen_after=first_seen_after,
         salary_at_least=salary_at_least,
+        skill=skill,
+        internship_season=internship_season,
+        internship_year=internship_year,
     )
     filters = build_filters(query)
 
@@ -180,6 +209,35 @@ async def list_jobs(
                 select(func.count())
                 .select_from(Job)
                 .where(*without_salary, salary_excluded_filter())
+            )
+        ).scalar_one()
+
+    # The same shape for the two filters M3b turned on. Each counts what its own
+    # filter could not have matched, against the *other* filters, so the number
+    # describes this result rather than the whole corpus.
+    #
+    # Both are computed only when their filter is in play. A count nobody asked
+    # for is a query nobody needed, and a caveat shown beside an unfiltered
+    # result is noise that teaches people to ignore caveats.
+    excluded_no_requirements = 0
+    if query.skill and query.skill.strip():
+        without_skill = build_filters(query.model_copy(update={"skill": None}))
+        excluded_no_requirements = (
+            await session.execute(
+                select(func.count()).select_from(Job).where(*without_skill, skill_excluded_filter())
+            )
+        ).scalar_one()
+
+    excluded_no_season = 0
+    if query.internship_season is not None or query.internship_year is not None:
+        without_season = build_filters(
+            query.model_copy(update={"internship_season": None, "internship_year": None})
+        )
+        excluded_no_season = (
+            await session.execute(
+                select(func.count())
+                .select_from(Job)
+                .where(*without_season, season_excluded_filter(query))
             )
         ).scalar_one()
 
@@ -207,6 +265,8 @@ async def list_jobs(
         limit=limit,
         offset=offset,
         excluded_no_salary=excluded_no_salary,
+        excluded_no_requirements=excluded_no_requirements,
+        excluded_no_season=excluded_no_season,
         deferred_filters=[
             DeferredFilterOut(name=e.name, blocked_on=e.blocked_on, reason=e.reason)
             for e in DEFERRED_FILTERS

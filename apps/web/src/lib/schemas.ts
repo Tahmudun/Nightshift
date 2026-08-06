@@ -199,6 +199,19 @@ export const senioritySchema = z.enum([
 export type Seniority = z.infer<typeof senioritySchema>;
 
 /**
+ * The academic terms, and not the year — that is `internship_year`, a separate
+ * field. Two of the recorded corpus's nineteen internships state a year and no
+ * season, so a combined `summer_2027` value could keep them only by inventing
+ * the season.
+ *
+ * No `unclear` member, unlike the two enums above. A season is quoted out of a
+ * title or it is absent, and `null` carries the whole of "the posting did not
+ * say".
+ */
+export const internshipSeasonSchema = z.enum(['summer', 'fall', 'winter', 'spring']);
+export type InternshipSeason = z.infer<typeof internshipSeasonSchema>;
+
+/**
  * A reason a posting may not be open to this person, with the posting's own
  * words. `outcome` separates a wall from a gap: `blocks` is a stated
  * requirement the profile contradicts, `soft_blocks` is a shortfall the person
@@ -283,6 +296,18 @@ export const jobListSchema = z.object({
   // Defaulted so a response from an API that predates these fields still
   // parses rather than throwing at the boundary.
   excluded_no_salary: z.number().int().default(0),
+  /**
+   * How many jobs the skill filter could not have matched however well it
+   * works, because nothing was extracted from them. Required-technology recall
+   * is 0.861 against the answer key, so the filter is usable and incomplete;
+   * without this number a thin result reads as "there are only two such jobs".
+   */
+  excluded_no_requirements: z.number().int().default(0),
+  /**
+   * How many internships the season filter necessarily hid, because their
+   * titles state no season (11 of 19 in the recorded corpus) or no year.
+   */
+  excluded_no_season: z.number().int().default(0),
   deferred_filters: z.array(deferredFilterSchema).default([]),
 });
 export type JobList = z.infer<typeof jobListSchema>;

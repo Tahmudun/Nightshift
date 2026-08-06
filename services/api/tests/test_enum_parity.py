@@ -33,6 +33,7 @@ from nightshift.db.base import (
     EligibilityState,
     ExtractionKind,
     ExtractionStatus,
+    InternshipSeason,
     ProficiencyLevel,
     ProjectStatus,
     RemotePreference,
@@ -68,6 +69,11 @@ PAIRS: tuple[tuple[str, type[enum.Enum]], ...] = (
     ("roleFamilySchema", RoleFamily),
     ("senioritySchema", Seniority),
     ("eligibilityStateSchema", EligibilityState),
+    # M3b Task 11. This one reaches the browser as a *filter* value rather than
+    # as a field the page renders, which is the more brittle direction: a typo
+    # here produces a query the API rejects, or worse an empty result that
+    # looks like an honest "no such job".
+    ("internshipSeasonSchema", InternshipSeason),
     # M2d. `QueueSectionKey` is the first entry here that is not a database
     # enum — it is a shape of the API, defined in `domain.queue`. It crosses
     # the same boundary and drifts the same way, which is what this file is

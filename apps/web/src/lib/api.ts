@@ -155,6 +155,14 @@ export interface JobQuery {
   source?: string;
   first_seen_after?: string;
   salary_at_least?: number;
+  /**
+   * A technology the posting names. Resolved server-side through
+   * `data/skills.yaml`, so `GCP` finds postings stored as `Google Cloud`.
+   * Incomplete by a measured amount — see `excluded_no_requirements`.
+   */
+  skill?: string;
+  internship_season?: string;
+  internship_year?: number;
 }
 
 /**
@@ -178,6 +186,9 @@ export function fetchJobs(query: JobQuery = {}): Promise<JobList> {
     ['source', query.source],
     ['first_seen_after', query.first_seen_after],
     ['salary_at_least', query.salary_at_least],
+    ['skill', query.skill],
+    ['internship_season', query.internship_season],
+    ['internship_year', query.internship_year],
   ];
   for (const [key, value] of optional) {
     if (value === undefined || value === '' || value === false) continue;

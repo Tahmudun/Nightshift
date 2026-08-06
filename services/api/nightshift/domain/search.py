@@ -21,18 +21,23 @@ from sqlalchemy import ColumnElement, func, or_, select
 
 from nightshift.db.base import (
     EmploymentType,
+    InternshipSeason,
     JobStatus,
     LocationConfidence,
     RemotePolicy,
+    RequirementKind,
+    Seniority,
 )
 from nightshift.db.models import (
     Company,
     Job,
     JobLocation,
+    JobRequirement,
     JobSourceLink,
     Source,
     SourceJobRecord,
 )
+from nightshift.domain.skill_vocabulary import load_vocabulary
 
 
 def _require_aware(value: datetime | None) -> datetime | None:
@@ -63,6 +68,14 @@ class JobSearchQuery(BaseModel):
     source: str | None = None
     first_seen_after: Annotated[datetime | None, AfterValidator(_require_aware)] = None
     salary_at_least: float | None = Field(default=None, ge=0)
+    # M3b Task 11. Both were deferred at M2a and both come on with what they are
+    # based on stated beside them, which is the human's decision of 2026-08-05.
+    skill: str | None = None
+    internship_season: InternshipSeason | None = None
+    #: Not bounded to a plausible window, for the same reason the column is not.
+    #: A range meaning "near now" makes the filter behave differently next year;
+    #: `ge=2000` only rejects what no posting states anyway.
+    internship_year: int | None = Field(default=None, ge=2000)
 
 
 class DeferredFilter(BaseModel):
@@ -88,29 +101,21 @@ DEFERRED_FILTERS: tuple[DeferredFilter, ...] = (
         blocked_on="M3",
         reason="Requires the deterministic eligibility gate.",
     ),
-    DeferredFilter(
-        name="skill",
-        blocked_on="M3b",
-        # The old reason — "requires the skill taxonomy and its aliases" — went
-        # stale without anyone noticing. `data/skills.yaml` landed at M2c and
-        # M3a indexed every posting's technologies into `job_requirements`, so
-        # this filter became buildable and its stated blocker became false. It
-        # is still deferred, for a reason that is now measured rather than
-        # assumed: required-technology recall grades at 0.459 against the answer
-        # key, so filtering on a skill would silently hide more than half the
-        # postings that ask for it — which is worse than no filter, because an
-        # empty result reads as "no such job".
-        reason=(
-            "Every posting's technologies are extracted, but recall is 0.459 against "
-            "the answer key. A filter on that would hide more than half the matching "
-            "roles and look like a result."
-        ),
-    ),
-    DeferredFilter(
-        name="internship_season",
-        blocked_on="M3",
-        reason="Requires the seniority and role-family classifier.",
-    ),
+    # `skill` and `internship_season` were both here until M3b Task 11.
+    #
+    # The `skill` entry outlived two separate reasons. The first — "requires the
+    # skill taxonomy and its aliases" — went stale at M2c when `skills.yaml`
+    # landed, and nobody noticed for a milestone. The second was measured rather
+    # than assumed, which is why it could be watched: required-technology recall
+    # of 0.459 meant a filter would hide more than half the postings asking for
+    # a skill. M3a.1 moved that to 0.861 and the reason went stale in turn — but
+    # this time PROGRESS caught it in the same session.
+    #
+    # 0.861 hides roughly one matching role in seven, so the filter ships with
+    # that stated on the panel and with `excluded_no_requirements` counting the
+    # postings it could not have matched. Turning it on with no caveat was
+    # rejected: it would be the first filter in this product that quietly
+    # returns an incomplete result.
     DeferredFilter(
         name="borough",
         blocked_on="M4",
@@ -130,6 +135,65 @@ def salary_excluded_filter() -> ColumnElement[bool]:
     the corpus is the A10 failure this project keeps designing against.
     """
     return Job.salary_min.is_(None) & Job.salary_max.is_(None)
+
+
+def canonical_skill(term: str) -> str:
+    """The vocabulary's name for a skill a person typed.
+
+    `job_requirements.value` stores canonical names, so a filter comparing the
+    raw string returns nothing for every alias somebody is likely to type —
+    `GCP`, `golang`, `pytorch` — and an empty result is indistinguishable from
+    "no such job". Resolving here means the filter and the answer-key grader
+    ask the same question of the same vocabulary.
+
+    Unknown terms come back unchanged and therefore match nothing, which is the
+    honest outcome: the corpus is not indexed for a technology `skills.yaml` has
+    never heard of, and resolving it to a near neighbour would answer a
+    different question than the one asked.
+    """
+    return load_vocabulary().canonical(term.strip())
+
+
+def skill_excluded_filter() -> ColumnElement[bool]:
+    """Jobs the skill filter cannot match however well it works: the ones with
+    no technology requirement extracted at all.
+
+    These are not evidence of a posting that wants nothing. They are postings
+    the extractor got nothing out of — a PDF-ish description, an unusual layout,
+    a vocabulary gap. Counting them separately is what keeps a thin result
+    readable as "we could not read 4 of these" rather than as "there are only
+    two such jobs".
+    """
+    return ~Job.id.in_(
+        select(JobRequirement.job_id).where(JobRequirement.kind == RequirementKind.TECHNOLOGY)
+    )
+
+
+def season_excluded_filter(query: JobSearchQuery) -> ColumnElement[bool]:
+    """Internships the season filter necessarily hides: the ones stating nothing
+    in the dimension that was asked about.
+
+    Measured over the recorded corpus, 11 of 19 internships name no season and
+    9 of 19 name no year. **A season filter is the most aggressive hider in this
+    product** — more so than the salary floor — so the number belongs on screen
+    beside the result for the same reason A10 put the salary one there.
+
+    It takes the query because the answer differs by dimension: asking for
+    `summer` hides the internships with no season, asking for `2027` hides the
+    ones with no year, and asking for both hides either.
+
+    Non-internships are not counted. They are excluded by being the wrong kind
+    of posting, which is the filter working, not a gap in what was read.
+    """
+    unstated = [
+        column.is_(None)
+        for column, asked in (
+            (Job.internship_season, query.internship_season),
+            (Job.internship_year, query.internship_year),
+        )
+        if asked is not None
+    ]
+    return (Job.seniority == Seniority.INTERNSHIP) & or_(*unstated)
 
 
 def build_filters(query: JobSearchQuery) -> list[ColumnElement[bool]]:
@@ -201,5 +265,27 @@ def build_filters(query: JobSearchQuery) -> list[ColumnElement[bool]]:
                 Job.salary_min >= query.salary_at_least,
             )
         )
+
+    if query.skill and query.skill.strip():
+        # Any necessity, deliberately. Restricting to `required` would hide a
+        # posting that lists Python under "nice to have" — a posting that does
+        # ask for Python and that the person can apply to. The filter's promise
+        # is "this posting names this technology", which is what the extraction
+        # supports; which list it sits in is shown on the job page, where it can
+        # be read rather than silently applied.
+        filters.append(
+            Job.id.in_(
+                select(JobRequirement.job_id).where(
+                    JobRequirement.kind == RequirementKind.TECHNOLOGY,
+                    JobRequirement.value == canonical_skill(query.skill),
+                )
+            )
+        )
+
+    if query.internship_season is not None:
+        filters.append(Job.internship_season == query.internship_season)
+
+    if query.internship_year is not None:
+        filters.append(Job.internship_year == query.internship_year)
 
     return filters
