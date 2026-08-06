@@ -58,6 +58,7 @@ from nightshift.db.base import (
     ExtractionKind,
     ExtractionStatus,
     IngestionRunStatus,
+    InternshipSeason,
     JobStatus,
     LocationConfidence,
     ProficiencyLevel,
@@ -530,6 +531,21 @@ class Job(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     # migration converts two empty columns.
     role_family: Mapped[RoleFamily | None] = mapped_column(_enum(RoleFamily, "role_family"))
     seniority: Mapped[Seniority | None] = mapped_column(_enum(Seniority, "seniority"))
+    # Two columns rather than PRODUCT-SPEC §6.9's single `internship_season`,
+    # and the corpus is the reason: two of its nineteen internships state a
+    # year and no season, so a combined `summer_2027` could keep them only by
+    # inventing the season or discarding the year. The spec's word is kept for
+    # the season itself, which is what the word means.
+    #
+    # Null on every non-internship posting, always — the season is gated on
+    # `is_internship`, because six non-internship titles in the corpus carry a
+    # season or a year and reading any of them would be wrong.
+    internship_season: Mapped[InternshipSeason | None] = mapped_column(
+        _enum(InternshipSeason, "internship_season")
+    )
+    #: SmallInteger: a calendar year needs two bytes, and a column typed wider
+    #: than its domain is one that will eventually hold something else.
+    internship_year: Mapped[int | None] = mapped_column(SmallInteger)
     employment_type: Mapped[EmploymentType] = mapped_column(
         _enum(EmploymentType, "employment_type"),
         nullable=False,

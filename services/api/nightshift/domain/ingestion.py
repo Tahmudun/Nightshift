@@ -1207,9 +1207,9 @@ async def _persist_outcome(
 
 
 def sync_classification(job: Job) -> None:
-    """Set ``role_family`` and ``seniority`` from the title and description.
+    """Set ``role_family``, ``seniority`` and the two internship-season columns.
 
-    Synchronous and writes no SQL of its own: it assigns two columns on a job
+    Synchronous and writes no SQL of its own: it assigns four columns on a job
     already in the session, so the surrounding flush carries it. That is the
     whole reason it is not `async` — a reader should be able to see that this
     cannot reorder against the description trigger the way `sync_requirements`
@@ -1233,3 +1233,9 @@ def sync_classification(job: Job) -> None:
     )
     job.role_family = result.role_family
     job.seniority = result.seniority
+    # Assigned unconditionally, including when the reading found nothing. A
+    # posting retitled from "Data Intern, Summer 2027" to "Data Analyst" has
+    # stopped being an internship, and a season written only on a hit would
+    # outlive the words it was read from.
+    job.internship_season = result.internship_season
+    job.internship_year = result.internship_year

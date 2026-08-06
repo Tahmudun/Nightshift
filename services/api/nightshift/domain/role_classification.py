@@ -25,7 +25,7 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
-from nightshift.db.base import RoleFamily, Seniority
+from nightshift.db.base import InternshipSeason, RoleFamily, Seniority
 
 #: Bumped when a rule changes. Stored beside a classification so a moved number
 #: can be attributed to the rules rather than to the corpus.
@@ -39,9 +39,22 @@ class RoleClassification:
     role_family: RoleFamily
     seniority: Seniority
     is_internship: InternshipName
+    #: Both `None` unless the posting is an internship **and** its title says
+    #: so. Two fields rather than one `summer_2027`, because two corpus
+    #: postings state a year and no season and a combined value could keep
+    #: them only by inventing the season. See `test_internship_season.py` for
+    #: the measurement.
+    internship_season: InternshipSeason | None
+    internship_year: int | None
     #: Why, in the classifier's own words — the matched phrase and where it was
     #: found. I4's habit applied to a label rather than a score: a value with no
     #: inspectable reason is one nobody can argue with.
+    #:
+    #: There is deliberately no `season_reason`. A family or a level is a
+    #: judgement made *about* a title and needs its reason carried alongside;
+    #: a season is lifted verbatim out of it. "Summer 2027" beside a title
+    #: reading "Intern, Summer 2027" explains itself, and a reason string
+    #: repeating the value is the kind of evidence that looks like evidence.
     family_reason: str
     seniority_reason: str
 
@@ -204,6 +217,46 @@ def _classify_internship(title: str) -> InternshipName:
     return "yes" if _INTERNSHIP.search(title) else "no"
 
 
+# ---------------------------------------------------------------------------
+# Internship season
+#
+# Read out of the **title only**, and gated on the posting being an internship.
+# Both restrictions were measured over the 153 recorded postings rather than
+# assumed, and both remove errors the loose version makes:
+#
+#   * Descriptions carry 2011 (Akuna's founding year), 2015, 2025, 2028 and
+#     2029. Harvesting a year from one puts a confident season on a posting
+#     whose title honestly says nothing.
+#   * Six non-internship titles state a season or a year — a trading challenge,
+#     a sneak-peek week, a talent community, two full-time cohorts and one
+#     campus role reading "(Fall 2026)". Ungated, all six acquire an internship
+#     season they do not have.
+#
+# "autumn" folds into FALL: same season, and a British-English posting should
+# not read as stating nothing.
+# ---------------------------------------------------------------------------
+
+_SEASON_WORDS: tuple[tuple[InternshipSeason, re.Pattern[str]], ...] = (
+    (InternshipSeason.SUMMER, _word("summer")),
+    (InternshipSeason.FALL, _word("fall", "autumn")),
+    (InternshipSeason.WINTER, _word("winter")),
+    (InternshipSeason.SPRING, _word("spring")),
+)
+
+#: A calendar year, not any four-digit number: "Cisco 2960" is not a season.
+_TITLE_YEAR = re.compile(r"\b(20\d{2})\b")
+
+
+def _read_season(
+    title: str, is_internship: InternshipName
+) -> tuple[InternshipSeason | None, int | None]:
+    if is_internship != "yes":
+        return None, None
+    season = next((s for s, pattern in _SEASON_WORDS if pattern.search(title)), None)
+    match = _TITLE_YEAR.search(title)
+    return season, int(match.group(1)) if match else None
+
+
 def classify_role(
     title: str, *, description: str = "", years: int | None = None
 ) -> RoleClassification:
@@ -215,10 +268,14 @@ def classify_role(
     """
     family, family_reason = _classify_family(title, description)
     seniority, seniority_reason = _classify_seniority(title, years)
+    is_internship = _classify_internship(title)
+    season, year = _read_season(title, is_internship)
     return RoleClassification(
         role_family=family,
         seniority=seniority,
-        is_internship=_classify_internship(title),
+        is_internship=is_internship,
+        internship_season=season,
+        internship_year=year,
         family_reason=family_reason,
         seniority_reason=seniority_reason,
     )

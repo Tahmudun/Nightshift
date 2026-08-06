@@ -16,7 +16,7 @@ from __future__ import annotations
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from nightshift.db.base import RoleFamily, Seniority
+from nightshift.db.base import InternshipSeason, RoleFamily, Seniority
 from nightshift.domain.ingestion import sync_classification
 from tests.conftest import make_job_with_text, requires_db
 
@@ -95,6 +95,43 @@ async def test_a_posting_with_no_description_still_gets_a_level(
 
     assert job.seniority is Seniority.DIRECTOR
     assert job.role_family is RoleFamily.SOFTWARE_ENGINEERING
+
+
+async def test_an_internship_title_stating_a_season_fills_both_season_columns(
+    db_session: AsyncSession,
+) -> None:
+    job = await make_job_with_text(db_session, _INTERNSHIP)
+    job.title = "Hardware Engineer Intern, Summer 2027"
+
+    sync_classification(job)
+
+    assert job.internship_season is InternshipSeason.SUMMER
+    assert job.internship_year == 2027
+
+
+async def test_a_posting_that_stops_being_an_internship_loses_its_season(
+    db_session: AsyncSession,
+) -> None:
+    """The reason both columns are assigned unconditionally rather than only
+    when a season is found.
+
+    An employer retitling "Data Intern, Summer 2027" to "Data Analyst" has
+    withdrawn the internship. Written only on a hit, the season would survive
+    the retitling and the posting would keep advertising a summer that its own
+    title no longer mentions — a stale fact outliving the text it came from,
+    which is the failure mode `sync_requirements` is hash-gated to avoid and
+    this one is ungated to avoid.
+    """
+    job = await make_job_with_text(db_session, _INTERNSHIP)
+    job.title = "Data Intern, Summer 2027"
+    sync_classification(job)
+    assert job.internship_season is InternshipSeason.SUMMER
+
+    job.title = "Data Analyst"
+    sync_classification(job)
+
+    assert job.internship_season is None
+    assert job.internship_year is None
 
 
 async def test_the_years_figure_comes_from_the_same_reading_the_gate_uses(

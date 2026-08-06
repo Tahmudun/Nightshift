@@ -345,3 +345,24 @@ def test_the_migration_creates_exactly_those_types() -> None:
     )
     assert set(migration.ROLE_FAMILY_VALUES) == ROLE_FAMILY_VALUES
     assert set(migration.SENIORITY_VALUES) == SENIORITY_VALUES
+
+
+def test_the_season_migration_and_the_season_enum_are_the_same_words() -> None:
+    """`InternshipSeason`'s two copies, M3b Task 11.
+
+    There is no third copy here, and that absence is deliberate: no label field
+    records a season, so there is nothing in this module for the enum to agree
+    with. The season is graded by `test_internship_season.py` against titles
+    quoted from the corpus rather than against the answer key — the answer key
+    was committed before anyone thought to label a season, and adding a tenth
+    label field now would be labeling *after* the rule exists, which
+    `matching.md` §1.1 is unambiguous about.
+    """
+    import importlib
+
+    from nightshift.db.base import InternshipSeason
+
+    migration = importlib.import_module(
+        "migrations.versions.20260806_0020_internship_season_and_year"
+    )
+    assert set(migration.INTERNSHIP_SEASON_VALUES) == {m.value for m in InternshipSeason}
