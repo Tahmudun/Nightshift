@@ -17,17 +17,281 @@
 **Q4 (CI pinning): ANSWERED and shipped. ADR 0016, merged to `main` as PR #10 (`0c5bcbd`).**
 **M3a: COMPLETE, reviewed, CI-green at `3fbffd6`, merged to `main` as PR #9 (`452ec90`).**
 **M3a.1: COMPLETE. Recall 0.459 → 0.861, precision 0.659 → 0.847, necessity 0.668 → 0.915.**
-**Current milestone: M3 — explainable matching. M3b (the eligibility gate) is in progress.**
-**Last updated: 2026-08-05**
+**M3b: COMPLETE and reviewed. All twelve tasks verified locally at `make acceptance` exit 0. Not yet CI-green; PR #11 open as a draft.**
+**Current milestone: M3 — explainable matching. M3c (the score) is next, after M3b merges.**
+**Last updated: 2026-08-09**
 
 ---
 
 ## Next exact action
 
-### M3b is underway on `m3b-eligibility-gate`. Tasks 1–11 are done. Next: Task 12 — the eligibility browser walk, `check_eligibility_gate` in `verify.py`, ADR 0017, the review.
+### All twelve M3b tasks are done and verified locally. Next: push, read CI on all five jobs, then merge PR #11.
+
+```
+make check         1383 python; 182 web across 20 files; ruff, mypy, eslint,
+                   tsc, prettier all clean
+make acceptance    73 verify.py assertions + 48 seeded browser tests, 1 skipped,
+                   exit 0
+make drift         no model/migration drift
+migrations         0015 down and up again against a real database, drift clean
+```
+
+**Everything above ran against a verified-fresh API**, which is a sentence this
+project has today earned the right to have to say. See "the three-day-old
+server" below.
+
+Nothing here has run in CI. Seven CI runs in this project have failed and every
+one found something no local command had executed, so **the branch is not merged
+until CI is green on all five jobs.**
+
+The PRODUCT-SPEC rename to "CitySignal" that sat in the working tree was a VS
+Code artefact — the human confirmed it on 2026-08-09 and it is reverted. The
+product is Nightshift.
+
+---
+
+## M3b Task 12 — the walk, the verify check, ADR 0017, and a promise made twice
+
+Full review: `docs/reviews/milestone-3b-review.md`. Four findings, three fixed
+this session, and the pattern across them is worth the sentence:
+
+> **A check that measures the right thing can still measure it at the wrong
+> altitude.** M3a's lesson was that a guard could be blind to what it was named
+> for. M3b's is subtler — the metric worked perfectly and could not see the
+> difference between a false positive costing precision and one costing somebody
+> a job.
+
+### The finding the browser walk existed to find, and did
+
+The degree rule demotes `bachelors+equivalent` to uncertain (A13), and the hatch
+is checked **before `profile.degree` is read** — that ordering is what makes it
+always win. Filed as `cannot_tell`, `evaluate` attached `profile_field="degree"`
+and the page rendered:
+
+```
+the posting accepts equivalent experience in place of the degree,
+which is not something this system can assess.   [Add your degree]
+```
+
+beside a profile that already had a degree in it. **The gate refuses to invent a
+blocker and the page invented an action** — the same class of claim, one layer
+up, and harder to notice because it looks helpful.
+
+`Outcome` gained `cannot_assess`; `Unknown.profile_field` is nullable to carry
+it; the page has two headings and only one of them has a link. Every unit and
+component test passed the whole time, because "not something this system can
+assess" reads perfectly in a fixture and reads as a broken promise underneath a
+link.
+
+### The same promise, two paragraphs higher, still standing after the fix
+
+Found reviewing the fix rather than the bug. `uncertain`'s headline and caveat
+describe only the `cannot_tell` cause:
+
+```
+Not enough in your profile to tell
+Nothing here is a no. Fill in what is missing and this can answer.
+```
+
+Both false when every open question came from the posting's wording — and the
+promise is the part a reader acts on, because it is the part they read first.
+Now conditional on whether any unknown is askable. **Shown able to fail in both
+directions**: neutered, the first test goes red; over-applied to "any
+unassessable unknown", the second does. "Nothing here is a no" stays in both
+branches — correcting a false promise is not a reason to withdraw a true comfort.
+
+### A hand-transcribed map nobody was comparing
+
+`ASKS` in `JobEligibility.tsx` is a copy of the gate's `_ASKS_FOR` values, and it
+is not a `z.enum`, so `test_enum_parity.py`'s parametrised test could not reach
+it. `ASKS[field] ?? field` falls back to the raw column name, so a rule added
+without its phrase does not throw and does not blank the page — it prints
+**"Add years_experience"** at a person, inside a sentence otherwise asking them
+politely for help. Two of the last four milestones found a transcription defect
+at this boundary. Shown able to fail by deleting `is_enrolled`.
+
+`ASKS[row.profile_field!]` also went: `Array.filter` does not narrow, so the `!`
+compiled by asserting something the compiler had not checked — and what it
+asserted was exactly the distinction the fix above had just introduced.
+
+### The git guard fired for the second time in two tasks
+
+`test_every_source_file_is_tracked_by_git` failed on `eligibility.spec.ts`:
+written, passing, never added. Task 11 hit it on `SearchCaveats.tsx`. Twice in
+two tasks is a pattern, and the pattern is that a *new file* is what this
+workflow loses — an edit shows up in `git status` as a modification and a new
+file sits under `??` where it reads as noise.
+
+### The three-day-old server, and the 73 checks it answered
+
+**The single most important thing found this session, and it was found by
+disbelieving a skip.**
+
+The first full `make verify` printed `all checks passed` — 73 of them, sixteen
+written that morning. It was answered by a `uvicorn` **started by hand on
+2026-08-05 and still holding port 8000 three days and eight hours later.**
+`verify.py` starts its own API; that one died instantly with "address already in
+use" into `DEVNULL`; `wait_for_api` got a healthy `/health` from the squatter.
+
+`CLAUDE.md` §4 has said the rule since the M0 review — *verify from a clean
+shell; a server you started an hour ago will make a broken target look like a
+passing one*. **A habit written down is not a guard.** Two now exist:
+
+```
+port_is_taken()               refuses to run at all when the port is not ours
+wait_for_api(process)         polls process.poll(), so our own server dying
+                              while something else answers is caught too
+```
+
+The port guard was **run against the live stale process and seen to refuse**,
+with its `lsof` line, before that process was killed.
+
+**The frightening part is that the output was identical.** The stale run and the
+honest run print the same 73 lines and the same counts. Nothing in the transcript
+tells them apart. What surfaced it was a sixth signal: a Playwright test skipping
+with *"no seeded posting is unassessable on any dimension"* — a claim about a
+committed, deterministic fixture corpus, and therefore one that cannot be true.
+
+Two artefacts made that survivable and both asserted something false:
+
+- The skip itself. The corpus deterministically holds Datadog's *AI Research
+  Scientist*, whose degree extracts as `phd` with `has_equivalence`. **The test
+  covering this milestone's headline fix reported itself as inapplicable.** It
+  now throws, naming both possible causes and the `lsof` command. The other four
+  tests in the file keep their skips — a corpus with no `ineligible` case is a
+  real possible state; this was not. That is M3a review §2.8 recurring one
+  milestone on, on a different test.
+- `playwright.seeded.config.ts` reused the API under a comment reading *"an API
+  already running for `make dev` is the same API"*. It is not, and the comment is
+  why nobody questioned the reuse. Still reused — refusing breaks the ordinary
+  `make dev` loop — but the comment now says what it cannot guarantee.
+
+**The remaining hole, stated at its real size:** Playwright still cannot tell a
+fresh API from a stale one. A general check needs the API to report its build and
+`/health` reports database and Redis. Worth an ADR at M3c, not a rushed field now.
+
+### `check_eligibility_gate` failed on its first execution
+
+`KeyError: 'posting_span'`. The domain object carries a `posting_span` tuple;
+`EligibilityBlockerOut` flattens it to `char_start`/`char_end` on the wire, the
+shape `job_requirements` already uses. The check was written against the
+dataclass and run against the API.
+
+Recorded rather than quietly fixed: **1383 Python tests knew the correct shape
+and not one of them was looking at this script.** The crash also proved the
+`finally` block does what it claims — "the profile is left as it was found" ran
+and passed while the function was unwinding.
+
+### What `check_eligibility_gate` asserts, now that it runs
+
+```
+an empty profile is blocked from nothing        zero `ineligible`, as an equality,
+                                                over every seeded posting
+the corpus reaches more than one state          the opposite failure: a gate
+                                                answering `uncertain` to
+                                                everything satisfies the line above
+no verdict without its breakdown (I4)
+every unknown names a field /profile has, or names none
+every blocker's quote is the text its span points at
+the same URL twice gives the same verdict
+clearing a column changes it, restoring the column restores it exactly
+```
+
+The last two are ADR 0017 made checkable: no worker runs and no cache is cleared
+between them. It snapshots the six gate columns and restores them in a `finally`,
+and the limit is stated in the docstring rather than implied — killed mid-run,
+the profile keeps this function's values and nothing on disk remembers what
+preceded them.
+
+Against the live seeded corpus, printed rather than assumed:
+
+```
+22 of 31 postings judged, 9 unread (nothing extracted, verdict null)
+
+empty profile      eligible 13   uncertain 9                        ineligible 0
+blocked profile    eligible 13   uncertain 1   likely_ineligible 7  ineligible 1
+```
+
+**`ineligible 0` on the empty profile is M3b's headline assertion, now measured
+on live data rather than only on the answer key.** The second row is what stops
+the first being vacuous: the same corpus does reach `ineligible` when a profile
+genuinely contradicts a stated bar.
+
+### ADR 0017, and the plan branch that could not exist
+
+`docs/adr/0017-the-eligibility-verdict-is-computed-on-read.md`. The plan's §3
+composition had five branches; the gate has four. `likely_eligible` would mean
+"every rule passed, but one leaned on something uncertain", and no rule here
+passes on an uncertain input — each returns `cannot_tell`, which is the safer
+answer, so the branch is not merely unreachable but would be wrong if reached.
+The enum keeps the member for PRODUCT-SPEC §8.3 and M3c. **Recorded in the ADR
+rather than silently not implemented**, which is the difference between a
+decision and an omission.
+
+### What ran on 2026-08-09, after Docker came back
+
+```
+make check         1383 python; 182 web across 20 files
+                   ruff (138 files), mypy (64), eslint, tsc, prettier — clean
+make acceptance    73 verify.py assertions + 48 seeded browser tests, 1 skipped
+                   exit 0
+make verify        73 checks, run separately three times
+make drift         no model/migration drift
+migrations         0015 down, up, drift clean
+```
+
+All five eligibility browser tests run and pass. The fifth — "no unknown offers
+an action that could not resolve it" — **skipped on its first attempt and passes
+now**, which is the stale-server section above in one line.
+
+The one remaining skip in the seeded suite is `operate-boards.spec.ts`'s
+"an unchanged board is not presented as a problem", which predates M3b.
+
+---
+
+### Not real yet — M3b
+
+- **Nothing on this branch has run in CI.** Everything is one machine. Listed
+  first because seven CI runs here have failed and every one found something no
+  local command had executed.
+- **Playwright still cannot tell a fresh API from a stale one.** `verify.py` now
+  refuses a port it does not own; the browser suite cannot, because
+  `reuseExistingServer: true` is load-bearing for the `make dev` loop. What
+  covers it is one throwing assertion in `eligibility.spec.ts`, which catches
+  only the case that actually happened. A general check needs the API to report
+  its build and `/health` reports database and Redis. ADR-worthy at M3c.
+- **No score, no weights, no `match_results`, no project evidence graph.** M3c.
+  Nothing is stubbed for them — no empty table, no placeholder column.
+- **Nothing is stored about a verdict.** No row anywhere records what any
+  posting concluded about anybody. That is ADR 0017's decision, not an omission,
+  and it is revisited when M3c stores a score beside it.
+- **No eligibility precision or recall, in CI or anywhere.** `matching.md` §7
+  puts them at M3d. The 60-posting answer key has no eligibility ground truth in
+  it, so what M3b publishes is reading accuracy, classifier accuracy, and the
+  wrong-ineligible equality.
+- **`likely_eligible` is an enum member no rule can reach.** Kept because
+  PRODUCT-SPEC §8.3 names it and M3c's score components may earn it. The page
+  has words for it and will never show them.
+- **Every number in M3b is an upper bound.** The classifier's thresholds and
+  precedence were chosen with the same 60 titles the grade is computed on. The
+  93 recorded-but-unlabeled postings are the held-out check this wants and they
+  are not labeled.
+- **`role_family: unclear` is labeled on zero postings**, so the corpus cannot
+  grade the case the classifier most needs to get right. A test asserts the gap
+  and goes red the day a posting is labeled `unclear`.
+- **`fall`, `winter` and `spring` are reachable by the internship-season rule
+  and stated by no posting in the corpus.** A gap in the corpus, not in the rule.
+- **Three of five reading accuracies are below 0.95** — `degree` 0.867,
+  `min_years` 0.883, `sponsorship` 0.917. Two of `sponsorship`'s five errors are
+  the deliberate `offered` tie-break and are kept on purpose.
+
+---
+
+## Superseded: what Tasks 9 and 10 could not verify, closed on 2026-08-05
 
 **Docker came back on 2026-08-05, and everything Tasks 9 and 10 could not verify
-has now been run locally.** The gaps that section records are closed:
+was run locally then.** It went down again on 2026-08-09; see the block at the
+top for what that leaves unrun now. The gaps this section records are closed:
 
 ```
 make check         1380 python passed, 178 web tests, ruff, mypy, eslint, tsc, prettier
@@ -279,12 +543,14 @@ typo there produces an empty result that looks like an honest answer.
 
 ---
 
-## Superseded: what Tasks 9 and 10 could not verify
+## Superseded: the first Docker outage, as it was recorded during Tasks 9 and 10
 
 **Docker Desktop went down on this machine part-way through Task 9**, so nothing
-database-backed could be run locally after that point. **It came back, and the
-section above records what has since been run.** Kept because the record of what
-was and was not verified at the time is the point of keeping it.
+database-backed could be run locally after that point. **It came back on
+2026-08-05, and the "closed on 2026-08-05" section above records what was then
+run.** Kept because the record of what was and was not verified at the time is
+the point of keeping it — and because it went down again on 2026-08-09, which
+makes the shape of this section current news rather than history.
 
 **CI closed most of that gap and the record says so rather than leaving the
 scarier version standing.** Green on all five jobs at `38e22ac`, run
@@ -1579,17 +1845,22 @@ to write off as "the mutation was not meaningful".
 - **93 of the 153 recorded postings are committed and unlabeled.** Deliberate:
   the payloads are real and cheap to keep, and re-recording later costs a
   network round against nine live boards.
-- **`has_equivalence` is stored and read by nothing** but the tests and a badge
-  on the job page. A13 requires M3b's gate resolve it to `uncertain` rather
-  than `ineligible`; storing it now is what makes that possible without
-  re-extracting.
+- ~~**`has_equivalence` is stored and read by nothing** but the tests and a badge
+  on the job page.~~ **Stale as of M3b Task 6.** `_degree_rule` reads it, and it
+  is the only thing in the gate that produces `cannot_assess`. Struck rather
+  than deleted: this project has four times shipped a blind spot recorded in a
+  line nobody re-read once the thing it waited on landed.
 - **The `jobs_description_change_clears_requirements` trigger is guarded by
   exactly one test.** Dropping it turns exactly that one red. Thin for a
   structural guarantee, and recorded rather than padded — its whole purpose is
   the writer that does *not* call `sync_requirements`.
-- **Everything in `matching.md` §9 is M3b or later**: the eligibility gate, the
+- ~~**Everything in `matching.md` §9 is M3b or later**: the eligibility gate, the
   score and its components, role-family and seniority classification, the
-  project evidence graph, and the `uncertain` resolution. None is stubbed.
+  project evidence graph, and the `uncertain` resolution. None is stubbed.~~
+  **Partly stale as of M3b.** The gate, the classifier and the `+equivalent`
+  resolution are built. The score and its components, the versioned weights and
+  the project evidence graph are M3c, and are still not stubbed. See "Not real
+  yet — M3b" below.
 
 ### The M3a plan
 
