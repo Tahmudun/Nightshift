@@ -25,7 +25,22 @@
 
 ## Next exact action
 
-### M3c is planned on `m3c-the-score`. Next: Task 1 — `data/matching.yaml`, the loader, and the sum-to-100 assertion shown able to fail.
+### M3c Task 1 is done. Next: Task 2 — the migration for `match_results`, `match_evidence` and `user_skills.skill_id`, with both evidence guards proven able to fail.
+
+**Task 1 shipped**: `data/matching.yaml` (six components summing to 100, two
+negative penalty ceilings, `version: 2026-08-09.1`),
+`domain/matching_weights.py` (the loader, `RULESET_LOGIC_VERSION = "1"`, and
+`ruleset_version()` composing `"<logic>+<data>"` per §4.2), and 27 tests in
+`test_matching_weights.py`. The sum-to-100 assertion is shown able to fail on
+the realistic mistake — `skill_overlap` typed as 3 instead of 30, which crashes
+nothing, keeps every existing test green, and quietly removes the largest
+component from every score in the corpus.
+
+**The Q5 worksheet is generated and waiting on the human.** Thirty postings at
+`docs/labeling/relevance-worksheet.md`, rated into
+`services/api/tests/fixtures/relevance/ratings.yaml`. Roughly twenty minutes.
+Not blocking M3c; wanted before M3d, because it is the only thing that can
+measure whether the ranking is *good* rather than merely stable.
 
 The plan is `docs/plans/2026-08-09-m3c-the-score.md`. Twelve tasks. Three calls
 taken in the plan rather than inside the work:
@@ -47,12 +62,33 @@ taken in the plan rather than inside the work:
   that hand-maintained list is exactly what quietly stopped describing what it
   named at M3b.
 
-**Q5 is open in QUESTIONS and wants twenty minutes of the human's judgement.**
-M3 can prove the ranking is *stable* and cannot prove it is *good*, because
-whether a role is a good role for somebody is not a property of the posting and
-so cannot come out of the answer key. Thirty postings rated good / acceptable /
-poor is the only thing that produces that measurement. Not blocking M3c; wanted
-before M3d.
+### Not real yet — M3c, so far
+
+- **The relevance ratings are unfilled.** `ratings.yaml` is thirty `TO_RATE`
+  rows and an empty profile block. Until it is filled in, M3 measures ranking
+  stability and nothing at all about ranking quality — which is Q5's whole
+  point, and is what PROGRESS will say at the milestone review if it stays this
+  way. The tests that read the file pass trivially while it is blank and start
+  checking on the first line written.
+- **The thirty come from nine employers, all of them quant trading firms or AI
+  labs.** That is the corpus M3a recorded, chosen for eligibility-rule coverage
+  rather than for being a fair sample of New York tech — no agency, no startup,
+  no bank, no hospital, no university. Whatever M3d reports is therefore a
+  measurement over *that* slice, and saying so is the difference between a
+  ranking metric and a ranking metric that sounds broader than it is.
+- **The weights are §5.1's published numbers, untuned and unmeasured.** Nothing
+  has scored anything yet, so no evidence supports 30 for skill overlap over 25.
+  Tuning is deliberately after Task 6's golden test, never before it.
+- **`RULESET_LOGIC_VERSION` is a constant a human bumps.** The golden test that
+  makes forgetting it fail loudly is Task 6. Between now and then, a rule change
+  without a bump is caught by nothing.
+- **`scripts/` is outside the linted tree**, found this session and pre-existing:
+  `make lint` runs ruff over `services/api` only, so `verify.py` and both
+  worksheet generators are checked by nothing. 22 findings sit there today, most
+  of them `T20` on prints that are the point of those files. Left alone
+  deliberately — turning it on means per-file ignores, and that is its own small
+  change rather than a rider on M3c. The two files added this session were
+  checked against the same config by hand and are clean.
 
 ---
 
