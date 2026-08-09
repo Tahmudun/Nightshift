@@ -18,14 +18,28 @@
 **M3a: COMPLETE, reviewed, CI-green at `3fbffd6`, merged to `main` as PR #9 (`452ec90`).**
 **M3a.1: COMPLETE. Recall 0.459 → 0.861, precision 0.659 → 0.847, necessity 0.668 → 0.915.**
 **M3b: COMPLETE, reviewed, CI-green at `7bfbf2d`, merged to `main` as PR #11 (`d2273e7`). `main` green after the merge.**
-**Current milestone: M3 — explainable matching. M3c (the score): Tasks 1–5 of 12 done. Q6 answered and implemented.**
+**Current milestone: M3 — explainable matching. M3c (the score): Tasks 1–6 of 12 done. Q6 answered and implemented.**
 **Last updated: 2026-08-09**
 
 ---
 
 ## Next exact action
 
-### M3c Tasks 1–5 are done. Next: Task 6 — the golden test, written **before** any weight is tuned.
+### M3c Tasks 1–6 are done. Next: Task 7 — mutation testing. Zero each weight in turn and watch a named test go red; six kills, plus the harness guards.
+
+**Task 6 shipped**: the golden test, written before any weight was tuned.
+`tests/fixtures/matching/golden.txt` — 459 scores and 1,098 evidence rows over
+153 recorded postings × 3 fixture profiles, every component decomposed with its
+own sentence. 11 tests in `test_matching_golden.py`. The corpus was measured
+before the format was chosen: 37 distinct scores, 9 distinct denominators, and
+5 pairs that genuinely reach `assessed_out_of == 0`. Full detail in the M3c
+Task 6 section below, including the regeneration guard and the end-to-end run
+that proved it fires.
+
+Task 7 now has what it needs: zeroing a weight will move the golden file, and
+the golden file names which postings moved. **The order matters and it is the
+plan's**: the golden test had to exist before any weight was tuned, or it would
+pin the tuned output and call it a check.
 
 **Task 5 shipped**: both penalties, the composition, and `score_match` — the
 whole score for one (person, posting) pair, still pure and still with no
@@ -102,6 +116,17 @@ taken in the plan rather than inside the work:
 
 ### Not real yet — M3c, so far
 
+- **The golden file pins nine employers, all quant trading firms or AI labs.**
+  It is 153 postings and it looks broad; it is the same narrow slice the rest of
+  M3 measures on. A rule that misfires only on an agency's or a hospital's
+  posting moves nothing in that file, and no test in this repository would
+  notice. This is a coverage limit, not a bug, and it is stated in the test
+  module's own docstring so it travels with the file rather than only with this
+  document.
+- **The golden file records the *untuned* weights.** It is a record of what
+  §5.1's published numbers produce, and it is deliberately not evidence that
+  those numbers are good — no measurement supports 30 for skill overlap over 25.
+  Task 7 mutates them and M3d measures them.
 - **`match_results` has no `assessed_out_of` column and needs one.** Found by
   implementing Q6's answer. The ranked list sorts on the *fraction*, and §4.2's
   reason for precomputing at all is that "a sort needs the value in the
@@ -199,6 +224,111 @@ taken in the plan rather than inside the work:
   deliberately — turning it on means per-file ignores, and that is its own small
   change rather than a rider on M3c. The two files added this session were
   checked against the same config by hand and are clean.
+
+---
+
+## M3c Task 6 — the golden test, and the regeneration that refuses
+
+### The corpus was measured before the format was chosen
+
+Scoring all 153 recorded postings against three fixture profiles, on 2026-08-09,
+before writing a line of the golden file:
+
+```
+459 scores          37 distinct overall scores      9 distinct denominators
+1,098 evidence rows  5 pairs with assessed_out_of == 0
+components earning points somewhere in the corpus: all six
+```
+
+That is what makes the file worth having. A scorer returning 50 for everything
+would satisfy every other assertion in the test module — deterministic,
+decomposing, real spans, byte-stable golden — so the anti-vacuity test is the
+one that had to be written, and it is M3b's
+`test_the_corpus_actually_exercises_the_gate` one milestone up.
+
+The 5 pairs reaching `assessed_out_of == 0` matter separately: `fraction is
+None` is a branch the corpus actually visits, not a defensive one. A test asserts
+it stays non-empty, so if the branch ever becomes unreachable that is stated
+rather than discovered.
+
+### All 153 recorded postings, not the labeled 60
+
+Nothing in this file is graded against a key — a golden file makes no claim that
+a score is *right* — so the answer-key labels buy nothing here and the extra 93
+postings buy coverage: more seniority levels, more cities, and postings with no
+publication date at all (8 of 153).
+
+### Every component prints its sentence, not only its points
+
+`why` is what the explanation panel renders (§6). A rule that changes the
+wording without changing the arithmetic has changed what a person is told, and a
+golden file pinning only numbers would call that no change. Both are in the
+file, one line each.
+
+An unassessable component prints **`—` where its points would go, never `0`**.
+That is §5.1.1 made visible: a component that scored zero and a component the
+posting could not answer are different statements, and a file rendering both as
+`0` cannot show a rule change that turns one into the other.
+
+### Text rather than JSON, because the diff is the product
+
+A JSON golden diffs one key per line and buries the number that moved among its
+punctuation. The committed format reads as a breakdown, which is what somebody
+staring at a red test needs:
+
+```
+akunacapital/7496397 · states_nothing
+  0/50  role — · skill 0 · project — · location — · freshness 0 · priority 0 · penalty -25
+  role        —  this profile states no preferred roles
+  skill       0  none of the 5 required technologies is confirmed on this profile
+  project     —  this profile records no projects
+  ...
+  penalty missing_requirement -25  5 of 5 required technologies have no evidence
+  penalty seniority_mismatch —  this profile states no years of experience
+```
+
+### The failure a golden test invites, and the guard that blocks it
+
+Change a rule, see red, regenerate, commit. `ruleset_version` then describes
+rules that no longer exist, every stored `match_results` row claims a ruleset
+that never produced it, and §4.2's "a stale result is never silently served"
+quietly stops being true — because staleness is decided by comparing that
+version.
+
+So regeneration **refuses** when a score present in both the committed file and
+the new one changed while the version stayed put, and it prints the diff rather
+than only saying no. A guard that says only "no" is a guard people learn to
+route around.
+
+**Growing the corpus is deliberately allowed.** A new posting changes no
+existing score. Refusing it would make the only way to add a fixture a version
+bump that describes nothing, which is how a guard earns a reputation for crying
+wolf.
+
+The loop was run end to end rather than asserted: `skill_overlap: 30 → 25` in
+`data/matching.yaml` with no version bump →
+
+```
+the score moved: -  8/30  ... freshness 8 ...   +  9/31  ... freshness 9 ...
+GoldenRefused: N score(s) changed while ruleset_version stayed '1+2026-08-09.1'
+```
+
+→ restore → green again. Five unit tests cover the guard's own branches,
+including the two it must *not* fire on.
+
+### `as_of` is frozen, and that is not laziness
+
+`listing_freshness` is arithmetic against today. A golden computed with
+`date.today()` goes red every morning and teaches everyone to regenerate without
+reading the diff — which makes the guard above pointless. The date is
+2026-08-09 and it is a constant in the test module.
+
+### One thing this file cannot do
+
+It is nine employers, all quant trading firms or AI labs. 153 postings looks
+broad and is the same narrow slice everything else in M3 measures on. A rule
+that misfires only on an agency's posting moves nothing here. That is in the
+test module's own docstring so it travels with the file.
 
 ---
 

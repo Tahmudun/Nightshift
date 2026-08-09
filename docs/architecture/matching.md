@@ -350,6 +350,16 @@ corpus. Changing a rule without bumping the constant turns it red with a diff
 showing exactly what moved, which is the moment to bump. Relying on a developer
 remembering is the version of this that fails silently.
 
+Built at Task 6: `tests/fixtures/matching/golden.txt`, 459 scores over 153
+recorded postings × 3 fixture profiles, rendered as text because the diff is the
+product. One thing had to be added that this paragraph did not anticipate — the
+red test alone is not the guard, because the obvious response to it is to
+regenerate. **Regeneration itself refuses** when a score present in both files
+moved while `ruleset_version` stayed put, and prints what moved; growing the
+corpus is allowed, because a new posting changes no existing score. `as_of` is a
+frozen date rather than today, or freshness arithmetic would turn the file red
+every morning and train everyone to regenerate without reading it.
+
 **Precomputed, not computed on read.** The daily queue has to sort thousands of
 jobs by score, and a sort needs the value in the database. Recomputed on: a new
 or changed job, any profile change, and a ruleset version bump. An ARQ task,
@@ -690,6 +700,15 @@ Beyond the evaluation suite:
 - **A determinism test that actually reruns.** Same fixtures, two full runs,
   byte-identical `match_results` and `match_evidence`. Embeddings are local and
   deterministic (A5), so this is a real assertion rather than an aspiration.
+  Built at Task 6 — and it rebuilds the corpus, re-extracts every requirement
+  and rescores every pair on the second run, because comparing a cached string
+  against itself proves nothing.
+- **An anti-vacuity test on the corpus, not only on the rules.** A scorer
+  returning 50 for everything satisfies every line above it. Task 6 asserts the
+  corpus reaches several distinct scores, several distinct *denominators*, and
+  that every one of the six components earns points somewhere — the last of
+  which is what stops Task 7's mutation test from "proving" a component
+  load-bearing against a corpus that could never tell.
 
 ---
 
