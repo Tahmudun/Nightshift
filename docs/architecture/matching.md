@@ -71,10 +71,22 @@ evidence** — the three components that make a claim about *the person*. Those
 are the claims I2 exists to govern, and each must trace to two quotable strings.
 
 **Location, freshness and internship priority make no claim about the person.**
-Freshness is arithmetic on `last_seen_at`; location compares
+Freshness is arithmetic on a date the source published; location compares
 `job_locations.city` and `remote_policy` against a preference the user typed;
 priority reads the posting's own seniority. There is no span to quote on the
 user's side because there is no assertion about their qualifications being made.
+
+**Freshness reads `source_published_at`, not `last_seen_at`**, and this
+paragraph said `last_seen_at` until M3c Task 4 measured it. `last_seen_at`
+records when *this system* last polled: across 31 seeded jobs it held one
+distinct day, against a 10-to-347-day spread of publication dates over the same
+rows. Scoring on it would also make a job's freshness depend on which poll tier
+ADR 0007 assigned its board — this system's own infrastructure, which is the
+`application_urgency` argument in §5.1 pointed at ourselves. `source_published_at`
+is a genuine publication date on all three adapters (Greenhouse
+`first_published`, Ashby `publishedAt`, Lever `createdAt`) and is present on 153
+of 153 recorded postings. A source that gives none makes the component
+unassessable rather than zero.
 
 These components still record evidence — the values that were compared, so the
 breakdown is inspectable and I4 holds — but they are exempt from the span
@@ -475,6 +487,30 @@ seniority mismatch penalty      0 to -30
 Weights live in `data/matching.yaml` and are versioned; §4.2 records how that
 version is composed with the rule logic's own and stored on every
 `match_results` row.
+
+### 5.1.1 A component that cannot be assessed, and what the total does about it
+
+Decided 2026-08-09, QUESTIONS Q6, after M3c Task 3 measured the size of it: **26
+of the 60 labeled postings name no required technology**, and 16 name none of
+any kind. Skill overlap and project evidence both read that list, so on 43% of
+the corpus half the available score cannot be computed.
+
+A component that answers zero there subtracts 50 points for something about the
+employer's prose, which is §5.1's `application_urgency` argument with a bigger
+number. So each component returns whether it could be **assessed** alongside its
+points, and the two are different statements: zero means this person does not
+match, unassessable means the posting does not say enough to ask.
+
+**The total is out of what could be assessed.** A posting naming no technologies
+is scored out of 50, the page names the components that could not be assessed
+and why, and the ranked list sorts on the fraction. The alternative — always out
+of 100, with the gaps shown — systematically ranks terse postings below verbose
+ones, and redistributing the missing weight would silently make location and
+freshness worth 50 points between them on those postings, which nobody chose.
+
+Awarding the points anyway was never available: §4.3's trigger refuses a
+positive component with no evidence row, so the database removed that option
+before anyone had to be disciplined about it.
 
 ### 5.2 Eligibility is never part of the number
 

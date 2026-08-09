@@ -54,3 +54,29 @@ penalties:
   # blocker: M3b refused to let seniority produce `ineligible`, because a
   # posting's title is not a statement about who may apply.
   seniority_mismatch: -30
+
+# Rule thresholds. §4.2 puts "every rule threshold" in this file alongside the
+# weights, and for the same reason: a number that changes a score must be a
+# traceable data change carrying the version stored on every row, not a constant
+# somebody edited in Python.
+#
+# How a rule *uses* a threshold is logic and carries `RULESET_LOGIC_VERSION`.
+# What the number is lives here.
+thresholds:
+  # Listing freshness, in days since `jobs.source_published_at` — the date the
+  # **source** says the posting went up (Greenhouse `first_published`, Ashby
+  # `publishedAt`, Lever `createdAt`), carried on 153 of 153 recorded postings.
+  #
+  # **Not `last_seen_at`**, which `matching.md` §2.1 named and which was measured
+  # useless for this: it records when *we* last polled, so on an actively polled
+  # board it is near-now for every open job — 31 seeded jobs, one distinct
+  # `last_seen_at` day, against a 10-to-347-day spread of publication dates. It
+  # would also make the score depend on which poll tier ADR 0007 put the board
+  # on, which is this system's infrastructure and not the posting's freshness.
+  freshness_days:
+    # At or under this, the whole weight. A week is roughly the window in which
+    # a posting is worth treating as new.
+    full: 7
+    # At or over this, nothing. Between the two the score falls linearly, so
+    # there is no cliff where one day costs several points.
+    zero: 90

@@ -20,6 +20,7 @@ from nightshift.domain.matching_weights import (
     DEFAULT_WEIGHTS_PATH,
     PENALTY_NAMES,
     RULESET_LOGIC_VERSION,
+    THRESHOLD_NAMES,
     WEIGHT_TOTAL,
     WeightsError,
     load_weights,
@@ -162,3 +163,69 @@ def test_a_missing_section_is_refused(raw: dict[str, Any], section: str) -> None
 def test_a_file_that_is_not_a_mapping_is_refused() -> None:
     with pytest.raises(WeightsError, match="mapping"):
         parse_weights([20, 30, 20, 10, 10, 10])
+
+
+# -- thresholds, added at Task 4 -----------------------------------------
+#
+# Freshness is the first rule with a tunable number in it, and §4.2 puts every
+# threshold in the data file for the same reason it puts the weights there: a
+# number that moves a score has to travel with the version stored on the row.
+
+
+def test_the_committed_thresholds_load() -> None:
+    weights = load_weights()
+
+    assert set(weights.thresholds) == set(THRESHOLD_NAMES)
+    assert weights.threshold("freshness_days.full") == 7
+    assert weights.threshold("freshness_days.zero") == 90
+
+
+def test_a_missing_threshold_is_refused(raw: dict[str, Any]) -> None:
+    del raw["thresholds"]["freshness_days"]["full"]
+
+    with pytest.raises(WeightsError, match="missing"):
+        parse_weights(raw)
+
+
+def test_a_threshold_the_code_has_never_heard_of_is_refused(raw: dict[str, Any]) -> None:
+    """A weight nobody reads is a number somebody tuned and watched do nothing."""
+    raw["thresholds"]["freshness_days"]["halfway"] = 30
+
+    with pytest.raises(WeightsError, match="unknown"):
+        parse_weights(raw)
+
+
+def test_a_freshness_window_running_backwards_is_refused(raw: dict[str, Any]) -> None:
+    """The realistic mistake, and it is silent.
+
+    Swap the two and an ancient posting scores above a new one. Nothing crashes,
+    every score stays between 0 and 100, and the ranked list is upside down on
+    the one axis a person can check by eye.
+    """
+    raw["thresholds"]["freshness_days"] = {"full": 90, "zero": 7}
+
+    with pytest.raises(WeightsError, match="runs backwards"):
+        parse_weights(raw)
+
+
+def test_equal_thresholds_are_refused(raw: dict[str, Any]) -> None:
+    """`zero - full` is a divisor. Equal values are a ZeroDivisionError at
+    scoring time, which is a crash in a worker rather than a load error."""
+    raw["thresholds"]["freshness_days"] = {"full": 30, "zero": 30}
+
+    with pytest.raises(WeightsError, match="must be below"):
+        parse_weights(raw)
+
+
+def test_a_negative_threshold_is_refused(raw: dict[str, Any]) -> None:
+    raw["thresholds"]["freshness_days"]["full"] = -1
+
+    with pytest.raises(WeightsError, match="negative"):
+        parse_weights(raw)
+
+
+def test_a_file_with_no_thresholds_at_all_is_refused(raw: dict[str, Any]) -> None:
+    del raw["thresholds"]
+
+    with pytest.raises(WeightsError, match="thresholds must be a mapping"):
+        parse_weights(raw)

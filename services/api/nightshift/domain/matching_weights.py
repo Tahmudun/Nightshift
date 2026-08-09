@@ -62,11 +62,22 @@ class WeightsError(ValueError):
     """A weights file that would produce a dishonest score. Raised on load."""
 
 
+#: Rule thresholds, as `<group>.<name>`. §4.2 puts every threshold in the data
+#: file beside the weights, because a number that moves a score has to be a
+#: traceable data change carrying the version stored on every row.
+#:
+#: Named exhaustively for the same reason the components are: a threshold the
+#: code has never heard of must be a load error rather than a silently ignored
+#: key, and one the code expects and the file omits must be the same.
+THRESHOLD_NAMES = ("freshness_days.full", "freshness_days.zero")
+
+
 @dataclass(frozen=True, slots=True)
 class MatchingWeights:
     version: str
     components: dict[str, int]
     penalties: dict[str, int]
+    thresholds: dict[str, int]
 
     @property
     def ruleset_version(self) -> str:
@@ -78,6 +89,9 @@ class MatchingWeights:
 
     def ceiling(self, penalty: str) -> int:
         return self.penalties[penalty]
+
+    def threshold(self, name: str) -> int:
+        return self.thresholds[name]
 
 
 def _whole_number(value: Any, *, where: str) -> int:
@@ -143,7 +157,51 @@ def parse_weights(raw: Any) -> MatchingWeights:
                 "or the score adds points for a mismatch"
             )
 
-    return MatchingWeights(version=version, components=weights, penalties=penalties)
+    return MatchingWeights(
+        version=version,
+        components=weights,
+        penalties=penalties,
+        thresholds=_parse_thresholds(raw.get("thresholds")),
+    )
+
+
+def _parse_thresholds(raw: Any) -> dict[str, int]:
+    """Flatten `freshness_days: {full: 7}` to `{"freshness_days.full": 7}`.
+
+    Flat because the names are checked exhaustively and a nested lookup that
+    silently returns `None` for a missing group is the failure this whole loader
+    exists to make loud.
+    """
+    if not isinstance(raw, dict):
+        raise WeightsError("thresholds must be a mapping of threshold groups")
+
+    flat: dict[str, int] = {}
+    for group, entries in raw.items():
+        if not isinstance(entries, dict):
+            raise WeightsError(
+                f"thresholds.{group} must be a mapping, not {type(entries).__name__}"
+            )
+        for name, value in entries.items():
+            flat[f"{group}.{name}"] = _whole_number(value, where=f"thresholds.{group}.{name}")
+
+    missing = [name for name in THRESHOLD_NAMES if name not in flat]
+    unknown = [name for name in flat if name not in THRESHOLD_NAMES]
+    if missing or unknown:
+        raise WeightsError(f"thresholds: missing {missing}, unknown {unknown}")
+
+    # A freshness window that runs backwards would score an ancient posting
+    # above a new one, silently and with no error anywhere.
+    if flat["freshness_days.full"] >= flat["freshness_days.zero"]:
+        raise WeightsError(
+            f"freshness_days.full ({flat['freshness_days.full']}) must be below "
+            f"freshness_days.zero ({flat['freshness_days.zero']}), or freshness runs backwards"
+        )
+    for name, value in flat.items():
+        if value < 0:
+            raise WeightsError(
+                f"thresholds.{name} is negative ({value}); days do not run backwards"
+            )
+    return flat
 
 
 @lru_cache(maxsize=4)

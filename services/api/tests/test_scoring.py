@@ -13,6 +13,7 @@ project has already had happen for three days without noticing.
 from __future__ import annotations
 
 import uuid
+from itertools import pairwise
 from typing import Any
 
 import pytest
@@ -416,3 +417,197 @@ def test_a_title_nothing_matches_carries_no_span() -> None:
 
     assert result.role_family is RoleFamily.UNCLEAR
     assert result.family_span is None
+
+
+# ---------------------------------------------------------------------------
+# Location and work mode — the first of the three exempt components
+# ---------------------------------------------------------------------------
+
+from datetime import date, timedelta  # noqa: E402
+
+from nightshift.db.base import Seniority  # noqa: E402
+from nightshift.domain.scoring import (  # noqa: E402
+    JobLocationForScoring,
+    score_early_career_priority,
+    score_listing_freshness,
+    score_location_and_work_mode,
+)
+
+TODAY = date(2026, 8, 9)
+
+
+def test_a_profile_stating_no_place_and_no_work_mode_is_not_assessable() -> None:
+    posting = _posting(locations=(JobLocationForScoring(city="New York"),), remote_policy="hybrid")
+
+    result = score_location_and_work_mode(posting, ScoringProfile(), weight=10)
+
+    assert (result.assessable, result.points) == (False, 0)
+
+
+def test_a_stated_city_the_posting_matches_earns_the_whole_weight() -> None:
+    """The whole weight, not half, because the profile stated one dimension.
+
+    Scoring somebody against a work-mode preference they did not express would
+    mean inventing one and then marking them down against it.
+    """
+    posting = _posting(locations=(JobLocationForScoring(city="New York"),), remote_policy="hybrid")
+    profile = ScoringProfile(preferred_locations=("new york",))
+
+    result = score_location_and_work_mode(posting, profile, weight=10)
+
+    assert result.points == 10
+
+
+def test_both_dimensions_stated_splits_the_weight() -> None:
+    posting = _posting(locations=(JobLocationForScoring(city="Chicago"),), remote_policy="hybrid")
+    profile = ScoringProfile(preferred_locations=("New York",), remote_preference="hybrid")
+
+    result = score_location_and_work_mode(posting, profile, weight=10)
+
+    assert result.points == 5
+
+
+def test_an_unknown_remote_policy_is_dropped_rather_than_failed() -> None:
+    """A10: absence of data is data. The source not saying how a job is worked
+    is not the same as it being worked the wrong way."""
+    posting = _posting(locations=(JobLocationForScoring(city="New York"),), remote_policy="unknown")
+    profile = ScoringProfile(preferred_locations=("New York",), remote_preference="remote")
+
+    result = score_location_and_work_mode(posting, profile, weight=10)
+
+    assert result.points == 10, "the place dimension should carry the whole weight alone"
+
+
+def test_remote_typed_as_a_place_matches_a_remote_posting() -> None:
+    """ "remote" is what people type into a locations field, and refusing to read
+    it there marks a remote job against somebody who said the only thing that
+    could express what they wanted."""
+    posting = _posting(locations=(), remote_policy="remote")
+    profile = ScoringProfile(preferred_locations=("remote",))
+
+    result = score_location_and_work_mode(posting, profile, weight=10)
+
+    assert result.points == 10
+
+
+def test_an_unmatched_dimension_is_still_recorded() -> None:
+    """A component that records only its wins is not a breakdown. "You asked for
+    hybrid and this is on-site" is the line the explanation panel needs."""
+    posting = _posting(locations=(JobLocationForScoring(city="Chicago"),), remote_policy="on_site")
+    profile = ScoringProfile(preferred_locations=("New York",), remote_preference="hybrid")
+
+    result = score_location_and_work_mode(posting, profile, weight=10)
+
+    assert result.points == 0
+    assert len(result.evidence) == 2
+    assert all(row.points == 0 for row in result.evidence)
+
+
+def test_no_location_evidence_row_ever_quotes_the_person() -> None:
+    """§2.1, and the database refuses it too
+    (`ck_match_evidence_only_a_person_claim_quotes_a_person`)."""
+    posting = _posting(locations=(JobLocationForScoring(city="New York"),), remote_policy="remote")
+    profile = ScoringProfile(preferred_locations=("New York",), remote_preference="remote")
+
+    result = score_location_and_work_mode(posting, profile, weight=10)
+
+    assert result.evidence
+    for row in result.evidence:
+        assert row.user_span_text is None
+        assert row.job_span_text is None
+        assert row.compared
+
+
+# ---------------------------------------------------------------------------
+# Listing freshness
+# ---------------------------------------------------------------------------
+
+
+def test_a_posting_published_this_week_earns_the_whole_weight() -> None:
+    posting = _posting(source_published_at=TODAY - timedelta(days=3))
+
+    result = score_listing_freshness(posting, weight=10, full_days=7, zero_days=90, as_of=TODAY)
+
+    assert result.points == 10
+
+
+def test_a_posting_older_than_the_window_earns_nothing_and_is_still_assessable() -> None:
+    posting = _posting(source_published_at=TODAY - timedelta(days=200))
+
+    result = score_listing_freshness(posting, weight=10, full_days=7, zero_days=90, as_of=TODAY)
+
+    assert (result.assessable, result.points) == (True, 0)
+    assert "200 days ago" in result.why
+
+
+def test_freshness_falls_linearly_rather_than_off_a_cliff() -> None:
+    """One day should never cost several points, so the two ends are checked
+    against a midpoint rather than only at the thresholds."""
+    scores = [
+        score_listing_freshness(
+            _posting(source_published_at=TODAY - timedelta(days=age)),
+            weight=10,
+            full_days=7,
+            zero_days=90,
+            as_of=TODAY,
+        ).points
+        for age in (7, 30, 48, 70, 90)
+    ]
+
+    assert scores == sorted(scores, reverse=True), scores
+    assert scores[0] == 10
+    assert scores[-1] == 0
+    steps = [a - b for a, b in pairwise(scores)]
+    assert max(steps) <= 3, scores
+
+
+def test_a_source_giving_no_publication_date_is_not_assessable() -> None:
+    """Not a zero. Every recorded posting carries one today, and a source that
+    stops would otherwise silently lose 10 points on every job it lists."""
+    result = score_listing_freshness(
+        _posting(source_published_at=None), weight=10, full_days=7, zero_days=90, as_of=TODAY
+    )
+
+    assert (result.assessable, result.points) == (False, 0)
+
+
+def test_freshness_reads_no_profile_at_all() -> None:
+    """The signature is the assertion: there is no person in this calculation,
+    which is why §2.1 exempts it from quoting one."""
+    import inspect
+
+    assert "profile" not in inspect.signature(score_listing_freshness).parameters
+
+
+# ---------------------------------------------------------------------------
+# Early-career priority
+# ---------------------------------------------------------------------------
+
+
+def test_an_internship_earns_the_priority_weight() -> None:
+    result = score_early_career_priority(_posting(seniority=Seniority.INTERNSHIP), weight=10)
+
+    assert result.points == 10
+
+
+def test_a_staff_posting_earns_no_priority_and_is_assessable() -> None:
+    result = score_early_career_priority(_posting(seniority=Seniority.STAFF), weight=10)
+
+    assert (result.assessable, result.points) == (True, 0)
+
+
+def test_an_unclear_level_is_not_assessable() -> None:
+    result = score_early_career_priority(_posting(seniority=Seniority.UNCLEAR), weight=10)
+
+    assert (result.assessable, result.points) == (False, 0)
+
+
+def test_priority_reads_the_posting_and_never_the_person() -> None:
+    """PRODUCT-SPEC §23 asks for the opposite — boost only when eligibility
+    looks plausible — and `matching.md` §5.2 forbids it, because that is
+    eligibility becoming points. The signature is where the decision is
+    enforced: there is no profile to consult.
+    """
+    import inspect
+
+    assert "profile" not in inspect.signature(score_early_career_priority).parameters

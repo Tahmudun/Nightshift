@@ -18,14 +18,26 @@
 **M3a: COMPLETE, reviewed, CI-green at `3fbffd6`, merged to `main` as PR #9 (`452ec90`).**
 **M3a.1: COMPLETE. Recall 0.459 → 0.861, precision 0.659 → 0.847, necessity 0.668 → 0.915.**
 **M3b: COMPLETE, reviewed, CI-green at `7bfbf2d`, merged to `main` as PR #11 (`d2273e7`). `main` green after the merge.**
-**Current milestone: M3 — explainable matching. M3c (the score): Tasks 1–3 of 12 done. Q6 is open and Task 5 needs it.**
+**Current milestone: M3 — explainable matching. M3c (the score): Tasks 1–4 of 12 done. Q6 answered — score out of what could be assessed.**
 **Last updated: 2026-08-09**
 
 ---
 
 ## Next exact action
 
-### M3c Tasks 1, 2 and 3 are done. Next: Task 4 — the three exempt components (location, freshness, priority) and the compared values they record instead of spans.
+### M3c Tasks 1–4 are done. Next: Task 5 — the two penalties, the composition out of what could be assessed (Q6's answer), and the seniority penalty M3b refused to make a blocker.
+
+**Task 4 shipped**: location and work mode, listing freshness, early-career
+priority — the three components §2.1 exempts from quoting a person, each
+recording the values it compared instead. `data/matching.yaml` gained a
+`thresholds` block and the loader gained its validation, including a freshness
+window that runs backwards, shown able to fail. 44 tests in `test_scoring.py`,
+34 in `test_matching_weights.py`.
+
+**Q6 is answered: score out of what could be assessed.** A posting naming no
+technologies is scored out of 50, the page names what could not be assessed, and
+the ranked list sorts on the fraction. Written into `matching.md` §5.1.1 and
+implemented by Task 5.
 
 **Task 3 shipped**: `domain/scoring.py` — role relevance, skill overlap and
 project evidence, pure, no ORM, 28 tests in `test_scoring.py` that need no
@@ -163,6 +175,82 @@ taken in the plan rather than inside the work:
   deliberately — turning it on means per-file ignores, and that is its own small
   change rather than a rider on M3c. The two files added this session were
   checked against the same config by hand and are clean.
+
+---
+
+## M3c Task 4 — the three exempt components, and a date that was measured before it was trusted
+
+### `last_seen_at` would have scored our own polling schedule
+
+`matching.md` §2.1 said freshness is arithmetic on `last_seen_at`. Measured on
+the seeded database before writing the rule:
+
+```
+31 jobs      1 distinct last_seen_at day      1 distinct first_seen_at day
+             source_published_at spread: 10 to 347 days
+```
+
+`last_seen_at` records when *this system* last polled, so on an actively polled
+board it is near-now for every open job and discriminates nothing. Worse, ADR
+0007 gives boards different poll tiers — so an identical job would score higher
+for sitting on the hot tier. That is §5.1's `application_urgency` argument
+pointed at our own infrastructure instead of an employer's.
+
+`source_published_at` is a genuine publication date on all three adapters
+(Greenhouse `first_published`, Ashby `publishedAt`, Lever `createdAt` — checked
+in the adapters rather than assumed from the column name, because A10 warns that
+a `posted_at` is often a last-modified stamp). Present on **153 of 153** recorded
+postings. A source giving none makes the component unassessable, not zero.
+
+The architecture doc now says so; it is the second §2.1 sentence this milestone
+has corrected by measuring it.
+
+### Scored on the dimensions the person actually stated
+
+Location has two comparable dimensions — where the job is, how it is worked —
+and a profile may state either, both or neither. The weight splits across the
+ones stated, so somebody who named cities and no work-mode preference is scored
+entirely on cities. Scoring them on a preference they never expressed would mean
+inventing one and then marking them down against it.
+
+A dimension the *posting* cannot answer is dropped rather than failed: a
+`remote_policy` of `unknown` is the source not saying, which A10 is explicit is
+not the same as a mismatch. And `"remote"` typed into a locations field matches
+a remote posting, because that is the word people actually type there.
+
+Unmatched dimensions still produce evidence rows worth zero. "You asked for
+hybrid and this is on-site" is the line the explanation panel needs, and a
+component recording only its wins is not a breakdown.
+
+### Priority reads the posting and never the person, and PRODUCT-SPEC §23 says otherwise
+
+§23 asks for the opposite — *"boost only when eligibility appears plausible"*,
+*"do not rank an internship highly if the graduation rules clearly exclude the
+user"*. That is overridden, and the precedence is CLAUDE.md's: §5.2 forbids
+eligibility from ever becoming points, and §23 is exactly that.
+
+The concern behind §23 is real and is answered by §5.3 instead. An ineligible
+posting sorts into a lower band whatever it scores, so a graduation rule that
+excludes somebody moves the row without touching the number. Keeping the
+component person-independent is also what keeps it *exempt* — the moment it read
+a graduation year it would be a claim about somebody and would owe a user-side
+span.
+
+Both exempt-component signatures take no `profile` at all, and two tests assert
+that by inspecting the signature. A rule cannot consult what it cannot reach.
+
+### Thresholds moved into the data file, and the backwards window is shown able to fail
+
+§4.2 puts "every rule threshold" in `data/matching.yaml`. Freshness is the first
+rule with a tunable number, so the file gained a `thresholds` block and the
+loader gained exhaustive validation of it — a threshold the code has never heard
+of is a load error, same as a weight.
+
+The assertion worth having is that the window cannot run backwards. Swap
+`full: 7` and `zero: 90` and nothing crashes, every score stays between 0 and
+100, and the ranked list is upside down on the one axis a person can check by
+eye. Equal values are refused too: `zero - full` is a divisor, and a
+ZeroDivisionError inside a worker is a worse failure than a load error.
 
 ---
 

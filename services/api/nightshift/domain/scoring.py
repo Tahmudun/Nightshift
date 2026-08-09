@@ -45,9 +45,10 @@ from __future__ import annotations
 import re
 import uuid
 from dataclasses import dataclass, field, replace
+from datetime import date
 from typing import Any, Literal
 
-from nightshift.db.base import EvidenceSource, MatchComponent, RoleFamily
+from nightshift.db.base import EvidenceSource, MatchComponent, RoleFamily, Seniority
 from nightshift.domain.requirement_extraction import RequirementProposal
 from nightshift.domain.role_classification import TextSpan
 
@@ -85,6 +86,14 @@ class ConfirmedProject:
 
 
 @dataclass(frozen=True)
+class JobLocationForScoring:
+    """One row of `job_locations`. No coordinates — those are M4 (§9)."""
+
+    city: str | None = None
+    region: str | None = None
+
+
+@dataclass(frozen=True)
 class ScoringProfile:
     """Only confirmed facts, same rule as `eligibility.SeekerProfile`."""
 
@@ -92,6 +101,12 @@ class ScoringProfile:
     projects: tuple[ConfirmedProject, ...] = ()
     #: `users.preferred_roles`, as the person typed them.
     preferred_roles: tuple[str, ...] = ()
+    #: `users.preferred_locations`, likewise.
+    preferred_locations: tuple[str, ...] = ()
+    #: `users.remote_preference`. `"no_preference"` means the person expressed
+    #: none, which is why that value makes the dimension unassessable rather
+    #: than making everything match.
+    remote_preference: str | None = None
 
 
 @dataclass(frozen=True)
@@ -104,7 +119,16 @@ class PostingForScoring:
     #: The span behind `role_family`, from the classifier. `None` when no rule
     #: matched, which is `unclear`.
     role_family_span: TextSpan | None = None
+    seniority: Seniority | None = None
     requirements: tuple[RequirementProposal, ...] = ()
+    locations: tuple[JobLocationForScoring, ...] = ()
+    #: `jobs.remote_policy`, as the source stated it. `"unknown"` is the source
+    #: not saying and is never read as a mismatch (A10).
+    remote_policy: str | None = None
+    #: `jobs.source_published_at` — a real publication date on all three
+    #: adapters, and the only date in this system measuring the *posting* rather
+    #: than this system's own polling.
+    source_published_at: date | None = None
 
 
 @dataclass(frozen=True)
@@ -487,3 +511,223 @@ def _quote_from(evidence: str | None, term: str) -> str | None:
     end = evidence.find(".", match.end())
     end = len(evidence) if end == -1 else end + 1
     return evidence[start:end].strip() or None
+
+
+# ---------------------------------------------------------------------------
+# The three exempt components
+#
+# `matching.md` §2.1: location, freshness and priority make no claim about the
+# person. Location compares a posting's own city and remote policy against a
+# preference somebody typed; freshness is arithmetic on a date the source gave
+# us; priority reads the posting's own seniority. There is no assertion about
+# anybody's qualifications, so there is no user-side span to quote — and
+# requiring one would mean inventing it.
+#
+# They are exempt from quoting, not from being inspectable. Every row records
+# `compared`: the two values that were weighed, so the breakdown can be read
+# back. `ck_match_evidence_only_a_person_claim_quotes_a_person` refuses a
+# user-side span on any of them.
+# ---------------------------------------------------------------------------
+
+
+def score_location_and_work_mode(
+    posting: PostingForScoring, profile: ScoringProfile, *, weight: int
+) -> ComponentScore:
+    """Scored on the dimensions the person actually stated, and no others.
+
+    Two things can be compared — where the job is, and how it is worked — and a
+    profile may state either, both or neither. The weight is split across the
+    ones stated: somebody who named cities and no work-mode preference is scored
+    entirely on cities, because scoring them on a preference they did not
+    express would be inventing one and then marking them against it.
+
+    A dimension the *posting* cannot answer is dropped rather than failed. A
+    `remote_policy` of `unknown` is the source not saying, and A10's rule is
+    that absence of data is data — it is not a mismatch.
+    """
+    stated_places = tuple(p for p in profile.preferred_locations if p.strip())
+    wants_mode = (
+        profile.remote_preference is not None and profile.remote_preference != "no_preference"
+    )
+    if not stated_places and not wants_mode:
+        return ComponentScore(
+            component=MatchComponent.LOCATION,
+            points=0,
+            assessable=False,
+            why="this profile states no preferred locations and no work-mode preference",
+        )
+
+    dimensions: list[tuple[str, bool, dict[str, Any]]] = []
+    if stated_places:
+        cities = tuple(loc.city for loc in posting.locations if loc.city)
+        if cities or posting.remote_policy == "remote":
+            matched = _place_matches(stated_places, cities, posting.remote_policy)
+            dimensions.append(
+                ("place", matched, {"job_cities": list(cities), "preferred": list(stated_places)})
+            )
+    if wants_mode and posting.remote_policy and posting.remote_policy != "unknown":
+        matched = posting.remote_policy == profile.remote_preference
+        dimensions.append(
+            (
+                "work_mode",
+                matched,
+                {
+                    "job_remote_policy": posting.remote_policy,
+                    "preference": profile.remote_preference,
+                },
+            )
+        )
+
+    if not dimensions:
+        return ComponentScore(
+            component=MatchComponent.LOCATION,
+            points=0,
+            assessable=False,
+            why="this posting states no location and no work-mode this profile asked about",
+        )
+
+    share = weight // len(dimensions)
+    remainder = weight - share * len(dimensions)
+    matched_rows: list[Evidence] = []
+    unmatched_rows: list[Evidence] = []
+    for index, (name, matched, compared) in enumerate(dimensions):
+        points = share + (remainder if index == 0 else 0) if matched else 0
+        row = Evidence(
+            component=MatchComponent.LOCATION,
+            points=points,
+            compared={"dimension": name, **compared},
+        )
+        (matched_rows if matched else unmatched_rows).append(row)
+
+    points = sum(row.points for row in matched_rows)
+    return ComponentScore(
+        component=MatchComponent.LOCATION,
+        points=points,
+        assessable=True,
+        why=f"{len(matched_rows)} of {len(dimensions)} stated location preferences met",
+        # Unmatched rows are kept: "you asked for hybrid and this is on-site" is
+        # what the explanation panel needs, and a component that only records
+        # its wins is not a breakdown.
+        evidence=tuple(matched_rows + unmatched_rows),
+    )
+
+
+def _place_matches(
+    stated: tuple[str, ...], cities: tuple[str, ...], remote_policy: str | None
+) -> bool:
+    normalized = {_normalize(city) for city in cities}
+    for place in stated:
+        wanted = _normalize(place)
+        if wanted in normalized:
+            return True
+        # "remote" is a place people type into a locations field, and refusing
+        # to read it there would mark a remote job against somebody who said
+        # the only thing that could express what they wanted.
+        if wanted == "remote" and remote_policy == "remote":
+            return True
+    return False
+
+
+def score_listing_freshness(
+    posting: PostingForScoring, *, weight: int, full_days: int, zero_days: int, as_of: date
+) -> ComponentScore:
+    """How long ago the **source** says this posting went up.
+
+    Not `last_seen_at`, which `matching.md` §2.1 named and which measurement
+    rejected: it records when this system last polled, so on an actively polled
+    board it is near-now for every open job — one distinct day across 31 seeded
+    jobs — and it would make a score depend on which poll tier ADR 0007 assigned
+    the board. `source_published_at` is a real publication date on all three
+    adapters and is present on 153 of 153 recorded postings.
+
+    Linear between the two thresholds so no single day costs several points.
+    Takes no `profile`: there is no person in this calculation at all, which is
+    exactly why §2.1 exempts it from quoting one.
+    """
+    if posting.source_published_at is None:
+        return ComponentScore(
+            component=MatchComponent.FRESHNESS,
+            points=0,
+            assessable=False,
+            why="this source gave no publication date",
+        )
+
+    age = (as_of - posting.source_published_at).days
+    if age <= full_days:
+        points = weight
+    elif age >= zero_days:
+        points = 0
+    else:
+        points = round(weight * (zero_days - age) / (zero_days - full_days))
+
+    compared = {
+        "published_on": posting.source_published_at.isoformat(),
+        "age_days": age,
+        "full_within_days": full_days,
+        "zero_after_days": zero_days,
+    }
+    if not points:
+        return ComponentScore(
+            component=MatchComponent.FRESHNESS,
+            points=0,
+            assessable=True,
+            why=f"published {age} days ago, past the {zero_days}-day window",
+        )
+    return ComponentScore(
+        component=MatchComponent.FRESHNESS,
+        points=points,
+        assessable=True,
+        why=f"published {age} days ago",
+        evidence=(Evidence(component=MatchComponent.FRESHNESS, points=points, compared=compared),),
+    )
+
+
+#: The two levels §5.1 calls early-career. Read off the **posting**, never off
+#: the person — see `score_early_career_priority`.
+_EARLY_CAREER = (Seniority.INTERNSHIP, Seniority.NEW_GRAD)
+
+
+def score_early_career_priority(posting: PostingForScoring, *, weight: int) -> ComponentScore:
+    """Whether this posting is an internship or a new-grad role. That is all.
+
+    **It reads the posting's own seniority and never the person's status**, which
+    is `data/matching.yaml`'s own wording for this component and is what keeps it
+    exempt from §2.1's span rule. The moment it consulted a graduation year it
+    would be making a claim about somebody and would owe a user-side span.
+
+    PRODUCT-SPEC §23 says the opposite — *"boost only when eligibility appears
+    plausible"* and *"do not rank an internship highly if the graduation rules
+    clearly exclude the user"*. That is overridden here and the precedence is
+    CLAUDE.md's: `matching.md` §5.2 forbids eligibility from ever becoming
+    points, and §23 would do exactly that. The concern behind §23 is real and is
+    answered by §5.3 instead — an ineligible posting sorts into a lower band
+    whatever it scores, so a graduation rule that excludes somebody moves the
+    row without ever touching the number.
+    """
+    if posting.seniority is None or posting.seniority is Seniority.UNCLEAR:
+        return ComponentScore(
+            component=MatchComponent.PRIORITY,
+            points=0,
+            assessable=False,
+            why="no rule could tell what level this posting is",
+        )
+    if posting.seniority not in _EARLY_CAREER:
+        return ComponentScore(
+            component=MatchComponent.PRIORITY,
+            points=0,
+            assessable=True,
+            why=f"this is a {posting.seniority} posting, not an early-career one",
+        )
+    return ComponentScore(
+        component=MatchComponent.PRIORITY,
+        points=weight,
+        assessable=True,
+        why=f"this is a {posting.seniority} posting",
+        evidence=(
+            Evidence(
+                component=MatchComponent.PRIORITY,
+                points=weight,
+                compared={"seniority": str(posting.seniority)},
+            ),
+        ),
+    )

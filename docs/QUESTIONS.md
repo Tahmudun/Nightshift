@@ -9,8 +9,18 @@ the date, because the reasoning is usually worth more than the decision.
 
 ## Q6 — 43% of postings require no technology. What should a score out of 100 do about it?
 
-**Raised:** 2026-08-09 (M3c Task 3) · **Type:** product · **Blocking:** no —
-Task 3 records assessability as data and Task 5 needs the answer
+**Raised:** 2026-08-09 (M3c Task 3) · **Type:** product · **Blocking:** no
+**ANSWERED 2026-08-09: option 1 — score out of what could be assessed.**
+
+A posting naming no technologies is scored out of 50, not out of 100, and the
+page says which components could not be assessed and why. The ranked list sorts
+on the fraction; the number shown carries its own denominator. Task 5 implements
+the composition and Task 10 owns how two numbers read on one screen.
+
+What this buys, restated so the reason survives the decision: a terse posting no
+longer sorts below a verbose one for reasons about the employer's prose. What it
+costs is that the headline number is no longer always out of 100, which is a
+presentation problem rather than a measurement one.
 
 **The measurement, on the committed answer key rather than on the extractor's
 output:** 26 of the 60 labeled postings name **no required technology at all**,
