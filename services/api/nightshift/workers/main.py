@@ -18,7 +18,12 @@ from arq.cron import cron
 from nightshift.config import get_settings
 from nightshift.db.session import dispose_engine
 from nightshift.logging import configure_logging
-from nightshift.workers.tasks import enqueue_due_boards, ingest_greenhouse, poll_board
+from nightshift.workers.tasks import (
+    enqueue_due_boards,
+    ingest_greenhouse,
+    poll_board,
+    recompute_match_results,
+)
 
 log = structlog.get_logger(__name__)
 
@@ -47,7 +52,12 @@ class WorkerSettings:
     configuration, not per-instance state.
     """
 
-    functions: ClassVar[list[Any]] = [ingest_greenhouse, enqueue_due_boards, poll_board]
+    functions: ClassVar[list[Any]] = [
+        ingest_greenhouse,
+        enqueue_due_boards,
+        poll_board,
+        recompute_match_results,
+    ]
 
     # Off-peak and hourly. Polling a board more often than it changes is just
     # load on someone else's server (§7.3), and these endpoints are poll-only so
@@ -72,6 +82,24 @@ class WorkerSettings:
             minute={2, 7, 12, 17, 22, 27, 32, 37, 42, 47, 52, 57},
             run_at_startup=False,
         ),
+        # M3c Task 8. Every minute, and `run_at_startup=True`, and both are
+        # deliberate.
+        #
+        # Every minute because this tick costs one indexed anti-join when there
+        # is nothing to do, and because the latency it sets is what a person
+        # sees after saving their profile: the score reads as not-yet-computed
+        # until this runs. It touches nobody else's server — the argument that
+        # keeps board polling at hourly does not apply to a query against our
+        # own database.
+        #
+        # `run_at_startup=True` because the state this task exists to resolve is
+        # a *standing* one, not an event. A ruleset version bump lands with a
+        # deploy, and a worker that waited for the next wall-clock minute would
+        # be the only thing between a restart and a corpus of scores the API
+        # already refuses to serve. `enqueue_due_boards` is False for the
+        # opposite reason: it reaches out to other people's servers, so a
+        # restart loop would become a polite-client problem.
+        cron(recompute_match_results, minute=set(range(60)), run_at_startup=True),
     ]
 
     on_startup = startup

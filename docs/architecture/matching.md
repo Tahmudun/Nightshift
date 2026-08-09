@@ -365,6 +365,44 @@ jobs by score, and a sort needs the value in the database. Recomputed on: a new
 or changed job, any profile change, and a ruleset version bump. An ARQ task,
 inside the existing worker module.
 
+Built at Task 8 as `domain/matching.py` and `workers.tasks.recompute_match_results`,
+and the three triggers turned out to be **three routes into one state** rather
+than three mechanisms. That was the design decision of the task and it is worth
+stating plainly, because the shape it replaces is the obvious one:
+
+* A **new or changed job** already has its scores deleted, by the four triggers
+  above. A brand-new job never had any. Either way: no row at the current
+  version.
+* A **ruleset version bump** changes `ruleset_version`, which is part of the
+  uniqueness key. No row at the current version, for every pair at once.
+* A **profile change** is the only one no database trigger can see, so
+  `domain/profile.py` deletes that person's rows itself — inside the request's
+  own transaction. No row at the current version.
+
+So the recompute task takes no arguments naming what changed. Its work item is
+the *absence* of a row, found by one anti-join, which means there is no event to
+miss and no queue message to lose while the worker is down: the next tick finds
+exactly what the last one did not finish. It also means one code path computes a
+score rather than three that can disagree about how.
+
+**The profile trigger invalidates rather than enqueues, and that is a departure
+from the M3c plan's wording** ("the task is enqueued from a named set of
+scoring-relevant columns"). The named set is unchanged and is
+`matching.SCORING_RELEVANT_PROFILE_COLUMNS`; what changed is what happens when
+one of them moves. A delete committing with the change that caused it cannot be
+lost the way an enqueue after commit can, and it needs no ARQ pool in the API
+process. The cost is latency — a score reads as not-yet-computed until the cron
+runs, which is every minute — and that is the right side to be wrong on: a
+missing score is true, and a score computed against a profile the person has
+just replaced is not.
+
+**Compared, not provided.** The named set is only half the trap §4.2's wording
+sets. M2c's `PATCH /profile` carries every field the form holds, so a person who
+opens the page and presses save provides the entire scoring-relevant set and
+changes none of it. `profile._clear_scores_if_inputs_moved` snapshots those
+columns before the assignments and compares after, so an unedited save costs
+nothing.
+
 **A stale result is never silently served.** Results carry the
 `ruleset_version` that produced them; the API refuses to return one whose
 version is not current, and reports it as not-yet-computed rather than as a
@@ -382,6 +420,7 @@ match_evidence
   component             role | skill | project | location | freshness | priority
   job_requirement_id    FK, nullable
   job_span_text         the words in the posting
+  job_span_field        which of the posting's strings, added at Task 8 — below
   job_char_start        where they are, added at Task 2 — see below
   job_char_end
   user_skill_id         FK, nullable
@@ -399,6 +438,20 @@ equality is stated *at the offsets recorded* and Task 11's embedding proposals
 point at spans that are no requirement row at all. **`compared`** is where the
 three exempt components put the values they weighed, so §2.1's exemption is from
 quoting a span and not from being inspectable.
+
+**`job_span_field` is a third addition, from Task 8**, and it is the column that
+made the difference between storing role relevance's evidence and quietly
+dropping it. Every other span in this system indexes into
+`jobs.description_text` — `job_requirements`, `resume_extractions`, every
+eligibility blocker — so the guard below was written checking that one string.
+Role relevance is decided on the **title** and cannot be otherwise (§2.1 binds
+it to a quoted span, and `role_classification.TextSpan` has carried the field it
+read since Task 3). Left as it was, the first real role evidence row would have
+been refused for not quoting a string it never claimed to come from, and the
+cheapest way to make the insert pass would have been to stop storing the span —
+losing the evidence for the component §2.1 cares most about, with a green
+test suite. The span therefore travels as four things, not three: text, field,
+and both offsets, tied together by `the_job_span_travels_together`.
 
 **This table is the mechanism behind §2's rule**, and it enforces it in two
 tiers matching §2.1's distinction:
@@ -423,10 +476,15 @@ tiers matching §2.1's distinction:
    more auditable, not less.
 
 A third guard, not in the original design: the job-side span is refused unless
-it literally quotes `jobs.description_text` at the offsets it claims, the same
-trigger `job_requirements` and `resume_extractions` carry. §7.2 files this under
-a test, and it is both — the trigger is the strictly stronger version and cannot
-see `user_span_text`, which points into several different tables and stays M3d's.
+it literally quotes the posting at the offsets it claims, the same trigger
+`job_requirements` and `resume_extractions` carry. §7.2 files this under a test,
+and it is both — the trigger is the strictly stronger version and cannot see
+`user_span_text`, which points into several different tables and stays M3d's.
+Rewritten at Task 8 to read the column `job_span_field` names rather than
+`description_text` alone; the enum's members and the trigger's `CASE` branches
+are asserted equal by a test, because a `CASE` with no matching branch returns
+null in Postgres rather than raising, and the row would then be refused with a
+message naming the wrong problem.
 
 A score with no evidence cannot be committed, and a claim about the person with
 no quoted span on both sides cannot be committed. Both are database errors
@@ -534,6 +592,23 @@ apart is the entire content of §5.1.1. `match_results` therefore needs an
 `assessed_out_of` column beside `overall_score`. It lands with Task 8's
 migration, alongside `match_evidence.job_span_field`, because Task 8 is when a
 score first reaches the database — nothing writes these tables before then.
+
+Shipped as `0017_match_score_denominator`, with one constraint the paragraph
+above did not anticipate: **`overall_score <= assessed_out_of`**. Each component
+is capped at its own weight and only assessable components widen the
+denominator, so the inequality is already true of every score the rules can
+produce — which is exactly why it is worth asserting. The ranked list divides by
+this column, and a fraction above one is a posting sorting ahead of a perfect
+match with nothing else on the row looking wrong. It also catches the specific
+mistake of a total from one weights version stored beside a denominator from
+another.
+
+Existing rows are **deleted rather than backfilled**, in both directions. There
+were none — nothing wrote these tables before Task 8 — so the choice cost
+nothing, and it is still the right one to have made deliberately: `100` is not
+an unknown denominator's default value, it is the assertion that every component
+was assessable, which is the claim §5.1.1 exists to stop anybody making by
+accident.
 
 `match_results.the_total_is_its_parts` stays exactly as built: `overall_score`
 remains the literal sum of the six components and the penalty, floored at zero.

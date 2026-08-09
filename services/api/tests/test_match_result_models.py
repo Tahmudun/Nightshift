@@ -28,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from nightshift.db.base import (
     EligibilityState,
     EvidenceSource,
+    JobTextField,
     MatchComponent,
     ProficiencyLevel,
     RequirementKind,
@@ -78,6 +79,14 @@ def _result(user: User, job: Job, **overrides: Any) -> MatchResult:
         "freshness_score": 0,
         "priority_score": 0,
         "penalty_score": 0,
+        # Added with the column at `0017_match_score_denominator`. 100 — every
+        # component assessable — because these tests are about the guards, not
+        # about §5.1.1: a smaller denominator would make
+        # `a_score_never_exceeds_what_was_assessed` the thing that fires in
+        # tests naming a different constraint, which is a test whose failure
+        # message lies about what broke. `test_match_recompute.py` is where the
+        # denominator is exercised against real scores.
+        "assessed_out_of": 100,
         "ruleset_version": "1+test",
     }
     fields.update(overrides)
@@ -91,6 +100,10 @@ def _skill_evidence(result: MatchResult, *, points: int = 12, **overrides: Any) 
         "match_result_id": result.id,
         "component": MatchComponent.SKILL,
         "job_span_text": "Python",
+        # Added with the column at `0017_match_score_denominator`: the span
+        # travels as text, field and both offsets, and the quoting trigger reads
+        # the field to know which string of `jobs` to check against.
+        "job_span_field": JobTextField.DESCRIPTION_TEXT,
         "job_char_start": start,
         "job_char_end": start + len("Python"),
         "user_span_text": "Python",
@@ -356,6 +369,7 @@ async def test_an_exempt_component_may_still_quote_the_posting(
             match_result_id=result.id,
             component=MatchComponent.PRIORITY,
             job_span_text="Python",
+            job_span_field=JobTextField.DESCRIPTION_TEXT,
             job_char_start=start,
             job_char_end=start + len("Python"),
             points=10,

@@ -188,6 +188,44 @@ def test_the_match_migration_creates_exactly_the_types_the_models_declare() -> N
     assert set(migration.EVIDENCE_SOURCE_VALUES) == {m.value for m in EvidenceSource}
 
 
+def test_the_denominator_migration_creates_exactly_the_type_the_model_declares() -> None:
+    """`job_text_field`, against its copy inside `0017_match_score_denominator`.
+
+    A fourth enum with a fourth copy, and the one with the sharpest failure mode
+    of the four: `job_span_field` selects which column of `jobs` the quoting
+    trigger checks a span against. A member missing from the type is not a
+    rendering bug — it is a `CASE` with no matching branch, a null `source_text`,
+    and every evidence row for that field refused at insert.
+    """
+    import importlib
+
+    from nightshift.db.base import JobTextField
+
+    migration = importlib.import_module("migrations.versions.20260809_1930_match_score_denominator")
+
+    assert set(migration.JOB_TEXT_FIELD_VALUES) == {m.value for m in JobTextField}
+
+
+def test_the_quoting_trigger_reads_every_field_the_enum_can_hold() -> None:
+    """The `CASE` inside the trigger, against the enum, rather than by eye.
+
+    This is the assertion the test above cannot make. The two vocabularies can
+    agree perfectly while the trigger's `CASE` handles only one of them — and a
+    `CASE` with no matching branch returns null in Postgres rather than raising,
+    so the row is refused with *'scores a job whose title is null'* on a job
+    whose title is right there. A message that sends the reader to look at the
+    wrong table is worse than no message.
+    """
+    import importlib
+
+    from nightshift.db.base import JobTextField
+
+    migration = importlib.import_module("migrations.versions.20260809_1930_match_score_denominator")
+    branches = set(re.findall(r"WHEN '([^']+)' THEN", migration._SELECT_BY_FIELD))
+
+    assert branches == {m.value for m in JobTextField}
+
+
 def test_every_match_component_is_scored_by_a_column_of_its_own() -> None:
     """The evidence guard walks a hand-written list of (component, column) pairs
     inside the migration, and a component missing from it is a component nothing

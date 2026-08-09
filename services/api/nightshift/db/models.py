@@ -63,6 +63,7 @@ from nightshift.db.base import (
     IngestionRunStatus,
     InternshipSeason,
     JobStatus,
+    JobTextField,
     LocationConfidence,
     MatchComponent,
     ProficiencyLevel,
@@ -1287,6 +1288,28 @@ class MatchResult(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             " + location_score + freshness_score + priority_score + penalty_score)",
             name="the_total_is_its_parts",
         ),
+        # `assessed_out_of` is the sum of the weights of the components that
+        # could be assessed, and the weights sum to 100 by an assertion in
+        # `matching_weights` that Task 1 showed able to fail. Zero is legal and
+        # is not a degenerate case: five pairs in the committed corpus reach it,
+        # and they are the pairs where nothing could be asked at all.
+        CheckConstraint(
+            "assessed_out_of >= 0 AND assessed_out_of <= 100",
+            name="assessed_out_of_is_a_share_of_one_hundred",
+        ),
+        # **The fraction can never exceed one.** Each component is capped at its
+        # own weight and only assessable components contribute, so the numerator
+        # is bounded by the denominator before the penalties — which only
+        # subtract — are applied. Written as a constraint rather than trusted
+        # because it is the one arithmetic claim the ranked list depends on: a
+        # posting sorting above a perfect match would come from exactly this
+        # inequality quietly failing, and nothing else in the row would look
+        # wrong. It also catches the specific mistake of storing a denominator
+        # from one weights version beside a total from another.
+        CheckConstraint(
+            "overall_score <= assessed_out_of",
+            name="a_score_never_exceeds_what_was_assessed",
+        ),
     )
 
     user_id: Mapped[uuid.UUID] = mapped_column(
@@ -1305,6 +1328,19 @@ class MatchResult(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         PGUUID(as_uuid=True), ForeignKey("resumes.id", ondelete="SET NULL")
     )
     overall_score: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    #: What `overall_score` is out of (`matching.md` §5.1.1, §5.1.2). **Not
+    #: always 100**, and not recoverable from the six component columns: a
+    #: component that scored zero and a component the posting said too little to
+    #: assess both store `0`, and telling those apart is the entire content of
+    #: §5.1.1. The ranked list sorts on `overall_score / assessed_out_of`, so the
+    #: denominator is part of the value a sort needs in the database — which is
+    #: the same argument §4.2 used to precompute the score at all.
+    #:
+    #: `overall_score` stays the literal sum of the parts. Normalising the
+    #: stored total to 100 would break `the_total_is_its_parts` and destroy the
+    #: distinction that constraint exists to preserve; the fraction is a division
+    #: the query performs, never a number written down.
+    assessed_out_of: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     eligibility_status: Mapped[EligibilityState] = mapped_column(
         _enum(EligibilityState, "eligibility_state"), nullable=False
     )
@@ -1395,7 +1431,12 @@ class MatchEvidence(UUIDPrimaryKeyMixin, Base):
         # the three. Half a span cannot be checked against anything.
         CheckConstraint(
             "(job_span_text IS NULL) = (job_char_start IS NULL)"
-            " AND (job_char_start IS NULL) = (job_char_end IS NULL)",
+            " AND (job_char_start IS NULL) = (job_char_end IS NULL)"
+            # Added at Task 8 with the column. The field is the fourth part of
+            # the same unit: offsets with no field name are offsets into an
+            # unknown string, which the quoting trigger cannot check and a human
+            # reading the row cannot resolve either.
+            " AND (job_char_end IS NULL) = (job_span_field IS NULL)",
             name="the_job_span_travels_together",
         ),
         CheckConstraint(
@@ -1431,6 +1472,14 @@ class MatchEvidence(UUIDPrimaryKeyMixin, Base):
     #: components, which quote nothing and record their compared values in
     #: `compared` instead.
     job_span_text: Mapped[str | None] = mapped_column(Text)
+    #: Which string the offsets index into, added at Task 8 when the first score
+    #: reached the database. `description_text` for every component but one;
+    #: role relevance is decided on the **title** and its offsets are meaningless
+    #: against the description. Without this the quoting trigger checks one
+    #: column for spans that come from two, and rejects every correct role row.
+    job_span_field: Mapped[JobTextField | None] = mapped_column(
+        _enum(JobTextField, "job_text_field")
+    )
     job_char_start: Mapped[int | None] = mapped_column(Integer)
     job_char_end: Mapped[int | None] = mapped_column(Integer)
     user_skill_id: Mapped[uuid.UUID | None] = mapped_column(

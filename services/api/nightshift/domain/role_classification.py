@@ -25,7 +25,7 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
-from nightshift.db.base import InternshipSeason, RoleFamily, Seniority
+from nightshift.db.base import InternshipSeason, JobTextField, RoleFamily, Seniority
 
 #: Bumped when a rule changes. Stored beside a classification so a moved number
 #: can be attributed to the rules rather than to the corpus.
@@ -53,7 +53,7 @@ class TextSpan:
     accept nothing useful.
     """
 
-    field: Literal["title", "description_text"]
+    field: JobTextField
     text: str
     char_start: int
     char_end: int
@@ -163,13 +163,13 @@ _FAMILY_TITLE_RULES: tuple[tuple[RoleFamily, re.Pattern[str]], ...] = (
 )
 
 
-def _span(field: Literal["title", "description_text"], m: re.Match[str]) -> TextSpan:
+def _span(field: JobTextField, m: re.Match[str]) -> TextSpan:
     return TextSpan(field=field, text=m.group(0), char_start=m.start(), char_end=m.end())
 
 
 def _classify_family(title: str, description: str) -> tuple[RoleFamily, str, TextSpan | None]:
     if m := _NOT_TECH_TITLE.search(title):
-        return RoleFamily.NOT_TECH, f"title says {m.group(0)!r}", _span("title", m)
+        return RoleFamily.NOT_TECH, f"title says {m.group(0)!r}", _span(JobTextField.TITLE, m)
     for family, pattern in _FAMILY_TITLE_RULES:
         if m := pattern.search(title):
             # The description can still veto a tech family, and only in the one
@@ -180,9 +180,9 @@ def _classify_family(title: str, description: str) -> tuple[RoleFamily, str, Tex
                 return (
                     RoleFamily.NOT_TECH,
                     f"description says {d.group(0)!r}",
-                    _span("description_text", d),
+                    _span(JobTextField.DESCRIPTION_TEXT, d),
                 )
-            return family, f"title says {m.group(0)!r}", _span("title", m)
+            return family, f"title says {m.group(0)!r}", _span(JobTextField.TITLE, m)
     return RoleFamily.UNCLEAR, "no family rule matched the title", None
 
 

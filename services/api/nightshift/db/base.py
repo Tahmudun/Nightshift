@@ -510,6 +510,32 @@ class MatchComponent(enum.StrEnum):
 PERSON_CLAIM_COMPONENTS = (MatchComponent.ROLE, MatchComponent.SKILL, MatchComponent.PROJECT)
 
 
+class JobTextField(enum.StrEnum):
+    """Which of a posting's strings a stored span indexes into.
+
+    Added at M3c Task 8, when a score first reached the database and the guard
+    that verifies spans discovered it had been checking one column for spans
+    that come from two.
+
+    Every span elsewhere in this system points into `jobs.description_text` —
+    `job_requirements`, `resume_extractions`, and every eligibility blocker. Role
+    relevance is the exception and cannot be otherwise: a role family is decided
+    on the **title**, with the description able to veto it (`role_classification`
+    `TextSpan`). A `match_evidence` row that could not say which string its
+    offsets belong to would be checked against the wrong text, and
+    `match_evidence_span_must_quote` would then reject every correct role row
+    while accepting nothing useful.
+
+    An enum rather than a boolean because the third string is already visible:
+    `jobs.title`, `jobs.description_text`, and one day the requirement's own
+    `raw_text`. A boolean named `is_title` would have to be migrated the day
+    that happens; a member does not.
+    """
+
+    TITLE = "title"
+    DESCRIPTION_TEXT = "description_text"
+
+
 class EvidenceSource(enum.StrEnum):
     """Who proposed an evidence row: a vocabulary rule, or the embedding.
 

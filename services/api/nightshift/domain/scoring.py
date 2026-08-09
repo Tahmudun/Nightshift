@@ -54,9 +54,15 @@ import uuid
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import date
-from typing import Any, Literal
+from typing import Any
 
-from nightshift.db.base import EvidenceSource, MatchComponent, RoleFamily, Seniority
+from nightshift.db.base import (
+    EvidenceSource,
+    JobTextField,
+    MatchComponent,
+    RoleFamily,
+    Seniority,
+)
 from nightshift.domain.matching_weights import MatchingWeights
 from nightshift.domain.requirement_extraction import RequirementProposal
 from nightshift.domain.role_classification import TextSpan
@@ -65,8 +71,6 @@ from nightshift.domain.role_classification import TextSpan
 #: `matching_weights.ruleset_version()`, and what keeps it honest is Task 6's
 #: golden test rather than anyone remembering.
 SCORING_VERSION = "m3c.1"
-
-JobTextField = Literal["title", "description_text"]
 
 
 @dataclass(frozen=True)
@@ -301,7 +305,7 @@ def score_skill_overlap(
                 # are the component's points shared out, not a second scale.
                 points=0,
                 job_span_text=requirement.raw_text,
-                job_span_field="description_text",
+                job_span_field=JobTextField.DESCRIPTION_TEXT,
                 job_char_start=requirement.char_start,
                 job_char_end=requirement.char_end,
                 user_span_text=skill.name,
@@ -508,7 +512,7 @@ def score_project_evidence(
                     component=MatchComponent.PROJECT,
                     points=0,
                     job_span_text=requirement.raw_text,
-                    job_span_field="description_text",
+                    job_span_field=JobTextField.DESCRIPTION_TEXT,
                     job_char_start=requirement.char_start,
                     job_char_end=requirement.char_end,
                     user_span_text=quoted,

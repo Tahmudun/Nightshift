@@ -18,14 +18,31 @@
 **M3a: COMPLETE, reviewed, CI-green at `3fbffd6`, merged to `main` as PR #9 (`452ec90`).**
 **M3a.1: COMPLETE. Recall 0.459 → 0.861, precision 0.659 → 0.847, necessity 0.668 → 0.915.**
 **M3b: COMPLETE, reviewed, CI-green at `7bfbf2d`, merged to `main` as PR #11 (`d2273e7`). `main` green after the merge.**
-**Current milestone: M3 — explainable matching. M3c (the score): Tasks 1–7 of 12 done. Q6 answered and implemented.**
+**Current milestone: M3 — explainable matching. M3c (the score): Tasks 1–8 of 12 done. Q6 answered and implemented.**
 **Last updated: 2026-08-09**
 
 ---
 
 ## Next exact action
 
-### M3c Tasks 1–7 are done. Next: Task 8 — the ARQ recompute task and its three triggers, plus the migration that owes `assessed_out_of` and `match_evidence.job_span_field`.
+### M3c Tasks 1–8 are done. Next: Task 9 — the API returns a `match_result` on the job detail, and refuses a stale `ruleset_version`.
+
+Task 8 left Task 9 everything it needs and one thing it must not get wrong: a
+row whose `ruleset_version` is not the current one is **not** a score to be
+labelled stale on the page. It reads as not-yet-computed, because §4.2 keeps
+old-version rows deliberately — a bump computes alongside what it replaced — and
+a route that returns the newest row it can find will serve exactly those.
+
+**Task 8 shipped**: scores now reach the database. Migration
+`0017_match_score_denominator` (the two columns Task 5 and Task 3 left owing),
+`domain/matching.py`, an ARQ recompute task on a one-minute cron, and the
+profile-change invalidation with its named column list. The three triggers of
+§4.2 turned out to be three routes into one state — *no row at the current
+ruleset version* — so there is one code path that computes a score rather than
+three that can drift. 14 tests in `test_match_recompute.py`, 3 in
+`test_nothing_infers.py`, 2 in `test_enum_parity.py`. Full detail in the M3c
+Task 8 section below, including one departure from the plan's wording
+(invalidate rather than enqueue) and the reason.
 
 **Task 7 shipped**: every tunable number in `data/matching.yaml` is shown
 load-bearing — all six weights, both penalty ceilings and all eleven
@@ -143,21 +160,30 @@ taken in the plan rather than inside the work:
   red, which is the harness doing its job — but it is a thin margin worth
   knowing about, and it is why the profile carries a comment saying what it is
   for.
-- **`match_results` has no `assessed_out_of` column and needs one.** Found by
-  implementing Q6's answer. The ranked list sorts on the *fraction*, and §4.2's
-  reason for precomputing at all is that "a sort needs the value in the
-  database" — but the denominator cannot be recomputed from the stored
-  components, because a component that scored zero and a component that could
-  not be assessed both store `0`, and telling those apart is the entire content
-  of §5.1.1. `MatchScore` carries it in Python today; the column lands with Task
-  8's migration alongside `match_evidence.job_span_field`, when scores first
-  reach the database. Written into `matching.md` §5.1.2 so it is not discovered
-  then.
 - **Nothing has scored a real posting yet.** `score_match` runs end to end on
   fixtures and has never been pointed at the seeded corpus, so the anti-vacuity
   question — does this scorer produce more than one number across 31 jobs — is
   still unanswered. It is Task 7's, and it is on the plan's own list of what
   would make it wrong.
+- **No score is visible anywhere.** Task 8 writes `match_results` and
+  `match_evidence` and nothing reads them: the API does not return a score
+  (Task 9) and no page renders one (Task 10). The worker computes rows a browser
+  cannot reach, and `make demo` looks exactly as it did before this task.
+- **`assessed_out_of` is stored and nothing divides by it yet.** The column is
+  written, constrained, and tested; the *fraction* it exists for is the ranked
+  list's sort key, and that list is Task 10's. Until then the denominator is a
+  correct number with no reader.
+- **The recompute sweep is `users × open jobs`, unbounded in principle and
+  bounded in practice by the corpus being 31 postings and the user count being
+  one.** One anti-join per tick, batched at 500 pairs. At M4's scale this is
+  fine; the shape that is not fine is a version bump on a corpus of thousands
+  with real multi-user traffic, and the honest statement is that nothing here
+  has been measured above one user.
+- **Old-version `match_results` rows are never garbage-collected.** §4.2 keeps
+  them on purpose, so a ruleset bump can be compared against what preceded it.
+  Nothing deletes them, so the table grows by one row per (person, posting) per
+  version bump. At this scale that is invisible and it is still an unbounded
+  growth path with no owner.
 
 - **The relevance ratings are 27/30 filled, all with the same word, and the
   profile block is still empty.** The human's first pass on 2026-08-09 rated
@@ -240,6 +266,142 @@ taken in the plan rather than inside the work:
   deliberately — turning it on means per-file ignores, and that is its own small
   change rather than a rider on M3c. The two files added this session were
   checked against the same config by hand and are clean.
+
+---
+
+## M3c Task 8 — the score reaches the database, and three triggers turn out to be one state
+
+**Shipped:** `0017_match_score_denominator` (the two owed columns, both
+directions applied), `nightshift/domain/matching.py` (assembly, persistence, and
+the sweep), `workers.tasks.recompute_match_results` on a one-minute cron with
+`run_at_startup=True`, `SCORING_RELEVANT_PROFILE_COLUMNS` and its three parity
+guards, and the invalidation inside `update_profile` and `confirm_extractions`.
+14 tests in `test_match_recompute.py`, 3 added to `test_nothing_infers.py`, 2 to
+`test_enum_parity.py`.
+
+### The three triggers are three routes into one state, not three mechanisms
+
+§4.2 names a new or changed job, any profile change, and a ruleset version bump.
+Implemented literally that is three code paths that can disagree about how a
+score is computed, and two of them are events that can be missed.
+
+They collapse because of what Task 2 already built. A changed job has its scores
+*deleted* by the four triggers written then; a new job never had one; a version
+bump changes `ruleset_version`, which is part of the uniqueness key. All three
+arrive as the same fact — **no row at the current ruleset version** — which one
+anti-join finds. So `recompute_match_results` takes no argument naming what
+changed, and its work item is a row's absence rather than a queue message:
+nothing is lost while the worker is down, and the next tick finds exactly what
+the last one did not finish.
+
+Only the profile change needed code, because no database trigger can see a
+`users` column move.
+
+### The plan said "enqueue"; this invalidates instead, and that is a departure
+
+The M3c plan's Task 8 line is *"the task is enqueued from a named set of
+scoring-relevant columns"*. The named set is exactly as planned. What is not is
+the verb: `update_profile` **deletes** that person's scores inside the request's
+own transaction, and the sweep rebuilds them.
+
+The reason is that the two failure modes are not symmetric. A delete commits
+with the change that caused it or neither happens. An enqueue after commit is
+lost if Redis is unreachable at that instant — and what survives is a stored
+score computed against a profile that no longer exists, with nothing anywhere
+recording that it should not be trusted. It also keeps the API process free of
+an ARQ pool it has no other reason to hold.
+
+What it costs is latency: a score reads as not-yet-computed until the cron runs,
+which is why that cron is every minute rather than hourly. This is the right
+side to be wrong on — a missing score is a true statement and a stale one is
+not — but it is a real difference from what the plan described, so it is
+recorded here and in `matching.md` §4.2 rather than left in a diff.
+
+### "Compared", not "provided", and that is the second half of the trap
+
+The plan named "any profile change" as a trap and answered it with a named
+column list. The list alone is not enough. M2c's `PATCH /profile` carries every
+field the form holds, so somebody who opens the profile page and presses save
+provides the entire scoring-relevant set and changes none of it — and a
+`provided`-based implementation rescores the corpus on every click of a button
+that did nothing.
+
+`_clear_scores_if_inputs_moved` snapshots the named columns before the
+assignments and compares after. `test_resubmitting_the_same_values_changes_nothing`
+is the test for it, and it is the one a plausible implementation fails.
+
+### `confirm_extractions` writes profile columns too, and was nearly missed
+
+`update_profile` is the obvious writer. `confirm_extractions` also assigns
+`graduation_year`, `graduation_month` and `degree` when somebody accepts a
+proposal from their resume — and none of those are read by any *component*.
+They are read by the eligibility gate, and `eligibility_status` is a column of
+`match_results`. A score whose band no longer matches the person is exactly as
+wrong as one whose number does not.
+
+This is why the invalidation is a shared helper on a before/after snapshot
+rather than a line at the end of the PATCH handler: the second writer would have
+been found by nobody until a demo showed an `ineligible` badge on a person who
+had just confirmed they graduate next spring.
+
+### The third parity guard is the one that would actually catch the drift
+
+`test_nothing_infers.py` gained three. Two are bookkeeping — the two tuples
+partition `PROFILE_COLUMNS`, and every name is a real column. The third greps
+`matching.py` and `eligibility.py` for `user.<column>` reads and asserts the
+list names all of them.
+
+That third one is the only one that can catch the expensive direction. A column
+wrongly classified as *not* scoring-relevant is already accounted for by the
+partition test, and produces a score that never updates, never errors, and never
+looks wrong on the page. Shown able to fail: moving `remote_preference` to the
+not-relevant tuple turns it red and leaves the other two green.
+
+### The migration owed two columns and the second one was load-bearing
+
+`assessed_out_of` was known about since Task 5. `match_evidence.job_span_field`
+was not obviously urgent, and it is the one that would have silently cost
+evidence.
+
+Every span in this system points into `jobs.description_text` — so the quoting
+trigger written at Task 2 checked that string. Role relevance is decided on the
+**title**. The first real role evidence row would therefore have been refused
+for not quoting a string it never claimed to come from, and the cheapest fix
+under time pressure is to stop storing the span — which passes every test and
+quietly removes the evidence for the component §2.1 cares most about.
+`test_a_title_span_filed_as_a_description_span_is_refused` is the row that would
+have been written, shown refused.
+
+A second guard came with it: the enum's members and the trigger's `CASE`
+branches are asserted equal. A `CASE` with no matching branch returns null in
+Postgres rather than raising, so a missing branch does not fail loudly — it
+fails as *"scores a job whose title is null"* on a job whose title is right
+there.
+
+### `overall_score <= assessed_out_of` was added because the fraction depends on it
+
+Not in `matching.md` §5.1.2, and added while writing the migration. Each
+component is capped at its weight and only assessable components widen the
+denominator, so the inequality is already true of everything the rules can
+produce. That is the argument for asserting it, not against: the ranked list
+divides by this column, and a fraction above one is a posting sorting ahead of a
+perfect match with nothing else on the row looking wrong.
+
+### Existing rows are deleted rather than backfilled, in both directions
+
+There were none, so it cost nothing. It is still a decision rather than a
+shortcut: `100` is not a neutral default for an unknown denominator, it is the
+assertion that every component was assessable — which is precisely the claim
+§5.1.1 exists to stop anyone making by accident.
+
+### A trap for Task 9, closed here
+
+`profile_for` walks `user.skills` and `user.projects` and is synchronous, so a
+`User` loaded without them raises `MissingGreenlet` rather than returning an
+empty profile. That is the better of the two failures and still a trap, and the
+caller who hits it is whoever loads a user for some other purpose and passes it
+to `score_pair` — which is every route Task 9 adds. `score_pair` now refreshes
+what is missing, which costs one query and only when something is missing.
 
 ---
 
