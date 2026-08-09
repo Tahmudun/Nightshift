@@ -148,9 +148,16 @@ names what it does not cover. Absence of a feature is stated, not hidden.
 |---|---|---|
 | Match score | M3 | No score exists. I4 forbids showing one without a breakdown |
 | Eligibility | M3 | Requires the deterministic eligibility gate |
-| Skill | M3 | Requires the skill taxonomy and its aliases |
-| Internship season | M3 | Requires the seniority classifier (A13) |
+| ~~Skill~~ | ~~M3~~ | **Shipped at M3b Task 11.** The stated reason above went stale at M2c when `skills.yaml` landed, and nobody re-read this row for a milestone. Its replacement — recall of 0.459 — went stale at M3a.1. It ships at 0.861 with that figure stated on the panel and `excluded_no_requirements` counting what it could not match |
+| ~~Internship season~~ | ~~M3~~ | **Shipped at M3b Task 11**, as *two* columns rather than one: 2 of the corpus's 19 internships state a year and no season, so a single `summer_2027` value could hold them only by inventing the season |
 | **Borough / neighborhood** | **M4** | **See below** |
+
+**Two of the five rows above went stale before anyone noticed, and both in the
+same direction**: the thing they were waiting on landed and the row kept saying
+it had not. That is the failure mode this whole section exists to prevent one
+layer up, so the deferral list in `domain/search.py` is now guarded by
+`test_no_deferred_filter_blames_something_that_now_exists`, which fails when a
+reason names an artefact the repository contains.
 
 **Borough and neighborhood cannot be built in M2, and this is an I1 matter, not
 a scheduling one.** `job_locations` stores `city`, `state`, `country` and has no

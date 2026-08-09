@@ -15,6 +15,8 @@ boards:
       - C++
       - Linux
       - Python
+      role_family: software_engineering
+      seniority: mid
       sponsorship: not_stated
       title: Software Engineer - C++
     '7496423':
@@ -30,6 +32,8 @@ boards:
         required_tech is empty even though 2+ years is required. VBA and Python are
         explicitly 'a plus, but not required'
       required_tech: []
+      role_family: quant_trading
+      seniority: mid
       sponsorship: not_stated
       title: Broker Trader
     '7496425':
@@ -44,6 +48,8 @@ boards:
         the degree itself. Market making, PnL and risk are domain experience, not
         named technologies'
       required_tech: []
+      role_family: quant_trading
+      seniority: mid
       sponsorship: not_stated
       title: Experienced Options Trader
     '7496427':
@@ -60,6 +66,8 @@ boards:
         a second years-of-experience minimum, so 2 stands. CBOE and SPX are a venue
         and a product, not named technologies'
       required_tech: []
+      role_family: quant_trading
+      seniority: mid
       sponsorship: not_stated
       title: Floor Trader- SPX
     '7901833':
@@ -78,6 +86,8 @@ boards:
         being technical. ''or a related quantitative field'' is field scope, so no
         +equivalent'
       required_tech: []
+      role_family: quant_trading
+      seniority: mid
       sponsorship: not_stated
       title: Experienced Options Trader - SOFR
     '7986086':
@@ -94,6 +104,8 @@ boards:
         to work in the U.S. is required on the first day of employment including F-1
         students using OPT or STEM'''
       required_tech: []
+      role_family: quant_trading
+      seniority: unclear
       sponsorship: not_stated
       title: 'Expression of Interest: 2027 Trading Sneak Peek Weeks'
     '7993921':
@@ -111,6 +123,8 @@ boards:
         the United States on the first day of employment'''
       required_tech:
       - Python
+      role_family: quant_trading
+      seniority: unclear
       sponsorship: not_stated
       title: 'Akuna Capital’s 2026 Virtual Quant Trading Challenge '
     '8003751':
@@ -128,6 +142,8 @@ boards:
         on the first day of employment including F-1 students using OPT or STEM''.
         Collegiate team sports is preferred but not a technology'
       required_tech: []
+      role_family: quant_trading
+      seniority: junior
       sponsorship: not_stated
       title: Junior Pit Trader
     '8016687':
@@ -147,6 +163,8 @@ boards:
         day of employment including F-1 students using OPT or STEM'''
       required_tech:
       - Python
+      role_family: quant_trading
+      seniority: junior
       sponsorship: not_stated
       title: Junior Quantitative Developer & Strategist
     '8018856':
@@ -168,6 +186,8 @@ boards:
         not_stated: ''Legal authorization to work in the U.S. is required on the first
         day of employment including F-1 students using OPT or STEM'''
       required_tech: []
+      role_family: infrastructure
+      seniority: internship
       sponsorship: not_stated
       title: Platform Engineer Intern, Summer 2027
     '8018880':
@@ -188,6 +208,8 @@ boards:
         not_stated: ''Legal authorization to work in the U.S. is required on the first
         day of employment including F-1 students using CPT, OPT or STEM'''
       required_tech: []
+      role_family: hardware
+      seniority: internship
       sponsorship: not_stated
       title: Hardware Engineer Intern, Summer 2027
     '8021481':
@@ -205,6 +227,8 @@ boards:
         day of employment including F-1 students using CPT, OPT or STEM'''
       required_tech:
       - Python
+      role_family: quant_trading
+      seniority: internship
       sponsorship: not_stated
       title: Quantitative Development & Strategy Intern, Summer 2027
     '8035515':
@@ -223,6 +247,8 @@ boards:
         Options theory is domain knowledge, not a technology'
       required_tech:
       - Python
+      role_family: quant_trading
+      seniority: junior
       sponsorship: not_stated
       title: Junior Quantitative Risk Analyst
     '8036541':
@@ -243,6 +269,8 @@ boards:
         OPT or STEM'''
       required_tech:
       - Python
+      role_family: quant_trading
+      seniority: junior
       sponsorship: not_stated
       title: Junior Quantitative Researcher
     '8047104':
@@ -300,6 +328,8 @@ boards:
       - HTTP/S
       - VPN
       - Next-Generation Antivirus
+      role_family: security
+      seniority: mid
       sponsorship: not_stated
       title: Security Engineer II
   anthropic_eligibility:
@@ -325,6 +355,8 @@ boards:
         is empty'
       required_tech:
       - Python
+      role_family: ml_ai
+      seniority: unclear
       sponsorship: not_offered
       title: Anthropic Fellows Program
     '5076109008':
@@ -341,6 +373,8 @@ boards:
         Degree and sponsorship come from the standard Logistics block
       required_tech:
       - python
+      role_family: not_tech
+      seniority: mid
       sponsorship: offered
       title: Applied AI Architect
     '5101378008':
@@ -355,6 +389,8 @@ boards:
         government procurement frameworks are eligibility and domain requirements,
         not named technologies'
       required_tech: []
+      role_family: not_tech
+      seniority: senior
       sponsorship: offered
       title: Account Executive, Public Sector
     '5176201008':
@@ -372,6 +408,8 @@ boards:
         Logistics block supplies bachelors+equivalent and ''We do sponsor visas!''
         with the every-role-every-candidate caveat'
       required_tech: []
+      role_family: not_tech
+      seniority: staff
       sponsorship: offered
       title: Brand Marketing Lead, Enterprise
     '5183044008':
@@ -389,6 +427,8 @@ boards:
         under ''Candidates must be''. Mentor names and research areas are not technologies'
       required_tech:
       - Python
+      role_family: ml_ai
+      seniority: unclear
       sponsorship: not_offered
       title: Anthropic Fellows Program, AI Safety
     '5192805008':
@@ -406,6 +446,8 @@ boards:
         nothing specific
       required_tech:
       - Python
+      role_family: not_tech
+      seniority: mid
       sponsorship: offered
       title: Applied AI Architect, Commercial
     '5208218008':
@@ -423,6 +465,8 @@ boards:
         excluded the EU AI Act and SB 53 as legislation rather than technology, and
         CCEP, CIPP/E and IAPP AIGP as credentials rather than technology'
       required_tech: []
+      role_family: not_tech
+      seniority: unclear
       sponsorship: offered
       title: AI Compliance Officer
     '5215052008':
@@ -442,6 +486,8 @@ boards:
         partnership work rather than using the platform. AI/ML and enterprise software
         are too generic to name'
       required_tech: []
+      role_family: not_tech
+      seniority: unclear
       sponsorship: offered
       title: Amazon GTM Partnership, Startups
     '5258579008':
@@ -460,6 +506,8 @@ boards:
         body is the only real number. Campaign work, shoots and production are craft,
         not named technology'
       required_tech: []
+      role_family: design
+      seniority: director
       sponsorship: offered
       title: Art Director, Claude
     '5339199008':
@@ -486,6 +534,8 @@ boards:
       - ACI 318
       - AISC
       - FM Global
+      role_family: infrastructure
+      seniority: senior
       sponsorship: offered
       title: Data Center Architect, CSA
     '5357746008':
@@ -500,6 +550,8 @@ boards:
         be phd. '7+ years' is under Preferred qualifications only, so min_years_experience
         is not_stated. Scientific taste and entrepreneurial instinct are not technologies
       required_tech: []
+      role_family: not_tech
+      seniority: staff
       sponsorship: offered
       title: Life Sciences Operator, Lead
     '5358112008':
@@ -523,6 +575,8 @@ boards:
       - GTreasury
       - Trovata
       - Quantum
+      role_family: not_tech
+      seniority: unclear
       sponsorship: offered
       title: Cash Manager, Treasury
     '5362838008':
@@ -548,6 +602,8 @@ boards:
       - SQL
       - Python
       - R
+      role_family: not_tech
+      seniority: unclear
       sponsorship: offered
       title: People Research Scientist, Recruiting
     '5364336008':
@@ -563,6 +619,8 @@ boards:
         Minimum qualifications block is entirely unquantified. Financial modeling,
         structuring and credit analysis are domain skills, not named technologies'
       required_tech: []
+      role_family: not_tech
+      seniority: staff
       sponsorship: offered
       title: 'Capital Markets - Infrastructure Financing '
     '5369181008':
@@ -583,6 +641,8 @@ boards:
       - AWS
       - Google Cloud
       - Microsoft Azure
+      role_family: not_tech
+      seniority: staff
       sponsorship: offered
       title: Cloud Partner Enablement Lead
   databricks_eligibility:
@@ -600,6 +660,8 @@ boards:
       required_tech:
       - SQL
       - Python
+      role_family: product
+      seniority: internship
       sponsorship: not_stated
       title: Product Management Intern (Summer 2027)
     '7011263002':
@@ -616,6 +678,8 @@ boards:
         despite this being an internship'
       required_tech:
       - PyTorch
+      role_family: ml_ai
+      seniority: internship
       sponsorship: not_stated
       title: PhD GenAI Research Scientist Intern
     '7586263002':
@@ -635,6 +699,8 @@ boards:
       required_tech:
       - SQL
       - Python
+      role_family: product
+      seniority: new_grad
       sponsorship: not_stated
       title: Associate Product Manager, New Grad (2027 Start)
     '7896551002':
@@ -651,6 +717,8 @@ boards:
         at the end names Spark, Delta Lake and MLflow, but as company description,
         not as anything asked of the candidate'
       required_tech: []
+      role_family: software_engineering
+      seniority: director
       sponsorship: not_stated
       title: Director of Engineering
     '8099751002':
@@ -681,6 +749,8 @@ boards:
       - AWS
       - Azure
       - GCP
+      role_family: ml_ai
+      seniority: unclear
       sponsorship: not_stated
       title: AI Engineer - FDE (Forward Deployed Engineer)
     '8290810002':
@@ -703,6 +773,8 @@ boards:
         ''strongly preferred'''
       required_tech:
       - Kafka
+      role_family: data_engineering
+      seniority: director
       sponsorship: not_stated
       title: Director of Engineering (Data Infrastructure)
     '8431935002':
@@ -725,6 +797,8 @@ boards:
         excluded as in [28] and [39]; SaaS, cloud, data platforms and 'AI agent concepts'
         name no product
       required_tech: []
+      role_family: not_tech
+      seniority: unclear
       sponsorship: not_stated
       title: Customer Enablement Specialist
     '8569392002':
@@ -752,6 +826,8 @@ boards:
       - AWS
       - Azure
       - GCP
+      role_family: ml_ai
+      seniority: unclear
       sponsorship: not_stated
       title: AI Engineer - FDE (Forward Deployed Engineer)
     '8627553002':
@@ -773,6 +849,8 @@ boards:
       required_tech:
       - gSheets
       - Excel
+      role_family: not_tech
+      seniority: director
       sponsorship: not_stated
       title: Director, Compensation
     '8636157002':
@@ -792,6 +870,8 @@ boards:
       required_tech:
       - SFDC
       - Tableau
+      role_family: not_tech
+      seniority: director
       sponsorship: not_stated
       title: Director, Americas Field Marketing at Databricks
   imc_eligibility:
@@ -813,6 +893,8 @@ boards:
         date, so graduation_window is not_stated; ''or related degree'' is field scope,
         so no +equivalent'
       required_tech: []
+      role_family: software_engineering
+      seniority: new_grad
       sponsorship: not_stated
       title: Software Engineer, Early Career
     '4658374101':
@@ -828,6 +910,8 @@ boards:
         The ''preferably'' attaches to the field of study, not to the degree level'
       required_tech:
       - Python
+      role_family: quant_trading
+      seniority: mid
       sponsorship: not_stated
       title: 'Commodities Broker Trader '
     '4823805101':
@@ -851,6 +935,8 @@ boards:
       - SystemVerilog
       - Verilog
       - VHDL
+      role_family: hardware
+      seniority: new_grad
       sponsorship: not_stated
       title: Graduate Hardware Engineer
     '4869766101':
@@ -871,6 +957,8 @@ boards:
         than the software categories kept in [5]'
       required_tech:
       - Linux
+      role_family: infrastructure
+      seniority: mid
       sponsorship: not_offered
       title: Data Center Engineer
     '4907368101':
@@ -892,6 +980,8 @@ boards:
         or August 2027 is a start date, not a graduation date, so the window comes
         from ''graduating between September 2026 – July 2027'''
       required_tech: []
+      role_family: quant_trading
+      seniority: new_grad
       sponsorship: not_stated
       title: Graduate Quantitative Researcher (BS/MS)
     '4913612101':
@@ -910,6 +1000,8 @@ boards:
       - Outlook
       - Excel
       - Word
+      role_family: not_tech
+      seniority: mid
       sponsorship: not_offered
       title: Administrative Assistant
     '4914883101':
@@ -934,6 +1026,8 @@ boards:
       required_tech:
       - Pytorch
       - Python
+      role_family: ml_ai
+      seniority: new_grad
       sponsorship: offered
       title: ' Graduate Machine Learning Researcher - London'
   janestreet_eligibility:
@@ -951,6 +1045,8 @@ boards:
         technology, so mentioned_not_required is empty. English fluency is a human
         language. No degree named'
       required_tech: []
+      role_family: not_tech
+      seniority: senior
       sponsorship: not_stated
       title: 'Campus Recruiter, Early Careers Partnerships & Initiatives '
     '8564603002':
@@ -974,6 +1070,8 @@ boards:
       - US GAAP
       - IFRS
       - Microsoft Excel
+      role_family: not_tech
+      seniority: senior
       sponsorship: not_stated
       title: Senior Financial Reporting Accountant
   jumptrading_eligibility:
@@ -998,6 +1096,8 @@ boards:
       - JAX
       - Python
       - C++
+      role_family: ml_ai
+      seniority: new_grad
       sponsorship: not_stated
       title: 'Campus AI/ML Researcher (Fall 2026) '
     '8052313':
@@ -1024,6 +1124,8 @@ boards:
       - Triton
       - SYCL
       - ROCm
+      role_family: ml_ai
+      seniority: new_grad
       sponsorship: offered
       title: Campus AI Research Engineer (Full-Time)
     '8052343':
@@ -1049,6 +1151,8 @@ boards:
       - PyTorch
       - JAX
       - TensorFlow
+      role_family: ml_ai
+      seniority: new_grad
       sponsorship: offered
       title: Campus AI Research Engineer – Deep Learning (Full-Time)
   openai_eligibility:
@@ -1069,6 +1173,8 @@ boards:
       - C++
       - Burp Suite
       - OWASP ZAP
+      role_family: security
+      seniority: unclear
       sponsorship: not_stated
       title: Security Engineer, Application Security
     18f58952-c242-4562-8732-073a0ae8029e:
@@ -1082,6 +1188,8 @@ boards:
         a named technology, so both lists stay empty. No degree, no numbers, nothing
         on sponsorship
       required_tech: []
+      role_family: not_tech
+      seniority: director
       sponsorship: not_stated
       title: Account Director - Tokyo
     1e4e9985-babf-4bd9-8fe8-a2016250780d:
@@ -1101,6 +1209,8 @@ boards:
       - infrastructure as code
       - Terraform
       - Azure
+      role_family: security
+      seniority: unclear
       sponsorship: not_stated
       title: Software Engineer, Security Observability
     2cba0d45-7a4f-4f38-ac73-3f8633bf0349:
@@ -1127,6 +1237,8 @@ boards:
         3. Flag if the program takes the literal smallest integer. Relocation assistance
         is not visa sponsorship
       required_tech: []
+      role_family: software_engineering
+      seniority: mid
       sponsorship: not_stated
       title: Software Engineer, Developer Productivity
     676d359b-0ef6-40a5-81d5-d4f2eb198eab:
@@ -1140,6 +1252,8 @@ boards:
         low-carbon energy), not named technology, so both lists are empty. 15+ years
         sits under the Qualifications header
       required_tech: []
+      role_family: not_tech
+      seniority: staff
       sponsorship: not_stated
       title: Clean Energy and New Technology Lead
     8fb1615c-34bf-47c4-a1d1-b7b2f836bbd3:
@@ -1155,6 +1269,8 @@ boards:
         around the degree, hence +equivalent. ''Possess'' implies a completed degree,
         so enrollment_required is no'
       required_tech: []
+      role_family: product
+      seniority: mid
       sponsorship: not_stated
       title: Technical Program Manager, Compute Infrastructure
     c414f15f-60c4-40b5-a896-d2ad6c7f4415:
@@ -1168,6 +1284,8 @@ boards:
         only qualifications list in the posting, so it is read as the requirements
         section and 5+ years counts. No degree and no named technology anywhere'
       required_tech: []
+      role_family: product
+      seniority: senior
       sponsorship: not_stated
       title: Senior Technical Program Manager - Security
     f01b7084-a68d-4e30-ace9-6b5e6d90c517:
@@ -1182,5 +1300,7 @@ boards:
         no language and bare 'AI' is too generic to be a named technology, so required_tech
         is empty. Relocation assistance is not visa sponsorship
       required_tech: []
+      role_family: security
+      seniority: unclear
       sponsorship: not_stated
       title: Technical Threat Investigator, Threat Intel Engineering

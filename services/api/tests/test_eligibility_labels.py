@@ -11,6 +11,8 @@ import pytest
 from pydantic import ValidationError
 
 from nightshift.domain.eligibility_labels import (
+    ROLE_FAMILY_VALUES,
+    SENIORITY_VALUES,
     AnswerKey,
     MalformedAnswerKeyError,
     PostingLabel,
@@ -28,6 +30,8 @@ _COMPLETE = {
     "required_tech": ["Kotlin"],
     "mentioned_not_required": ["React", "TypeScript"],
     "sponsorship": "not_stated",
+    "role_family": "software_engineering",
+    "seniority": "internship",
     "note": "",
 }
 
@@ -213,3 +217,152 @@ def test_the_committed_answer_key_parses_and_is_big_enough() -> None:
     key = load_answer_key()
     total = sum(len(v) for v in key.boards.values())
     assert total >= 50, f"answer key holds {total} postings, A13 requires 50"
+
+
+# ---------------------------------------------------------------------------
+# role_family and seniority, added at M3b Task 2
+#
+# Labeled across all 60 postings before any classifier existed. `matching.md`
+# §1.1: rules written first make the corpus get chosen — in good faith — to
+# contain the cases the rules already handle, and the grade then measures
+# nothing. These guards are what make that ordering checkable later, when the
+# commit dates have stopped being obvious to anyone reading.
+# ---------------------------------------------------------------------------
+
+
+def test_an_unknown_role_family_is_refused() -> None:
+    with pytest.raises(ValidationError):
+        PostingLabel.model_validate({**_COMPLETE, "role_family": "devops"})
+
+
+def test_an_unknown_seniority_is_refused() -> None:
+    with pytest.raises(ValidationError):
+        PostingLabel.model_validate({**_COMPLETE, "seniority": "principal"})
+
+
+def test_neither_new_field_has_a_default() -> None:
+    """A posting with no family must fail to parse, not acquire one.
+
+    A default would make the field arrive silently on any posting added later,
+    already carrying an answer nobody labeled — an answer key that labels
+    itself. Both `unclear` and `not_tech` are real answers a human chose, and
+    neither may become what happens when nobody chooses.
+    """
+    for field in ("role_family", "seniority"):
+        incomplete = {k: v for k, v in _COMPLETE.items() if k != field}
+        with pytest.raises(ValidationError):
+            PostingLabel.model_validate(incomplete)
+
+
+@skip_until_labeled
+def test_every_posting_carries_a_family_and_a_level() -> None:
+    key = load_answer_key()
+    missing = [
+        f"{board}/{pid}"
+        for board, postings in key.boards.items()
+        for pid, label in postings.items()
+        if label.role_family not in ROLE_FAMILY_VALUES or label.seniority not in SENIORITY_VALUES
+    ]
+    assert missing == [], missing
+
+
+@skip_until_labeled
+def test_the_corpus_cannot_grade_an_unclear_family_and_says_so() -> None:
+    """`role_family: unclear` is labeled on **zero** postings, and that is a
+    coverage gap rather than a success.
+
+    Every one of the sixty could be classified from its title and description,
+    so the corpus contains no example of the case the classifier most needs to
+    get right: a posting it should refuse to guess at. A classifier that never
+    answers `unclear` will score perfectly on this corpus and be wrong the first
+    time it meets a genuinely ambiguous posting.
+
+    This test asserts the gap rather than the absence of one, so that the day a
+    posting *is* labeled `unclear` this fails and somebody deletes it — the
+    alternative is a blind spot recorded in a comment nobody re-reads, which is
+    a failure this project has now shipped four times.
+    """
+    key = load_answer_key()
+    families = {
+        label.role_family for postings in key.boards.values() for label in postings.values()
+    }
+    assert "unclear" not in families, (
+        "a posting is now labeled role_family: unclear — delete this test, the "
+        "gap it records has closed"
+    )
+    assert families <= ROLE_FAMILY_VALUES
+
+
+@skip_until_labeled
+def test_two_families_are_too_thin_to_grade_on_their_own() -> None:
+    """`design` and `data_engineering` carry one posting each; `hardware` two.
+
+    Named here because a per-family accuracy over one posting is not a
+    measurement, and a table printing `design 1.000` invites exactly that
+    reading. The overall figure is the honest one and the per-family breakdown
+    is diagnostic only.
+    """
+    key = load_answer_key()
+    counts: dict[str, int] = {}
+    for postings in key.boards.values():
+        for label in postings.values():
+            counts[label.role_family] = counts.get(label.role_family, 0) + 1
+    thin = sorted(f for f, n in counts.items() if n < 3)
+    assert thin == ["data_engineering", "design", "hardware"], counts
+
+
+def test_the_enums_and_the_label_vocabularies_are_the_same_words() -> None:
+    """Three copies of two vocabularies, asserted equal.
+
+    `RoleFamily` and `Seniority` in `db/base.py`, `ROLE_FAMILY_VALUES` and
+    `SENIORITY_VALUES` here, and the value tuples inside migration
+    `0013_role_family_and_seniority`. The migration's copy is genuinely
+    unavoidable — a migration must not import a model, or it stops describing
+    the schema as of its own revision and starts describing today's — so the
+    real defence is this assertion rather than a shared constant.
+
+    The failure it prevents is the one `test_enum_parity.py` was written for
+    after it had already happened twice: a vocabulary transcribed by hand, one
+    member missing, and nothing red until a real value meets a database that
+    has never heard of it.
+    """
+    from nightshift.db.base import RoleFamily, Seniority
+
+    assert {m.value for m in RoleFamily} == ROLE_FAMILY_VALUES
+    assert {m.value for m in Seniority} == SENIORITY_VALUES
+
+
+def test_the_migration_creates_exactly_those_types() -> None:
+    """The third copy, read out of the migration module itself.
+
+    Imported rather than parsed, because the values are module constants there
+    precisely so this test can reach them.
+    """
+    import importlib
+
+    migration = importlib.import_module(
+        "migrations.versions.20260805_2130_role_family_and_seniority_enums"
+    )
+    assert set(migration.ROLE_FAMILY_VALUES) == ROLE_FAMILY_VALUES
+    assert set(migration.SENIORITY_VALUES) == SENIORITY_VALUES
+
+
+def test_the_season_migration_and_the_season_enum_are_the_same_words() -> None:
+    """`InternshipSeason`'s two copies, M3b Task 11.
+
+    There is no third copy here, and that absence is deliberate: no label field
+    records a season, so there is nothing in this module for the enum to agree
+    with. The season is graded by `test_internship_season.py` against titles
+    quoted from the corpus rather than against the answer key — the answer key
+    was committed before anyone thought to label a season, and adding a tenth
+    label field now would be labeling *after* the rule exists, which
+    `matching.md` §1.1 is unambiguous about.
+    """
+    import importlib
+
+    from nightshift.db.base import InternshipSeason
+
+    migration = importlib.import_module(
+        "migrations.versions.20260806_0020_internship_season_and_year"
+    )
+    assert set(migration.INTERNSHIP_SEASON_VALUES) == {m.value for m in InternshipSeason}

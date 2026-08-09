@@ -53,6 +53,50 @@ describe('JobFilters', () => {
     expect(onChange.mock.calls[0]?.[0]).toEqual({ q: 'engineer', city: 'Queens' });
   });
 
+  describe('the two filters M3b turned on', () => {
+    it('sends a skill as typed and lets the API resolve the alias', () => {
+      // `golang` must reach the API unaltered. Resolving it here would put a
+      // second copy of the vocabulary in the browser, and two copies is how the
+      // filter and the extractor come to disagree about what `Go` means.
+      const onChange = vi.fn();
+      render(<JobFilters value={{}} onChange={onChange} deferred={[]} />);
+      fireEvent.change(screen.getByLabelText(/^skill$/i), { target: { value: 'golang' } });
+      expect(onChange.mock.calls[0]?.[0]).toEqual({ skill: 'golang' });
+    });
+
+    it('states what the skill filter is based on, beside the control', () => {
+      // The human's decision of 2026-08-05: this filter comes on *with what it
+      // is based on stated next to it*. Recall of 0.861 means it hides roughly
+      // one matching role in seven, and a filter that hides part of its own
+      // answer silently is worse than no filter.
+      render(<JobFilters value={{}} onChange={vi.fn()} deferred={[]} />);
+      expect(screen.getByText(/0\.861/)).toBeVisible();
+    });
+
+    it('offers a season and a year as separate controls', () => {
+      // Two corpus internships state a year and no season. Collapsed into one
+      // control, asking for 2027 could not reach them.
+      const onChange = vi.fn();
+      render(<JobFilters value={{}} onChange={onChange} deferred={[]} />);
+      fireEvent.change(screen.getByLabelText(/internship season/i), {
+        target: { value: 'summer' },
+      });
+      expect(onChange.mock.calls[0]?.[0]).toEqual({ internship_season: 'summer' });
+
+      fireEvent.change(screen.getByLabelText(/internship year/i), { target: { value: '2027' } });
+      expect(onChange.mock.calls[1]?.[0]).toEqual({ internship_year: 2027 });
+    });
+
+    it('no longer lists either of them as unavailable', () => {
+      // The deferral entries are deleted server-side, so this asserts the panel
+      // does not carry its own stale copy of the same claim. Three "not built"
+      // lists in this project have gone stale in exactly that way.
+      render(<JobFilters value={{}} onChange={vi.fn()} deferred={DEFERRED} />);
+      const unavailable = screen.getByRole('heading', { name: /not available yet/i }).parentElement;
+      expect(unavailable?.textContent).not.toMatch(/internship season/i);
+    });
+  });
+
   it('offers the description search as an explicit opt-in, off by default', () => {
     // Measured on the recorded Alloy board: searching descriptions for
     // "developer" returns every posting, because it stems to 'develop' and

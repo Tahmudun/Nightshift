@@ -255,8 +255,42 @@ async def cmd_seed(args: argparse.Namespace) -> int:
         print(f"  board poll schedules: {created} created (none polled yet)")
 
     await _print_summary()
+
+    # A seed that persisted nothing must not exit 0.
+    #
+    # Found on 2026-08-05, in the worst possible way: a model change landed
+    # before its migration, every INSERT failed with `type "role_family" does
+    # not exist`, `ingest_boards` counted all 31 into `stats.failed` — which is
+    # right, I3 says one bad posting may not kill a board — and this command
+    # printed "seed complete" and exited 0 over an empty database.
+    #
+    # The counts *were* on screen. That is not enough: CI's "Seed loads" step
+    # reads the exit code and nothing else, so a completely broken seed was a
+    # green check. `make demo` would have handed a developer an empty city and
+    # a success message.
+    #
+    # The condition is deliberately "ended with zero jobs" rather than "any
+    # posting failed". The fixtures are committed and deterministic so a failure
+    # is always a defect, but failing the whole seed over one bad posting would
+    # make this command brittle in exactly the way `ingest_boards` refuses to
+    # be. Zero jobs is unambiguous: the seed's entire purpose is a populated
+    # database to demo.
+    total_jobs = await _canonical_job_count()
+    if total_jobs == 0:
+        print(
+            "\nerror: the seed persisted no canonical jobs. Something above "
+            "failed — read the `failed` counts and the warnings.",
+            file=sys.stderr,
+        )
+        return 1
+
     print("\nseed complete. `make dev` then open http://localhost:3000")
     return 0
+
+
+async def _canonical_job_count() -> int:
+    async with session_scope() as session:
+        return int((await session.execute(select(func.count()).select_from(Job))).scalar_one())
 
 
 async def cmd_ingest(args: argparse.Namespace) -> int:

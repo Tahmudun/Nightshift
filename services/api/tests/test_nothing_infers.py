@@ -25,6 +25,11 @@ PROFILE_COLUMNS = (
     "graduation_month",
     "degree",
     "school",
+    # M3b's two gate inputs. Both are claims about a person and both could be
+    # guessed from `graduation_year` with one subtraction, which is the I2
+    # violation easiest to write and hardest to spot in review.
+    "years_experience",
+    "is_enrolled",
     "work_authorization",
     "home_location_text",
     "remote_preference",
@@ -107,3 +112,45 @@ def test_the_extractor_does_not_call_back_into_the_writer() -> None:
     """`profile.py` may call the extractor; the extractor may not call back."""
     extractor = (ROOT / "domain" / "resume_extraction.py").read_text(encoding="utf-8")
     assert "profile" not in extractor
+
+
+#: Columns on `users` that are **not** claims about a person, so the guard above
+#: does not cover them. A column in neither tuple is a column nobody decided
+#: about.
+NOT_A_PROFILE_FACT = frozenset(
+    {
+        "id",
+        "email",
+        "display_name",
+        "timezone",
+        "created_at",
+        "updated_at",
+    }
+)
+
+
+def test_no_profile_column_escapes_the_guard_by_being_added_later() -> None:
+    """`PROFILE_COLUMNS` is hand-maintained, and a hand-maintained list of what
+    to protect goes stale in exactly one direction: things get added to the
+    model and not to the list.
+
+    That is not hypothetical. M3b added `years_experience` and `is_enrolled` to
+    `users` and this guard did not cover either of them until somebody looked —
+    which is the fourth time in this project a list has quietly stopped
+    describing the thing it guards. The other three were "not built yet" lists;
+    this one would have been an invariant.
+
+    So the list is checked against the model rather than trusted. A new column
+    must be classified deliberately, in one tuple or the other, and neither
+    choice can be made by forgetting.
+    """
+    from nightshift.db.models import User
+
+    columns = {column.name for column in User.__table__.columns}
+    accounted = set(PROFILE_COLUMNS) | NOT_A_PROFILE_FACT
+    assert columns - accounted == set(), (
+        f"columns on `users` that nobody has classified: {sorted(columns - accounted)}"
+    )
+    assert accounted - columns == set(), (
+        f"named here but not a column on `users`: {sorted(accounted - columns)}"
+    )

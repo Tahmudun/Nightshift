@@ -157,6 +157,102 @@ export const jobRequirementSchema = z.object({
 });
 export type JobRequirement = z.infer<typeof jobRequirementSchema>;
 
+/**
+ * The five states from PRODUCT-SPEC §8.3, and the browser must know all five.
+ * `matching.md` §5.2: a state is never converted into points and never
+ * collapsed into a number, so it crosses the boundary as itself.
+ */
+export const eligibilityStateSchema = z.enum([
+  'eligible',
+  'likely_eligible',
+  'uncertain',
+  'likely_ineligible',
+  'ineligible',
+]);
+export type EligibilityState = z.infer<typeof eligibilityStateSchema>;
+
+export const roleFamilySchema = z.enum([
+  'software_engineering',
+  'data_engineering',
+  'ml_ai',
+  'infrastructure',
+  'security',
+  'quant_trading',
+  'hardware',
+  'product',
+  'design',
+  'not_tech',
+  'unclear',
+]);
+export type RoleFamily = z.infer<typeof roleFamilySchema>;
+
+export const senioritySchema = z.enum([
+  'internship',
+  'new_grad',
+  'junior',
+  'mid',
+  'senior',
+  'staff',
+  'director',
+  'unclear',
+]);
+export type Seniority = z.infer<typeof senioritySchema>;
+
+/**
+ * The academic terms, and not the year — that is `internship_year`, a separate
+ * field. Two of the recorded corpus's nineteen internships state a year and no
+ * season, so a combined `summer_2027` value could keep them only by inventing
+ * the season.
+ *
+ * No `unclear` member, unlike the two enums above. A season is quoted out of a
+ * title or it is absent, and `null` carries the whole of "the posting did not
+ * say".
+ */
+export const internshipSeasonSchema = z.enum(['summer', 'fall', 'winter', 'spring']);
+export type InternshipSeason = z.infer<typeof internshipSeasonSchema>;
+
+/**
+ * A reason a posting may not be open to this person, with the posting's own
+ * words. `outcome` separates a wall from a gap: `blocks` is a stated
+ * requirement the profile contradicts, `soft_blocks` is a shortfall the person
+ * may well decide to ignore, and rendering them identically would turn the
+ * second into the first.
+ */
+export const eligibilityBlockerSchema = z.object({
+  dimension: z.string(),
+  outcome: z.enum(['blocks', 'soft_blocks']),
+  posting_says: z.string().nullable(),
+  char_start: z.number().int().nonnegative().nullable(),
+  char_end: z.number().int().nonnegative().nullable(),
+  profile_says: z.string(),
+  why: z.string(),
+});
+export type EligibilityBlocker = z.infer<typeof eligibilityBlockerSchema>;
+
+/**
+ * Something the gate could not decide. Distinct from a blocker on purpose: a
+ * blocker is a wall, this is an open question.
+ *
+ * `profile_field` is where the page links to, and it is **nullable** because
+ * some questions have no answer a person could supply — a posting saying
+ * "or equivalent experience" is unassessable however complete the profile is.
+ * A link there is an action that cannot work, so the page renders none.
+ */
+export const eligibilityUnknownSchema = z.object({
+  dimension: z.string(),
+  profile_field: z.string().nullable(),
+  why: z.string(),
+});
+export type EligibilityUnknown = z.infer<typeof eligibilityUnknownSchema>;
+
+export const eligibilitySchema = z.object({
+  state: eligibilityStateSchema,
+  blockers: z.array(eligibilityBlockerSchema),
+  unknowns: z.array(eligibilityUnknownSchema),
+  gate_version: z.string(),
+});
+export type Eligibility = z.infer<typeof eligibilitySchema>;
+
 export const jobDetailSchema = jobSummarySchema
   .extend({
     description_text: z.string().nullable(),
@@ -170,6 +266,12 @@ export const jobDetailSchema = jobSummarySchema
      * unless this field survives the boundary.
      */
     requirements_extractor_version: z.string().nullable(),
+    /**
+     * Null when the posting has no extracted requirements. A verdict from an
+     * unread posting would say `eligible` to everyone and be indistinguishable
+     * on the page from a posting that genuinely asks for nothing.
+     */
+    eligibility: eligibilitySchema.nullable(),
   })
   .superRefine((detail, ctx) => {
     // The same check `resumeDetailSchema` makes, for the same reason: only the
@@ -198,6 +300,18 @@ export const jobListSchema = z.object({
   // Defaulted so a response from an API that predates these fields still
   // parses rather than throwing at the boundary.
   excluded_no_salary: z.number().int().default(0),
+  /**
+   * How many jobs the skill filter could not have matched however well it
+   * works, because nothing was extracted from them. Required-technology recall
+   * is 0.861 against the answer key, so the filter is usable and incomplete;
+   * without this number a thin result reads as "there are only two such jobs".
+   */
+  excluded_no_requirements: z.number().int().default(0),
+  /**
+   * How many internships the season filter necessarily hid, because their
+   * titles state no season (11 of 19 in the recorded corpus) or no year.
+   */
+  excluded_no_season: z.number().int().default(0),
   deferred_filters: z.array(deferredFilterSchema).default([]),
 });
 export type JobList = z.infer<typeof jobListSchema>;

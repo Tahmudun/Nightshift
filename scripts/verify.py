@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import socket
 import subprocess
 import sys
 import time
@@ -398,9 +399,297 @@ def check_application_tracking() -> None:
     check(listed["archived_count"] >= 1, "and is counted rather than forgotten")
 
 
-def wait_for_api(deadline_seconds: float = 45.0) -> bool:
+#: The six `users` columns the gate reads, and the only ones this check writes.
+#: Named rather than derived so that a seventh gate input added later fails the
+#: parity assertion below instead of being silently left out of the snapshot.
+GATE_FIELDS = (
+    "graduation_year",
+    "graduation_month",
+    "degree",
+    "years_experience",
+    "is_enrolled",
+    "work_authorization",
+)
+
+#: A profile that contradicts several stated bars at once, chosen from what the
+#: seeded corpus states rather than invented: it holds a posting requiring
+#: current enrollment inside a 2026-2028 window, and several stating a years
+#: minimum. A 2024 graduate who is not enrolled fails all three.
+BLOCKED_PROFILE: dict[str, Any] = {
+    "graduation_year": 2024,
+    "graduation_month": 5,
+    "degree": "BS in Computer Science",
+    "years_experience": 0,
+    "is_enrolled": False,
+    "work_authorization": "needs_sponsorship",
+}
+
+#: Every gate field cleared. `work_authorization` clears to `unspecified` rather
+#: than to null — the column is not nullable and `unspecified` *is* its "has not
+#: said" value, which is the whole reason the authorization rule refuses to read
+#: it as "needs sponsorship".
+EMPTY_PROFILE: dict[str, Any] = {
+    "graduation_year": None,
+    "graduation_month": None,
+    "degree": None,
+    "years_experience": None,
+    "is_enrolled": None,
+    "work_authorization": "unspecified",
+}
+
+
+def _corpus_verdicts() -> list[dict[str, Any]]:
+    """Every seeded posting's detail payload, read one at a time.
+
+    `/jobs` does not carry the verdict — it is computed per posting on read —
+    so there is no bulk form of this and there should not be one.
+    """
+    code, listed = get_json("/jobs?limit=100")
+    if code != 200 or not isinstance(listed, dict):
+        return []
+    details = []
+    for item in listed.get("items", []):
+        code, detail = get_json(f"/jobs/{item['id']}")
+        if code == 200 and isinstance(detail, dict):
+            details.append(detail)
+    return details
+
+
+def check_eligibility_gate() -> None:
+    """M3b over HTTP: a verdict about a person, against the seeded corpus.
+
+    Four of these assertions exist because they cannot be made anywhere else.
+    The unit suite grades the gate against 60 recorded postings and a fixed set
+    of profiles; the browser walk drives one posting at a time. Neither one
+    sweeps the corpus the developer actually has in front of them, and none of
+    them can check what happens to a *real* profile row when the answer changes.
+
+      1. **An empty profile blocks nobody.** Zero `ineligible`, as an equality,
+         over every seeded posting. A13's worst output is a wrong `ineligible`,
+         and a person who has typed nothing has contradicted nothing — so every
+         block against them is wrong by construction. Task 7 asserted this
+         against the answer key; this asserts it against live data, which is the
+         only place a bad reading of a real description can show up.
+      2. **No verdict without its breakdown (I4).** A state with nothing under
+         it is a bare number with extra letters.
+      3. **Every unknown names a field the profile actually has, or names
+         none.** The dead-end guard: "tell us your years of experience" beside a
+         profile with nowhere to say it is M2c's 404'ing provenance link one
+         milestone on, and a null `profile_field` is now a legitimate answer, so
+         the check has to allow exactly that one and no other miss.
+      4. **The verdict follows the profile and is stored nowhere.** Changing a
+         column changes the answer to the same URL, and putting the column back
+         restores the previous payload byte for byte. No worker runs and no
+         cache is cleared in between (ADR 0017).
+
+    **It writes to the developer's own profile**, which only
+    `check_profile_confirmation` otherwise does, and it restores the six columns
+    it touched. The limit is stated rather than implied: killed mid-run, the
+    profile keeps this function's values and nothing on disk remembers what
+    preceded them. Six columns on a single-user development database, and the
+    honest mitigation is that it is written down.
+    """
+    print("\nthe eligibility gate")
+
+    code, before = get_json("/profile")
+    if code != 200 or not isinstance(before, dict):
+        check(False, "the profile is readable", f"HTTP {code}")
+        return
+    missing = [field for field in GATE_FIELDS if field not in before]
+    if not check(
+        not missing,
+        "the profile carries every field the gate reads",
+        ", ".join(missing) if missing else f"{len(GATE_FIELDS)} fields",
+    ):
+        return
+    snapshot = {field: before[field] for field in GATE_FIELDS}
+
+    try:
+        # -- 1. the day-one user, against every seeded posting ---------------
+        code, _ = send_json("/profile", "PATCH", EMPTY_PROFILE)
+        if not check(code == 200, "the gate fields can be cleared", f"HTTP {code}"):
+            return
+
+        corpus = _corpus_verdicts()
+        if not check(len(corpus) > 0, "the corpus has postings to judge", f"{len(corpus)} read"):
+            return
+
+        judged = [job for job in corpus if job.get("eligibility") is not None]
+        unread = [job for job in corpus if job.get("eligibility") is None]
+        check(
+            all(not job.get("requirements") for job in unread),
+            "a posting with no verdict is a posting with nothing extracted from it",
+            f"{len(judged)} judged, {len(unread)} unread",
+        )
+
+        states = [job["eligibility"]["state"] for job in judged]
+        tally = ", ".join(
+            f"{state} {states.count(state)}" for state in sorted(set(states))
+        )
+        check(
+            states.count("ineligible") == 0,
+            "invariant A13: an empty profile is blocked from nothing",
+            tally,
+        )
+        # The opposite failure, and the reason the line above is not enough on
+        # its own: a gate answering `uncertain` to everything satisfies it,
+        # forever, having decided nothing (`matching.md` §3.3).
+        check(
+            len(set(states)) > 1,
+            "the corpus reaches more than one state",
+            tally,
+        )
+
+        # -- 2 and 3, over both profiles -------------------------------------
+        code, _ = send_json("/profile", "PATCH", BLOCKED_PROFILE)
+        if not check(code == 200, "the gate fields can be set", f"HTTP {code}"):
+            return
+        blocked_corpus = _corpus_verdicts()
+        blocked_judged = [j for j in blocked_corpus if j.get("eligibility") is not None]
+        blocked_states = [job["eligibility"]["state"] for job in blocked_judged]
+        check(
+            blocked_states.count("ineligible") > 0,
+            "a profile that contradicts a stated bar is blocked by it",
+            ", ".join(
+                f"{state} {blocked_states.count(state)}" for state in sorted(set(blocked_states))
+            ),
+        )
+
+        bare: list[str] = []
+        dead_ends: list[str] = []
+        unquoted: list[str] = []
+        drifted: list[str] = []
+        for job in judged + blocked_judged:
+            verdict = job["eligibility"]
+            hard = [b for b in verdict["blockers"] if b["outcome"] == "blocks"]
+            soft = [b for b in verdict["blockers"] if b["outcome"] == "soft_blocks"]
+            if verdict["state"] in ("ineligible", "likely_ineligible") and not (hard or soft):
+                bare.append(f"{job['title']}: {verdict['state']} with no blocker")
+            if verdict["state"] == "uncertain" and not verdict["unknowns"]:
+                bare.append(f"{job['title']}: uncertain with no unknown")
+            if verdict["state"] == "eligible" and verdict["blockers"]:
+                bare.append(f"{job['title']}: eligible with a blocker")
+            if not verdict["gate_version"]:
+                bare.append(f"{job['title']}: no gate version")
+
+            for unknown in verdict["unknowns"]:
+                field = unknown["profile_field"]
+                # `None` is the answer for a dimension no field could settle —
+                # "or equivalent experience". Anything else must be a column the
+                # person can actually reach.
+                if field is not None and field not in before:
+                    dead_ends.append(f"{job['title']}: asks for {field!r}")
+                if not unknown["why"].strip():
+                    bare.append(f"{job['title']}: an unknown with no reason")
+
+            text = job.get("description_text") or ""
+            for blocker in verdict["blockers"]:
+                if blocker["posting_says"] is None:
+                    unquoted.append(f"{job['title']}: {blocker['dimension']}")
+                    continue
+                # `char_start`/`char_end` on the wire, not the domain object's
+                # `posting_span` tuple — `EligibilityBlockerOut` flattens it, the
+                # same shape `job_requirements` already uses. The first draft of
+                # this loop read `posting_span` and raised `KeyError` on its
+                # first ever run, which is the whole argument for this file
+                # existing beside a passing unit suite.
+                start, end = blocker["char_start"], blocker["char_end"]
+                if start is None or end is None or text[start:end] != blocker["posting_says"]:
+                    drifted.append(f"{job['title']}: {blocker['dimension']}")
+
+        check(not bare, "invariant I4: no verdict without its breakdown", "; ".join(bare[:3]))
+        check(
+            not dead_ends,
+            "every unknown names a profile field that exists, or names none",
+            "; ".join(dead_ends[:3]),
+        )
+        check(
+            not unquoted,
+            "every blocker quotes the posting",
+            "; ".join(unquoted[:3]),
+        )
+        check(
+            not drifted,
+            "every blocker's quote is the text its span points at",
+            "; ".join(drifted[:3]) if drifted else "checked against description_text",
+        )
+
+        # -- 4. computed on read, stored nowhere ------------------------------
+        subject = next(
+            (j for j in blocked_judged if j["eligibility"]["state"] == "ineligible"),
+            blocked_judged[0] if blocked_judged else None,
+        )
+        if subject is None:
+            check(False, "a posting exists to re-read")
+            return
+        path = f"/jobs/{subject['id']}"
+        _, again = get_json(path)
+        check(
+            again["eligibility"] == subject["eligibility"],
+            "the same request twice gives the same verdict",
+            subject["eligibility"]["state"],
+        )
+
+        send_json("/profile", "PATCH", EMPTY_PROFILE)
+        _, cleared = get_json(path)
+        check(
+            cleared["eligibility"]["state"] != subject["eligibility"]["state"],
+            "clearing the profile changes the answer to the same URL",
+            f"{subject['eligibility']['state']} -> {cleared['eligibility']['state']}",
+        )
+
+        send_json("/profile", "PATCH", BLOCKED_PROFILE)
+        _, restored = get_json(path)
+        check(
+            restored["eligibility"] == subject["eligibility"],
+            "and putting it back restores the verdict exactly",
+            "no worker ran, no cache was cleared (ADR 0017)",
+        )
+    finally:
+        code, _ = send_json("/profile", "PATCH", snapshot)
+        _, final = get_json("/profile")
+        check(
+            code == 200 and all(final.get(f) == snapshot[f] for f in GATE_FIELDS),
+            "the profile is left as it was found",
+            "nothing is left behind",
+        )
+
+
+def port_is_taken() -> bool:
+    """Is something already listening where this script is about to start a server?
+
+    **This function exists because its absence cost a whole verification run.**
+    On 2026-08-09 a `uvicorn` started by hand on 2026-08-05 was still holding
+    port 8000. This script launched its own, that one died instantly with
+    `[Errno 48] Address already in use` — into `DEVNULL`, so silently —
+    `wait_for_api` got a healthy `/health` from the squatter, and 73 checks
+    passed **against code that was three days old**. Two of them were newly
+    written that morning and could not have passed against the running binary.
+
+    `CLAUDE.md` §4 states the rule as a habit for humans: verify from a clean
+    shell, because a server you started an hour ago makes a broken target look
+    like a passing one. A habit is not a guard. This is the guard.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.settimeout(1.0)
+        return probe.connect_ex((HOST, int(PORT))) == 0
+
+
+def wait_for_api(process: subprocess.Popen[bytes], deadline_seconds: float = 45.0) -> bool:
+    """Wait for *this* process's API, and give up the moment it is not this one.
+
+    The `process.poll()` line is the second half of `port_is_taken`'s lesson and
+    the more general half: the port check refuses a squatter that is already
+    there, and this refuses one that appears — or, far more likely, catches our
+    own server dying for any reason at all while a stale one answers in its
+    place. Polling `/health` alone cannot tell the two apart, because `/health`
+    does not say who is serving it.
+    """
     started = time.monotonic()
     while time.monotonic() - started < deadline_seconds:
+        if process.poll() is not None:
+            print(f"  {RED}✗{RESET} the API this script started exited with {process.returncode}")
+            return False
         try:
             status, _ = get_json("/health", timeout=3.0)
             if status in (200, 503):
@@ -732,6 +1021,17 @@ async def verify_constraints() -> None:
 def main() -> int:
     print(f"{DIM}verifying against {BASE}{RESET}")
 
+    # Refused rather than reused. A server already on this port is not this
+    # script's server, nothing here knows what code it is running, and the one
+    # time that was allowed to slide it was three days stale. Naming the process
+    # in the message, because "port in use" without a PID sends the reader to a
+    # search engine and `lsof` sends them to the answer.
+    if port_is_taken():
+        print(f"  {RED}✗{RESET} something is already listening on {BASE}")
+        print(f"    {DIM}this script starts its own API and will not verify somebody else's.{RESET}")
+        print(f"    {DIM}find it with:  lsof -nP -iTCP:{PORT} -sTCP:LISTEN{RESET}")
+        return 1
+
     api = subprocess.Popen(
         [
             str(VENV_BIN / "uvicorn"),
@@ -747,13 +1047,14 @@ def main() -> int:
         stderr=subprocess.DEVNULL,
     )
     try:
-        if not wait_for_api():
+        if not wait_for_api(api):
             print(f"  {RED}✗{RESET} API did not start within 45s")
             return 1
         verify_http()
         check_application_tracking()
         check_profile_confirmation()
         check_daily_queue()
+        check_eligibility_gate()
         asyncio.run(check_job_requirements())
         asyncio.run(verify_constraints())
     finally:

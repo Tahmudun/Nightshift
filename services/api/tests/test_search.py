@@ -11,11 +11,12 @@ from datetime import UTC, datetime
 
 import pytest
 
-from nightshift.db.base import EmploymentType, JobStatus, RemotePolicy
+from nightshift.db.base import EmploymentType, InternshipSeason, JobStatus, RemotePolicy
 from nightshift.domain.search import (
     DEFERRED_FILTERS,
     JobSearchQuery,
     build_filters,
+    canonical_skill,
 )
 
 
@@ -89,8 +90,6 @@ def test_deferred_filters_name_what_blocks_them() -> None:
     assert names == {
         "match_score",
         "eligibility",
-        "skill",
-        "internship_season",
         "borough",
     }
     for entry in DEFERRED_FILTERS:
@@ -119,6 +118,61 @@ def test_no_deferred_filter_blames_something_that_now_exists() -> None:
             assert artefact not in lowered, (
                 f"{entry.name} is deferred on {artefact!r}, which exists"
             )
+
+
+class TestTheTwoFiltersM3bTurnsOn:
+    """`skill` and `internship_season`, deferred since M2a and on as of Task 11.
+
+    Both arrive with a caveat attached rather than silently, and the caveats are
+    the reason these are tests rather than a line in a changelog. A filter that
+    hides part of its own answer without saying so is worse than no filter,
+    because an empty result reads as "no such job".
+    """
+
+    def test_a_season_and_a_year_are_two_filters_not_one(self) -> None:
+        """The shape decision, asserted where it can be seen.
+
+        Two corpus internships state a year and no season, so the two must be
+        independently askable. Filtering "2027" and getting only the eight
+        postings that also name a season would drop the two that named nothing
+        but the year.
+        """
+        assert len(build_filters(JobSearchQuery(internship_season=InternshipSeason.SUMMER))) == 1
+        assert len(build_filters(JobSearchQuery(internship_year=2027))) == 1
+        assert (
+            len(
+                build_filters(
+                    JobSearchQuery(internship_season=InternshipSeason.SUMMER, internship_year=2027)
+                )
+            )
+            == 2
+        )
+
+    def test_a_skill_contributes_one_filter(self) -> None:
+        assert len(build_filters(JobSearchQuery(skill="Python"))) == 1
+
+    def test_a_blank_skill_is_not_a_filter(self) -> None:
+        """Consistent with `q`: an empty box returns the corpus, not nothing."""
+        assert build_filters(JobSearchQuery(skill="   ")) == []
+
+    def test_a_skill_resolves_through_the_same_vocabulary_the_extractor_used(self) -> None:
+        """`GCP` must find the postings stored as `Google Cloud`.
+
+        `job_requirements.value` holds canonical names, so a filter comparing
+        the user's raw string would return nothing for every alias a person is
+        likely to type — and an empty result is indistinguishable from "no such
+        job". This is M3a.1's opening defect (a grader comparing raw strings)
+        in the one place a user would feel it.
+        """
+        assert canonical_skill("GCP") == "Google Cloud"
+        assert canonical_skill("golang") == "Go"
+        assert canonical_skill("  pytorch  ") == "PyTorch"
+
+    def test_a_skill_the_vocabulary_does_not_carry_is_left_alone(self) -> None:
+        """It then matches nothing, which is honest: the corpus is not indexed
+        for a technology `data/skills.yaml` has never heard of. Rewriting it to
+        a near neighbour would answer a question nobody asked."""
+        assert canonical_skill("Fortran77") == "Fortran77"
 
 
 def test_borough_is_deferred_for_an_invariant_reason_not_a_schedule() -> None:

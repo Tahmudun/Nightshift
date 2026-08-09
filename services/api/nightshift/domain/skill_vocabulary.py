@@ -84,6 +84,32 @@ class SkillVocabulary:
                     )
         return sorted(found.values(), key=lambda match: (match.char_start, match.canonical_name))
 
+    def canonical(self, term: str) -> str:
+        """This vocabulary's name for ``term``, or ``term`` when it has none.
+
+        **Only a match spanning the whole term counts**, and that restriction is
+        the design rather than an optimisation. ``match_all`` finds vocabulary
+        terms anywhere inside a string, so a substring rule would resolve
+        ``Entra ID/Azure AD`` to ``Azure`` — it does contain the word — and
+        quietly merge Microsoft's identity product into its cloud platform.
+        Measured over the answer key, the substring rule collapses two distinct
+        labels into one on ``akunacapital/8047104``; this one collapses none.
+
+        A term the vocabulary has never heard of comes back unchanged, so a
+        vocabulary gap stays visible instead of being resolved into a neighbour.
+
+        This lived in `test_requirement_extraction_against_the_answer_key.py`
+        until M3b Task 11, when the skill filter needed the same resolution in
+        production. Leaving a copy behind would let the filter and the grader
+        disagree about whether ``GCP`` and ``Google Cloud`` are the same
+        technology — which is precisely the defect M3a.1 opened with, one layer
+        down.
+        """
+        for hit in self.match_all(term):
+            if hit.char_start == 0 and hit.char_end == len(term):
+                return hit.canonical_name
+        return term
+
     def match_all(self, text: str) -> list[SkillMatch]:
         """Every non-overlapping vocabulary term, including repeats.
 

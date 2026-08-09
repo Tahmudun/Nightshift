@@ -15,6 +15,7 @@ import { useCallback, useMemo } from 'react';
 
 import { JobFilters } from './JobFilters';
 import { JobRow } from './JobRow';
+import { SearchCaveats } from './SearchCaveats';
 import { fetchJobs, type JobQuery } from '@/lib/api';
 
 const TEXT_KEYS = [
@@ -26,6 +27,8 @@ const TEXT_KEYS = [
   'status',
   'confidence',
   'source',
+  'skill',
+  'internship_season',
 ] as const;
 
 export function JobList() {
@@ -41,6 +44,14 @@ export function JobList() {
     const salary = searchParams.get('salary_at_least');
     if (salary !== null && salary !== '' && Number.isFinite(Number(salary))) {
       next.salary_at_least = Number(salary);
+    }
+    const internshipYear = searchParams.get('internship_year');
+    if (
+      internshipYear !== null &&
+      internshipYear !== '' &&
+      Number.isFinite(Number(internshipYear))
+    ) {
+      next.internship_year = Number(internshipYear);
     }
     if (searchParams.get('include_description') === 'true') next.include_description = true;
     return next;
@@ -91,15 +102,26 @@ export function JobList() {
             <p className="mt-1.5 text-[13px] text-paper-dim">{error.message}</p>
           </div>
         ) : data.items.length === 0 ? (
-          <div className="m-5 border border-ink-700 px-4 py-6">
-            <p className="text-[14px] text-paper">No roles match these filters.</p>
-            <p className="mt-1.5 text-[13px] text-paper-dim">
-              Clear a filter, or run{' '}
-              <code className="border border-ink-700 bg-ink-900 px-1 py-0.5 font-mono text-[11px] text-signal-400">
-                make seed
-              </code>{' '}
-              if the corpus is empty.
-            </p>
+          // The caveats come *first* here, and that ordering is the point.
+          // "No roles match these filters" on its own is the product asserting
+          // there are no such jobs; the line above it may be the only reason a
+          // person knows the filter hid something it could not read.
+          <div>
+            <SearchCaveats
+              excludedNoSalary={data.excluded_no_salary}
+              excludedNoRequirements={data.excluded_no_requirements}
+              excludedNoSeason={data.excluded_no_season}
+            />
+            <div className="m-5 border border-ink-700 px-4 py-6">
+              <p className="text-[14px] text-paper">No roles match these filters.</p>
+              <p className="mt-1.5 text-[13px] text-paper-dim">
+                Clear a filter, or run{' '}
+                <code className="border border-ink-700 bg-ink-900 px-1 py-0.5 font-mono text-[11px] text-signal-400">
+                  make seed
+                </code>{' '}
+                if the corpus is empty.
+              </p>
+            </div>
           </div>
         ) : (
           <div>
@@ -111,15 +133,11 @@ export function JobList() {
                 showing {data.items.length} of {data.total}
               </p>
             </div>
-            {data.excluded_no_salary > 0 && (
-              // A10: absence of data is data. A salary floor necessarily hides
-              // every posting that states no salary, and most postings do.
-              <p className="border-b border-ink-700 px-5 py-2 text-[12px] text-paper-dim">
-                {data.excluded_no_salary} further{' '}
-                {data.excluded_no_salary === 1 ? 'role states' : 'roles state'} no salary and cannot
-                be compared against a floor.
-              </p>
-            )}
+            <SearchCaveats
+              excludedNoSalary={data.excluded_no_salary}
+              excludedNoRequirements={data.excluded_no_requirements}
+              excludedNoSeason={data.excluded_no_season}
+            />
             {data.items.map((job) => (
               <JobRow key={job.id} job={job} />
             ))}

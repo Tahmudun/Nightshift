@@ -30,7 +30,15 @@ const REMOTE_POLICIES = [
   ['unknown', 'Policy not stated'],
 ] as const;
 
+const INTERNSHIP_SEASONS = [
+  ['summer', 'Summer'],
+  ['fall', 'Fall'],
+  ['winter', 'Winter'],
+  ['spring', 'Spring'],
+] as const;
+
 const LABEL = 'block font-mono text-[10px] uppercase tracking-[0.16em] text-paper-faint';
+const NOTE = 'mt-1 text-[12px] leading-relaxed text-paper-dim';
 const FIELD =
   'mt-1 w-full border border-ink-700 bg-ink-900 px-2 py-1.5 text-[13px] text-paper ' +
   'placeholder:text-paper-faint focus-visible:outline focus-visible:outline-1 ' +
@@ -50,6 +58,8 @@ export function JobFilters({ value, onChange, deferred }: JobFiltersProps) {
       delete next[key];
     } else if (key === 'salary_at_least') {
       next.salary_at_least = Number(raw);
+    } else if (key === 'internship_year') {
+      next.internship_year = Number(raw);
     } else {
       (next as Record<string, string>)[key] = raw;
     }
@@ -165,6 +175,77 @@ export function JobFilters({ value, onChange, deferred }: JobFiltersProps) {
             value={value.salary_at_least ?? ''}
             onChange={(event) => set('salary_at_least', event.target.value)}
           />
+        </div>
+
+        <div>
+          <label className={LABEL} htmlFor="filter-skill">
+            Skill
+          </label>
+          <input
+            id="filter-skill"
+            className={FIELD}
+            placeholder="e.g. Python, GCP, golang"
+            value={value.skill ?? ''}
+            onChange={(event) => set('skill', event.target.value)}
+            aria-describedby="filter-skill-basis"
+          />
+          {/*
+            The human's decision of 2026-08-05: this filter comes on with what
+            it is based on stated beside it. It is deliberately not a tooltip
+            and not behind a disclosure — a caveat nobody sees is a caveat that
+            is not being made.
+          */}
+          <p id="filter-skill-basis" className={NOTE}>
+            Matches technologies read out of the posting. Graded at 0.861 recall against a
+            hand-labeled answer key, so it finds roughly six of every seven roles that ask for a
+            skill. Aliases resolve: <span className="text-paper">GCP</span> finds{' '}
+            <span className="text-paper">Google Cloud</span>.
+          </p>
+        </div>
+
+        <div>
+          <label className={LABEL} htmlFor="filter-internship-season">
+            Internship season
+          </label>
+          <select
+            id="filter-internship-season"
+            className={FIELD}
+            value={value.internship_season ?? ''}
+            onChange={(event) => set('internship_season', event.target.value)}
+          >
+            <option value="">Any</option>
+            {INTERNSHIP_SEASONS.map(([token, label]) => (
+              <option key={token} value={token}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className={LABEL} htmlFor="filter-internship-year">
+            Internship year
+          </label>
+          <input
+            id="filter-internship-year"
+            className={FIELD}
+            type="number"
+            min={2000}
+            placeholder="e.g. 2027"
+            value={value.internship_year ?? ''}
+            onChange={(event) => set('internship_year', event.target.value)}
+            aria-describedby="filter-internship-basis"
+          />
+          {/*
+            Two controls rather than one, and the note says why: an employer who
+            writes "2027 Internship Program" and never names a season is
+            reachable by year and by nothing else.
+          */}
+          <p id="filter-internship-basis" className={NOTE}>
+            Both are read from the posting&rsquo;s title only. Most internships state one and not
+            the other, so these ask separately — and the result says how many were hidden for saying
+            neither.
+          </p>
         </div>
       </div>
 

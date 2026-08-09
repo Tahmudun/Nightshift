@@ -14,16 +14,1321 @@
 **M2c: COMPLETE, reviewed, CI-green at `e63ec2f`, merged to `main` as PR #7 (`e42d612`).**
 **M2d: COMPLETE, reviewed, CI-green at `c6e5a97`, merged to `main` as PR #8 (`77e52ea`).**
 **M2: CLOSED. All four acceptance criteria verified, all four PRs merged.**
+**Q4 (CI pinning): ANSWERED and shipped. ADR 0016, merged to `main` as PR #10 (`0c5bcbd`).**
 **M3a: COMPLETE, reviewed, CI-green at `3fbffd6`, merged to `main` as PR #9 (`452ec90`).**
 **M3a.1: COMPLETE. Recall 0.459 → 0.861, precision 0.659 → 0.847, necessity 0.668 → 0.915.**
-**Current milestone: M3 — explainable matching. M3b (the eligibility gate) is in progress.**
-**Last updated: 2026-08-05**
+**M3b: COMPLETE, reviewed, CI-green on all five jobs at `6656eab`, first attempt. PR #11 ready to merge.**
+**Current milestone: M3 — explainable matching. M3c (the score) is next, after M3b merges.**
+**Last updated: 2026-08-09**
 
 ---
 
 ## Next exact action
 
-### Next: M3b — the deterministic eligibility gate.
+### M3b is done, reviewed, and CI-green at `6656eab`. Next: merge PR #11, then start M3c — the score.
+
+**CI green on all five jobs, first attempt** — run
+[31310986928](https://github.com/Tahmudun/Nightshift/actions/runs/31310986928).
+Counts read from the job logs rather than inferred:
+
+```
+python       1383 passed; 72 distributions, all pinned
+e2e          5 degraded + 48 seeded passed, 1 skipped
+web          20 files, 182 tests
+migrations   up, down, up, and no drift
+secret scan
+```
+
+**The e2e arithmetic is the assertion that matters here.** The previous run at
+`b403a8e` was 43 seeded and 1 skipped; this one is 48 seeded and **still 1
+skipped**. 43 + 5 = 48, and the skip count did not rise — so all five eligibility
+tests ran rather than skipping, **including the one that skipped itself green
+locally against the stale server.** The remaining skip is `operate-boards`',
+which predates M3b.
+
+Locally, before the push:
+
+```
+make check         1383 python; 182 web across 20 files; ruff, mypy, eslint,
+                   tsc, prettier all clean
+make acceptance    73 verify.py assertions + 48 seeded browser tests, 1 skipped,
+                   exit 0
+make drift         no model/migration drift
+migrations         0015 down and up again against a real database, drift clean
+```
+
+**Everything above ran against a verified-fresh API**, which is a sentence this
+project has today earned the right to have to say. See "the three-day-old
+server" below.
+
+`make acceptance` and `verify.py` are still the two things CI does not run, so
+the 73 assertions remain local-only evidence — unchanged from every previous
+milestone, and the reason `make acceptance` is in the merge checklist by hand.
+
+The PRODUCT-SPEC rename to "CitySignal" that sat in the working tree was a VS
+Code artefact — the human confirmed it on 2026-08-09 and it is reverted. The
+product is Nightshift.
+
+---
+
+## M3b Task 12 — the walk, the verify check, ADR 0017, and a promise made twice
+
+Full review: `docs/reviews/milestone-3b-review.md`. Four findings, three fixed
+this session, and the pattern across them is worth the sentence:
+
+> **A check that measures the right thing can still measure it at the wrong
+> altitude.** M3a's lesson was that a guard could be blind to what it was named
+> for. M3b's is subtler — the metric worked perfectly and could not see the
+> difference between a false positive costing precision and one costing somebody
+> a job.
+
+### The finding the browser walk existed to find, and did
+
+The degree rule demotes `bachelors+equivalent` to uncertain (A13), and the hatch
+is checked **before `profile.degree` is read** — that ordering is what makes it
+always win. Filed as `cannot_tell`, `evaluate` attached `profile_field="degree"`
+and the page rendered:
+
+```
+the posting accepts equivalent experience in place of the degree,
+which is not something this system can assess.   [Add your degree]
+```
+
+beside a profile that already had a degree in it. **The gate refuses to invent a
+blocker and the page invented an action** — the same class of claim, one layer
+up, and harder to notice because it looks helpful.
+
+`Outcome` gained `cannot_assess`; `Unknown.profile_field` is nullable to carry
+it; the page has two headings and only one of them has a link. Every unit and
+component test passed the whole time, because "not something this system can
+assess" reads perfectly in a fixture and reads as a broken promise underneath a
+link.
+
+### The same promise, two paragraphs higher, still standing after the fix
+
+Found reviewing the fix rather than the bug. `uncertain`'s headline and caveat
+describe only the `cannot_tell` cause:
+
+```
+Not enough in your profile to tell
+Nothing here is a no. Fill in what is missing and this can answer.
+```
+
+Both false when every open question came from the posting's wording — and the
+promise is the part a reader acts on, because it is the part they read first.
+Now conditional on whether any unknown is askable. **Shown able to fail in both
+directions**: neutered, the first test goes red; over-applied to "any
+unassessable unknown", the second does. "Nothing here is a no" stays in both
+branches — correcting a false promise is not a reason to withdraw a true comfort.
+
+### A hand-transcribed map nobody was comparing
+
+`ASKS` in `JobEligibility.tsx` is a copy of the gate's `_ASKS_FOR` values, and it
+is not a `z.enum`, so `test_enum_parity.py`'s parametrised test could not reach
+it. `ASKS[field] ?? field` falls back to the raw column name, so a rule added
+without its phrase does not throw and does not blank the page — it prints
+**"Add years_experience"** at a person, inside a sentence otherwise asking them
+politely for help. Two of the last four milestones found a transcription defect
+at this boundary. Shown able to fail by deleting `is_enrolled`.
+
+`ASKS[row.profile_field!]` also went: `Array.filter` does not narrow, so the `!`
+compiled by asserting something the compiler had not checked — and what it
+asserted was exactly the distinction the fix above had just introduced.
+
+### The git guard fired for the second time in two tasks
+
+`test_every_source_file_is_tracked_by_git` failed on `eligibility.spec.ts`:
+written, passing, never added. Task 11 hit it on `SearchCaveats.tsx`. Twice in
+two tasks is a pattern, and the pattern is that a *new file* is what this
+workflow loses — an edit shows up in `git status` as a modification and a new
+file sits under `??` where it reads as noise.
+
+### The three-day-old server, and the 73 checks it answered
+
+**The single most important thing found this session, and it was found by
+disbelieving a skip.**
+
+The first full `make verify` printed `all checks passed` — 73 of them, sixteen
+written that morning. It was answered by a `uvicorn` **started by hand on
+2026-08-05 and still holding port 8000 three days and eight hours later.**
+`verify.py` starts its own API; that one died instantly with "address already in
+use" into `DEVNULL`; `wait_for_api` got a healthy `/health` from the squatter.
+
+`CLAUDE.md` §4 has said the rule since the M0 review — *verify from a clean
+shell; a server you started an hour ago will make a broken target look like a
+passing one*. **A habit written down is not a guard.** Two now exist:
+
+```
+port_is_taken()               refuses to run at all when the port is not ours
+wait_for_api(process)         polls process.poll(), so our own server dying
+                              while something else answers is caught too
+```
+
+The port guard was **run against the live stale process and seen to refuse**,
+with its `lsof` line, before that process was killed.
+
+**The frightening part is that the output was identical.** The stale run and the
+honest run print the same 73 lines and the same counts. Nothing in the transcript
+tells them apart. What surfaced it was a sixth signal: a Playwright test skipping
+with *"no seeded posting is unassessable on any dimension"* — a claim about a
+committed, deterministic fixture corpus, and therefore one that cannot be true.
+
+Two artefacts made that survivable and both asserted something false:
+
+- The skip itself. The corpus deterministically holds Datadog's *AI Research
+  Scientist*, whose degree extracts as `phd` with `has_equivalence`. **The test
+  covering this milestone's headline fix reported itself as inapplicable.** It
+  now throws, naming both possible causes and the `lsof` command. The other four
+  tests in the file keep their skips — a corpus with no `ineligible` case is a
+  real possible state; this was not. That is M3a review §2.8 recurring one
+  milestone on, on a different test.
+- `playwright.seeded.config.ts` reused the API under a comment reading *"an API
+  already running for `make dev` is the same API"*. It is not, and the comment is
+  why nobody questioned the reuse. Still reused — refusing breaks the ordinary
+  `make dev` loop — but the comment now says what it cannot guarantee.
+
+**The remaining hole, stated at its real size:** Playwright still cannot tell a
+fresh API from a stale one. A general check needs the API to report its build and
+`/health` reports database and Redis. Worth an ADR at M3c, not a rushed field now.
+
+### `check_eligibility_gate` failed on its first execution
+
+`KeyError: 'posting_span'`. The domain object carries a `posting_span` tuple;
+`EligibilityBlockerOut` flattens it to `char_start`/`char_end` on the wire, the
+shape `job_requirements` already uses. The check was written against the
+dataclass and run against the API.
+
+Recorded rather than quietly fixed: **1383 Python tests knew the correct shape
+and not one of them was looking at this script.** The crash also proved the
+`finally` block does what it claims — "the profile is left as it was found" ran
+and passed while the function was unwinding.
+
+### What `check_eligibility_gate` asserts, now that it runs
+
+```
+an empty profile is blocked from nothing        zero `ineligible`, as an equality,
+                                                over every seeded posting
+the corpus reaches more than one state          the opposite failure: a gate
+                                                answering `uncertain` to
+                                                everything satisfies the line above
+no verdict without its breakdown (I4)
+every unknown names a field /profile has, or names none
+every blocker's quote is the text its span points at
+the same URL twice gives the same verdict
+clearing a column changes it, restoring the column restores it exactly
+```
+
+The last two are ADR 0017 made checkable: no worker runs and no cache is cleared
+between them. It snapshots the six gate columns and restores them in a `finally`,
+and the limit is stated in the docstring rather than implied — killed mid-run,
+the profile keeps this function's values and nothing on disk remembers what
+preceded them.
+
+Against the live seeded corpus, printed rather than assumed:
+
+```
+22 of 31 postings judged, 9 unread (nothing extracted, verdict null)
+
+empty profile      eligible 13   uncertain 9                        ineligible 0
+blocked profile    eligible 13   uncertain 1   likely_ineligible 7  ineligible 1
+```
+
+**`ineligible 0` on the empty profile is M3b's headline assertion, now measured
+on live data rather than only on the answer key.** The second row is what stops
+the first being vacuous: the same corpus does reach `ineligible` when a profile
+genuinely contradicts a stated bar.
+
+### ADR 0017, and the plan branch that could not exist
+
+`docs/adr/0017-the-eligibility-verdict-is-computed-on-read.md`. The plan's §3
+composition had five branches; the gate has four. `likely_eligible` would mean
+"every rule passed, but one leaned on something uncertain", and no rule here
+passes on an uncertain input — each returns `cannot_tell`, which is the safer
+answer, so the branch is not merely unreachable but would be wrong if reached.
+The enum keeps the member for PRODUCT-SPEC §8.3 and M3c. **Recorded in the ADR
+rather than silently not implemented**, which is the difference between a
+decision and an omission.
+
+### What ran on 2026-08-09, after Docker came back
+
+```
+make check         1383 python; 182 web across 20 files
+                   ruff (138 files), mypy (64), eslint, tsc, prettier — clean
+make acceptance    73 verify.py assertions + 48 seeded browser tests, 1 skipped
+                   exit 0
+make verify        73 checks, run separately three times
+make drift         no model/migration drift
+migrations         0015 down, up, drift clean
+```
+
+All five eligibility browser tests run and pass. The fifth — "no unknown offers
+an action that could not resolve it" — **skipped on its first attempt and passes
+now**, which is the stale-server section above in one line.
+
+The one remaining skip in the seeded suite is `operate-boards.spec.ts`'s
+"an unchanged board is not presented as a problem", which predates M3b.
+
+---
+
+### Not real yet — M3b
+
+- **`verify.py`'s 73 assertions are local-only evidence.** CI does not run
+  `make acceptance`, and that is unchanged from every previous milestone. Listed
+  first because it is the largest body of checks in this repository that no push
+  will ever exercise.
+- **Playwright still cannot tell a fresh API from a stale one.** `verify.py` now
+  refuses a port it does not own; the browser suite cannot, because
+  `reuseExistingServer: true` is load-bearing for the `make dev` loop. What
+  covers it is one throwing assertion in `eligibility.spec.ts`, which catches
+  only the case that actually happened. A general check needs the API to report
+  its build and `/health` reports database and Redis. ADR-worthy at M3c.
+- **No score, no weights, no `match_results`, no project evidence graph.** M3c.
+  Nothing is stubbed for them — no empty table, no placeholder column.
+- **Nothing is stored about a verdict.** No row anywhere records what any
+  posting concluded about anybody. That is ADR 0017's decision, not an omission,
+  and it is revisited when M3c stores a score beside it.
+- **No eligibility precision or recall, in CI or anywhere.** `matching.md` §7
+  puts them at M3d. The 60-posting answer key has no eligibility ground truth in
+  it, so what M3b publishes is reading accuracy, classifier accuracy, and the
+  wrong-ineligible equality.
+- **`likely_eligible` is an enum member no rule can reach.** Kept because
+  PRODUCT-SPEC §8.3 names it and M3c's score components may earn it. The page
+  has words for it and will never show them.
+- **Every number in M3b is an upper bound.** The classifier's thresholds and
+  precedence were chosen with the same 60 titles the grade is computed on. The
+  93 recorded-but-unlabeled postings are the held-out check this wants and they
+  are not labeled.
+- **`role_family: unclear` is labeled on zero postings**, so the corpus cannot
+  grade the case the classifier most needs to get right. A test asserts the gap
+  and goes red the day a posting is labeled `unclear`.
+- **`fall`, `winter` and `spring` are reachable by the internship-season rule
+  and stated by no posting in the corpus.** A gap in the corpus, not in the rule.
+- **Three of five reading accuracies are below 0.95** — `degree` 0.867,
+  `min_years` 0.883, `sponsorship` 0.917. Two of `sponsorship`'s five errors are
+  the deliberate `offered` tie-break and are kept on purpose.
+
+---
+
+## Superseded: what Tasks 9 and 10 could not verify, closed on 2026-08-05
+
+**Docker came back on 2026-08-05, and everything Tasks 9 and 10 could not verify
+was run locally then.** It went down again on 2026-08-09; see the block at the
+top for what that leaves unrun now. The gaps this section records are closed:
+
+```
+make check         1380 python passed, 178 web tests, ruff, mypy, eslint, tsc, prettier
+make acceptance    57 verify.py assertions, 43 seeded browser tests, 1 skipped
+migrations         0015 up, down, up against a real database; make drift clean
+```
+
+**CI is green on all five jobs at `b403a8e`, first attempt** — run
+[31062755692](https://github.com/Tahmudun/Nightshift/actions/runs/31062755692).
+Counts read from the job logs rather than inferred:
+
+```
+python       1380 passed; 72 distributions, all pinned
+e2e          5 degraded + 43 seeded passed, 1 skipped
+migrations   up, down, up, and no drift — 0015 included
+web          20 files, 178 tests
+secret scan
+```
+
+The migrations job's log carries the line that matters, after a full
+down-to-base and back up:
+
+```
+Running upgrade 0014_profile_experience -> 0015_internship_season,
+    jobs.internship_season and jobs.internship_year
+```
+
+**Migration 0015 has now run on a machine that is not this one**, which is the
+assertion this project has twice had to learn to make. This is the sixth
+first-try CI pass here, recorded because seven runs across this project have
+failed and every one found something no local command had executed.
+
+`make acceptance` had not run since Task 8 and `verify.py` had not run at all
+since then. Both have now. **What `verify.py` still does not check is the
+eligibility gate** — that is Task 12's `check_eligibility_gate`, and it is the
+one thing on the Task 9/10 "NOT run" list that a working Docker did not close,
+because it is unwritten rather than unrun.
+
+---
+
+## M3b Task 10.5 — the classifier runs on every poll (`cbcd5dc`), unrecorded until now
+
+**This landed on the branch and nothing in this file said so**, which is why the
+"Not real yet" table went on calling `jobs.role_family` and `jobs.seniority`
+always-NULL for a day after they stopped being. Recorded here rather than
+folded into Task 11, because a commit nobody wrote down is the same failure the
+table itself keeps having.
+
+`sync_classification` is **unconditional, unlike `sync_requirements`, and the
+contrast is the point.** Re-extracting requirements on every poll churns
+invisibly, which is why that call is gated on the description hash. This one has
+to be ungated for two reasons: a retitled posting is a re-levelled one with no
+character of the description changing, and — duller but more important — these
+columns were null on every existing row the day they were added, so a poll of an
+*unchanged* posting is precisely the event that would otherwise never fill them.
+
+A comment claiming this cost nothing because SQLAlchemy emits no UPDATE for
+unchanged values was **wrong, and the measurement is what said so**. Reseeding
+twice moved `max(updated_at)`; stashing the call and reseeding twice moved it
+identically. The churn is the poll's own — `last_seen_at` is written on every
+observation — so these columns ride along in a statement already being emitted.
+**The conclusion survived and the reasoning did not**, and the comment now says
+the measured thing. A comment that is right for the wrong reason is the kind
+that gets cited later.
+
+Against a freshly seeded database, checked rather than inferred:
+
+```
+seniority   unclear 16   director 5   senior 4   mid 3   staff 2   internship 1
+```
+
+---
+
+## M3b Task 11 — two filters come on, and the corpus decides a column's shape
+
+Both had been deferred since M2a. Both now exist, and neither ships without
+saying what it hides.
+
+### The plan's premise for this task was wrong, and measuring is what said so
+
+The plan deferred `internship_season` out of Task 3 with its shape undecided —
+"one `summer_2027` string, or a term enum plus a year" — and predicted the
+corpus would settle it, noting **"4 of 5 internships state a season in the
+title"**. That was read off the five internships in the *answer key*. Across all
+153 recorded postings:
+
+```
+internships by title       19
+a season in the title       8 / 19     every one of them "Summer"
+a year in the title        10 / 19
+both                        8 / 19
+neither                     7 / 19
+```
+
+**Two postings state a year and no season** — Old Mission's *"Software Engineer
+– 2027 Internship Program (June Start)"* and Point72's *"2026 Warsaw MI Data –
+Web Scraping Internship"*. A single `summer_2027` value can hold those only by
+inventing the season or by discarding the year. So: two nullable columns, and
+the shape question came out the other way from what the plan expected.
+
+### Two restrictions, both measured, both removing real errors
+
+**The description is never read.** Its years are 2011 (Akuna's founding), 2015,
+2025, 2028 and 2029 — a founding date, a fund launch and a graduation horizon.
+Harvesting one puts a confident season on a posting whose title honestly says
+nothing.
+
+**Only internships get a season.** Six non-internship titles in the corpus carry
+a season or a year:
+
+```
+Akuna Capital's 2026 Virtual Quant Trading Challenge          a competition
+Expression of Interest: 2027 Trading Sneak Peek Weeks         a programme
+Associate Product Manager, New Grad (2027 Start)              a full-time start
+2027 EU Campus Programme Talent Community                     a talent pool
+Campus AI/ML Researcher (Fall 2026)                           a cohort start
+Point72 Academy ... for Upcoming Graduates (2027 – HK)        full-time
+```
+
+The fifth is the one the gate costs something on: it states a term and a year
+plainly. **The answer key labels it `is_internship: no`**, with the labeler's
+reason written beside it — *"campus role, so is_internship is no"*. Following
+the label over the title is the ordering in `matching.md` §1.1 doing its job a
+milestone after it was set up.
+
+### A rule was written and deleted, and the deletion is the finding
+
+The first version refused a year outside a plausible hiring window, so *"Summer
+Intern, Class of 2011 Reunion"* could not claim a 2011 season. Two things killed
+it. It guards nothing observed — every year stated in a corpus internship title
+is 2026 or 2027, and the implausible ones are all in descriptions the rule
+already refuses to read. And **"plausible" can only mean "near now"**, which
+makes the same posting classify differently next year and breaks M3's
+determinism criterion, for a case nobody has seen. A test pins the decision so
+the next person does not rediscover the idea and keep it.
+
+`fall`, `winter` and `spring` are reachable by the rule and stated by no posting
+in the corpus. That is a different situation from `EligibilityState`'s
+`likely_eligible`, which no *rule* could reach; here only the corpus is missing.
+`test_the_rule_is_not_fitted_to_summer` is what keeps it a measured gap rather
+than three enum values nobody can account for.
+
+### The docstring was wrong about autogenerate, and running it is what said so
+
+The migration's first draft claimed autogenerate handled this correctly —
+that an `add_column` introducing a *new* `sa.Enum` emits its `CREATE TYPE`,
+unlike 0013's `alter_column`. That was a guess, so it was checked:
+
+```
+sqlalchemy.exc.ProgrammingError: type "internship_season" does not exist
+[SQL: ALTER TABLE jobs ADD COLUMN internship_season internship_season]
+```
+
+**M2c's finding 2 for the third time in this project, and 0013's for the
+second.** The downgrade emitted no `DROP TYPE` either — M2c's finding 3. The
+pattern was known, written down, and cited in the migration file directly above
+this one, and knowing it still did not prevent writing the wrong sentence. Only
+running it did.
+
+### `skill` outlived two deferral reasons, and the second one was caught in time
+
+```
+M2a  "requires the skill taxonomy and its aliases"   went stale at M2c, unnoticed for a milestone
+M3a  "recall is 0.459 — it would hide more than half" went stale at M3a.1, caught the same session
+```
+
+At 0.861 it hides roughly one matching role in seven. That is on the panel in
+words, next to the control, not in a tooltip and not behind a disclosure — a
+caveat nobody sees is a caveat that is not being made.
+
+`_canonical` moved out of the answer-key grader into `SkillVocabulary.canonical`
+because the filter needs the same resolution in production. Two copies is how
+the filter and the grader come to disagree about whether `GCP` and `Google
+Cloud` are one technology — **M3a.1's opening defect, one layer down**, and the
+one place a user would feel it: an unresolved alias returns zero rows, which is
+indistinguishable from an honest "no such job".
+
+The filter matches **any necessity**, deliberately. Restricting to `required`
+would hide a posting listing Python under "nice to have" — a posting that does
+ask for Python and that a person can apply to. Which list it sits in is shown on
+the job page, where it can be read rather than silently applied.
+
+### The defect this task shipped and then caught, in the browser
+
+Both caveat counts rendered **only in the branch of the list that has rows**.
+Filtering the seeded corpus by Summer returns nothing — its one internship,
+*"Software Engineer Internship, Android"*, states no season — so the screen read:
+
+```
+No roles match these filters.
+```
+
+and nothing else. **The product asserting there are no summer internships**,
+when the truth is that its one internship never says when it runs. That is the
+exact failure the count exists to prevent, in the one state where it matters
+most, and the component test could not see it because it cannot see which branch
+the real page takes.
+
+`SearchCaveats` is now its own component so it renders in both, caveat first.
+**The Playwright test was shown to fail against the pre-fix shape before being
+trusted** — the caveat was removed from the empty branch, the suite went red on
+that one test and green on the other 42, and it was put back.
+
+### What the two counts mean, kept apart on purpose
+
+```
+excluded_no_requirements   postings the skill filter could not have matched
+                           however well it works — nothing was extracted from
+                           them. NOT postings that ask for nothing.
+excluded_no_season         internships stating no season (11 of 19 in the
+                           corpus) or no year (9 of 19)
+```
+
+The season count **takes the query**, because the answer differs by dimension:
+asking for `summer` hides the internships with no season, asking for `2027`
+hides the ones with no year. One number ignoring which was asked is wrong on
+both.
+
+**Exercised against a running stack, not only in tests**, and the first number
+is larger than expected:
+
+```
+/jobs                             total 31   no_req  0   no_season 0
+/jobs?skill=Python                total  7   no_req 12
+/jobs?skill=GCP                   total  2   == /jobs?skill=Google+Cloud
+/jobs?skill=golang                total  3   == /jobs?skill=Go
+/jobs?internship_season=summer    total  0   no_season 1
+deferred_filters                  match_score, eligibility, borough
+```
+
+**12 of the 31 seeded jobs have no technology extracted from them at all** —
+39%, on a corpus that is mostly customer-success and account-executive postings
+from the recorded Alloy board, which genuinely name few technologies. Whatever
+the cause, it is the number that decides whether `excluded_no_requirements`
+earns its place, and at 12 it plainly does: a person filtering for Python sees
+7 results and a line saying 12 more could not be read either way. Without it
+that reads as a corpus of 7 Python jobs.
+
+### The guard that caught the untracked files
+
+`test_every_source_file_is_tracked_by_git` failed on `SearchCaveats.tsx` and its
+test — both written, both passing, neither added to git. A component that exists
+on one machine and in no commit is a component CI has never seen.
+
+`InternshipSeason` was added to `test_enum_parity.py` and **shown able to fail**
+by typoing `winter` in the TypeScript. It crosses the boundary as a *filter
+value* rather than as a rendered field, which is the more brittle direction: a
+typo there produces an empty result that looks like an honest answer.
+
+---
+
+## Superseded: the first Docker outage, as it was recorded during Tasks 9 and 10
+
+**Docker Desktop went down on this machine part-way through Task 9**, so nothing
+database-backed could be run locally after that point. **It came back on
+2026-08-05, and the "closed on 2026-08-05" section above records what was then
+run.** Kept because the record of what was and was not verified at the time is
+the point of keeping it — and because it went down again on 2026-08-09, which
+makes the shape of this section current news rather than history.
+
+**CI closed most of that gap and the record says so rather than leaving the
+scarier version standing.** Green on all five jobs at `38e22ac`, run
+[31057503553](https://github.com/Tahmudun/Nightshift/actions/runs/31057503553):
+
+```
+python       1345 passed; 72 distributions, all pinned
+e2e          5 degraded + 41 seeded passed, 1 skipped
+migrations   up, down, up, and no drift — including 0014
+web          19 files, 169 tests
+secret scan
+```
+
+**1345 against 1047 locally** — roughly 300 database-backed tests ran there and
+could not run here, including every API route test. The `e2e` job migrates,
+seeds and drives a browser against a real stack, so the job detail page rendered
+the new `eligibility` field and Zod parsed it; had the schema and the response
+disagreed, that suite would have thrown. The seed step passing also exercises
+Task 3's new exit-code guard against a real database.
+
+`38e22ac` is the last commit containing anything CI executes, so the usual
+pre-merge invariant applies:
+
+```
+git diff 38e22ac..HEAD --stat    # must list nothing outside docs/
+```
+
+**What is still not verified, and CI does not cover it:** `scripts/verify.py` —
+the 57 assertions `make acceptance` runs and CI does not — has not run since
+Task 8. Neither has the eligibility browser walk, which is unwritten and is
+Task 12's.
+
+**[PR #11](https://github.com/Tahmudun/Nightshift/pull/11) is open as a draft,
+and that is deliberate.** Seven CI runs in this project have failed and every
+one found something no local command had executed; waiting until the end of a
+twelve-task milestone to learn that is the expensive version. CI now runs on
+every push, and it has been **green on all five jobs twice** —
+[31052329000](https://github.com/Tahmudun/Nightshift/actions/runs/31052329000)
+at `bcf5f58` (Tasks 1–4), and
+[31053249925](https://github.com/Tahmudun/Nightshift/actions/runs/31053249925)
+at `1da91ce` (through Task 5). Counts read from the job logs:
+
+```
+python       1308 passed; 72 distributions, all pinned
+e2e          5 degraded + 41 seeded passed, 1 skipped
+migrations   up, down, up, and no drift — including 0013
+web          18 files, 159 tests
+secret scan
+```
+
+`1da91ce` is the branch head, so the recorded result covers every line on the
+branch by inspection rather than by a diff. **Migration `0013` has now run
+up, down and up on a machine that is not this one**, which is the assertion
+this project has twice had to learn to make.
+
+The plan is `docs/plans/2026-08-05-m3b-eligibility-gate.md`. Two decisions the
+human took on 2026-08-05 before planning: role families are the eight tech
+families plus an explicit `not_tech` and `unclear`, and the `skill` filter comes
+on with what it is based on stated beside it.
+
+**Task 1 is done and its result is a baseline, not an achievement.**
+
+---
+
+## M3b Task 1 — the five answer-key fields nobody had ever graded
+
+**M3a graded one of the answer key's nine label fields.** The extractor has been
+emitting `degree`, `graduation_window`, `years_experience`, `enrollment` and
+`authorization` proposals since commit `3722026`, against a key committed before
+any of those rules existed, and **no test had ever compared one of them to a
+label.** It read as finished because nothing counted.
+
+Measured 2026-08-05, over the 60 labeled postings, before any rule was changed:
+
+```
+degree                 0.567     34 right, 26 wrong
+graduation_window      0.917     55 right,  5 wrong
+min_years_experience   0.883     53 right,  7 wrong
+enrollment_required    0.317     19 right, 41 wrong
+sponsorship            0.917     55 right,  5 wrong
+```
+
+**No floors are in CI yet, deliberately.** They go in after Task 5 repairs what
+this found, set just under what the rules then achieve — M3a's rule, for M3a's
+reason: a floor picked before measuring is either unreachable or vacuous and
+there is no way to tell which from outside.
+
+### The confusions say what is wrong, which is why the report prints them
+
+```
+degree               read 'none' for 'bachelors+equivalent' x14, for 'bachelors' x5,
+                     'phd' for 'bachelors' x2, 'none' for 'masters+equivalent' x2
+enrollment_required  read 'not_stated' for 'no' x30, for 'yes' x11
+graduation_window    read '2027-2027' for 'through-2027' x2, and 3 more of that shape
+min_years_experience read None for 10, 14, 1; and read 5 where 3 was labeled
+sponsorship          read 'offered' for 'not_offered' x2, 'not_stated' for 'not_offered' x2
+```
+
+**`enrollment_required` at 0.317 is mostly a vocabulary gap, not 41 defects.**
+30 of the 41 are `not_stated` where the human wrote `no` — the reading has no
+rule that can ever output `no`, which is stated in the function's own docstring
+rather than discovered from the grade. Producing `no` needs to know the posting
+is not an internship, and **`is_internship` is the classifier's, so this one is
+blocked on Task 4.** The other 11 are real misses: the rule matches only
+"currently pursuing / enrolled / studying" and postings say "rising senior",
+"returning to school", "must be enrolled in".
+
+**`degree` at 0.567 is the one to chase.** 21 of the 26 errors read `none` where
+a degree was labeled, which means the degree was found and filed under a heading
+the extractor does not read as required — the same class of defect M3a.1 fixed
+for technologies, in a dimension nobody had looked at. The 2 postings read `phd`
+against a labeled `bachelors` are the opposite error and the more dangerous one:
+that is a wrong blocker waiting for the gate to exist.
+
+### A rule that could not fire, found by measuring within the hour
+
+`_resolve_graduation_window` shipped a branch producing the answer key's
+`through-YYYY` form when the words `through|by|before` appeared in a proposal's
+`raw_text`. **`raw_text` for these proposals is the matched year and nothing
+else** — `"2027"`, or `"2027-2028"`. The branch could never fire.
+
+Deleted rather than left in, and **the numbers were identical before and
+after**, which is what makes "it was dead" a measurement rather than a claim.
+Producing that distinction needs the words around the year, which only the
+extractor has; it is Task 5's. Until then those 5 postings read as a narrower
+window than the posting states — the direction that invents blockers.
+
+### One tie-break is deliberately wrong on this corpus
+
+`_resolve_sponsorship` prefers `offered` when a posting somehow says both, and
+that costs 2 of its 5 errors. Kept: "we do not sponsor H-1B for this role, but
+we do sponsor OPT extensions" is one real sentence containing both, and reading
+it as `not_offered` tells a person they cannot apply for a role that says it
+will help them. The other error sends them into a conversation. A13 ranks those
+two, and this is the ranking applied rather than accuracy maximised.
+
+### The grader is guarded against being the thing that is broken
+
+Two of its four tests are about the machinery rather than the corpus, because
+M3a shipped a violation count stuck at zero for a whole milestone:
+
+- `test_the_grader_can_fail` runs a constructed disagreement through the tally
+  and asserts it is recorded — a tally that cannot count a miss reads 1.000.
+- `test_every_label_field_is_graded_or_named` fails if a label field is in
+  neither the graded list nor the named-and-excluded list. **That is the guard
+  that would have caught M3a's gap a milestone earlier**: five fields were
+  unmeasured and nothing anywhere said so.
+- `test_none_years_never_compares_equal_to_zero` — `not_stated` and "no
+  experience required" are different postings, and the gate treats them
+  differently, so the grader must not merge them.
+
+---
+
+## M3b Task 2 — `role_family` and `seniority` labeled, before a classifier exists
+
+60 postings × 2 fields, added to `labels.yaml`. **120 insertions, zero
+deletions** — checked with `git diff --stat`, and the patch script refuses to
+write at all if the rewrite removes a line, because the one thing it may not do
+is reformat a committed label.
+
+The ordering is the whole point (`matching.md` §1.1). Rules written first make
+the corpus get chosen — in good faith — to hold the cases the rules already
+handle, and the grade then measures nothing. Both fields are **required with no
+default**: a posting arriving unlabeled must fail to parse rather than quietly
+acquire an answer nobody chose. `test_neither_new_field_has_a_default` is that
+guard, and `unclear` and `not_tech` are both real answers a human picked, so
+neither may become what happens when nobody picks.
+
+### The taxonomy gained a value the human's list did not have
+
+`hardware`. Akuna's *Hardware Engineer Intern* and IMC's *Graduate Hardware
+Engineer* are both FPGA and low-latency hardware design — read, not guessed
+from the titles. `not_tech` would be false and `infrastructure` would make that
+family mean two unrelated things. Two of sixty. **Recorded as a departure from
+the decision rather than absorbed into it**, and it is one line to revert.
+
+The rule applied consistently for the harder calls, written down because a
+labeler's rule that lives only in their head is a rule the next pass will
+contradict: **`role_family` describes the work's primary output.** Software,
+systems or models earn a tech family; a deal, a hire, a policy, a report or a
+financing is `not_tech`. That is what puts Anthropic's *Applied AI Architect*
+in `not_tech` — its own first sentence says "you will be a Pre-Sales
+architect" — and OpenAI's TPM roles in `product`.
+
+`seniority` was harvested from the 60 titles rather than invented, the lesson
+M3a's Task 7 paid for. `staff` covers the Lead / Staff / Principal band because
+the corpus writes "Lead" and never "Staff".
+
+### What the distributions say, including the part that is a gap
+
+```
+role_family   not_tech 19   quant_trading 13   ml_ai 9   software_engineering 4
+              security 4    product 4          infrastructure 3
+              hardware 2    design 1           data_engineering 1   unclear 0
+
+seniority     unclear 14    mid 13   new_grad 8   director 6
+              internship 5  senior 5  staff 5     junior 4
+```
+
+**`role_family: unclear` is labeled on zero postings, and that is a coverage
+gap rather than a success.** All sixty could be classified, so the corpus holds
+no example of the case the classifier most needs to get right: a posting it
+should refuse to guess at. A classifier that never answers `unclear` scores
+perfectly here and is wrong the first time it meets a genuinely ambiguous
+posting.
+
+`test_the_corpus_cannot_grade_an_unclear_family_and_says_so` **asserts the
+gap** — it fails the day a posting is labeled `unclear`, and its message says to
+delete it. That is deliberate: this project has now four times shipped a blind
+spot recorded in a comment that nobody re-read once the thing it waited on
+landed. A comment goes stale silently; a test goes red.
+
+`design` and `data_engineering` carry one posting each and `hardware` two, so
+per-family accuracy on those is not a measurement. Asserted by name in
+`test_two_families_are_too_thin_to_grade_on_their_own`, so a future table
+printing `design 1.000` cannot be read as a result.
+
+**14 of 60 seniority labels are `unclear`**, which means roughly a quarter of
+the classifier's job is knowing when not to answer. That is the right shape for
+this milestone and it also means a classifier that always says `unclear` scores
+0.23 — visible, rather than hidden behind an average.
+
+### The guard that worked on its first day
+
+Adding two label fields turned `test_every_label_field_is_graded_or_named` red
+immediately: both were in neither the graded list nor the named-and-excluded
+one. That test was written four hours earlier, in Task 1, precisely because M3a
+had five unmeasured fields and nothing anywhere said so. **This is the first
+time in this project a new label field has been unable to arrive unmeasured.**
+
+---
+
+## M3b Task 3 — two `String` placeholders become real types, and a seed that lied
+
+Migration `0013_role_family_and_seniority`. `RoleFamily` (11 values),
+`Seniority` (8), and `EligibilityState` (5).
+
+**`EligibilityState` is deliberately not a PostgreSQL enum**, unlike everything
+else in `db/base.py`. M3b computes a verdict on read and stores none, so there
+is no column to attach a type to until `match_results` arrives at M3c. Creating
+a database type with no column is shape with no use — the same reasoning that
+left `user_skills.confidence` out at M2c.
+
+**Both columns were empty, and that was checked rather than assumed**: no writer
+anywhere in `nightshift/`, `scripts/` or the web app, and `count(role_family),
+count(seniority)` returned `0, 0` against a freshly seeded database holding 31
+jobs. So the conversion could not lose a value.
+
+`null` still means "not yet classified" and stays distinct from `unclear`, which
+is the classifier having read a posting and declined to guess. Merged, an unrun
+classifier and a corpus of ambiguous titles would look identical.
+
+### Autogenerate got three things wrong, and this project had recorded all three
+
+```
+alter_column does not create the enum type   -> `type "role_family" does not exist`
+VARCHAR to enum needs an explicit USING       -> postgres will not cast implicitly
+the downgrade emitted no DROP TYPE            -> next upgrade: "type already exists"
+```
+
+The first and third are M2c's review findings 2 and 3, about `add_column` rather
+than `alter_column`. **Knowing the pattern did not prevent it** — autogenerate
+produced the same shape again and it was caught by running the migration, not by
+remembering.
+
+A fourth, new: `alembic_version.version_num` is `varchar(32)` and the generated
+revision id was 36 characters. The migration applied and then failed writing
+down that it had.
+
+Verified: up, down one, up; and a full down-to-base and back. `make drift`
+reports no drift. `make acceptance` passes with the drift step in it.
+
+### The vocabulary now exists in three places, so it is asserted equal in all three
+
+The enums in `db/base.py`, `ROLE_FAMILY_VALUES` / `SENIORITY_VALUES` beside the
+labels, and the migration's own tuples. **The migration's copy is unavoidable**
+— a migration that imports a model stops describing the schema as of its own
+revision and starts describing today's — so an assertion is the only defence
+available. Shown able to fail by misspelling `hardware` in the migration.
+
+### The seed reported success over an empty database
+
+The eighth time in this project something that reported success was wrong, and
+the first where the reporter was `make seed` itself.
+
+The model change landed before its migration. Every INSERT failed with `type
+"role_family" does not exist`. `ingest_boards` counted all 31 postings into
+`stats.failed` — **which is correct**, I3 says one bad posting may not kill a
+board — and the command printed `seed complete` and exited `0`.
+
+```
+  greenhouse fixture ingest: 0 created, 0 updated, 0 unchanged, 10 failed (succeeded)
+  lever fixture ingest:      0 created, 0 updated, 0 unchanged,  9 failed (succeeded)
+  ashby fixture ingest:      0 created, 0 updated, 0 unchanged, 12 failed (succeeded)
+    canonical jobs      0 (0 open)
+seed complete. `make dev` then open http://localhost:3000     <- exit 0
+```
+
+**The counts were on screen the whole time, and that is not enough.** CI's "Seed
+loads" step reads the exit code and nothing else, so a completely broken seed
+was a green check. `make demo` would have handed a developer an empty city under
+a success message. `make acceptance` *would* have caught it — `verify.py`
+indexes `jobs["items"][0]` and would have raised — but the CI seed step has no
+such backstop and it is the one that runs on every push.
+
+The guard is "ended with zero jobs", not "any posting failed". The fixtures are
+committed and deterministic so any failure is a defect, but failing the whole
+seed over one bad posting would make the command brittle in exactly the way
+`ingest_boards` refuses to be.
+
+**Demonstrated failing twice, from two unrelated causes** — the missing enum
+type, and orphaned `source_job_records` left by a careless `truncate`, which the
+seed refuses on the M1 acceptance criterion. Both now exit 1; a healthy seed
+still exits 0 with 31 jobs.
+
+### Two plan corrections, recorded rather than absorbed
+
+1. **`internship_season` moved from Task 3 to Task 11.** The plan put the column
+   here. It does not belong here: nothing in the answer key labels a season, so
+   populating it in Task 3 would add a field graded by nothing — the exact
+   condition Task 1 built a guard against, four hours earlier. It lands with the
+   filter that uses it, where the two can be checked together. Its shape is also
+   undecided: one `summer_2027` string, or a term enum plus a year, and the
+   corpus (4 of 5 internships state a season in the title) should decide.
+2. **Enum parity moved from Task 3 to Task 9.** The parity test compares Python
+   enums against `z.enum` copies in `schemas.ts`, and nothing serves these
+   values to a browser yet. Writing the TypeScript now would be shape with no
+   use, and the drift it guards happens at the moment of transcription — which
+   is Task 9.
+
+---
+
+## M3b Task 4 — the classifier, and the number that matters more than accuracy
+
+```
+role_family      0.950     57 right,  3 wrong
+seniority        0.967     58 right,  2 wrong
+is_internship    0.933     56 right,  4 wrong
+```
+
+Floors in CI at **0.94 / 0.96 / 0.93**, set after measuring.
+
+### One rule changed after the first measurement, and it is recorded on its own
+
+```
+role_family   0.933 -> 0.950   the role type beats the domain in a title
+```
+
+OpenAI's *Senior Technical Program Manager - Security* names a job and a subject
+area. The job is program management; security is what it is *about*. Graded with
+the domain families first it came out `security`, which describes the team
+rather than the work — and it was **the only family error in the corpus that was
+not a safe `unclear`**. Explicit management phrases now sit above every domain
+rule.
+
+### Three orderings are load-bearing and every one comes from a real posting
+
+- **`not_tech` is tested first.** *AI Compliance Officer* contains AI, *Capital
+  Markets - Infrastructure Financing* contains Infrastructure, *Cloud Partner
+  Enablement Lead* contains Cloud, *People Research Scientist, Recruiting*
+  contains Research Scientist. Four business roles wearing a technical word; a
+  tech-first order files all four wrongly.
+- **New-grad beats junior.** *Associate Product Manager, New Grad (2027 Start)*.
+- **A years figure ≥ 6 beats an early-career title word.** Jane Street's *Campus
+  Recruiter, Early Careers Partnerships & Initiatives* says early career three
+  times and asks for six years. A title-only classifier ranks it into a new
+  graduate's list.
+
+**The description may only veto towards `not_tech`, never promote into a tech
+family.** Every description in this corpus talks about technology, most at
+length, so a promoting rule would promote nearly all of them. The one phrase
+that decides on its own is Anthropic's own first sentence about the Applied AI
+Architect role: *"you will be a Pre-Sales architect"*.
+
+### The assertion that matters more than the floor
+
+`test_every_role_family_error_is_a_refusal_rather_than_a_wrong_answer`. All
+three remaining family errors say `unclear` — the classifier declining to make a
+claim, which is the same instinct A13 demands of the gate.
+
+**A floor cannot tell a confident error from a refusal, and those are not the
+same mistake.** A future rule that buys accuracy by guessing fails this test
+before it fails the floor.
+
+### Two misses are inherited, and that was checked rather than assumed
+
+*Data Center Architect, CSA* is labeled `senior` on 10 years and the classifier
+says `unclear`, because the reading returns `None`. The posting writes:
+
+```
+Required 10+ years delivering mission-critical facility infrastructure
+```
+
+`_years_of_experience` needs the word "experience" within 40 characters of the
+figure, and it is not there. **The classifier's error is the extractor's**, and
+it is one of the two `read None for 10` confusions Task 1 already printed. Task
+5's to fix.
+
+### The methodological caveat, in the module rather than in a review
+
+The seniority precedence and its two thresholds (3 and 6 years) were chosen with
+these 60 titles visible. That is **weaker independence than M3a had** — there
+the key was labeled by reading descriptions and the rules were about headings
+and vocabulary, a different surface. Here labels and rules came off the same
+titles, hours apart.
+
+Some rules are not fitted in any meaningful sense: "Director in the title means
+director" is what anybody would write. The thresholds and the ordering are.
+**So these numbers are an upper bound, not an estimate of behaviour on an unseen
+posting.** The corpus carries 93 recorded-but-unlabeled postings and they are
+exactly the held-out check this wants. **Not done, and named here rather than
+left to be noticed.**
+
+---
+
+## M3b Task 5 — four repairs, each measured on its own
+
+```
+Task 1 baseline                          degree 0.567   enrollment 0.317
++ curly apostrophe in the degree words   degree 0.700
++ "or an equivalent" broadened           degree 0.733
++ "minimum education" heading harvested  degree 0.850
++ enrollment stops requiring "currently"                enrollment 0.483
+```
+
+**The technology numbers are unchanged at 0.847 / 0.861 / 0.915**, checked
+rather than assumed — adding a required heading is exactly the kind of change
+that could have moved M3a.1's figures.
+
+### The apostrophe: M3a.1's en-dash finding, in a different rule
+
+Akuna, Anthropic and IMC type the **curly** apostrophe in "Bachelor's degree",
+because that is what a rich-text editor produces. The pattern accepted only
+ASCII `'` and matched none of it. **21 of the 26 degree errors were postings
+whose degree sentence the extractor could not see at all.**
+
+Two of those came out `phd` against a labeled `bachelors`:
+
+```
+Requirements for this role: Pursuing a bachelor's, master's, or Ph.D.
+```
+
+`Ph.D` is the one spelling in that list with no apostrophe in it, so it was the
+only proposal and won by default. **A posting explicitly open to a bachelor's
+graduate read as a doctorate requirement** — the direction A13 ranks worst, and
+it was one migration away from being a wrong `ineligible`.
+
+Normalising the text to ASCII first would also have worked and was rejected:
+every proposal carries character offsets into `jobs.description_text`, and
+rewriting the string those offsets point at is how a span comes to quote
+something the posting never said. U+2019 happens to be one character wide so the
+offsets would have survived — but the rule is not "when the replacement is the
+same width", and the next such fix would not be.
+
+### Both new phrasings were harvested, not invented
+
+- **`minimum education`** occurs in exactly **15** postings — every Anthropic
+  posting in the corpus, which appends a `Logistics / Minimum education: ... /
+  Required field of study: ...` block to all of them. It is the last heading
+  before the degree sentence, so without it a posting whose own words are
+  *"Minimum education: Bachelor's degree"* was read as requiring **no degree**.
+- **`or an equivalent`** — A13's escape hatch. `or\s+(?:an?\s+)?equivalent`
+  matches 23 of 60 against the narrow form's 8. Missing one is the dangerous
+  direction: it turns "or an equivalent combination of education, training,
+  and/or experience" into a hard degree requirement.
+- **The enrollment rule required the word "currently"**, and 10 of the 11
+  postings labeled `enrollment_required: yes` do not use it. They write
+  *"Pursuing a bachelor's, master's, or Ph.D."* and *"Current university
+  student graduating between..."*. The replacement is anchored to a degree word,
+  because "pursuing excellence" is ordinary prose — the same prove-itself
+  discipline `_looks_like_a_heading` already applies to headings.
+
+### One metric was redefined rather than one rule tuned, and no label was edited
+
+**`enrollment_required`'s `no` and `not_stated` are not separable from the
+postings.** Among the 47 non-internship postings, 30 are labeled `no` and 17
+`not_stated`, and reading the descriptions the split is not driven by anything
+they say — a few `no` labels carry a note pointing at real text, most do not. To
+a person both mean the same thing: you do not have to be a student to apply.
+
+So the three-way figure measures a distinction that does not exist, and it would
+keep looking broken however good the rules got.
+
+```
+enrollment, as the gate asks it   0.983    59 right, 1 wrong
+enrollment, three-way             0.483    still printed, not gated
+```
+
+**No label was edited.** Rewriting 30 labels to lift a metric is exactly the
+move `matching.md` §1.1 forbids, and "with a recorded reason" would not make it
+a different move. The metric is redefined on the distinction that changes a
+verdict — the gate asks "must this person be enrolled", and a posting that is
+silent and a posting that says no produce the identical answer — and the
+three-way figure stays printed beside it so the change is visible rather than a
+quiet improvement.
+
+**This is the only floor in that file so far**, at 0.90. The other five stay
+reported and ungated until the repair pass is finished, because a floor set
+mid-repair is a floor that has to be edited again next week.
+
+### What is still wrong, and what it is waiting on
+
+```
+degree 0.850            9 left: 2 read `none` for `bachelors+equivalent`,
+                        2 read `bachelors+equivalent` for `none`
+graduation_window 0.917 all 5 are the `through-YYYY` form, which needs the
+                        words around the year and so needs the extractor
+min_years 0.883         "Required 10+ years delivering ..." — the rule needs
+                        the word "experience" within 40 characters and it is
+                        not there
+sponsorship 0.917       2 of the 5 are the deliberate `offered` tie-break
+```
+
+---
+
+## M3b Tasks 6 and 7 — the gate, and the two blockers it was caught inventing
+
+`domain/eligibility.py`. Pure, no ORM, reads no description. It takes a
+`PostingReading` and a `SeekerProfile` and returns a state, its blockers, its
+unknowns and its version. **Nothing is stored** — `match_results` is M3c's, and
+a stored verdict goes stale the moment somebody edits their graduation year.
+
+```
+any blocks       -> ineligible
+else any soft    -> likely_ineligible
+else any cannot  -> uncertain
+else                eligible
+```
+
+`blocks` needs **two explicit halves at once**: the posting states it under a
+required heading, *and* the person's confirmed profile contradicts it. Either
+half missing is `cannot_tell`. That is I2 doing the work — an inferred fact
+never blocks anybody, because an inferred fact is not a fact.
+
+**There is no branch producing `likely_eligible`, and that is stated rather than
+left to be noticed.** It would mean "every rule passed, but one leaned on
+something uncertain", and no rule here passes on an uncertain input — each
+returns `cannot_tell` instead. A fifth state no rule can reach would be shape
+with no use. The enum keeps the member because PRODUCT-SPEC §8.3 names it and
+M3c's score components may earn it.
+
+### Three rules whose reasons matter more than their code
+
+- **A years shortfall may never hard-block.** "5+ years" is a wish far more
+  often than a rule, and A13's first hard case is an employer writing "Intern"
+  and "3+ years required" in the same document. It reaches `likely_ineligible`
+  and stops. The person sees the role, sees the gap, and decides.
+- **Enrollment may hard-block**, because it is categorical and checkable rather
+  than a matter of degree.
+- **Authorization blocks in exactly one configuration** — the posting says in
+  writing that it does not sponsor **and** the person has said they need it.
+  `unspecified` is the column default and most users' day-one value; reading it
+  as "needs sponsorship" would silently block them out of every such posting
+  before they had typed anything. `f1_student` is likewise not `needs_sponsorship`
+  — an F-1 on OPT does not need sponsorship today, and inferring one from the
+  other is the fabrication I2 forbids in the field where being wrong costs most.
+
+**Blockers and unknowns are separate types** because they mean opposite things
+to a person. A blocker says "this is probably not for you". An unknown says
+"tell us one more thing and we can answer" — and names the profile field that
+would settle it, because "complete your profile" is not an action and "tell us
+your graduation year" is.
+
+### The wrong-ineligible check found two real blockers on its first run
+
+Zero, as an equality, over **60 postings × 5 profiles**. The checker is written
+from the answer key and **never calls the gate** — a checker that called the
+gate would agree with it by construction and assert nothing, which is precisely
+how M3a's `test_no_nice_to_have_is_ever_reported_as_required` sat at zero for a
+whole milestone.
+
+**1. "Must be graduating August 2027 or prior"** was read as the single year
+2027, so the gate blocked a 2024 graduate from a role whose own words say they
+qualify. **Task 5 had recorded this exact form as a 5-label accuracy gap and
+deferred it.** It was not an accuracy gap. The gate is what turned five labels
+into a person being told they cannot apply. `_is_open_ended` now reads the words
+on either side of the year; `graduation_window` went **0.917 → 1.000**.
+
+**2. "MS Office" was read as a master's degree** on IMC's *Administrative
+Assistant* posting, which the answer key labels `degree: none` — hard-blocking a
+bachelor's graduate. Bare two-letter abbreviations now need two things at once:
+
+- **case-sensitivity**, because `\bms\b` under `re.I` matches the milliseconds
+  in "5 ms in latency" and these boards are trading firms. The same call
+  `skills.yaml` already makes for `Go`, `Rust`, `React` and `Outlook`.
+- **a following degree context** — a slash, "in", "or", "degree", or a comma
+  *only when another abbreviation follows*. "BS, MS preferably in business" is
+  IMC's; "MS, Word, Excel" is what the constraint keeps out.
+
+**That second fix left accuracy at 0.850, then 0.867 — and that is the finding.**
+It removed no error on paper and removed a hard block on a real person.
+**Accuracy could not tell the difference between a false positive that costs
+precision and one that costs somebody a job.** It is the clearest argument in
+this milestone for why the wrong-ineligible equality exists beside the floors
+rather than instead of them.
+
+### The mutation test was wrong on its first write, and is recorded as such
+
+It strips A13's equivalence hatch and re-runs. The first version used a
+bachelor's holder — who clears a `bachelors+equivalent` bar whether the hatch is
+honoured or not — so the break produced **zero** violations and the test failed
+for its own reason rather than the gate's. The profile the hatch is addressed to
+is the one with **no degree at all**, and that person is now in the profile set.
+
+### The distribution, printed rather than assumed
+
+```
+a 2027 undergraduate, enrolled, needing sponsorship   eligible 27  ineligible 2   likely_inel 20  uncertain 11
+a 2024 graduate with two years and a green card       eligible 22  ineligible 11  likely_inel 15  uncertain 12
+a PhD with eight years, a citizen                     eligible 29  ineligible 11  likely_inel 5   uncertain 15
+a self-taught engineer with no degree and four years  eligible 16  ineligible 21  likely_inel 9   uncertain 14
+somebody who has filled in nothing                    eligible 13  ineligible 0                   uncertain 47
+```
+
+**The last row is the one to read.** A person who has filled in nothing gets
+**zero** ineligibles and 47 uncertains — the state every user is in on day one.
+`test_the_corpus_actually_exercises_the_gate` guards the opposite failure: a
+gate answering `uncertain` to everything would satisfy every other assertion in
+that file, has perfect precision, and is worthless (`matching.md` §3.3).
+
+---
+
+## M3b Task 8 — every gate rule shown able to fail, in the suite
+
+**All five rules are load-bearing.** Replacing any one with an unconditional
+`passes` changes the verdict of a case taken from `test_eligibility_gate.py`.
+
+`matching.md` §8 asked for this on the gate specifically, and gave the reason:
+three tests in this project have turned out unable to fail, and the gate is
+where that would cost most.
+
+**It runs as a test rather than as an exercise a human did once and wrote down.**
+A mutation result in a review is true on the day it was written. A mutation
+result in the suite is true every time the suite runs.
+
+Two guards on the harness itself, because a mutation harness that mutates
+nothing is the most confident kind of vacuous test:
+
+- `test_every_rule_in_the_gate_has_a_case_here` fails when a rule is added
+  without a mutation case — the same shape as
+  `test_every_label_field_is_graded_or_named` one layer down, and the same
+  failure mode it prevents: a check that looks complete because nothing counts
+  what it is missing.
+- `test_the_harness_itself_is_not_vacuous` neuters all five at once and asserts
+  the all-passing outcome.
+
+**That second risk is real and was measured rather than supposed.** `_RULES`
+holds function references captured at import, so `monkeypatch.setattr(
+eligibility, "_degree_rule", ...)` leaves the tuple pointing at the original.
+Run directly: the verdict stayed `ineligible` under that patch. The harness
+rebuilds the tuple instead, and the comment saying so was written after
+checking rather than before.
+
+---
+
+## M3b Tasks 9 and 10 — the verdict reaches the browser
+
+`GET /jobs/{id}` returns the state, every blocker with the posting's own words
+and offsets, and every unknown with the profile field that would resolve it.
+**Computed on read, stored nowhere.** Null when the posting has no extracted
+requirements at all — a verdict from an unread posting would say `eligible` to
+everyone and be indistinguishable on the page from a posting that genuinely
+asks for nothing.
+
+### The gate asked five questions and `users` could answer three
+
+`years_experience` and `is_enrolled` did not exist. Without them two of the five
+rules return `cannot_tell` for every real person forever, **and the page would
+have printed "tell us your years of experience" beside a profile with nowhere to
+say it** — a dead end, which is M2c's finding about a provenance link that 404s,
+one milestone on.
+
+Both nullable: "has not told us" must stay distinct from `0` and from `false`.
+Neither is ever inferred — `graduation_year` is already stored and one
+subtraction would produce a plausible number for both, which is the I2 violation
+easiest to write and hardest to spot in review.
+
+### The I2 guard had silently stopped covering what it guards
+
+`PROFILE_COLUMNS` in `test_nothing_infers.py` is the list of columns only
+`domain/profile.py` may write. **It is hand-maintained, and neither new column
+was in it.** The guard would have gone on passing.
+
+**That is the fourth time in this project a list has quietly stopped describing
+the thing it names**, and always in the same direction — things get added and the
+list does not. The other three were "not built yet" lists, where the cost was a
+stale sentence on a page. This one was an invariant.
+
+The list is now checked against `User.__table__`: every column must be
+classified deliberately as a profile fact or as not one, and neither choice can
+be made by forgetting. Shown able to fail by removing `is_enrolled` and watching
+it name the column.
+
+### `_degree_of` reads free text, whole words only
+
+`users.degree` is what a person typed. A substring test for `bs` matches
+**jobs** and `ba` matches **database** — the defect that made `react` a required
+technology on eight postings at M3a.1. Anything unrecognised returns `None`,
+which reaches `cannot_tell` and asks the person, rather than inventing a level
+low enough to block them or high enough to pass them.
+
+### Three enums crossed the boundary and all three were right
+
+`RoleFamily`, `Seniority`, `EligibilityState`, added to `test_enum_parity.py`.
+Two of the last four milestones found a hand-transcription defect there, so this
+is recorded as the outcome rather than assumed. **The guard was shown able to
+fail** by typoing `quant_trading` in the TypeScript and watching exactly that
+parameter go red — a guard that passes is otherwise indistinguishable from a
+guard that is not looking.
+
+`EligibilityState` is not a database enum and is guarded anyway: that test is
+about a vocabulary crossing the boundary, not about where it is persisted.
+
+### The page, and the sentence that matters most on it
+
+Never hidden, and it never hides a job. A blocker is a wall; an unknown is a
+question with somewhere to go and links to `/operate/profile`, which was checked
+to exist. `blocks` and `soft_blocks` get different headings, because the gate
+never lets a years shortfall produce an `ineligible` and the page must not imply
+otherwise.
+
+Under `ineligible` the page says: the rules misread postings, the quote is right
+there, and **if it does not say what we claim then we are wrong and you should
+apply anyway.** A verdict that sounds like a decision somebody made is a verdict
+nobody argues with. It has its own test.
+
+No state is rendered as its enum value — `likely_ineligible` is jargon on the
+one verdict a person least wants to read. Checked for all five.
+
+### A stale claim removed, and a test is what found it
+
+**"Eligibility" was still in the job page's "Not yet computed" list**, about to
+sit directly beside a section computing it. It surfaced only because the new
+section put that word on the page twice and an existing test could no longer
+tell the two apart. Three times before this, the same kind of list went stale
+for a whole milestone with nothing catching it.
+
+### What has not been verified, stated rather than implied
+
+Docker Desktop hung during Task 9 and has not recovered. So:
+
+```
+verified   1047 non-database Python tests, 169 web tests, ruff, mypy,
+           eslint, tsc, prettier; migration 0014 up/down/up + clean drift
+           probe, run before the daemon died
+NOT run    every database-backed Python test since Task 8
+NOT run    make acceptance, make verify, the seeded browser suite
+NOT written the eligibility browser walk — Task 12's, and it needs a stack
+```
+
+CI provisions its own postgres and is the standing check for the first gap.
+It cannot stand in for the browser walk.
+
+---
+
+### After M3b Task 10: the rest of the M3b plan.
 
 **PR #9 is merged.** `main` is at `452ec90`, checked against the PR rather than
 assumed. CI was green on all five jobs at `3fbffd6`, run
@@ -42,14 +1347,16 @@ The pre-merge invariant held: `git diff 3fbffd6..HEAD --stat` listed docs only.
 **That branch took three CI runs, and only the first found anything** — the
 check-constraint defect below. The second and third were green first time.
 
-`m3a-answer-key` and `m2d-daily-queue` are deleted locally. **Four merged
-branches are still on the remote** — `m1a-provider-breadth`,
-`m2c-profile-and-resume`, `m2d-daily-queue`, `m3a-answer-key`, all fully merged
-into `main` with nothing ahead. Deleting them still needs a permission this
-session did not have; it is one `git push origin --delete`.
+**All four stale merged branches are deleted, locally and on the remote.**
+`m1a-provider-breadth`, `m2c-profile-and-resume`, `m2d-daily-queue` and
+`m3a-answer-key` are gone, and `ci-pin-and-canary` followed once PR #10 merged;
+`git branch -a` now lists only `main` and `m3b-eligibility-gate`, checked after
+a `--prune` rather than assumed. This had been carried as an open item since M2c, in four
+consecutive PROGRESS entries, because the permission was not available.
 
-**[PR #10](https://github.com/Tahmudun/Nightshift/pull/10) is open and CI is
-green on all five jobs, first attempt**, run
+**[PR #10](https://github.com/Tahmudun/Nightshift/pull/10) is MERGED** —
+`0c5bcbd` on `main`, 2026-08-05T22:37Z, checked against the PR rather than
+assumed. CI was green on all five jobs, first attempt, run
 [31045860049](https://github.com/Tahmudun/Nightshift/actions/runs/31045860049).
 Counts read from the job logs rather than inferred:
 
@@ -560,17 +1867,22 @@ to write off as "the mutation was not meaningful".
 - **93 of the 153 recorded postings are committed and unlabeled.** Deliberate:
   the payloads are real and cheap to keep, and re-recording later costs a
   network round against nine live boards.
-- **`has_equivalence` is stored and read by nothing** but the tests and a badge
-  on the job page. A13 requires M3b's gate resolve it to `uncertain` rather
-  than `ineligible`; storing it now is what makes that possible without
-  re-extracting.
+- ~~**`has_equivalence` is stored and read by nothing** but the tests and a badge
+  on the job page.~~ **Stale as of M3b Task 6.** `_degree_rule` reads it, and it
+  is the only thing in the gate that produces `cannot_assess`. Struck rather
+  than deleted: this project has four times shipped a blind spot recorded in a
+  line nobody re-read once the thing it waited on landed.
 - **The `jobs_description_change_clears_requirements` trigger is guarded by
   exactly one test.** Dropping it turns exactly that one red. Thin for a
   structural guarantee, and recorded rather than padded — its whole purpose is
   the writer that does *not* call `sync_requirements`.
-- **Everything in `matching.md` §9 is M3b or later**: the eligibility gate, the
+- ~~**Everything in `matching.md` §9 is M3b or later**: the eligibility gate, the
   score and its components, role-family and seniority classification, the
-  project evidence graph, and the `uncertain` resolution. None is stubbed.
+  project evidence graph, and the `uncertain` resolution. None is stubbed.~~
+  **Partly stale as of M3b.** The gate, the classifier and the `+equivalent`
+  resolution are built. The score and its components, the versioned weights and
+  the project evidence graph are M3c, and are still not stubbed. See "Not real
+  yet — M3b" below.
 
 ### The M3a plan
 
@@ -2328,7 +3640,8 @@ wrong: ML frameworks (JAX, LangChain, HuggingFace, DSPy), accelerators (CUDA, RO
 | Later-arising duplicates | Dedupe runs only on creation, deliberately: re-running the matcher every poll is how a settled merge starts oscillating. The consequence is that two jobs which become duplicates *later* — a title corrected on one board to match the other — never merge, and nothing reconciles them | No milestone. Revisit if visible duplicates are reported |
 | `job_locations.geom` | Column and GiST index exist; always NULL | M1 |
 | `normalize_title` | Whitespace and dash folding only. Deliberately does **not** attempt role-family normalization — asserted by `test_does_not_attempt_role_family_normalisation` | M3 |
-| `jobs.role_family`, `jobs.seniority` | Columns exist, always NULL. NULL means "not classified", never a guessed default | M3 |
+| ~~`jobs.role_family`, `jobs.seniority`~~ | **Filled in as of M3b (`cbcd5dc`), and this row said otherwise for a day.** `sync_classification` runs on every poll, ungated, and a freshly seeded database reads 16 `unclear`, 5 `director`, 4 `senior`, 3 `mid`, 2 `staff`, 1 `internship` — checked against Postgres rather than inferred. NULL still means "never classified" and stays distinct from `unclear`. **This is the fifth time a list in this project has quietly stopped describing the thing it names, and the fifth in the same direction**: the code moved and the row did not | Done |
+| `jobs.internship_season`, `jobs.internship_year` | **Real, and null on all 31 seeded jobs — which is the correct answer, not a gap.** The seed holds one internship, "Software Engineer Internship, Android", whose title states no season and no year. Across the wider recorded corpus 8 of 19 internships state a season and 10 of 19 a year. The filter reports what it hid rather than returning an empty list | Done |
 | Stripe board registry entry | Verified live (HTTP 200) but `status: disabled`. Polling more boards before the closure machine exists would mean ingesting jobs the system cannot honestly age out | M1 |
 | `/registry` route | Still read-only. The *crawl-index* half of the resolution pipeline now exists (M1c) and fills `data/board-candidates.yaml`; the careers-page probe does not | M1c partly, careers probe unscheduled |
 | Lever board discovery | **Does not exist and cannot, from the crawl archive.** `jobs.lever.co/robots.txt` disallows CCBot, so no Lever page is in Common Crawl (ADR 0006). `sources/careers_probe.py` is designed but not built: it needs a list of employer domains and nothing in the repo has one, and guessing domains would be the fabrication this milestone exists to prevent. Named as the first blind spot on `/analyze/coverage`, with the structural reason, and a browser test asserts it reaches the screen. **Lever boards enter the registry only by hand** | No milestone. Needs a domain source first |

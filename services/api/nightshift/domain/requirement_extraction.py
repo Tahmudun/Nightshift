@@ -89,6 +89,16 @@ _REQUIRED_HEADINGS = (
     # a wrong necessity — which is why heading vocabulary was the lever worth
     # pulling before the long tail of skills.
     r"candidates must be",
+    # Harvested 2026-08-05 at M3b Task 5, governs 15 labeled postings — every
+    # Anthropic posting in the corpus, which appends a "Logistics / Minimum
+    # education: ... / Required field of study: ..." block to all of them.
+    #
+    # It is the *last* heading before the degree sentence, so without it the
+    # degree came out `mentioned` and the reading said `none`: a posting whose
+    # own words are "Minimum education: Bachelor's degree" was read as requiring
+    # no degree at all. Six of the sixty, all from one employer's boilerplate.
+    r"minimum education",
+    r"required field of study",
     r"required",
 )
 
@@ -271,12 +281,79 @@ def _heading_matches(pattern: str, text: str) -> list[tuple[int, int]]:
     return [(start, end) for start, end in spans if _looks_like_a_heading(text, start, end)]
 
 
-_EQUIVALENCE = re.compile(r"\bor\s+(?:have\s+)?equivalent\b", re.I)
+#: A13's escape hatch. **Missing one of these is the dangerous direction**: it
+#: turns "or an equivalent combination of education, training, and/or
+#: experience" into a hard degree requirement, and a hard degree requirement is
+#: an `ineligible` for somebody the employer would have hired.
+#:
+#: `an?` was added at M3b Task 5 because Anthropic writes "Bachelor's degree **or
+#: an equivalent** combination" on every one of its 15 postings in the corpus and
+#: the original pattern required "or equivalent" adjacently. Harvested rather
+#: than guessed: `or\s+(?:an?\s+)?equivalent` matches 23 of the 60 postings
+#: against the narrow form's 8.
+_EQUIVALENCE = re.compile(r"\bor\s+(?:an?\s+)?(?:have\s+)?equivalent\b", re.I)
+
+#: The RIGHT SINGLE QUOTATION MARK is deliberate and load-bearing, so RUF001 is
+#: suppressed rather than obeyed — the same call, for the same reason, as the EN
+#: DASH in `_graduation_windows`. **Akuna, Anthropic and IMC type the curly
+#: apostrophe** in "Bachelor's degree", because that is what a rich-text editor
+#: produces, and an ASCII-only pattern matched none of it.
+#:
+#: Measured before the fix: 21 of the 26 degree errors against the answer key
+#: were postings whose degree sentence this could not see at all. Two came out
+#: `phd` against a labeled `bachelors`, from a sentence reading "Pursuing a
+#: bachelor's, master's, or Ph.D." — `Ph.D` is the one spelling in that list
+#: with no apostrophe in it, so it was the only proposal and won by default.
+#: That is the dangerous direction: a posting open to a bachelor's graduate
+#: reading as a doctorate requirement.
+#:
+#: Normalising the text to ASCII first would have worked and was rejected: every
+#: proposal carries character offsets into `jobs.description_text`, and rewriting
+#: the string the offsets point at is how a span comes to quote something the
+#: posting never said. U+2019 happens to be one character wide, so the offsets
+#: would have survived — but the rule is not "when the replacement is the same
+#: width", and the next such fix would not be.
+#: The bare two-letter abbreviations must prove themselves, and IMC's
+#: Administrative Assistant posting is why. `m\.?s\.?` matched the `MS` in **MS
+#: Office**, the reading came out `masters`, and the gate hard-blocked a
+#: bachelor's graduate from a role the answer key labels `degree: none`. Found by
+#: `test_no_posting_is_wrongly_reported_ineligible` on its first run — a false
+#: positive that would merely have cost precision at M3a became a person being
+#: told they cannot apply.
+#:
+#: Two constraints together, because either alone is not enough:
+#:
+#: - **Case-sensitive** via `(?-i:...)`. These boards are trading firms and
+#:   `\bms\b` under `re.I` matches the milliseconds in "5 ms in latency". The
+#:   same call `skills.yaml` already makes for `Go`, `Rust`, `React` and
+#:   `Outlook`.
+#: - **A degree context must follow** — a slash, "in", "or", or "degree". "MS
+#:   Office" has none of them; "BS/MS in Finance" and "Pursuing a BS/MS/PhD"
+#:   have all they need.
+#:
+#: The spelled-out and dotted forms (`Bachelor's`, `B.S.`, `MSc`) are
+#: unambiguous on their own and keep matching without either constraint.
+#: A comma counts **only when another degree abbreviation follows it**. IMC
+#: writes "BS, MS preferably in business, economics or STEM", where the comma is
+#: doing the same job the slash does in "BS/MS". Allowing a bare comma would let
+#: "MS, Word, Excel" back in, which is the false positive this whole constraint
+#: exists to keep out.
+_ABBREVIATION_NEEDS = (
+    r"(?=\s*(?:/|,\s*(?-i:BS|MS|BA|BSc|MSc|PhD|Ph\.D)\b|\bin\b|\bor\b|\bdegree\b))"
+)
 
 _DEGREE_PATTERNS: tuple[tuple[str, str], ...] = (
     ("phd", r"\b(ph\.?\s?d\.?|doctorate|doctoral degree)\b"),
-    ("masters", r"\b(master'?s(?:\s+degree)?|m\.?s\.?c?\.?|m\.eng\.?)\b"),
-    ("bachelors", r"\b(bachelor'?s(?:\s+degree)?|b\.?s\.?c?\.?|b\.?a\.?|b\.eng\.?)\b"),
+    (
+        "masters",
+        r"\b(master['’]?s(?:\s+degree)?|m\.\s?s\.?c?\.?|m\.eng\.?"  # noqa: RUF001
+        r"|(?-i:MSc)|(?-i:MS)" + _ABBREVIATION_NEEDS + r")\b",
+    ),
+    (
+        "bachelors",
+        r"\b(bachelor['’]?s(?:\s+degree)?|b\.\s?s\.?c?\.?|b\.\s?a\.?|b\.eng\.?"  # noqa: RUF001
+        r"|(?-i:BSc)|(?-i:BS|BA)" + _ABBREVIATION_NEEDS + r")\b",
+    ),
 )
 
 
@@ -465,6 +542,41 @@ def _degrees(text: str) -> list[RequirementProposal]:
     return out
 
 
+#: "or prior" and friends, which turn a single year into a window with no lower
+#: bound. These follow the year: "Must be graduating August 2027 or prior".
+_OPEN_ENDED_AFTER = re.compile(r"^\W{0,3}or\s+(?:prior|earlier|before|sooner|previously)\b", re.I)
+
+#: ...and these precede it: "graduating by December 2028", "through 2029".
+_OPEN_ENDED_BEFORE = re.compile(
+    r"\b(?:by|through|before|prior\s+to|no\s+later\s+than|on\s+or\s+before)\b[^.;]{0,25}$", re.I
+)
+
+
+def _is_open_ended(text: str, start: int, end: int) -> bool:
+    """Whether a graduation year is a ceiling rather than a single year.
+
+    **This distinction is a wrong-`ineligible` waiting to happen, and it was
+    one.** Akuna's Junior Quantitative Developer posting says "Must be
+    graduating August 2027 or prior". Read as the single year 2027, the gate
+    blocked a 2024 graduate from a role whose own words say they qualify —
+    caught by `test_no_posting_is_wrongly_reported_ineligible` on its first run,
+    against real corpus text and a realistic profile.
+
+    M3b Task 5 recorded this gap and deferred it as an accuracy problem worth 5
+    of 60 labels. It was not an accuracy problem. The gate is what turned the
+    5 labels into a person being told they cannot apply.
+
+    Both sides of the year are checked because employers write it both ways, and
+    the "before" pattern is anchored to the end of the preceding text so that a
+    stray "by" three sentences earlier cannot reach it.
+    """
+    after = text[end : end + 20]
+    if _OPEN_ENDED_AFTER.match(after):
+        return True
+    before = text[max(0, start - 40) : start]
+    return bool(_OPEN_ENDED_BEFORE.search(before))
+
+
 def _graduation_windows(text: str) -> list[RequirementProposal]:
     out: list[RequirementProposal] = []
     # The EN DASH in this alternation is deliberate and load-bearing, so RUF001
@@ -491,6 +603,18 @@ def _graduation_windows(text: str) -> list[RequirementProposal]:
         if any(m.start() in r for r in claimed):
             continue
         if not re.search(r"graduat", text[max(0, m.start() - 90) : m.start()], re.I):
+            continue
+        if _is_open_ended(text, m.start(), m.end()):
+            out.append(
+                RequirementProposal(
+                    kind="graduation_window",
+                    value=f"through-{m.group(1)}",
+                    raw_text=m.group(0),
+                    char_start=m.start(),
+                    char_end=m.end(),
+                    necessity=necessity_at(text, m.start()),
+                )
+            )
             continue
         out.append(
             RequirementProposal(
@@ -524,9 +648,34 @@ def _years_of_experience(text: str) -> list[RequirementProposal]:
     return out
 
 
+#: Broadened at M3b Task 5, from `currently (pursuing|enrolled|studying)`.
+#: That required the word "currently" and **10 of the 11 postings the answer key
+#: labels `enrollment_required: yes` do not use it**. They write:
+#:
+#:     Requirements for this role: Pursuing a bachelor's, master's, or Ph.D.
+#:     What we look for: Pursuing a bachelor's or master's in computer science
+#:     Your Skills and Experience: Current university student graduating between
+#:
+#: "Pursuing" alone is not enough and is not used alone here — "pursuing
+#: excellence" and "pursuing opportunities" are ordinary description prose. It
+#: is anchored to a degree word immediately after, which is the same
+#: prove-itself discipline `_looks_like_a_heading` applies to headings and for
+#: the same reason: an unanchored word that appears in prose will match prose.
+_ENROLLMENT = re.compile(
+    r"\b(?:"
+    r"currently\s+(?:pursuing|enrolled|studying)"
+    r"|pursuing\s+(?:a|an|your)?\s*"
+    r"(?:bachelor|master|ph\.?\s?d|doctora|degree|bs\b|ms\b|undergraduate|graduate)"
+    r"|current(?:ly)?\s+(?:university|college|full-?time)?\s*student"
+    r"|enrolled\s+in\s+(?:a|an|your)"
+    r")",
+    re.I,
+)
+
+
 def _enrollment(text: str) -> list[RequirementProposal]:
     out: list[RequirementProposal] = []
-    for m in re.finditer(r"\bcurrently (?:pursuing|enrolled|studying)\b", text, re.I):
+    for m in _ENROLLMENT.finditer(text):
         out.append(
             RequirementProposal(
                 kind="enrollment",

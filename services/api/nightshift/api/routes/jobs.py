@@ -12,6 +12,7 @@ the same row drift, and they drift silently.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Annotated
 from uuid import UUID
@@ -21,9 +22,13 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from nightshift.api.deps import CurrentUserId
 from nightshift.api.schemas import (
     CompanyOut,
     DeferredFilterOut,
+    EligibilityBlockerOut,
+    EligibilityOut,
+    EligibilityUnknownOut,
     JobAdminListOut,
     JobAdminRowOut,
     JobDetailOut,
@@ -36,22 +41,35 @@ from nightshift.api.schemas import (
     JobSummaryOut,
     SalaryOut,
 )
-from nightshift.db.base import EmploymentType, JobStatus, LocationConfidence, RemotePolicy
+from nightshift.db.base import (
+    EmploymentType,
+    InternshipSeason,
+    JobStatus,
+    LocationConfidence,
+    RemotePolicy,
+)
 from nightshift.db.models import (
     Company,
     Job,
     JobLocation,
     JobMergeEvent,
+    JobRequirement,
     JobSourceLink,
     JobStatusEvent,
     SourceJobRecord,
+    User,
 )
 from nightshift.db.session import get_db_session
+from nightshift.domain.eligibility import evaluate, profile_from_user
+from nightshift.domain.eligibility_reading import read_posting
+from nightshift.domain.requirement_extraction import RequirementProposal
 from nightshift.domain.search import (
     DEFERRED_FILTERS,
     JobSearchQuery,
     build_filters,
     salary_excluded_filter,
+    season_excluded_filter,
+    skill_excluded_filter,
 )
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
@@ -134,6 +152,24 @@ async def list_jobs(
     source: Annotated[str | None, Query(description="Source name substring")] = None,
     first_seen_after: Annotated[datetime | None, Query()] = None,
     salary_at_least: Annotated[float | None, Query(ge=0)] = None,
+    skill: Annotated[
+        str | None,
+        Query(
+            description=(
+                "A technology the posting names. Resolved through data/skills.yaml, "
+                "so 'GCP' finds postings stored as 'Google Cloud'. Incomplete: see "
+                "excluded_no_requirements."
+            )
+        ),
+    ] = None,
+    internship_season: Annotated[
+        InternshipSeason | None,
+        Query(description="Only internships whose title states this season"),
+    ] = None,
+    internship_year: Annotated[
+        int | None,
+        Query(ge=2000, description="Only internships whose title states this year"),
+    ] = None,
 ) -> JobListOut:
     """Search canonical jobs, most-recently-seen first.
 
@@ -153,6 +189,9 @@ async def list_jobs(
         source=source,
         first_seen_after=first_seen_after,
         salary_at_least=salary_at_least,
+        skill=skill,
+        internship_season=internship_season,
+        internship_year=internship_year,
     )
     filters = build_filters(query)
 
@@ -170,6 +209,35 @@ async def list_jobs(
                 select(func.count())
                 .select_from(Job)
                 .where(*without_salary, salary_excluded_filter())
+            )
+        ).scalar_one()
+
+    # The same shape for the two filters M3b turned on. Each counts what its own
+    # filter could not have matched, against the *other* filters, so the number
+    # describes this result rather than the whole corpus.
+    #
+    # Both are computed only when their filter is in play. A count nobody asked
+    # for is a query nobody needed, and a caveat shown beside an unfiltered
+    # result is noise that teaches people to ignore caveats.
+    excluded_no_requirements = 0
+    if query.skill and query.skill.strip():
+        without_skill = build_filters(query.model_copy(update={"skill": None}))
+        excluded_no_requirements = (
+            await session.execute(
+                select(func.count()).select_from(Job).where(*without_skill, skill_excluded_filter())
+            )
+        ).scalar_one()
+
+    excluded_no_season = 0
+    if query.internship_season is not None or query.internship_year is not None:
+        without_season = build_filters(
+            query.model_copy(update={"internship_season": None, "internship_year": None})
+        )
+        excluded_no_season = (
+            await session.execute(
+                select(func.count())
+                .select_from(Job)
+                .where(*without_season, season_excluded_filter(query))
             )
         ).scalar_one()
 
@@ -197,6 +265,8 @@ async def list_jobs(
         limit=limit,
         offset=offset,
         excluded_no_salary=excluded_no_salary,
+        excluded_no_requirements=excluded_no_requirements,
+        excluded_no_season=excluded_no_season,
         deferred_filters=[
             DeferredFilterOut(name=e.name, blocked_on=e.blocked_on, reason=e.reason)
             for e in DEFERRED_FILTERS
@@ -310,6 +380,7 @@ async def job_history(
 async def get_job(
     job_id: UUID,
     session: Annotated[AsyncSession, Depends(get_db_session)],
+    user_id: CurrentUserId,
 ) -> JobDetailOut:
     job = (
         (
@@ -344,6 +415,7 @@ async def get_job(
 
     requirements = sorted(job.requirements, key=lambda r: (r.char_start, r.char_end))
     summary = to_summary(job)
+    eligibility = await _eligibility_for(session, user_id=user_id, requirements=requirements)
     return JobDetailOut(
         **summary.model_dump(),
         description_text=job.description_text,
@@ -366,6 +438,7 @@ async def get_job(
         requirements_extractor_version=(
             requirements[0].extractor_version if requirements else None
         ),
+        eligibility=eligibility,
         sources=[
             JobSourceOut(
                 source_name=record.source.name,
@@ -376,4 +449,67 @@ async def get_job(
             )
             for record in provenance
         ],
+    )
+
+
+async def _eligibility_for(
+    session: AsyncSession, *, user_id: UUID, requirements: Sequence[JobRequirement]
+) -> EligibilityOut | None:
+    """The gate's verdict for this person and this posting, computed on read.
+
+    Returns `None` when the posting has no extracted requirements at all.
+    A verdict derived from an unread posting would say `eligible` to everything,
+    which is a claim about a person based on nothing — and indistinguishable, on
+    the page, from a posting that genuinely asks for nothing. The two are
+    different and the null is what keeps them apart, exactly as
+    `requirements_extractor_version` already does one field up.
+
+    Nothing is written. `matching.md` §4.2 puts the stored verdict in M3c, and a
+    stored one goes stale the moment somebody edits their graduation year.
+    """
+    if not requirements:
+        return None
+
+    user = (await session.execute(select(User).where(User.id == user_id))).scalars().first()
+    if user is None:
+        return None
+
+    reading = read_posting(
+        [
+            RequirementProposal(
+                kind=row.kind.value,
+                value=row.value,
+                raw_text=row.raw_text,
+                char_start=row.char_start,
+                char_end=row.char_end,
+                necessity=row.necessity.value,
+                has_equivalence=row.has_equivalence,
+            )
+            for row in requirements
+        ]
+    )
+    verdict = evaluate(reading, profile_from_user(user))
+    return EligibilityOut(
+        state=verdict.state.value,
+        blockers=[
+            EligibilityBlockerOut(
+                dimension=blocker.dimension,
+                outcome=blocker.outcome,
+                posting_says=blocker.posting_says,
+                char_start=blocker.posting_span[0] if blocker.posting_span else None,
+                char_end=blocker.posting_span[1] if blocker.posting_span else None,
+                profile_says=blocker.profile_says,
+                why=blocker.why,
+            )
+            for blocker in verdict.blockers
+        ],
+        unknowns=[
+            EligibilityUnknownOut(
+                dimension=unknown.dimension,
+                profile_field=unknown.profile_field,
+                why=unknown.why,
+            )
+            for unknown in verdict.unknowns
+        ],
+        gate_version=verdict.gate_version,
     )

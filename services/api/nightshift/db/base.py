@@ -368,6 +368,107 @@ class RequirementNecessity(enum.StrEnum):
     MENTIONED = "mentioned"
 
 
+class RoleFamily(enum.StrEnum):
+    """What kind of work a posting is for. M3b.
+
+    The human's decision on 2026-08-05: the tech families, plus an explicit
+    ``NOT_TECH``, plus ``UNCLEAR``. Those last two are the design. Collapsed
+    into one value, a rise in ``unclear`` could mean the corpus gained
+    non-engineering postings or the classifier got worse, and there would be no
+    way to tell which — so a number that is supposed to measure the classifier
+    would measure the market instead.
+
+    ``HARDWARE`` was added while labeling, from two FPGA and low-latency roles
+    in the corpus that ``NOT_TECH`` would misdescribe and ``INFRASTRUCTURE``
+    would blur. Recorded in `eligibility_labels.ROLE_FAMILY_VALUES`, which is
+    the vocabulary this enum is asserted equal to.
+    """
+
+    SOFTWARE_ENGINEERING = "software_engineering"
+    DATA_ENGINEERING = "data_engineering"
+    ML_AI = "ml_ai"
+    INFRASTRUCTURE = "infrastructure"
+    SECURITY = "security"
+    QUANT_TRADING = "quant_trading"
+    HARDWARE = "hardware"
+    PRODUCT = "product"
+    DESIGN = "design"
+    #: Read, and deliberately outside this product's scope.
+    NOT_TECH = "not_tech"
+    #: Could not decide. Never a default, and never what an unclassified job
+    #: gets — a job the classifier has not seen has ``role_family IS NULL``.
+    UNCLEAR = "unclear"
+
+
+class Seniority(enum.StrEnum):
+    """The level a posting is pitched at. M3b.
+
+    Harvested from the 60 labeled titles rather than invented — the lesson M3a's
+    Task 7 paid for. ``STAFF`` covers the Lead / Staff / Principal band because
+    the corpus writes "Lead" and never "Staff", and these postings do not
+    reliably distinguish an IC lead from a people-manager one.
+
+    **Never a gate input.** `matching.md` §5.1 makes a seniority mismatch a
+    score penalty, which is M3c. A senior title is not a legal barrier, and
+    treating one as a blocker is exactly the wrong-``ineligible`` A13 ranks as
+    the worst output this engine can produce.
+    """
+
+    INTERNSHIP = "internship"
+    NEW_GRAD = "new_grad"
+    JUNIOR = "junior"
+    MID = "mid"
+    SENIOR = "senior"
+    STAFF = "staff"
+    DIRECTOR = "director"
+    UNCLEAR = "unclear"
+
+
+class InternshipSeason(enum.StrEnum):
+    """Which season an internship is for. M3b.
+
+    The academic terms, and only those — the season is *not* the year, which
+    lives beside it in ``jobs.internship_year``. Splitting them was decided by
+    measuring the corpus rather than by taste: two of its nineteen internships
+    state a year and no season, and a single ``summer_2027`` value can hold
+    those only by inventing a season or by throwing the year away.
+
+    **There is no ``UNCLEAR`` member, unlike `RoleFamily` and `Seniority`.**
+    Those two classify every posting, so "read it and could not decide" is a
+    real outcome that has to be distinguishable from "never looked". A season
+    is quoted out of the title or it is absent, and there is no third thing to
+    say — so ``NULL`` carries the whole of "the posting did not state one".
+
+    ``FALL``, ``WINTER`` and ``SPRING`` are produced by the rule and by no
+    posting in the recorded corpus, which states "Summer" eight times out of
+    eight. `test_the_rule_is_not_fitted_to_summer` is what keeps that a
+    measured gap rather than three enum values nobody can account for.
+    """
+
+    SUMMER = "summer"
+    FALL = "fall"
+    WINTER = "winter"
+    SPRING = "spring"
+
+
+class EligibilityState(enum.StrEnum):
+    """PRODUCT-SPEC §8.3. Never collapsed into a number (`matching.md` §5.2).
+
+    Deliberately **not** a PostgreSQL enum yet, unlike everything else in this
+    module. M3b computes a verdict on read and stores none: a stored verdict
+    goes stale the moment a person edits their graduation year, and there is no
+    column to attach a type to until `match_results` arrives at M3c. Creating a
+    database type with no column would be shape with no use, which is the same
+    reason `user_skills.confidence` was left out at M2c.
+    """
+
+    ELIGIBLE = "eligible"
+    LIKELY_ELIGIBLE = "likely_eligible"
+    UNCERTAIN = "uncertain"
+    LIKELY_INELIGIBLE = "likely_ineligible"
+    INELIGIBLE = "ineligible"
+
+
 def pg_enum_values(enum_cls: type[enum.Enum]) -> list[str]:
     """``values_callable`` helper: store enum *values*, not member names."""
     return [member.value for member in enum_cls]

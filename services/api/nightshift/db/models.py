@@ -58,6 +58,7 @@ from nightshift.db.base import (
     ExtractionKind,
     ExtractionStatus,
     IngestionRunStatus,
+    InternshipSeason,
     JobStatus,
     LocationConfidence,
     ProficiencyLevel,
@@ -69,6 +70,8 @@ from nightshift.db.base import (
     ResolutionMethod,
     ResumeSourceKind,
     ResumeVariant,
+    RoleFamily,
+    Seniority,
     SkillSourceType,
     SourceStatus,
     SourceType,
@@ -108,6 +111,13 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             "graduation_month IS NULL OR graduation_month BETWEEN 1 AND 12",
             name="graduation_month_is_a_month",
         ),
+        # A negative years figure would sail through the gate's `>=` comparison
+        # and quietly pass every experience requirement. Rejected by the
+        # database rather than by the form, per CLAUDE.md §7.
+        CheckConstraint(
+            "years_experience IS NULL OR years_experience >= 0",
+            name="years_experience_is_not_negative",
+        ),
     )
 
     email: Mapped[str] = mapped_column(String(320), nullable=False, unique=True)
@@ -129,6 +139,22 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     graduation_month: Mapped[int | None] = mapped_column(SmallInteger)
     degree: Mapped[str | None] = mapped_column(String(200))
     school: Mapped[str | None] = mapped_column(String(300))
+    #: M3b. Both nullable, and null means "has not told us" — which the gate
+    #: treats as `uncertain`, never as zero and never as false.
+    #:
+    #: Added because the gate asks five questions and `users` could answer three
+    #: of them. Without these two, `_years_rule` and `_enrollment_rule` return
+    #: `cannot_tell` for every real person forever, and the job page would print
+    #: "tell us your years of experience" beside a profile that has nowhere to
+    #: say it — a dead end, which is the M2c finding about a provenance link
+    #: that 404s, one milestone on.
+    #:
+    #: Neither is ever inferred. `graduation_year` is right there and a
+    #: subtraction would produce a plausible number for both, which is exactly
+    #: what invariant I2 forbids: `domain/profile.py` stays the only writer and
+    #: only a person may set them.
+    years_experience: Mapped[int | None] = mapped_column(SmallInteger)
+    is_enrolled: Mapped[bool | None] = mapped_column(Boolean)
     work_authorization: Mapped[WorkAuthorization] = mapped_column(
         _enum(WorkAuthorization, "work_authorization"),
         nullable=False,
@@ -494,10 +520,32 @@ class Job(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     normalized_title: Mapped[str] = mapped_column(String(500), nullable=False)
-    # role_family and seniority are populated by M3's classifier. Nullable now,
-    # and null means "not yet classified" — never a guessed default.
-    role_family: Mapped[str | None] = mapped_column(String(100))
-    seniority: Mapped[str | None] = mapped_column(String(50))
+    # Populated by M3b's classifier. Still nullable, and **null keeps meaning
+    # "not yet classified"** — distinct from `unclear`, which is the classifier
+    # having read the posting and declined to guess. Merging those two would
+    # make the coverage figure unreadable: you could not tell an unrun
+    # classifier from a corpus full of ambiguous titles.
+    #
+    # PG enums as of M3b rather than `String(100)`, per CLAUDE.md §7. The
+    # strings were a placeholder from M1 and nothing had written one, so the
+    # migration converts two empty columns.
+    role_family: Mapped[RoleFamily | None] = mapped_column(_enum(RoleFamily, "role_family"))
+    seniority: Mapped[Seniority | None] = mapped_column(_enum(Seniority, "seniority"))
+    # Two columns rather than PRODUCT-SPEC §6.9's single `internship_season`,
+    # and the corpus is the reason: two of its nineteen internships state a
+    # year and no season, so a combined `summer_2027` could keep them only by
+    # inventing the season or discarding the year. The spec's word is kept for
+    # the season itself, which is what the word means.
+    #
+    # Null on every non-internship posting, always — the season is gated on
+    # `is_internship`, because six non-internship titles in the corpus carry a
+    # season or a year and reading any of them would be wrong.
+    internship_season: Mapped[InternshipSeason | None] = mapped_column(
+        _enum(InternshipSeason, "internship_season")
+    )
+    #: SmallInteger: a calendar year needs two bytes, and a column typed wider
+    #: than its domain is one that will eventually hold something else.
+    internship_year: Mapped[int | None] = mapped_column(SmallInteger)
     employment_type: Mapped[EmploymentType] = mapped_column(
         _enum(EmploymentType, "employment_type"),
         nullable=False,

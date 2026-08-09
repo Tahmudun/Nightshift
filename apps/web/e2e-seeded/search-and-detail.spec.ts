@@ -81,6 +81,35 @@ test.describe('search and filters', () => {
     await expect(page.getByText(new RegExp(`of ${expected}\\b`))).toBeVisible();
   });
 
+  test('an empty season result says what it hid rather than only that it is empty', async ({
+    page,
+  }) => {
+    // M3b Task 11, and it asserts a defect that was written and then caught.
+    //
+    // The seeded corpus holds exactly one internship — "Software Engineer
+    // Internship, Android" — whose title states no season. Filtering by Summer
+    // therefore returns nothing, and the first version of this page rendered
+    // the caveats only in the branch that has rows. So the screen said "No
+    // roles match these filters" and nothing else: the product asserting there
+    // are no summer internships, when the truth is that its one internship
+    // never says when it runs.
+    //
+    // This is the browser check, because the component test cannot see which
+    // branch the real page takes.
+    await page.goto('/explore?internship_season=summer');
+
+    await expect(page.getByText(/no roles match these filters/i)).toBeVisible();
+    await expect(page.getByText(/does not say when it runs/i)).toBeVisible();
+  });
+
+  test('the skill filter states what it is based on, on the page', async ({ page }) => {
+    // The condition this filter shipped under, and it is checked where a person
+    // would read it rather than only in the component's own test.
+    await page.goto('/explore');
+    await expect(page.getByText(/0\.861 recall/i)).toBeVisible();
+    await expect(page.getByLabel(/^skill$/i)).toBeEnabled();
+  });
+
   test('the filters it will not fake are named on the page, unexpanded', async ({ page }) => {
     await page.goto('/explore');
     // Visible without expanding anything — the same rule the coverage page is
