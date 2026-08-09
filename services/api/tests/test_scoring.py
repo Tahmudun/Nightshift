@@ -12,22 +12,43 @@ project has already had happen for three days without noticing.
 
 from __future__ import annotations
 
+import inspect
 import uuid
+from datetime import date, timedelta
 from itertools import pairwise
-from typing import Any
+from typing import Any, get_args
 
 import pytest
 
-from nightshift.db.base import MatchComponent, RoleFamily
+from nightshift.db.base import MatchComponent, RequirementKind, RoleFamily, Seniority
+from nightshift.domain.eligibility import Dimension
+from nightshift.domain.matching_weights import (
+    COMPONENT_NAMES,
+    PENALTY_NAMES,
+    MatchingWeights,
+    load_weights,
+)
 from nightshift.domain.requirement_extraction import RequirementProposal
 from nightshift.domain.role_classification import TextSpan, classify_role
 from nightshift.domain.scoring import (
+    PENALIZED_REQUIREMENT_KINDS,
+    WEIGHT_NAME,
     ComponentScore,
     ConfirmedProject,
     ConfirmedSkill,
+    Evidence,
+    JobLocationForScoring,
+    Penalty,
     PostingForScoring,
     ScoringProfile,
+    compose_score,
     families_wanted,
+    penalize_missing_requirements,
+    penalize_seniority_mismatch,
+    score_early_career_priority,
+    score_listing_freshness,
+    score_location_and_work_mode,
+    score_match,
     score_project_evidence,
     score_role_relevance,
     score_skill_overlap,
@@ -423,16 +444,6 @@ def test_a_title_nothing_matches_carries_no_span() -> None:
 # Location and work mode — the first of the three exempt components
 # ---------------------------------------------------------------------------
 
-from datetime import date, timedelta  # noqa: E402
-
-from nightshift.db.base import Seniority  # noqa: E402
-from nightshift.domain.scoring import (  # noqa: E402
-    JobLocationForScoring,
-    score_early_career_priority,
-    score_listing_freshness,
-    score_location_and_work_mode,
-)
-
 TODAY = date(2026, 8, 9)
 
 
@@ -574,7 +585,6 @@ def test_a_source_giving_no_publication_date_is_not_assessable() -> None:
 def test_freshness_reads_no_profile_at_all() -> None:
     """The signature is the assertion: there is no person in this calculation,
     which is why §2.1 exempts it from quoting one."""
-    import inspect
 
     assert "profile" not in inspect.signature(score_listing_freshness).parameters
 
@@ -608,6 +618,525 @@ def test_priority_reads_the_posting_and_never_the_person() -> None:
     eligibility becoming points. The signature is where the decision is
     enforced: there is no profile to consult.
     """
-    import inspect
 
     assert "profile" not in inspect.signature(score_early_career_priority).parameters
+
+
+# ---------------------------------------------------------------------------
+# The missing-requirement penalty — 0 to -25
+#
+# `matching.md` §5.1 gives the ceiling and nothing else, so the curve is decided
+# here. Two constraints shaped it, and neither is cosmetic.
+#
+# **It may only read `technology`.** The other required kinds a posting can carry
+# are `degree`, `graduation_window`, `years_experience`, `enrollment` and
+# `authorization` — which are exactly the five dimensions M3b's gate owns. A
+# penalty for an unmet degree requirement is eligibility converted into points,
+# and §5.2 forbids that in the plainest terms this document has. `role_level` is
+# the other penalty's.
+#
+# **The curve counts, it does not divide.** A fraction-based penalty combines
+# with skill overlap into `55·matched - 25`, which is algebraically a single
+# component of weight 55 with an offset — the penalty would be a weight change
+# wearing a penalty's name, and zeroing either one in Task 7's mutation test
+# would be compensated by the other. Counting the unmet requirements reads a
+# different fact: five technologies you cannot evidence are five things to learn
+# whether the posting lists five of them or fifty.
+# ---------------------------------------------------------------------------
+
+
+def _matched(*requirements: RequirementProposal) -> tuple[Evidence, ...]:
+    """Evidence rows of the shape the span-bound components actually emit."""
+    return tuple(
+        Evidence(
+            component=MatchComponent.SKILL,
+            points=1,
+            job_span_text=r.raw_text,
+            job_span_field="description_text",
+            job_char_start=r.char_start,
+            job_char_end=r.char_end,
+            user_span_text=r.value,
+            requirement=r,
+        )
+        for r in requirements
+    )
+
+
+def _tech_posting(count: int) -> PostingForScoring:
+    names = [f"Tech{i}" for i in range(1, count + 1)]
+    text = "Requirements: " + ", ".join(names) + "."
+    requirements = tuple(
+        RequirementProposal(
+            kind="technology",
+            value=name,
+            raw_text=name,
+            char_start=text.index(name),
+            char_end=text.index(name) + len(name),
+            necessity="required",
+        )
+        for name in names
+    )
+    return PostingForScoring(title="Engineer", description_text=text, requirements=requirements)
+
+
+def test_a_posting_naming_no_required_technology_has_nothing_to_miss() -> None:
+    penalty = penalize_missing_requirements(
+        _posting(requirements=()), (), ceiling=-25, per_requirement=5
+    )
+
+    assert penalty.points == 0
+    assert penalty.applicable is False
+
+
+def test_every_required_technology_evidenced_costs_nothing() -> None:
+    posting = _posting()
+
+    penalty = penalize_missing_requirements(
+        posting, _matched(*posting.requirements), ceiling=-25, per_requirement=5
+    )
+
+    assert penalty.points == 0
+    # Assessable and zero, not inapplicable: the question was asked and the
+    # answer was "nothing missing", which is a different sentence.
+    assert penalty.applicable is True
+
+
+def test_each_unevidenced_required_technology_costs_a_fixed_amount() -> None:
+    penalty = penalize_missing_requirements(_posting(), (), ceiling=-25, per_requirement=5)
+
+    assert penalty.points == -10
+    assert penalty.compared["missing"] == ["Python", "PostgreSQL"]
+    assert penalty.compared["per_requirement"] == 5
+
+
+def test_the_missing_requirement_penalty_stops_at_its_ceiling() -> None:
+    """Nine unmet requirements is -45 uncapped, and -45 alone outweighs three
+    whole components. The ceiling is what stops one verbose posting's
+    requirements block from dominating the corpus."""
+    penalty = penalize_missing_requirements(_tech_posting(9), (), ceiling=-25, per_requirement=5)
+
+    assert penalty.points == -25
+    assert len(penalty.compared["missing"]) == 9
+
+
+def test_a_requirement_evidenced_by_a_project_alone_is_not_missing() -> None:
+    """The penalty reads evidence rows, not the skill component's answer.
+
+    A technology the person never listed as a skill but demonstrably built with
+    has an evidence row under `project`, and counting it as missing would
+    contradict a row this score is about to store."""
+    posting = _posting()
+    python, _postgres = posting.requirements
+    rows = (
+        Evidence(
+            component=MatchComponent.PROJECT,
+            points=1,
+            job_span_text=python.raw_text,
+            job_span_field="description_text",
+            job_char_start=python.char_start,
+            job_char_end=python.char_end,
+            user_span_text="Built the ingest in Python.",
+            requirement=python,
+        ),
+    )
+
+    penalty = penalize_missing_requirements(posting, rows, ceiling=-25, per_requirement=5)
+
+    assert penalty.points == -5
+    assert penalty.compared["missing"] == ["PostgreSQL"]
+
+
+def test_a_preferred_technology_never_reaches_the_penalty() -> None:
+    """§4.1. Ramp's Android internship lists nine technologies under nice to
+    haves; charging for those reports nine gaps against a qualified candidate."""
+    posting = _posting(requirements=(_requirement("Kubernetes", necessity="preferred"),))
+
+    penalty = penalize_missing_requirements(posting, (), ceiling=-25, per_requirement=5)
+
+    assert penalty.points == 0
+    assert penalty.applicable is False
+
+
+def test_a_required_degree_never_reaches_the_penalty() -> None:
+    """§5.2, mechanically. The gate owns `degree`; a penalty for one is the
+    eligibility state converted into points by another route."""
+    posting = _posting(
+        requirements=(
+            RequirementProposal(
+                kind="degree",
+                value="bachelors",
+                raw_text="Bachelor's degree",
+                char_start=0,
+                char_end=17,
+                necessity="required",
+            ),
+        )
+    )
+
+    penalty = penalize_missing_requirements(posting, (), ceiling=-25, per_requirement=5)
+
+    assert penalty.points == 0
+    assert penalty.applicable is False
+
+
+def test_every_requirement_kind_is_owned_by_the_gate_the_penalty_or_the_level() -> None:
+    """The guard that makes the exclusion above survive a seventh kind.
+
+    Adding a `RequirementKind` and forgetting this penalty means it either
+    silently starts charging for a gate dimension or silently ignores a real
+    requirement. Neither fails anything else, so this goes red instead and
+    forces the decision to be taken rather than inherited.
+    """
+    gate = set(get_args(Dimension))
+    assert {kind.value for kind in RequirementKind} == gate | {"technology", "role_level"}
+    assert PENALIZED_REQUIREMENT_KINDS == frozenset({"technology"})
+    assert not PENALIZED_REQUIREMENT_KINDS & gate
+
+
+# ---------------------------------------------------------------------------
+# The seniority-mismatch penalty — 0 to -30
+# ---------------------------------------------------------------------------
+
+_LADDER = {
+    Seniority.INTERNSHIP: 0,
+    Seniority.NEW_GRAD: 0,
+    Seniority.JUNIOR: 1,
+    Seniority.MID: 3,
+    Seniority.SENIOR: 5,
+    Seniority.STAFF: 8,
+    Seniority.DIRECTOR: 10,
+}
+
+
+def _seniority_penalty(
+    seniority: Seniority | None, years: int | None, *, per_year: int = 3, ceiling: int = -30
+) -> Penalty:
+    return penalize_seniority_mismatch(
+        _posting(seniority=seniority),
+        ScoringProfile(years_experience=years),
+        ceiling=ceiling,
+        per_year=per_year,
+        implied_years=_LADDER,
+    )
+
+
+def test_a_staff_posting_costs_an_early_career_profile_points() -> None:
+    penalty = _seniority_penalty(Seniority.STAFF, 1)
+
+    assert penalty.points == -21  # (8 implied - 1 stated) * 3
+    assert penalty.compared["posting_implies_years"] == 8
+    assert penalty.compared["stated_years"] == 1
+
+
+def test_a_posting_pitched_at_or_below_the_persons_level_costs_nothing() -> None:
+    penalty = _seniority_penalty(Seniority.JUNIOR, 5)
+
+    assert penalty.points == 0
+    assert penalty.applicable is True
+
+
+def test_the_seniority_penalty_stops_at_its_ceiling() -> None:
+    penalty = _seniority_penalty(Seniority.DIRECTOR, 0, per_year=6)
+
+    assert penalty.points == -30  # 10 * 6 capped
+
+
+def test_a_profile_stating_no_years_of_experience_is_not_penalised() -> None:
+    """I2. `years_experience` is null for most profiles and null means *not
+    told*, never zero. Reading it as zero charges every silent profile the full
+    penalty on every senior posting in the corpus — an invented qualification
+    claim, pointed downwards."""
+    penalty = _seniority_penalty(Seniority.STAFF, None)
+
+    assert penalty.points == 0
+    assert penalty.applicable is False
+
+
+def test_an_unclear_posting_level_is_not_penalised() -> None:
+    assert _seniority_penalty(Seniority.UNCLEAR, 1).applicable is False
+    assert _seniority_penalty(None, 1).applicable is False
+
+
+def test_a_level_the_ladder_does_not_name_is_an_error_not_a_zero() -> None:
+    """A missing rung must not read as "this posting deserves no penalty"."""
+    with pytest.raises(KeyError):
+        penalize_seniority_mismatch(
+            _posting(seniority=Seniority.STAFF),
+            ScoringProfile(years_experience=1),
+            ceiling=-30,
+            per_year=3,
+            implied_years={Seniority.JUNIOR: 1},
+        )
+
+
+def test_a_senior_title_is_a_penalty_and_can_never_be_a_blocker() -> None:
+    """The acceptance line for this task, asserted where it can actually fail.
+
+    M3b refused to let seniority produce `ineligible`, on A13's grounds: a
+    posting's title is not a statement about who may apply. The mechanical form
+    of that refusal is that the gate has no seniority dimension at all — so this
+    penalty cannot become a blocker without someone adding one, and adding one
+    turns this red.
+    """
+    assert "role_level" not in get_args(Dimension)
+    assert "seniority" not in get_args(Dimension)
+
+    penalty = _seniority_penalty(Seniority.DIRECTOR, 0, per_year=6)
+    assert penalty.points == -30
+    assert not hasattr(penalty, "blocks")
+
+
+# ---------------------------------------------------------------------------
+# Composition — the total out of what could be assessed (§5.1.1, Q6)
+# ---------------------------------------------------------------------------
+
+
+def _weights(**overrides: int) -> MatchingWeights:
+    """§5.1's published numbers, written out rather than loaded.
+
+    Task 7 may tune the committed file; what these tests assert is the shape of
+    the arithmetic, which tuning must not change.
+    """
+    components = {
+        "role_relevance": 20,
+        "skill_overlap": 30,
+        "project_evidence": 20,
+        "location_and_work_mode": 10,
+        "listing_freshness": 10,
+        "early_career_priority": 10,
+    }
+    components.update(overrides)
+    return MatchingWeights(
+        version="test.1",
+        components=components,
+        penalties={"missing_requirement": -25, "seniority_mismatch": -30},
+        thresholds={},
+    )
+
+
+def _component(
+    component: MatchComponent, points: int, *, assessable: bool = True
+) -> ComponentScore:
+    return ComponentScore(
+        component=component,
+        points=points,
+        assessable=assessable,
+        why="fixture",
+        evidence=(
+            (Evidence(component=component, points=points, compared={"fixture": True}),)
+            if points
+            else ()
+        ),
+    )
+
+
+def test_a_fully_assessable_posting_is_scored_out_of_one_hundred() -> None:
+    score = compose_score(tuple(_component(c, 0) for c in MatchComponent), (), weights=_weights())
+
+    assert score.assessed_out_of == 100
+
+
+def test_a_posting_naming_no_technology_is_scored_out_of_fifty() -> None:
+    """Q6's answer, and the 43% of the corpus it was measured on.
+
+    Skill overlap and project evidence both read the required-technology list.
+    A posting naming none leaves 50 points nobody can compute, and the total
+    says so instead of pretending the person scored zero on them.
+    """
+    components = tuple(
+        _component(c, 0, assessable=c not in (MatchComponent.SKILL, MatchComponent.PROJECT))
+        for c in MatchComponent
+    )
+
+    score = compose_score(components, (), weights=_weights())
+
+    assert score.assessed_out_of == 50
+    assert {c.component for c in score.unassessable} == {
+        MatchComponent.SKILL,
+        MatchComponent.PROJECT,
+    }
+
+
+def test_the_fraction_is_what_the_ranked_list_sorts_on() -> None:
+    """The reason the denominator is stored rather than assumed.
+
+    25 out of 50 and 50 out of 100 are the same match. Ranking on the raw total
+    puts every terse posting below every verbose one, which measures the
+    employer's prose and not the fit — §5.1's `application_urgency` argument.
+    """
+    terse = compose_score(
+        (
+            _component(MatchComponent.ROLE, 20),
+            _component(MatchComponent.SKILL, 0, assessable=False),
+            _component(MatchComponent.PROJECT, 0, assessable=False),
+            _component(MatchComponent.LOCATION, 5),
+            _component(MatchComponent.FRESHNESS, 0),
+            _component(MatchComponent.PRIORITY, 0),
+        ),
+        (),
+        weights=_weights(),
+    )
+    verbose = compose_score(
+        (
+            _component(MatchComponent.ROLE, 20),
+            _component(MatchComponent.SKILL, 20),
+            _component(MatchComponent.PROJECT, 5),
+            _component(MatchComponent.LOCATION, 5),
+            _component(MatchComponent.FRESHNESS, 0),
+            _component(MatchComponent.PRIORITY, 0),
+        ),
+        (),
+        weights=_weights(),
+    )
+
+    assert (terse.overall, terse.assessed_out_of) == (25, 50)
+    assert (verbose.overall, verbose.assessed_out_of) == (50, 100)
+    assert terse.fraction == verbose.fraction == 0.5
+    assert terse.overall < verbose.overall
+
+
+def test_a_score_nothing_could_assess_has_no_fraction_at_all() -> None:
+    """Not zero, which sorts last, and not one, which sorts first.
+
+    A profile with no skills, no projects, no stated roles or places against a
+    posting with no dates and no readable level reaches this. Giving it a number
+    is the vacuous-metric failure §1.1 of the architecture doc names.
+    """
+    score = compose_score(
+        tuple(_component(c, 0, assessable=False) for c in MatchComponent), (), weights=_weights()
+    )
+
+    assert score.assessed_out_of == 0
+    assert score.fraction is None
+    assert score.overall == 0
+
+
+def test_the_total_is_the_sum_of_its_parts() -> None:
+    """The `the_total_is_its_parts` check constraint, asserted without Postgres."""
+    components = (
+        _component(MatchComponent.ROLE, 20),
+        _component(MatchComponent.SKILL, 15),
+        _component(MatchComponent.PROJECT, 10),
+        _component(MatchComponent.LOCATION, 10),
+        _component(MatchComponent.FRESHNESS, 7),
+        _component(MatchComponent.PRIORITY, 0),
+    )
+
+    score = compose_score(components, (), weights=_weights())
+
+    assert score.component_total == 62
+    assert score.overall == 62
+
+
+def test_the_overall_is_floored_at_zero_and_the_parts_still_show_why() -> None:
+    """Components reach 100 and penalties reach -55, so the arithmetic can go
+    negative and the meaning cannot. The floor is applied to the total only —
+    the penalty rows keep their real values, or the breakdown stops explaining
+    the number."""
+    components = tuple(_component(c, 0) for c in MatchComponent)
+    penalties = (
+        Penalty(name="missing_requirement", points=-25, applicable=True, why="fixture"),
+        Penalty(name="seniority_mismatch", points=-30, applicable=True, why="fixture"),
+    )
+
+    score = compose_score(components, penalties, weights=_weights())
+
+    assert score.penalty_total == -55
+    assert score.component_total == 0
+    assert score.overall == 0
+
+
+def test_penalties_do_not_change_the_denominator() -> None:
+    """A penalty is a subtraction from the numerator, not a widening of what
+    could be assessed. Adding it to the denominator would make a heavily
+    penalised posting look like it was scored out of more."""
+    components = tuple(_component(c, 0) for c in MatchComponent)
+    penalised = compose_score(
+        components,
+        (Penalty(name="missing_requirement", points=-10, applicable=True, why="fixture"),),
+        weights=_weights(),
+    )
+
+    assert penalised.assessed_out_of == 100
+
+
+def test_a_penalty_that_adds_points_is_unrepresentable() -> None:
+    with pytest.raises(ValueError, match="never adds"):
+        Penalty(name="missing_requirement", points=5, applicable=True, why="fixture")
+
+
+def test_a_penalty_that_did_not_apply_cannot_have_cost_anything() -> None:
+    with pytest.raises(ValueError, match="did not apply"):
+        Penalty(name="seniority_mismatch", points=-3, applicable=False, why="fixture")
+
+
+def test_every_component_has_a_weight() -> None:
+    """`MatchComponent`'s docstring promises this test by name.
+
+    The two vocabularies are deliberately different strings — one names a kind
+    of claim in the database, the other names a weight in a file a human edits —
+    and nothing but this keeps them mapped rather than merely similar.
+    """
+    assert set(WEIGHT_NAME) == set(MatchComponent)
+    assert sorted(WEIGHT_NAME.values()) == sorted(COMPONENT_NAMES)
+
+
+# ---------------------------------------------------------------------------
+# The whole score, end to end
+# ---------------------------------------------------------------------------
+
+
+def test_score_match_runs_every_component_and_both_penalties() -> None:
+    profile = ScoringProfile(
+        skills=(ConfirmedSkill(name="Python"),),
+        preferred_roles=("backend engineer",),
+        preferred_locations=("New York",),
+        years_experience=1,
+    )
+    posting = _posting(
+        seniority=Seniority.STAFF,
+        locations=(JobLocationForScoring(city="New York"),),
+        source_published_at=date(2026, 8, 1),
+    )
+
+    score = score_match(posting, profile, weights=load_weights(), as_of=date(2026, 8, 9))
+
+    assert {c.component for c in score.components} == set(MatchComponent)
+    assert {p.name for p in score.penalties} == set(PENALTY_NAMES)
+    # One of two required technologies confirmed, and one unevidenced.
+    assert score.penalties[0].points == -5
+    assert score.penalty_total < 0
+    assert score.overall == max(0, score.component_total + score.penalty_total)
+
+
+def test_the_same_inputs_score_identically_twice() -> None:
+    """M3's acceptance criterion, in the smallest form that can hold it. The
+    corpus-wide version with its stored rows is Task 6's golden test."""
+    profile = ScoringProfile(
+        skills=(ConfirmedSkill(name="Python"),), preferred_roles=("backend engineer",)
+    )
+    args = (_posting(source_published_at=date(2026, 7, 1)), profile)
+    kwargs = {"weights": load_weights(), "as_of": date(2026, 8, 9)}
+
+    assert score_match(*args, **kwargs) == score_match(*args, **kwargs)  # type: ignore[arg-type]
+
+
+def test_a_score_missing_a_component_is_refused() -> None:
+    """Five components sum to a smaller total *and* a smaller denominator, so
+    the fraction still looks reasonable and nothing else notices.
+
+    Task 8 assembles this tuple from six separate calls; dropping one there is
+    a plausible edit, and the failure it produces is a score that is quietly
+    out of 90 while claiming to be a match.
+    """
+    five = tuple(_component(c, 0) for c in MatchComponent if c is not MatchComponent.PRIORITY)
+
+    with pytest.raises(ValueError, match="priority"):
+        compose_score(five, (), weights=_weights())
+
+
+def test_a_component_counted_twice_is_refused() -> None:
+    duplicated = (*(_component(c, 0) for c in MatchComponent), _component(MatchComponent.ROLE, 0))
+
+    with pytest.raises(ValueError, match="role"):
+        compose_score(duplicated, (), weights=_weights())

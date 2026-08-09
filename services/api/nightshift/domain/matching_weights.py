@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import lru_cache
+from itertools import pairwise
 from pathlib import Path
 from typing import Any
 
@@ -69,7 +70,33 @@ class WeightsError(ValueError):
 #: Named exhaustively for the same reason the components are: a threshold the
 #: code has never heard of must be a load error rather than a silently ignored
 #: key, and one the code expects and the file omits must be the same.
-THRESHOLD_NAMES = ("freshness_days.full", "freshness_days.zero")
+#: `db.base.Seniority`'s members, in order, lowest level first. Duplicated here
+#: rather than imported so this loader stays free of the ORM module, and kept
+#: honest by `test_the_seniority_ladder_names_every_level_the_classifier_can_produce`
+#: — which compares it against the enum itself.
+SENIORITY_LADDER = (
+    "internship",
+    "new_grad",
+    "junior",
+    "mid",
+    "senior",
+    "staff",
+    "director",
+)
+
+THRESHOLD_NAMES = (
+    "freshness_days.full",
+    "freshness_days.zero",
+    "missing_requirement.per_requirement",
+    "seniority_mismatch.per_year",
+    *(f"seniority_years.{level}" for level in SENIORITY_LADDER),
+)
+
+#: Thresholds that are a *cost per unit*. Zero is the interesting failure: it is
+#: a valid whole number, it loads, and it turns the rule that reads it off for
+#: every posting in the corpus — which then reads as "nothing was penalised"
+#: rather than as "this rule stopped running".
+_PER_UNIT_THRESHOLDS = ("missing_requirement.per_requirement", "seniority_mismatch.per_year")
 
 
 @dataclass(frozen=True, slots=True)
@@ -201,7 +228,38 @@ def _parse_thresholds(raw: Any) -> dict[str, int]:
             raise WeightsError(
                 f"thresholds.{name} is negative ({value}); days do not run backwards"
             )
+
+    for name in _PER_UNIT_THRESHOLDS:
+        if flat[name] == 0:
+            raise WeightsError(
+                f"thresholds.{name} is 0, which switches its penalty off for every "
+                "posting in the corpus without switching anything else"
+            )
+
+    _check_the_ladder_rises(flat)
     return flat
+
+
+def _check_the_ladder_rises(flat: dict[str, int]) -> None:
+    """A seniority ladder that falls, or never climbs, is a silent penalty bug.
+
+    Neither shape raises anything on its own. A falling rung inverts the
+    penalty — a Lead posting costs an early-career profile less than a Junior
+    one — and a flat ladder makes every gap zero, which is the rule deleted in
+    data while every test that does not read this file stays green.
+    """
+    rungs = [(level, flat[f"seniority_years.{level}"]) for level in SENIORITY_LADDER]
+    for (lower, below), (higher, above) in pairwise(rungs):
+        if above < below:
+            raise WeightsError(
+                f"seniority_years does not rise: {higher} implies {above} years and "
+                f"{lower} implies {below}, so the penalty runs backwards"
+            )
+    if rungs[0][1] == rungs[-1][1]:
+        raise WeightsError(
+            f"seniority_years never rises: every level implies {rungs[0][1]} years, "
+            "which is the seniority penalty switched off in data"
+        )
 
 
 @lru_cache(maxsize=4)

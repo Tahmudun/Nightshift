@@ -80,3 +80,46 @@ thresholds:
     # At or over this, nothing. Between the two the score falls linearly, so
     # there is no cliff where one day costs several points.
     zero: 90
+
+  # The missing-requirement penalty's curve. It **counts**, it does not divide,
+  # and that is the whole reason this number exists rather than a fraction.
+  #
+  # A fraction-based version combines with `skill_overlap` into
+  # `55·matched − 25`, which is arithmetically one component of weight 55 with
+  # an offset — the penalty would be a weight change wearing a penalty's name,
+  # and Task 7's mutation test could zero either one and see the other absorb
+  # it. Counting reads a different fact about the posting: five required
+  # technologies you cannot evidence are five things to learn whether the
+  # posting lists five of them or fifty.
+  missing_requirement:
+    # Points per required technology with no evidence row behind it. Five of
+    # them reaches the -25 ceiling.
+    per_requirement: 5
+
+  # The seniority-mismatch penalty's curve.
+  seniority_mismatch:
+    # Points per year between what the posting's level implies and what the
+    # person has confirmed. Five years' distance reaches the -30 ceiling.
+    per_year: 6
+
+  # What each `Seniority` level implies about years of experience, which is how
+  # a title becomes comparable with `users.years_experience`.
+  #
+  # Named exhaustively — every level the M3b classifier can emit has a rung —
+  # because a missing rung would make the penalty skip that level silently, and
+  # a skipped level looks exactly like a level that deserves no penalty.
+  #
+  # Asserted on load to rise. A ladder with `junior` above `staff` runs the
+  # penalty backwards: nothing crashes, every score stays in range, and a Lead
+  # posting costs an early-career profile less than a Junior one. That is the
+  # backwards freshness window again, one rule over.
+  seniority_years:
+    internship: 0
+    new_grad: 0
+    junior: 1
+    mid: 3
+    senior: 5
+    # The Lead / Staff / Principal band. M3b's `Seniority` docstring records
+    # that this corpus writes "Lead" and never "Staff".
+    staff: 8
+    director: 10

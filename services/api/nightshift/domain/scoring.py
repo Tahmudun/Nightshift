@@ -1,4 +1,4 @@
-"""The three components that make a claim about a person, and their evidence.
+"""The score: six components, two penalties, and the total they compose into.
 
 `matching.md` §2.1 and §5.1. Role relevance, skill overlap and project evidence
 are the three components that assert something about somebody's qualifications,
@@ -12,10 +12,10 @@ reason: this is the thing M3d has to grade against 60 postings in a test, and
 `test_every_component_is_load_bearing` has to be able to zero a weight and
 re-run. A scorer that reads a session cannot be mutation-tested that way.
 
-**Nothing here decides a total.** Each component returns its own points, its
-own evidence, and whether it could be assessed at all. Composing the six into a
-score out of 100 is Task 5's; the reason the assessability flag exists rather
-than a bare zero is §2 below.
+Each component returns its own points, its own evidence, and **whether it could
+be assessed at all**; `compose_score` sums them and records what the sum is out
+of. The reason that denominator is not always 100 is §2 below, and it is the
+single fact that shapes the most of this module.
 
 ## Why a component says "not assessable" instead of scoring zero
 
@@ -35,20 +35,29 @@ The dishonest fix is to award the points anyway, and it is worth naming that the
 database already refuses it: a positive component score with no evidence row
 cannot be committed (`match_results_component_needs_evidence`). So the choice is
 between scoring zero and saying the component could not be assessed, and this
-module says the latter. What a *total* should then do with an unassessable
-component is a product question that changes what a score means; it is in
-QUESTIONS as Q6 and Task 5 owns the answer.
+module says the latter.
+
+What a *total* should then do with an unassessable component was QUESTIONS Q6,
+and the answer decided on 2026-08-09 is **the total is out of what could be
+assessed** (§5.1.1). A posting naming no technologies is scored out of 50, the
+page names the two components that could not be assessed and why, and the ranked
+list sorts on the fraction rather than on the raw total. The alternative — always
+out of 100, with the gaps shown — systematically ranks terse postings below
+verbose ones, and redistributing the missing weight would silently make location
+and freshness worth 50 points between them, which nobody chose.
 """
 
 from __future__ import annotations
 
 import re
 import uuid
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import date
 from typing import Any, Literal
 
 from nightshift.db.base import EvidenceSource, MatchComponent, RoleFamily, Seniority
+from nightshift.domain.matching_weights import MatchingWeights
 from nightshift.domain.requirement_extraction import RequirementProposal
 from nightshift.domain.role_classification import TextSpan
 
@@ -107,6 +116,11 @@ class ScoringProfile:
     #: none, which is why that value makes the dimension unassessable rather
     #: than making everything match.
     remote_preference: str | None = None
+    #: `users.years_experience`, as the person entered it. Read by the seniority
+    #: penalty and by nothing else here. **`None` is not zero** — it is "not
+    #: told", and the penalty declines to fire rather than charging every silent
+    #: profile the full amount against every senior posting in the corpus.
+    years_experience: int | None = None
 
 
 @dataclass(frozen=True)
@@ -185,6 +199,37 @@ class ComponentScore:
             # The database refuses this at commit. Refusing it here too means a
             # unit test sees it without needing Postgres.
             raise ValueError(f"{self.component} scored {self.points} with no evidence row")
+
+
+@dataclass(frozen=True)
+class Penalty:
+    """One subtraction, and whether it applied at all.
+
+    Not a `ComponentScore`, and the difference is structural rather than
+    stylistic: `MatchComponent` has no penalty member, so a penalty has no
+    `match_evidence` row to point at and `match_results.penalty_score` stores
+    the two as one column (§4.2). What each penalty cost is carried here, is
+    rendered by the explanation, and is never a row in the evidence graph.
+
+    `applicable is False` always means `points == 0`, the same distinction
+    `ComponentScore.assessable` draws: zero means *nothing was missing*,
+    inapplicable means *there was nothing to ask*.
+    """
+
+    name: str
+    points: int
+    applicable: bool
+    why: str
+    compared: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.points > 0:
+            raise ValueError(
+                f"{self.name} scored {self.points}; a penalty never adds points, "
+                "or the arithmetic says the opposite of the word"
+            )
+        if not self.applicable and self.points:
+            raise ValueError(f"{self.name} did not apply and still cost {self.points}")
 
 
 def _normalize(text: str) -> str:
@@ -731,3 +776,341 @@ def score_early_career_priority(posting: PostingForScoring, *, weight: int) -> C
             ),
         ),
     )
+
+
+# ---------------------------------------------------------------------------
+# The two penalties
+#
+# `matching.md` §5.1 gives the ceilings — -25 and -30 — and says nothing about
+# the curves, so both were decided here and both decisions are written down
+# where the rule is rather than in a review nobody re-reads.
+# ---------------------------------------------------------------------------
+
+#: The only requirement kind the missing-requirement penalty may read, and the
+#: exclusion is §5.2 rather than convenience.
+#:
+#: A posting's other required kinds are `degree`, `graduation_window`,
+#: `years_experience`, `enrollment` and `authorization` — which is exactly the
+#: set of dimensions M3b's eligibility gate owns. Charging points for an unmet
+#: degree requirement is the eligibility verdict converted into a number by a
+#: side door, and §5.2 forbids it in the plainest language that document has.
+#: `role_level` belongs to the seniority penalty below.
+#:
+#: `test_every_requirement_kind_is_owned_by_the_gate_the_penalty_or_the_level`
+#: is what keeps this true when a seventh kind is added.
+PENALIZED_REQUIREMENT_KINDS = frozenset({"technology"})
+
+
+def penalize_missing_requirements(
+    posting: PostingForScoring,
+    evidence: Iterable[Evidence],
+    *,
+    ceiling: int,
+    per_requirement: int,
+) -> Penalty:
+    """A fixed cost per required technology with no evidence row behind it.
+
+    **It counts rather than divides**, and that is the load-bearing choice. A
+    fraction-based penalty — *the share you failed to meet, times 25* —
+    combines with skill overlap's *the share you met, times 30* into
+    ``55·matched - 25``, which is arithmetically a single component of weight 55
+    with an offset. The penalty would then be a weight change wearing a
+    penalty's name, and Task 7's mutation test could zero either one and watch
+    the other absorb it. Counting reads a fact the fraction cannot: five
+    required technologies you cannot evidence are five things to learn whether
+    the posting lists five of them or fifty.
+
+    It reads the **evidence rows**, not the components' verdicts, so a
+    technology covered only by a project counts as met — anything else would
+    contradict a row this same score is about to store.
+    """
+    required = [
+        requirement
+        for requirement in posting.requirements
+        if requirement.necessity == "required" and requirement.kind in PENALIZED_REQUIREMENT_KINDS
+    ]
+    if not required:
+        return Penalty(
+            name="missing_requirement",
+            points=0,
+            applicable=False,
+            why="this posting names no required technologies",
+        )
+
+    evidenced = {
+        _normalize(row.requirement.value) for row in evidence if row.requirement is not None
+    }
+    missing = [r.value for r in required if _normalize(r.value) not in evidenced]
+    if not missing:
+        return Penalty(
+            name="missing_requirement",
+            points=0,
+            applicable=True,
+            why=f"all {len(required)} required technologies have evidence behind them",
+            compared={"required": [r.value for r in required], "missing": []},
+        )
+
+    # `max` because both sides are negative: the ceiling is the floor of the
+    # subtraction, and writing it as `min` on absolute values is the version of
+    # this line that gets a sign wrong six months from now.
+    points = max(ceiling, -per_requirement * len(missing))
+    return Penalty(
+        name="missing_requirement",
+        points=points,
+        applicable=True,
+        why=f"{len(missing)} of {len(required)} required technologies have no evidence",
+        compared={
+            "required": [r.value for r in required],
+            "missing": missing,
+            "per_requirement": per_requirement,
+            "ceiling": ceiling,
+        },
+    )
+
+
+def penalize_seniority_mismatch(
+    posting: PostingForScoring,
+    profile: ScoringProfile,
+    *,
+    ceiling: int,
+    per_year: int,
+    implied_years: Mapping[Seniority, int],
+) -> Penalty:
+    """A posting pitched far above the person's confirmed experience costs points.
+
+    **And it can never block.** M3b refused to let seniority reach the gate at
+    all — `Seniority`'s own docstring says so, and A13's argument is that a
+    posting's title is not a statement about who may apply. The mechanical form
+    of that refusal is that `eligibility.Dimension` has no seniority member, so
+    this rule has no route to `ineligible` even if somebody wanted one.
+
+    Scoring it off the title band is also what makes it *additive* rather than a
+    second copy of the gate's years rule: the gate reads a stated minimum in the
+    posting's text and can only answer when one is stated, while a "Lead
+    Engineer" title that names no number is invisible to it and obvious here.
+
+    Both sides must be stated. A level of `unclear` is no rule having decided,
+    and a null `years_experience` is the person not having told us — I2's rule,
+    and the reason neither resolves to zero. A level with no rung on the ladder
+    raises rather than scoring nothing, because a silent skip is
+    indistinguishable from a posting that deserved no penalty.
+    """
+    level = posting.seniority
+    if level is None or level is Seniority.UNCLEAR:
+        return Penalty(
+            name="seniority_mismatch",
+            points=0,
+            applicable=False,
+            why="no rule could tell what level this posting is",
+        )
+    if profile.years_experience is None:
+        return Penalty(
+            name="seniority_mismatch",
+            points=0,
+            applicable=False,
+            why="this profile states no years of experience",
+        )
+
+    implied = implied_years[level]
+    gap = max(0, implied - profile.years_experience)
+    compared = {
+        "seniority": str(level),
+        "posting_implies_years": implied,
+        "stated_years": profile.years_experience,
+        "gap_years": gap,
+        "per_year": per_year,
+        "ceiling": ceiling,
+    }
+    if not gap:
+        return Penalty(
+            name="seniority_mismatch",
+            points=0,
+            applicable=True,
+            why=(
+                f"this is a {level} posting and the profile states {profile.years_experience} years"
+            ),
+            compared=compared,
+        )
+    return Penalty(
+        name="seniority_mismatch",
+        points=max(ceiling, -per_year * gap),
+        applicable=True,
+        why=(
+            f"this is a {level} posting, which implies about {implied} years, "
+            f"and the profile states {profile.years_experience}"
+        ),
+        compared=compared,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Composition — the total, out of what could be assessed
+# ---------------------------------------------------------------------------
+
+#: `MatchComponent` names a kind of claim in the database; `data/matching.yaml`
+#: names a weight in a file a human edits. They are deliberately different
+#: strings, and `test_every_component_has_a_weight` is the only thing keeping
+#: them mapped rather than merely similar — which `MatchComponent`'s docstring
+#: promises by name.
+WEIGHT_NAME: dict[MatchComponent, str] = {
+    MatchComponent.ROLE: "role_relevance",
+    MatchComponent.SKILL: "skill_overlap",
+    MatchComponent.PROJECT: "project_evidence",
+    MatchComponent.LOCATION: "location_and_work_mode",
+    MatchComponent.FRESHNESS: "listing_freshness",
+    MatchComponent.PRIORITY: "early_career_priority",
+}
+
+
+@dataclass(frozen=True)
+class MatchScore:
+    """One posting's whole score, and the denominator it is out of.
+
+    **`assessed_out_of` is not decoration and it is not always 100** (§5.1.1,
+    QUESTIONS Q6). Skill overlap and project evidence both read the required
+    technology list, and 26 of the 60 labeled postings name none — so on 43% of
+    the corpus half the available score cannot be computed. Scoring those out of
+    100 subtracts 50 points for something about the employer's prose, which is
+    §5.1's `application_urgency` argument with a bigger number behind it.
+
+    `overall` is the literal sum of the parts, floored at zero, exactly as
+    `match_results.the_total_is_its_parts` asserts. **The ranking sorts on
+    `fraction`, not on `overall`** — and that is why the denominator has to
+    reach the database rather than being recomputed on read: a component that
+    scored zero and a component that could not be assessed are indistinguishable
+    from the stored points alone, which is the entire point of the distinction.
+    """
+
+    components: tuple[ComponentScore, ...]
+    penalties: tuple[Penalty, ...]
+    assessed_out_of: int
+    component_total: int
+    penalty_total: int
+    overall: int
+
+    def __post_init__(self) -> None:
+        # A score is all six components or it is not a score. Five of them sum
+        # to a smaller total *and* a smaller denominator, so the fraction still
+        # looks reasonable and nothing downstream notices — and assembling this
+        # tuple from six separate calls is exactly where one gets dropped.
+        present = sorted(c.component for c in self.components)
+        if present != sorted(MatchComponent):
+            missing = sorted(set(MatchComponent) - set(present))
+            duplicated = sorted({c for c in present if present.count(c) > 1})
+            raise ValueError(
+                f"a score needs each of the six components exactly once: "
+                f"missing {[str(c) for c in missing]}, "
+                f"counted twice {[str(c) for c in duplicated]}"
+            )
+        expected = max(0, self.component_total + self.penalty_total)
+        if self.overall != expected:
+            raise ValueError(
+                f"overall is {self.overall} and its parts sum to {expected}; "
+                "the database refuses this row and so does I4"
+            )
+
+    @property
+    def fraction(self) -> float | None:
+        """`None` when nothing could be assessed, and never 0.0.
+
+        Zero sorts a posting last and one sorts it first, and both are claims.
+        A profile with no skills, no projects and no stated preferences against
+        a posting with no dates and no readable level reaches this, and the
+        honest answer there is that this pair was not scored.
+        """
+        if not self.assessed_out_of:
+            return None
+        return self.overall / self.assessed_out_of
+
+    @property
+    def unassessable(self) -> tuple[ComponentScore, ...]:
+        """What the page names, with each component's own reason (§5.1.1)."""
+        return tuple(c for c in self.components if not c.assessable)
+
+    @property
+    def evidence(self) -> tuple[Evidence, ...]:
+        return tuple(row for component in self.components for row in component.evidence)
+
+
+def compose_score(
+    components: Iterable[ComponentScore],
+    penalties: Iterable[Penalty],
+    *,
+    weights: MatchingWeights,
+) -> MatchScore:
+    """Sum the parts, and record what the sum is out of.
+
+    Penalties subtract from the numerator and never widen the denominator: a
+    heavily penalised posting has not been assessed on *more*, and adding the
+    ceilings to `assessed_out_of` would make it look like it had.
+    """
+    scored = tuple(components)
+    costs = tuple(penalties)
+    assessed = sum(weights.weight(WEIGHT_NAME[c.component]) for c in scored if c.assessable)
+    component_total = sum(c.points for c in scored)
+    penalty_total = sum(p.points for p in costs)
+    return MatchScore(
+        components=scored,
+        penalties=costs,
+        assessed_out_of=assessed,
+        component_total=component_total,
+        penalty_total=penalty_total,
+        overall=max(0, component_total + penalty_total),
+    )
+
+
+def score_match(
+    posting: PostingForScoring,
+    profile: ScoringProfile,
+    *,
+    weights: MatchingWeights,
+    as_of: date,
+) -> MatchScore:
+    """The whole score for one (person, posting) pair. Pure, and no database.
+
+    The penalties run *after* the components because one of them reads their
+    evidence rows: "a required technology with no evidence behind it" is a
+    statement about rows this function has just produced, not a second search
+    through the profile that could disagree with them.
+
+    Deliberately not here: the eligibility state. It is computed by
+    `eligibility.py`, stored in its own column beside this number, and never
+    folded into it (§5.2). A job can be an 82 and `uncertain`.
+    """
+    components = (
+        score_role_relevance(posting, profile, weight=weights.weight("role_relevance")),
+        score_skill_overlap(posting, profile, weight=weights.weight("skill_overlap")),
+        score_project_evidence(posting, profile, weight=weights.weight("project_evidence")),
+        score_location_and_work_mode(
+            posting, profile, weight=weights.weight("location_and_work_mode")
+        ),
+        score_listing_freshness(
+            posting,
+            weight=weights.weight("listing_freshness"),
+            full_days=weights.threshold("freshness_days.full"),
+            zero_days=weights.threshold("freshness_days.zero"),
+            as_of=as_of,
+        ),
+        score_early_career_priority(posting, weight=weights.weight("early_career_priority")),
+    )
+    evidence = tuple(row for component in components for row in component.evidence)
+    penalties = (
+        penalize_missing_requirements(
+            posting,
+            evidence,
+            ceiling=weights.ceiling("missing_requirement"),
+            per_requirement=weights.threshold("missing_requirement.per_requirement"),
+        ),
+        penalize_seniority_mismatch(
+            posting,
+            profile,
+            ceiling=weights.ceiling("seniority_mismatch"),
+            per_year=weights.threshold("seniority_mismatch.per_year"),
+            implied_years={
+                level: weights.threshold(f"seniority_years.{level}")
+                for level in Seniority
+                if level is not Seniority.UNCLEAR
+            },
+        ),
+    )
+    return compose_score(components, penalties, weights=weights)

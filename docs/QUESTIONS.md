@@ -14,8 +14,17 @@ the date, because the reasoning is usually worth more than the decision.
 
 A posting naming no technologies is scored out of 50, not out of 100, and the
 page says which components could not be assessed and why. The ranked list sorts
-on the fraction; the number shown carries its own denominator. Task 5 implements
-the composition and Task 10 owns how two numbers read on one screen.
+on the fraction; the number shown carries its own denominator. Task 10 owns how
+two numbers read on one screen.
+
+**Implemented at Task 5** — `scoring.compose_score`, and `MatchScore.fraction`
+returns `None` rather than a number when *nothing* could be assessed, because
+0.0 sorts a pair last and 1.0 sorts it first and both are claims nobody made.
+Implementing it surfaced one thing the answer implied and nobody had written
+down: **the denominator has to reach the database**. A component that scored
+zero and a component that could not be assessed both store `0`, so the fraction
+cannot be recomputed on read — `match_results` needs an `assessed_out_of`
+column, and it lands with Task 8's migration. Recorded in `matching.md` §5.1.2.
 
 What this buys, restated so the reason survives the decision: a terse posting no
 longer sorts below a verbose one for reasons about the employer's prose. What it

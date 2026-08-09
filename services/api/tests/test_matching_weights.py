@@ -15,11 +15,13 @@ from typing import Any
 import pytest
 import yaml
 
+from nightshift.db.base import Seniority
 from nightshift.domain.matching_weights import (
     COMPONENT_NAMES,
     DEFAULT_WEIGHTS_PATH,
     PENALTY_NAMES,
     RULESET_LOGIC_VERSION,
+    SENIORITY_LADDER,
     THRESHOLD_NAMES,
     WEIGHT_TOTAL,
     WeightsError,
@@ -228,4 +230,79 @@ def test_a_file_with_no_thresholds_at_all_is_refused(raw: dict[str, Any]) -> Non
     del raw["thresholds"]
 
     with pytest.raises(WeightsError, match="thresholds must be a mapping"):
+        parse_weights(raw)
+
+
+# -- the penalty thresholds, added at Task 5 -----------------------------
+#
+# Both penalties needed a curve, and §5.1 gives only their ceilings. The numbers
+# that shape the curve are thresholds like any other and live in the file; how a
+# curve *uses* them is logic and carries `RULESET_LOGIC_VERSION`.
+
+
+def test_the_committed_penalty_thresholds_load() -> None:
+    weights = load_weights()
+
+    assert weights.threshold("missing_requirement.per_requirement") == 5
+    assert weights.threshold("seniority_mismatch.per_year") == 6
+    assert weights.threshold("seniority_years.internship") == 0
+    assert weights.threshold("seniority_years.director") == 10
+
+
+def test_the_seniority_ladder_names_every_level_the_classifier_can_produce() -> None:
+    """A level with no implied years is a level the penalty silently skips.
+
+    `Seniority` is the classifier's own output. If M3b ever gains a level and
+    this file does not, the missing key is a posting the penalty cannot weigh —
+    which looks exactly like a posting that deserves no penalty.
+
+    `unclear` is the one member with no rung, and deliberately: it is "no rule
+    could tell", and inventing years for it is inventing the mismatch.
+    """
+    levels = tuple(level.value for level in Seniority if level is not Seniority.UNCLEAR)
+    assert levels == SENIORITY_LADDER
+    assert "seniority_years.unclear" not in THRESHOLD_NAMES
+    assert all(f"seniority_years.{level}" in THRESHOLD_NAMES for level in SENIORITY_LADDER)
+
+
+def test_a_backwards_seniority_ladder_is_refused(raw: dict[str, Any]) -> None:
+    """The freshness window's failure, one penalty over.
+
+    Swap staff and junior and nothing crashes: every score stays in range, the
+    penalty still fires, and a Lead posting now costs an early-career profile
+    *less* than a Junior one. There is no error and no test that would notice.
+    """
+    raw["thresholds"]["seniority_years"]["junior"] = 8
+    raw["thresholds"]["seniority_years"]["staff"] = 1
+
+    with pytest.raises(WeightsError, match="does not rise"):
+        parse_weights(raw)
+
+
+def test_a_flat_seniority_ladder_is_refused(raw: dict[str, Any]) -> None:
+    """Every level implying the same years is the penalty turned off in data.
+
+    It is a valid file, it loads, and the seniority penalty is then zero for
+    every posting in the corpus — which reads as "no posting is mispitched"
+    rather than as "this rule stopped running".
+    """
+    for level in raw["thresholds"]["seniority_years"]:
+        raw["thresholds"]["seniority_years"][level] = 3
+
+    with pytest.raises(WeightsError, match="never rises"):
+        parse_weights(raw)
+
+
+def test_a_zero_per_requirement_is_refused(raw: dict[str, Any]) -> None:
+    """Zero is the missing-requirement penalty deleted, spelled as a number."""
+    raw["thresholds"]["missing_requirement"]["per_requirement"] = 0
+
+    with pytest.raises(WeightsError, match="per_requirement"):
+        parse_weights(raw)
+
+
+def test_a_zero_per_year_is_refused(raw: dict[str, Any]) -> None:
+    raw["thresholds"]["seniority_mismatch"]["per_year"] = 0
+
+    with pytest.raises(WeightsError, match="per_year"):
         parse_weights(raw)

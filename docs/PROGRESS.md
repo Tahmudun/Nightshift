@@ -18,14 +18,22 @@
 **M3a: COMPLETE, reviewed, CI-green at `3fbffd6`, merged to `main` as PR #9 (`452ec90`).**
 **M3a.1: COMPLETE. Recall 0.459 → 0.861, precision 0.659 → 0.847, necessity 0.668 → 0.915.**
 **M3b: COMPLETE, reviewed, CI-green at `7bfbf2d`, merged to `main` as PR #11 (`d2273e7`). `main` green after the merge.**
-**Current milestone: M3 — explainable matching. M3c (the score): Tasks 1–4 of 12 done. Q6 answered — score out of what could be assessed.**
+**Current milestone: M3 — explainable matching. M3c (the score): Tasks 1–5 of 12 done. Q6 answered and implemented.**
 **Last updated: 2026-08-09**
 
 ---
 
 ## Next exact action
 
-### M3c Tasks 1–4 are done. Next: Task 5 — the two penalties, the composition out of what could be assessed (Q6's answer), and the seniority penalty M3b refused to make a blocker.
+### M3c Tasks 1–5 are done. Next: Task 6 — the golden test, written **before** any weight is tuned.
+
+**Task 5 shipped**: both penalties, the composition, and `score_match` — the
+whole score for one (person, posting) pair, still pure and still with no
+database. `data/matching.yaml` gained nine thresholds; the loader gained a
+ladder that must rise. 108 tests in `test_scoring.py`, 40 in
+`test_matching_weights.py`. Full detail in the M3c Task 5 section below,
+including the reason the missing-requirement penalty counts instead of dividing
+and a column Task 8's migration now owes.
 
 **Task 4 shipped**: location and work mode, listing freshness, early-career
 priority — the three components §2.1 exempts from quoting a person, each
@@ -93,6 +101,22 @@ taken in the plan rather than inside the work:
   named at M3b.
 
 ### Not real yet — M3c, so far
+
+- **`match_results` has no `assessed_out_of` column and needs one.** Found by
+  implementing Q6's answer. The ranked list sorts on the *fraction*, and §4.2's
+  reason for precomputing at all is that "a sort needs the value in the
+  database" — but the denominator cannot be recomputed from the stored
+  components, because a component that scored zero and a component that could
+  not be assessed both store `0`, and telling those apart is the entire content
+  of §5.1.1. `MatchScore` carries it in Python today; the column lands with Task
+  8's migration alongside `match_evidence.job_span_field`, when scores first
+  reach the database. Written into `matching.md` §5.1.2 so it is not discovered
+  then.
+- **Nothing has scored a real posting yet.** `score_match` runs end to end on
+  fixtures and has never been pointed at the seeded corpus, so the anti-vacuity
+  question — does this scorer produce more than one number across 31 jobs — is
+  still unanswered. It is Task 7's, and it is on the plan's own list of what
+  would make it wrong.
 
 - **The relevance ratings are 27/30 filled, all with the same word, and the
   profile block is still empty.** The human's first pass on 2026-08-09 rated
@@ -175,6 +199,132 @@ taken in the plan rather than inside the work:
   deliberately — turning it on means per-file ignores, and that is its own small
   change rather than a rider on M3c. The two files added this session were
   checked against the same config by hand and are clean.
+
+---
+
+## M3c Task 5 — the two penalties, and the total that carries its own denominator
+
+### The missing-requirement penalty may only read `technology`, and that is §5.2
+
+`matching.md` §5.1 describes it as *"required requirements with no evidence row
+behind them"*, and the first thing implementation asked was: which required
+requirements?
+
+A posting's required rows can be `degree`, `graduation_window`,
+`years_experience`, `enrollment`, `authorization`, `technology` or `role_level`.
+The first five are **exactly the five dimensions M3b's eligibility gate owns** —
+`eligibility.Dimension` lists those five and nothing else. Charging points for
+an unmet degree requirement is the eligibility verdict converted into a number
+by a side door, which §5.2 forbids in the plainest language that document has.
+`role_level` belongs to the other penalty. So `technology`, alone.
+
+That exclusion is one line of code and would rot silently, so
+`test_every_requirement_kind_is_owned_by_the_gate_the_penalty_or_the_level`
+asserts the three-way partition covers `RequirementKind` exactly. A seventh kind
+turns it red and forces somebody to decide where it goes, rather than letting it
+default into a penalty or out of one.
+
+### The penalty counts instead of dividing, because the obvious curve is a weight change wearing a penalty's name
+
+§5.1 gives the ceiling, -25, and nothing about the curve. The obvious one is the
+fraction unmet times the ceiling. Written out beside skill overlap, it is:
+
+```
+skill overlap      +30 · matched
+missing penalty    -25 · (1 - matched)
+                   ─────────────────────
+                    55 · matched - 25
+```
+
+That is one component of weight 55 with an offset. The penalty would move no
+score that a weight change could not, and Task 7's mutation test — zero a weight
+and watch a named test go red — could zero either one and see the other absorb
+it, which is a mutation test that passes while measuring nothing.
+
+The rule charges a flat 5 points per unmet required technology instead, capped
+at the ceiling. That reads a fact the fraction cannot: five technologies you
+cannot evidence are five things to learn whether the posting lists five of them
+or fifty.
+
+It reads the **evidence rows**, not the components' verdicts, so a technology
+covered only by a project counts as met. Anything else would contradict a row
+the same score is about to store.
+
+### `None` years is not zero years, and reading it as zero is I2 pointed downwards
+
+The seniority penalty needs both sides: what the posting's title band implies,
+and what the person has confirmed. `users.years_experience` is null on most
+profiles, and null is *not told*.
+
+Reading it as zero charges every silent profile the full penalty against every
+senior posting in the corpus — an invented qualification claim aimed at the
+person rather than for them, which is the same invariant I2 governs and the
+less-obvious direction of it. Both silences stop the rule instead:
+`Seniority.UNCLEAR` is no rule having decided, and a null years figure is
+nothing to compare against. Neither resolves to a number.
+
+Mutating the rule to read `profile.years_experience or 0` turns exactly one
+test red, and it is the one named for it.
+
+### A senior title costs points and cannot block, and the type system is what says so
+
+The task's acceptance line. The mechanical form of M3b's refusal is that
+`eligibility.Dimension` has no seniority member at all, so this rule has no
+route to `ineligible` even if somebody wanted one — A13's argument built into a
+type rather than into a convention. The test asserts that absence rather than
+asserting the penalty behaves, because the penalty behaving is a property of
+today's code and the absence is a property of the design.
+
+Scoring off the *title band* is also what makes the penalty additive rather than
+a second copy of the gate's years rule: the gate reads a stated minimum in the
+posting's text and can only answer when one is stated, so a "Lead Engineer"
+title naming no number is invisible to it and obvious here.
+
+### The ladder is in the data file and is shown able to run backwards
+
+`data/matching.yaml` gained a rung per `Seniority` level, plus the two per-unit
+costs. §4.2 puts every rule threshold in the file, and these are numbers that
+move a score.
+
+Two shapes load cleanly and break the rule silently, and both are now refused:
+
+- **A falling rung.** Swap `junior: 8` and `staff: 1` and nothing crashes, every
+  score stays in range, and a Lead posting costs an early-career profile *less*
+  than a Junior one. The freshness window's failure, one rule over.
+- **A flat ladder.** Every level implying the same years makes every gap zero,
+  which is the seniority penalty deleted in data while every test that does not
+  read this file stays green.
+
+`per_requirement: 0` and `per_year: 0` are refused for the same reason: zero is
+a valid whole number that switches a penalty off for the whole corpus, and the
+result reads as "nothing was penalised" rather than as "this rule stopped
+running".
+
+`unclear` deliberately has **no** rung, and a test asserts it does not — it is
+the one `Seniority` member that means no rule decided, and inventing years for
+it is inventing the mismatch.
+
+### The total carries its denominator, and that is a column Task 8 now owes
+
+Q6's answer implemented: `assessed_out_of` is the sum of the weights of the
+components that could be assessed, `overall` is the literal sum of the parts
+floored at zero — the same arithmetic `match_results.the_total_is_its_parts`
+asserts, re-asserted in Python so a unit test sees it — and the ranked list
+sorts on the fraction.
+
+`fraction` returns **`None`** when nothing at all could be assessed, not 0.0.
+Zero sorts that pair last and 1.0 sorts it first, and both are claims nobody
+made; a profile with no skills, no projects and no stated preferences against a
+posting with no dates and no readable level reaches this.
+
+Implementing it surfaced what the answer implied and nobody had written down:
+**the denominator has to reach the database.** A component that scored zero and
+a component that could not be assessed both store `0`, so the fraction cannot be
+recomputed on read. `match_results` needs an `assessed_out_of` column; it lands
+with Task 8's migration, and `matching.md` §5.1.2 records why the stored
+`overall_score` stays the raw sum rather than being normalised to 100 — doing
+that would break the check constraint *and* destroy the distinction the
+constraint exists to preserve.
 
 ---
 

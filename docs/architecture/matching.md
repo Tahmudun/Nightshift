@@ -512,6 +512,66 @@ Awarding the points anyway was never available: §4.3's trigger refuses a
 positive component with no evidence row, so the database removed that option
 before anyone had to be disciplined about it.
 
+### 5.1.2 The denominator has to be stored, and that is a column this table does not have yet
+
+Following from §5.1.1 and found while implementing it at Task 5. §4.2 says the
+score is precomputed because "a sort needs the value in the database" — and the
+ranked list sorts on the *fraction*, so the denominator is part of that value.
+
+It cannot be recomputed from the stored components. A component that scored zero
+and a component that could not be assessed both store `0`, and telling those two
+apart is the entire content of §5.1.1. `match_results` therefore needs an
+`assessed_out_of` column beside `overall_score`. It lands with Task 8's
+migration, alongside `match_evidence.job_span_field`, because Task 8 is when a
+score first reaches the database — nothing writes these tables before then.
+
+`match_results.the_total_is_its_parts` stays exactly as built: `overall_score`
+remains the literal sum of the six components and the penalty, floored at zero.
+Normalising the stored total to 100 would break that constraint and, worse,
+would destroy the distinction the constraint exists to preserve. The fraction is
+a division performed by the query, not a number written down.
+
+### 5.1.3 The two penalty curves, decided at Task 5
+
+§5.1 gives the ceilings — -25 and -30 — and nothing else. Both curves were
+decided when the rules were written, and both decisions are constrained by
+something other than taste.
+
+**Missing requirement counts; it does not divide.** A fraction-based penalty —
+*the share of required technologies you failed to meet, times 25* — combines
+with skill overlap's *the share you met, times 30* into `55·matched - 25`. That
+is arithmetically one component of weight 55 with an offset, so the penalty
+would be a weight change wearing a penalty's name, and §8's mutation test could
+zero either one and watch the other absorb it. The rule charges a flat 5 points
+per unmet required technology instead, capped at the ceiling, because that reads
+a fact the fraction cannot: five technologies you cannot evidence are five
+things to learn whether the posting lists five of them or fifty.
+
+**It may only read `technology`, and that is §5.2 rather than convenience.** The
+other required kinds a posting can carry are `degree`, `graduation_window`,
+`years_experience`, `enrollment` and `authorization` — which is exactly the set
+of dimensions M3b's gate owns. Charging points for an unmet degree requirement
+is the eligibility verdict converted into a number by a side door. A test
+asserts that every `RequirementKind` is owned by the gate, by this penalty, or
+by the seniority one, so a seventh kind forces the decision rather than
+inheriting one.
+
+**Seniority mismatch compares the posting's title band against confirmed years,
+and can never block.** `data/matching.yaml` carries a rung per `Seniority`
+level; the penalty charges 6 points per year of gap, capped at -30. Two silences
+stop it: `unclear` is no rule having decided, and a null `years_experience` is
+the person not having told us (I2) — neither resolves to zero, because reading
+null as zero charges every silent profile the full penalty against every senior
+posting in the corpus.
+
+Scoring it off the *title band* is also what makes it additive rather than a
+second copy of the gate's years rule: the gate reads a stated minimum in the
+posting's text and can only answer when one is stated, so a "Lead Engineer"
+title naming no number is invisible to it and obvious here. And the mechanical
+form of "never a blocker" is that `eligibility.Dimension` has no seniority
+member at all — this rule has no route to `ineligible` even if somebody wanted
+one, which is A13's argument built into the type rather than into a convention.
+
 ### 5.2 Eligibility is never part of the number
 
 The five states from §8.3 — `eligible`, `likely_eligible`, `uncertain`,
