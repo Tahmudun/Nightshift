@@ -325,16 +325,33 @@ Every one was run and watched to go red before the fix was trusted, which is the
 `matching.md` §8 asks for and the reason the gate's own mutation harness lives in the suite
 rather than in this document.
 
-**Still not run anywhere: CI.** Everything above is one machine. The last seven CI runs in
-this project each found something no local command had executed, so the branch is not
-merged until CI is green on all five jobs.
+**CI: green on all five jobs at `6656eab`, first attempt** — run
+[31310986928](https://github.com/Tahmudun/Nightshift/actions/runs/31310986928). Counts read
+from the job logs:
+
+```
+python       1383 passed; 72 distributions, all pinned
+e2e          5 degraded + 48 seeded passed, 1 skipped
+web          20 files, 182 tests
+migrations   up, down, up, and no drift
+secret scan
+```
+
+**The e2e arithmetic is the assertion this review most wanted.** The previous run at
+`b403a8e` was 43 seeded and 1 skipped; this one is 48 seeded and **still 1 skipped**. The
+five eligibility tests ran rather than skipping — including, on a machine that has never
+had a stale server on port 8000, the one that skipped itself green here (§2.7, §2.8).
+
+`make acceptance` and `verify.py` remain the two things CI does not run, so the 73
+assertions are local-only evidence. Unchanged from every previous milestone.
 
 ---
 
 ## 6. What is left
 
-1. **Push and read CI.** The only thing between this branch and a merge. Seven CI runs in
-   this project have failed and every one found something no local command had executed.
+1. **Merge PR #11.** CI is green on all five jobs, first attempt — the sixth first-try pass
+   in this project, recorded because seven runs here have failed and every one found
+   something no local command had executed.
 2. **A stale server can still fool the browser suite.** `verify.py` refuses to run against
    a port it does not own; Playwright cannot, because `reuseExistingServer: true` is load-
    bearing for the ordinary `make dev` loop. What replaces the guard there is the throwing

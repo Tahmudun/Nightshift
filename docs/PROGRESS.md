@@ -17,7 +17,7 @@
 **Q4 (CI pinning): ANSWERED and shipped. ADR 0016, merged to `main` as PR #10 (`0c5bcbd`).**
 **M3a: COMPLETE, reviewed, CI-green at `3fbffd6`, merged to `main` as PR #9 (`452ec90`).**
 **M3a.1: COMPLETE. Recall 0.459 → 0.861, precision 0.659 → 0.847, necessity 0.668 → 0.915.**
-**M3b: COMPLETE and reviewed. All twelve tasks verified locally at `make acceptance` exit 0. Not yet CI-green; PR #11 open as a draft.**
+**M3b: COMPLETE, reviewed, CI-green on all five jobs at `6656eab`, first attempt. PR #11 ready to merge.**
 **Current milestone: M3 — explainable matching. M3c (the score) is next, after M3b merges.**
 **Last updated: 2026-08-09**
 
@@ -25,7 +25,28 @@
 
 ## Next exact action
 
-### All twelve M3b tasks are done and verified locally. Next: push, read CI on all five jobs, then merge PR #11.
+### M3b is done, reviewed, and CI-green at `6656eab`. Next: merge PR #11, then start M3c — the score.
+
+**CI green on all five jobs, first attempt** — run
+[31310986928](https://github.com/Tahmudun/Nightshift/actions/runs/31310986928).
+Counts read from the job logs rather than inferred:
+
+```
+python       1383 passed; 72 distributions, all pinned
+e2e          5 degraded + 48 seeded passed, 1 skipped
+web          20 files, 182 tests
+migrations   up, down, up, and no drift
+secret scan
+```
+
+**The e2e arithmetic is the assertion that matters here.** The previous run at
+`b403a8e` was 43 seeded and 1 skipped; this one is 48 seeded and **still 1
+skipped**. 43 + 5 = 48, and the skip count did not rise — so all five eligibility
+tests ran rather than skipping, **including the one that skipped itself green
+locally against the stale server.** The remaining skip is `operate-boards`',
+which predates M3b.
+
+Locally, before the push:
 
 ```
 make check         1383 python; 182 web across 20 files; ruff, mypy, eslint,
@@ -40,9 +61,9 @@ migrations         0015 down and up again against a real database, drift clean
 project has today earned the right to have to say. See "the three-day-old
 server" below.
 
-Nothing here has run in CI. Seven CI runs in this project have failed and every
-one found something no local command had executed, so **the branch is not merged
-until CI is green on all five jobs.**
+`make acceptance` and `verify.py` are still the two things CI does not run, so
+the 73 assertions remain local-only evidence — unchanged from every previous
+milestone, and the reason `make acceptance` is in the merge checklist by hand.
 
 The PRODUCT-SPEC rename to "CitySignal" that sat in the working tree was a VS
 Code artefact — the human confirmed it on 2026-08-09 and it is reverted. The
@@ -251,9 +272,10 @@ The one remaining skip in the seeded suite is `operate-boards.spec.ts`'s
 
 ### Not real yet — M3b
 
-- **Nothing on this branch has run in CI.** Everything is one machine. Listed
-  first because seven CI runs here have failed and every one found something no
-  local command had executed.
+- **`verify.py`'s 73 assertions are local-only evidence.** CI does not run
+  `make acceptance`, and that is unchanged from every previous milestone. Listed
+  first because it is the largest body of checks in this repository that no push
+  will ever exercise.
 - **Playwright still cannot tell a fresh API from a stale one.** `verify.py` now
   refuses a port it does not own; the browser suite cannot, because
   `reuseExistingServer: true` is load-bearing for the `make dev` loop. What
