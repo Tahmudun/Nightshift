@@ -1,0 +1,56 @@
+# The match score's weights.
+#
+# `docs/architecture/matching.md` §5.1 fixes these numbers; this file is where
+# they live so that changing one is a traceable data change rather than a code
+# edit or a migration — the same arrangement as `data/skills.yaml`.
+#
+# `version` is composed with the rule logic's own `RULESET_LOGIC_VERSION` and
+# stored on every `match_results` row as `"<logic>+<data>"` (§4.2). Bump this
+# whenever any number below changes. Two things then follow, both wanted: the
+# golden test goes red with a diff showing exactly what moved, and every stored
+# result computed under the old numbers reads as not-yet-computed instead of as
+# a score (§4.2, "a stale result is never silently served").
+#
+# **Every weight is a whole number and the six sum to exactly 100**, asserted on
+# load. Both halves of that matter. A component that quietly reads as zero
+# removes itself from every score in the corpus while every test still passes,
+# which is how a weight typo becomes invisible; and a weight tuned to a tenth of
+# a point claims a precision nothing in this project can evidence.
+#
+# Two of PRODUCT-SPEC §8.2's ten components are deliberately absent — company
+# preference and application urgency. §5.1 records why, and the remaining eight
+# numbers already total 100 without them, so nothing here is renormalised.
+version: "2026-08-09.1"
+
+components:
+  # 0-20. How close the posting's role family is to the roles the user wants.
+  role_relevance: 20
+  # 0-30. The largest single component, and the one the span rule binds hardest:
+  # every point traces to a technology named in the posting and confirmed by the
+  # user, with both spans stored.
+  skill_overlap: 30
+  # 0-20. Evidence from the user's own projects, quoted from their own text.
+  project_evidence: 20
+  # 0-10. `job_locations.city` and `remote_policy` against a stated preference.
+  # No coordinates, no boroughs, no neighbourhoods — those are M4.
+  location_and_work_mode: 10
+  # 0-10. Arithmetic on the listing's dates. Makes no claim about the person.
+  listing_freshness: 10
+  # 0-10. Whether the posting is an internship or new-grad role, read off the
+  # posting's own seniority language rather than off the user's status.
+  early_career_priority: 10
+
+# Ceilings, not curves. Each is the most a penalty may subtract; how a penalty
+# approaches its ceiling is rule logic and carries the logic version.
+#
+# Both are negative and asserted to be. A penalty entered as a positive number
+# would add points for a mismatch, which is not a smaller bug than a wrong
+# weight — it is the score meaning the opposite of what it says.
+penalties:
+  # Required requirements with no evidence row behind them. `preferred` and
+  # `mentioned` never reach this (§4.1).
+  missing_requirement: -25
+  # A staff-level posting for an early-career profile. A penalty and never a
+  # blocker: M3b refused to let seniority produce `ineligible`, because a
+  # posting's title is not a statement about who may apply.
+  seniority_mismatch: -30
