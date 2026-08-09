@@ -38,6 +38,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    func,
     text,
 )
 from sqlalchemy import (
@@ -53,14 +54,17 @@ from nightshift.db.base import (
     ApplicationStage,
     Base,
     BoardTier,
+    EligibilityState,
     EmploymentType,
     EventActor,
+    EvidenceSource,
     ExtractionKind,
     ExtractionStatus,
     IngestionRunStatus,
     InternshipSeason,
     JobStatus,
     LocationConfidence,
+    MatchComponent,
     ProficiencyLevel,
     ProjectStatus,
     RemotePolicy,
@@ -189,13 +193,10 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 class UserSkill(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """A skill the user **confirmed**. Never a proposal (invariant I2).
 
-    ``skill_id`` from §6.2 is deliberately absent: the taxonomy is M3's, and
-    this table stores the canonical name from ``data/skills.yaml`` along with
-    the vocabulary version that produced it, so a rename there is traceable.
-
-    ``confidence`` from §6.2 is also absent. A confirmed skill has no confidence
-    score — a person said yes — and a column that stays NULL until M3 is shape
-    with no use. I4 forbids surfacing a number with no breakdown behind it.
+    ``confidence`` from §6.2 is deliberately absent. A confirmed skill has no
+    confidence score — a person said yes — and a column that stays NULL until M3
+    is shape with no use. I4 forbids surfacing a number with no breakdown behind
+    it.
     """
 
     __tablename__ = "user_skills"
@@ -220,6 +221,28 @@ class UserSkill(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     #: Casefolded, for the uniqueness constraint. "PostgreSQL" and "postgresql"
     #: are one skill.
     normalized_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    #: §6.2's `skill_id`, deferred at M2c and made real by M3's taxonomy
+    #: (`matching.md` §4.4). **It is the taxonomy's canonical name, and it is not
+    #: a foreign key**, because the taxonomy is `data/skills.yaml` — a versioned
+    #: file (CLAUDE.md §3) whose identifier for a skill *is* its canonical name,
+    #: which is also what `job_requirements.value` stores. Mirroring that file
+    #: into a `skills` table would create a second source of truth that can
+    #: disagree with it, and inventing opaque slugs would create a second
+    #: identifier space that has to be kept in step with the names the extractor
+    #: already emits. If the taxonomy ever grows real ids, they land in this
+    #: column and the change is a data migration over a table with a handful of
+    #: rows.
+    #:
+    #: **Null is the load-bearing value.** `add_skill` accepts free text — a
+    #: person may confirm a skill the vocabulary has never heard of — and null
+    #: says exactly that: confirmed, and outside the taxonomy. Such a skill can
+    #: never match a `job_requirements.value`, and the score has to say so rather
+    #: than quietly resolve it to a neighbour.
+    #:
+    #: `normalized_name` stays beside it. A rename in the taxonomy must not
+    #: orphan a fact a human confirmed, so the confirmed name is stored
+    #: independently of whatever the vocabulary calls it today.
+    skill_id: Mapped[str | None] = mapped_column(String(120), index=True)
     proficiency_level: Mapped[ProficiencyLevel] = mapped_column(
         _enum(ProficiencyLevel, "proficiency_level"),
         nullable=False,
@@ -1194,3 +1217,253 @@ class ApplicationEvent(UUIDPrimaryKeyMixin, Base):
     )
 
     application: Mapped[Application] = relationship(back_populates="events")
+
+
+class MatchResult(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """One score, decomposed into the six components that produced it (§6.13).
+
+    **Invariant I4 is the whole shape of this table.** The components are
+    columns rather than a JSON blob because a component with no evidence row is
+    refused at commit by `match_results_component_needs_evidence`, and a trigger
+    cannot reason about a blob's keys. A bare number is a bug; a number that
+    cannot be stored without its parts is the fix.
+
+    Three deliberate departures from §6.13, each named so none of them looks
+    like an oversight:
+
+    * **`explanation` is not here.** §6.13 lists it and `matching.md` §6 says no
+      explanation text is generated — every line is assembled from
+      `match_evidence` rows at render time. A stored copy is a second version of
+      the same claim that can disagree with the rows, which is why `resumes`
+      dropped §6.4's `structured_profile` at M2c for the same reason. It is also
+      precisely the failure §2.2 forbids: text written after the fact to justify
+      a number that did not come from it.
+    * **`penalty_score` is one column, not two.** §5.1 keeps two penalties and
+      this stores their sum, because the trigger that binds a component to its
+      evidence binds the six positive components (§4.3's enum has no penalty
+      member) and a split column would imply an evidence link that does not
+      exist. What each penalty cost is `match_evidence`'s business at Task 5 or
+      the explanation's; what the score owes them is one number.
+    * **`eligibility_status` sits beside the score and is never inside it**
+      (§5.2). A job can be an 82 and `uncertain`, and this row shows both
+      without reconciling them.
+
+    **A stale row is never served.** `ruleset_version` is `"<logic>+<data>"`
+    (`matching_weights.ruleset_version()`), and the API refuses any row whose
+    version is not the current one, reporting it as not-yet-computed. Rows are
+    also *deleted* — not updated — whenever an input moves: four triggers watch
+    `jobs.description_text`, `job_requirements`, `user_skills` and
+    `user_projects`. An absent score is honest; a score computed under rules
+    that no longer exist is not.
+    """
+
+    __tablename__ = "match_results"
+    __table_args__ = (
+        # §4.2. One row per (person, job, ruleset), so a version bump computes
+        # alongside rather than overwriting what it is being compared against.
+        UniqueConstraint(
+            "user_id", "job_id", "ruleset_version", name="uq_match_results_user_job_ruleset"
+        ),
+        # The ranked query: one person's corpus, best first, within a band.
+        Index("ix_match_results_user_ranking", "user_id", "eligibility_status", "overall_score"),
+        CheckConstraint(
+            "role_score >= 0 AND skill_score >= 0 AND project_evidence_score >= 0"
+            " AND location_score >= 0 AND freshness_score >= 0 AND priority_score >= 0",
+            name="components_are_not_negative",
+        ),
+        # A penalty that adds points is the arithmetic saying the opposite of
+        # what the word means. The ceilings live in `data/matching.yaml`; that
+        # this is a subtraction is not a tunable.
+        CheckConstraint("penalty_score <= 0", name="a_penalty_never_adds"),
+        # **The total is its parts.** Not a restatement of the scorer — it is the
+        # assertion I4 rests on, and without it "every score decomposes" is a
+        # property of whichever function last wrote the row. The floor at zero is
+        # the one policy inside it: components reach 100 and penalties reach -55,
+        # so a score can go negative in arithmetic and cannot in meaning. Changing
+        # that floor is a change in what the number *is* and costs a migration,
+        # which is the right price for it.
+        CheckConstraint(
+            "overall_score = GREATEST(0, role_score + skill_score + project_evidence_score"
+            " + location_score + freshness_score + priority_score + penalty_score)",
+            name="the_total_is_its_parts",
+        ),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    job_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("jobs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    #: §6.13. Which stored resume best covers the required set (`matching.md`
+    #: §6). Null until there is a resume to recommend, and `SET NULL` on delete
+    #: because losing a resume must not delete the score computed beside it.
+    resume_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("resumes.id", ondelete="SET NULL")
+    )
+    overall_score: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    eligibility_status: Mapped[EligibilityState] = mapped_column(
+        _enum(EligibilityState, "eligibility_state"), nullable=False
+    )
+    role_score: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    skill_score: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    project_evidence_score: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    location_score: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    freshness_score: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    priority_score: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    #: The two §5.1 penalties, summed. Zero or negative.
+    penalty_score: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, server_default=text("0")
+    )
+    #: The embedding that produced the proposals on this row's evidence, or null
+    #: when no proposal touched it. Null is the honest value for a rules-only
+    #: score and is what every row carries until Task 11 exists.
+    model_version: Mapped[str | None] = mapped_column(String(80))
+    #: `"<logic>+<data>"`. One column covering both, because M3's acceptance
+    #: criterion is *identical inputs + identical ruleset_version → identical
+    #: output* and two columns would let a rule move while the weights version
+    #: stayed put (§4.2).
+    ruleset_version: Mapped[str] = mapped_column(String(80), nullable=False)
+
+    evidence: Mapped[list[MatchEvidence]] = relationship(
+        back_populates="match_result", cascade="all, delete-orphan"
+    )
+
+
+class MatchEvidence(UUIDPrimaryKeyMixin, Base):
+    """One link a score rests on: what the posting said, and what the person has.
+
+    `matching.md` §4.3. Two guards in the database, in two tiers, and they guard
+    different things:
+
+    1. **Every positive component has a row here.** A deferrable constraint
+       trigger on `match_results`, checked at commit, plus a matching one here so
+       deleting the last row for a component fails the same way. This is what
+       makes "a score with no evidence cannot be committed" true of the schema
+       rather than of the code that happens to write it.
+    2. **Every claim about the person quotes both sides.** A check constraint:
+       `role`, `skill` and `project` rows must carry `job_span_text` *and*
+       `user_span_text`. `location`, `freshness` and `priority` may not — they
+       compare a posting's own values against a stated preference and assert
+       nothing about anybody's qualifications, so there is no user-side span to
+       quote and requiring one would mean inventing one (§2.1).
+
+    The job-side span is stored with its offsets and refused by
+    `match_evidence_span_must_quote` if it does not literally quote
+    `jobs.description_text`, the same trigger pattern `job_requirements` and
+    `resume_extractions` carry. The offsets live here rather than being read
+    through `job_requirement_id` because Task 11's embedding proposals point at
+    spans that are not requirement rows at all.
+
+    No timestamps beyond `created_at`: a row is written with its score and dies
+    with it. There is nothing here to update.
+    """
+
+    __tablename__ = "match_evidence"
+    __table_args__ = (
+        Index("ix_match_evidence_match_result_id_component", "match_result_id", "component"),
+        # Tier 2 of §4.3, in two halves, and the reason it is a CHECK rather
+        # than a convention: a `skill` row with a null `user_span_text` is a
+        # claim about a person with nothing quoted behind it, which is invariant
+        # I2 failing quietly.
+        CheckConstraint(
+            "component NOT IN ('role', 'skill', 'project')"
+            " OR (job_span_text IS NOT NULL AND user_span_text IS NOT NULL)",
+            name="a_person_claim_quotes_both_sides",
+        ),
+        # The other half, and it was written second because a test found it
+        # missing. The single biconditional this replaces — `component IN (...)
+        # = (both spans non-null)` — passes a `freshness` row carrying a
+        # user-side span and no job span, because both sides of it are then
+        # false. That row is a quotation of somebody's own words filed under a
+        # component that makes no claim about them, which is a fabricated claim
+        # wearing an exempt label, and M3d's hallucination check would then have
+        # to go looking for it in confirmed data.
+        #
+        # A *job*-side span on an exempt component stays legal on purpose: the
+        # priority component reads the posting's own seniority and quoting the
+        # sentence it read is more auditable, not less. Only the user side is
+        # restricted, because only the user side is a claim about a person.
+        CheckConstraint(
+            "component IN ('role', 'skill', 'project') OR user_span_text IS NULL",
+            name="only_a_person_claim_quotes_a_person",
+        ),
+        # The job-side span travels as a unit: text and both offsets, or none of
+        # the three. Half a span cannot be checked against anything.
+        CheckConstraint(
+            "(job_span_text IS NULL) = (job_char_start IS NULL)"
+            " AND (job_char_start IS NULL) = (job_char_end IS NULL)",
+            name="the_job_span_travels_together",
+        ),
+        CheckConstraint(
+            "job_char_start IS NULL OR job_char_start >= 0",
+            name="job_char_start_is_not_negative",
+        ),
+        CheckConstraint(
+            "job_char_end IS NULL OR job_char_end > job_char_start",
+            name="the_job_span_runs_forwards",
+        ),
+        # Points are what this row justifies. A negative one would mean evidence
+        # arguing against the component it is filed under; penalties are a column
+        # on `match_results` and are not evidenced here (§4.3's enum has no
+        # penalty member).
+        CheckConstraint("points >= 0", name="evidence_never_subtracts"),
+    )
+
+    match_result_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("match_results.id", ondelete="CASCADE"), nullable=False
+    )
+    component: Mapped[MatchComponent] = mapped_column(
+        _enum(MatchComponent, "match_component"), nullable=False
+    )
+    #: The requirement this row answers, when there is one. `CASCADE`: a
+    #: requirement that no longer exists cannot go on being cited. Deleting one
+    #: also deletes the whole score, via
+    #: `job_requirements_change_clears_match_results` — so this cascade is a
+    #: belt-and-braces guard rather than the mechanism.
+    job_requirement_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("job_requirements.id", ondelete="CASCADE")
+    )
+    #: The words in the posting, and where they are. Null for the three exempt
+    #: components, which quote nothing and record their compared values in
+    #: `compared` instead.
+    job_span_text: Mapped[str | None] = mapped_column(Text)
+    job_char_start: Mapped[int | None] = mapped_column(Integer)
+    job_char_end: Mapped[int | None] = mapped_column(Integer)
+    user_skill_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("user_skills.id", ondelete="CASCADE")
+    )
+    user_project_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("user_projects.id", ondelete="CASCADE")
+    )
+    #: The words in the user's own **confirmed** data — never
+    #: `resume_extractions`, which holds proposals. M3d's hallucination check is
+    #: an equality over this column and that one is the substrate it must not be
+    #: found in.
+    user_span_text: Mapped[str | None] = mapped_column(Text)
+    #: What the two exempt sides actually were: `{"job": "New York, NY",
+    #: "preference": "hybrid"}`. §2.1 exempts these components from quoting a
+    #: user-side span because there is no claim about the person to quote — it
+    #: does not exempt them from being inspectable, which is what I4 needs.
+    compared: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
+    proposed_by: Mapped[EvidenceSource] = mapped_column(
+        _enum(EvidenceSource, "evidence_source"),
+        nullable=False,
+        server_default=text("'rule'"),
+    )
+    #: The contribution this row justifies. Deliberately **not** constrained to
+    #: sum to its component's score: a component is capped at its weight while
+    #: the evidence under it may propose more, so an equality here would be
+    #: wrong the first time a cap bites. The relationship between the two is a
+    #: scoring rule and is asserted in the scoring tests, where the cap lives.
+    points: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, nullable=False, server_default=func.now()
+    )
+
+    match_result: Mapped[MatchResult] = relationship(back_populates="evidence")

@@ -160,3 +160,53 @@ def test_the_page_has_words_for_every_profile_field_an_unknown_can_ask_for() -> 
         f"the gate can ask for {sorted(missing)} and JobEligibility.tsx has no words "
         "for it, so the page would print the column name at a person"
     )
+
+
+def test_the_match_migration_creates_exactly_the_types_the_models_declare() -> None:
+    """M3c's three new enums, against the copies inside `0016_match_results`.
+
+    The same boundary `test_eligibility_labels.py` guards for `RoleFamily` and
+    `Seniority`, and the copy is unavoidable for the same reason: a migration
+    that imports a model stops describing the schema as of its own revision and
+    starts describing today's. So the values are module constants there
+    precisely so this test can read them.
+
+    `eligibility_state` is the one to watch. It existed as a Python enum for a
+    whole milestone before it became a database type, which is exactly the shape
+    of transcription this file was written after — a vocabulary that has been
+    correct in one place long enough that nobody re-reads it when it acquires a
+    second.
+    """
+    import importlib
+
+    from nightshift.db.base import EligibilityState, EvidenceSource, MatchComponent
+
+    migration = importlib.import_module("migrations.versions.20260809_1607_match_results")
+
+    assert set(migration.ELIGIBILITY_STATE_VALUES) == {m.value for m in EligibilityState}
+    assert set(migration.MATCH_COMPONENT_VALUES) == {m.value for m in MatchComponent}
+    assert set(migration.EVIDENCE_SOURCE_VALUES) == {m.value for m in EvidenceSource}
+
+
+def test_every_match_component_is_scored_by_a_column_of_its_own() -> None:
+    """The evidence guard walks a hand-written list of (component, column) pairs
+    inside the migration, and a component missing from it is a component nothing
+    checks.
+
+    This is the failure mode the guard cannot report on itself: adding a seventh
+    component to `MatchComponent` and a seventh score column to `match_results`
+    without extending `COMPONENT_SCORE_COLUMNS` produces a component that can be
+    scored with no evidence and no error, forever. `PROFILE_COLUMNS` stopped
+    describing what it named at M3b in precisely this way.
+    """
+    import importlib
+
+    from nightshift.db.base import MatchComponent
+    from nightshift.db.models import MatchResult
+
+    migration = importlib.import_module("migrations.versions.20260809_1607_match_results")
+    pairs = dict(migration.COMPONENT_SCORE_COLUMNS)
+
+    assert set(pairs) == {m.value for m in MatchComponent}
+    columns = set(MatchResult.__table__.columns.keys())
+    assert set(pairs.values()) <= columns, sorted(set(pairs.values()) - columns)

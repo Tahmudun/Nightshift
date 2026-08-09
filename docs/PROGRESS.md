@@ -18,14 +18,21 @@
 **M3a: COMPLETE, reviewed, CI-green at `3fbffd6`, merged to `main` as PR #9 (`452ec90`).**
 **M3a.1: COMPLETE. Recall 0.459 → 0.861, precision 0.659 → 0.847, necessity 0.668 → 0.915.**
 **M3b: COMPLETE, reviewed, CI-green at `7bfbf2d`, merged to `main` as PR #11 (`d2273e7`). `main` green after the merge.**
-**Current milestone: M3 — explainable matching. M3c (the score) is planned and starting.**
+**Current milestone: M3 — explainable matching. M3c (the score): Tasks 1 and 2 of 12 done.**
 **Last updated: 2026-08-09**
 
 ---
 
 ## Next exact action
 
-### M3c Task 1 is done. Next: Task 2 — the migration for `match_results`, `match_evidence` and `user_skills.skill_id`, with both evidence guards proven able to fail.
+### M3c Tasks 1 and 2 are done. Next: Task 3 — `domain/scoring.py` and the three span-bound components (role, skill, project), rules only, fixture tests, no database.
+
+**Task 2 shipped**: migration `0016_match_results` — `match_results`,
+`match_evidence`, `user_skills.skill_id`, three new PG enums, and seven
+triggers. 29 tests in `test_match_result_models.py`, three in `test_profile.py`,
+two in `test_enum_parity.py`. Full detail in the M3c Task 2 section below,
+including a check constraint a test found covering only one of its two
+directions and an interaction that would have broken ingestion at commit.
 
 **Task 1 shipped**: `data/matching.yaml` (six components summing to 100, two
 negative penalty ceilings, `version: 2026-08-09.1`),
@@ -79,6 +86,25 @@ taken in the plan rather than inside the work:
 - **The weights are §5.1's published numbers, untuned and unmeasured.** Nothing
   has scored anything yet, so no evidence supports 30 for skill overlap over 25.
   Tuning is deliberately after Task 6's golden test, never before it.
+- **`match_results` and `match_evidence` are empty and nothing writes them.**
+  The tables, the constraints and all seven triggers exist and are exercised by
+  tests; the scorer that would fill them is Task 3, the ARQ task that would run
+  it is Task 8, and no page reads either table. Every guard recorded below is a
+  guard over rows that only tests have ever written.
+- **`MatchComponent` and `EvidenceSource` are not in `test_enum_parity.py`'s
+  TypeScript pairs**, because neither has crossed into the browser yet — there
+  is no `schemas.ts` constant to compare against until Task 10 renders the
+  explanation panel. `EligibilityState` was already there. Both new enums *are*
+  asserted equal to the migration's own copies, which is the other half of the
+  same discipline, and adding the TS half is Task 10's business rather than a
+  gap to discover then.
+- **The evidence guard only fires at commit.** It is a deferrable constraint
+  trigger, which is the only shape that works — a score has to exist before an
+  evidence row can reference it — but it means a transaction that never commits
+  never checks. The test suite rolls back, so every test forces it with `SET
+  CONSTRAINTS ALL IMMEDIATE`. Production code commits, so the guarantee is real
+  there; anything that writes a score inside a transaction it then abandons is
+  outside what this guard can see.
 - **`RULESET_LOGIC_VERSION` is a constant a human bumps.** The golden test that
   makes forgetting it fail loudly is Task 6. Between now and then, a rule change
   without a bump is caught by nothing.
@@ -89,6 +115,150 @@ taken in the plan rather than inside the work:
   deliberately — turning it on means per-file ignores, and that is its own small
   change rather than a rider on M3c. The two files added this session were
   checked against the same config by hand and are clean.
+
+---
+
+## M3c Task 2 — the tables, and the two guards that make a score refusable
+
+Migration `0016_match_results`. Ran up, down and up against the dev database;
+`make drift` reports no model/migration drift; `make check` passed with **1453
+python tests, 182 web across 20 files**, ruff, mypy, eslint, tsc and prettier
+clean. `make seed` and `make verify` both re-run clean afterwards — verify's
+requirement walk rewrites a job description (9 spans → 0 → 1), which is exactly
+the path the new triggers sit on.
+
+### A check constraint covered one direction of two, and a test is what said so
+
+The constraint enforcing `matching.md` §4.3's second tier was written first as
+the doc phrases it — one biconditional:
+
+```
+(component IN ('role','skill','project')) = (job_span_text IS NOT NULL
+                                             AND user_span_text IS NOT NULL)
+```
+
+It reads like it covers both directions. It does not. For a `freshness` row
+carrying `user_span_text = 'Python'` and no job span, the left side is false and
+the right side is false, the equality holds, and **the row is accepted** — a
+quotation of somebody's own words filed under a component that makes no claim
+about them, which is the exact fabrication §2.1 is arranged to prevent, wearing
+an exempt label.
+
+The test asserting it was refused was written before the constraint was
+re-read, and it failed. There are now two constraints: a person-claim quotes
+both sides, and *only* a person-claim quotes a person. A job-side span on an
+exempt component stays legal on purpose — the priority component reads a
+posting's own seniority and quoting the sentence it read is more auditable, not
+less.
+
+This is the second time in two milestones that stating a rule as an equality
+produced a hole in one quadrant of it. The general shape is worth naming: an
+`A = B` constraint over nullable columns is four cases, and reviewing it as one
+sentence checks two of them.
+
+### Ingestion would not have committed, and the reason is three triggers deep
+
+`_apply_normalized_fields()` rewrites `jobs.description_text` on every re-poll of
+a changed job. That fires M3a's `jobs_description_change_clears_requirements`,
+which deletes the job's `job_requirements`, which cascades to `match_evidence`
+— leaving a `match_results` row with a positive component and no evidence, and
+**failing the deferred guard at commit**. Ingestion, not the scorer, would have
+been what broke, on the first poll after the first score was written.
+
+The fix is that a score is deleted whenever anything it was computed from moves:
+four triggers, on `jobs.description_text`, on `job_requirements` (insert, update
+and delete — re-extraction changes what was scored against even when the text
+did not), and on `user_skills` and `user_projects` (update and delete). An
+absent score reads as not-yet-computed, which is true; Task 8's ARQ task
+recomputes.
+
+**Deletion rather than update, and version-checking is not enough on its own.**
+§4.2 says a stale row is never served and the API refuses one whose
+`ruleset_version` is not current. A rewritten description does not change the
+ruleset version, so that check cannot see this class at all — the row would read
+as current while its evidence quoted characters that had moved.
+
+`test_ingestion_rewriting_a_description_does_not_fail_at_commit` walks the whole
+chain: requirement, score, evidence, description rewrite, commit check, and
+asserts the score is gone rather than that an error was raised.
+
+The insert half of the `user_skills` trigger is deliberately absent. An *added*
+skill cannot invalidate a stored evidence row — it can only mean a score is now
+too low — and a trigger firing on insert would throw away the whole corpus one
+row at a time while a resume's confirmed skills are being written.
+
+### `SET CONSTRAINTS ALL IMMEDIATE` is sticky, and it silently changed what two tests measured
+
+The deferred guard cannot fire in this suite, which rolls back and never
+commits, so the tests force it. The first version of the helper ran `SET
+CONSTRAINTS ALL IMMEDIATE` and stopped there — and that setting holds for the
+**rest of the transaction**. The two tests that check, then delete an evidence
+row, then check again were measured raising on the `DELETE` statement itself
+rather than at the second check: passing tests, asserting immediate-mode
+behaviour, while the deferred behaviour every real commit depends on was never
+observed. The helper now restores `SET CONSTRAINTS ALL DEFERRED` after each
+check, and the reason is in its docstring rather than here alone.
+
+### Autogenerate, run rather than predicted
+
+Three defects, all previously recorded in this repository:
+
+* `nightshift.db.types.UTCDateTime(timezone=True)` emitted for
+  `match_evidence.created_at` with no `nightshift` import — a `NameError` on
+  import. M2c's finding 2, fourth appearance.
+* No `DROP TYPE` on downgrade for any of the three new enums, so the next
+  upgrade would fail with "type already exists". M2c's finding 3.
+* A random hex revision id (`47e471205cf4`) rather than `NNNN_name`.
+
+Everything else came through, including all nine check constraints, both
+composite indexes and every `ondelete`. Worth recording in that direction too:
+the tool is not uniformly untrustworthy and the previous three notes read as if
+it were.
+
+### Three departures from the shapes the specs name, each recorded where it was taken
+
+* **`match_results.explanation` does not exist**, though §6.13 lists it. §6 of
+  `matching.md` says no explanation text is generated and every line is
+  assembled from evidence rows — a stored copy is a second version of the same
+  claim that can disagree with the rows, which is why `resumes` dropped §6.4's
+  `structured_profile` at M2c, and it is what §2.2 forbids outright.
+* **`user_skills.skill_id` is not a foreign key**, though `command-center.md`
+  §2.3 called it one. There is no `skills` table to point at: the taxonomy is
+  `data/skills.yaml`, its identifier for a skill *is* the canonical name, and
+  that is the same string `job_requirements.value` stores — which is what makes
+  a requirement and a confirmed skill joinable at all. Null means confirmed and
+  outside the taxonomy, which `add_skill`'s free-text form makes reachable and
+  which no other column can express.
+* **`match_evidence` gained `job_char_start` / `job_char_end` and `compared`.**
+  §7.2's hallucination check is stated *at the offsets recorded*, and Task 11's
+  embedding proposals point at spans that are no requirement row, so the offsets
+  cannot be read through `job_requirement_id`. `compared` is where the three
+  exempt components record what they weighed — §2.1 exempts them from quoting a
+  span, not from being inspectable.
+
+All three are now written into `docs/architecture/matching.md` §4.2, §4.3 and
+§4.4, so the design document describes what exists rather than what was planned.
+
+### A third guard the plan filed under "test"
+
+The M3c plan's grading table puts "every stored span is a literal substring at
+its offsets" in a test and in `verify.py`. The job side is a trigger here
+instead — `match_evidence_span_must_quote`, the same pattern `job_requirements`
+and `resume_extractions` already carry — because it is the strictly stronger
+version of the same assertion and the pattern was written twice already. It is
+shown able to fail by shifting an offset one character: the row still claims
+`job_span_text = "Python"`, the offsets are still inside the description, and
+nothing about it looks wrong in a debugger.
+
+The user side stays a test. `user_span_text` points into several different
+tables and a trigger there would need per-kind logic; M3d's equality covers
+both.
+
+### One rename, to stop a fifty-fifty guess
+
+`profile.remove_skill(skill_id=...)` meant the row's primary key. `user_skills`
+now has a column called `skill_id` holding a taxonomy name. The parameter is
+`user_skill_id` as of this task; the route's path parameter is unchanged.
 
 ---
 

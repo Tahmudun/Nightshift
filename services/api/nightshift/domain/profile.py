@@ -41,7 +41,7 @@ from nightshift.db.base import (
 )
 from nightshift.db.models import Resume, ResumeExtraction, User, UserProject, UserSkill
 from nightshift.domain.resume_extraction import EXTRACTOR_VERSION, extract_proposals
-from nightshift.domain.skill_vocabulary import SkillVocabulary
+from nightshift.domain.skill_vocabulary import SkillVocabulary, load_vocabulary
 
 Decision = Literal["confirm", "reject"]
 
@@ -72,6 +72,26 @@ class UnknownProfileFieldError(ProfileError):
 
 class InvalidProfileError(ProfileError):
     pass
+
+
+def taxonomy_id_for(name: str, *, vocabulary: SkillVocabulary | None = None) -> str | None:
+    """The taxonomy's name for ``name``, or ``None`` when it has none.
+
+    `matching.md` §4.4's `skill_id`. The taxonomy is `data/skills.yaml` and its
+    identifier for a skill *is* its canonical name — the same string
+    `job_requirements.value` stores, which is what makes a requirement and a
+    confirmed skill joinable at all.
+
+    **None is a real answer, not a failure.** `add_skill` accepts free text, so
+    a person may confirm a skill the vocabulary has never heard of, and null
+    says exactly that. `SkillVocabulary.canonical` returns its argument
+    unchanged for a term it does not carry, so the membership test below is what
+    separates "resolved" from "not carried" — without it every typo would become
+    its own taxonomy entry.
+    """
+    known = vocabulary or load_vocabulary()
+    resolved = known.canonical(name)
+    return resolved if resolved in known.canonical_names else None
 
 
 def normalize_skill_name(name: str) -> str:
@@ -284,6 +304,14 @@ async def _promote_skill(
             user_id=user_id,
             name=name,
             normalized_name=normalized,
+            # A proposal can only have come from a vocabulary hit, so this
+            # resolves for every row this path writes. It is still resolved
+            # rather than assumed: `name` is read back out of a JSONB column
+            # written by an earlier version of the extractor, and "it must be
+            # canonical because of where it came from" is the kind of reasoning
+            # that stops being true one milestone later without anything saying
+            # so.
+            skill_id=taxonomy_id_for(name),
             proficiency_level=ProficiencyLevel.UNSPECIFIED,
             source_type=SkillSourceType.RESUME,
             source_reference=(
@@ -487,6 +515,11 @@ async def add_skill(
         user_id=user_id,
         name=cleaned,
         normalized_name=normalized,
+        #: Null when the person typed something the taxonomy does not carry,
+        #: which this form allows on purpose. The skill is still confirmed and
+        #: still shown; it simply cannot match a `job_requirements.value`, and
+        #: the score has to say so rather than resolve it to a neighbour.
+        skill_id=taxonomy_id_for(cleaned),
         proficiency_level=proficiency_level,
         source_type=source_type,
         source_reference="manual",
@@ -496,10 +529,17 @@ async def add_skill(
     return skill
 
 
-async def remove_skill(session: AsyncSession, *, user_id: UUID, skill_id: UUID) -> bool:
+async def remove_skill(session: AsyncSession, *, user_id: UUID, user_skill_id: UUID) -> bool:
+    """Delete one confirmed skill.
+
+    The parameter is `user_skill_id` rather than `skill_id` as of M3c: this
+    table now has a column called `skill_id` holding a *taxonomy* name, and a
+    keyword argument meaning the row's own primary key beside it is a
+    fifty-fifty guess for every future caller.
+    """
     skill = (
         await session.execute(
-            select(UserSkill).where(UserSkill.id == skill_id, UserSkill.user_id == user_id)
+            select(UserSkill).where(UserSkill.id == user_skill_id, UserSkill.user_id == user_id)
         )
     ).scalar_one_or_none()
     if skill is None:

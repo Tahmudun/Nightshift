@@ -143,7 +143,14 @@ async def db_engine() -> AsyncIterator[AsyncEngine]:
 # below) and never outside the per-test transaction, so the truncation itself
 # is undone by the same rollback that undoes everything else.
 _INGESTION_TABLES = (
-    # M3a. Referenced by nothing, references `jobs` — added because the
+    # M3c, and first in the list because both reference `jobs` and
+    # `match_evidence` references `job_requirements` below it. Sixth milestone
+    # running that this list has been kept correct by the database refusing to
+    # truncate rather than by somebody remembering to edit it.
+    "match_evidence",
+    "match_results",
+    # M3a. References `jobs`, and referenced by `match_evidence` above as of
+    # M3c — added because the
     # no-CASCADE choice below refused to truncate the moment this table
     # started existing, which is the fifth milestone running that this list
     # has been kept correct by the database rather than by somebody

@@ -290,8 +290,34 @@ because a requirement nobody can trace back to a sentence is not auditable.
 
 ### 4.2 `match_results` — PRODUCT-SPEC §6.13
 
-Shape as §6.13. `model_version` records the embedding model that produced the
-proposals. Unique on `(user_id, job_id, ruleset_version)`.
+Shape as §6.13, with two departures taken when the table was built at M3c Task 2
+and recorded here rather than left for a reader to find in a migration.
+
+**`explanation` is not a column.** §6.13 lists one; §6 of this document says no
+explanation text is generated and every line is assembled from `match_evidence`
+rows. A stored copy is therefore a second version of the same claim that can
+disagree with the rows it was built from — the reason `resumes` dropped §6.4's
+`structured_profile` at M2c — and it is also precisely what §2.2 forbids: text
+written after the fact to justify a number that did not come from it.
+
+**`penalty_score` is one column rather than two.** §5.1 keeps two penalties;
+this stores their sum. The evidence trigger binds the six positive components
+(§4.3's enum has no penalty member), so a split column would imply an evidence
+link that does not exist. What each penalty cost belongs to the explanation.
+
+`model_version` records the embedding model that produced the proposals; it is
+null for a rules-only score, which is every row until Task 11. Unique on
+`(user_id, job_id, ruleset_version)`.
+
+**Rows are deleted, never left stale.** Version-checking on read is necessary
+and not sufficient: a rewritten job description does not change the ruleset
+version, and the evidence rows underneath hold character offsets into text that
+has moved. Four triggers added at Task 2 — on `jobs.description_text`,
+`job_requirements`, `user_skills` and `user_projects` — delete the affected
+scores, which then read as not-yet-computed. Without them ingestion cannot
+commit at all: rewriting a description deletes the job's requirements, which
+cascades to `match_evidence`, which leaves a positive component with no evidence
+and fails the guard below.
 
 **`ruleset_version` is one column covering both the rules and the weights**, and
 it has to be, because M3's acceptance criterion is *identical inputs + identical
@@ -334,13 +360,23 @@ match_evidence
   component             role | skill | project | location | freshness | priority
   job_requirement_id    FK, nullable
   job_span_text         the words in the posting
+  job_char_start        where they are, added at Task 2 — see below
+  job_char_end
   user_skill_id         FK, nullable
   user_project_id       FK, nullable
   user_span_text        the words in the user's own confirmed data
+  compared              what the exempt components compared, added at Task 2
   proposed_by           rule | embedding
   points                the contribution this row justifies
   created_at
 ```
+
+The two additions are both from building it. **The offsets live on this row**
+rather than being read through `job_requirement_id`, because §7.2's first
+equality is stated *at the offsets recorded* and Task 11's embedding proposals
+point at spans that are no requirement row at all. **`compared`** is where the
+three exempt components put the values they weighed, so §2.1's exemption is from
+quoting a span and not from being inspectable.
 
 **This table is the mechanism behind §2's rule**, and it enforces it in two
 tiers matching §2.1's distinction:
@@ -352,6 +388,23 @@ tiers matching §2.1's distinction:
    `project` has **both** `job_span_text` and `user_span_text` non-null. The
    other three components may leave them null, and record the compared values
    instead.
+
+   Built at Task 2 as **two** constraints rather than one, because a test found
+   the half the obvious version does not cover. Written as the biconditional
+   this paragraph describes — `component IN (role, skill, project)` equals
+   *both spans non-null* — it accepts a `freshness` row carrying a user-side
+   span and no job span, since both sides then evaluate false. That row quotes
+   somebody's own words under a component that makes no claim about them. The
+   second constraint says only a person-claim may carry a user-side span. A
+   *job*-side span on an exempt component stays legal on purpose: the priority
+   component reads a posting's own seniority and quoting the sentence it read is
+   more auditable, not less.
+
+A third guard, not in the original design: the job-side span is refused unless
+it literally quotes `jobs.description_text` at the offsets it claims, the same
+trigger `job_requirements` and `resume_extractions` carry. §7.2 files this under
+a test, and it is both — the trigger is the strictly stronger version and cannot
+see `user_span_text`, which points into several different tables and stays M3d's.
 
 A score with no evidence cannot be committed, and a claim about the person with
 no quoted span on both sides cannot be committed. Both are database errors
@@ -366,6 +419,22 @@ vocabulary hit, and that number belongs in M3d's report.
 The column `command-center.md` §2.3 deferred. M3's taxonomy makes it real. The
 existing `normalized_name` stays — a rename in the taxonomy must not orphan a
 confirmed fact.
+
+§2.3 called it an FK and Task 2 built it as a plain string, holding the
+taxonomy's canonical name. There is no `skills` table to point at: the taxonomy
+is `data/skills.yaml`, a versioned file whose identifier for a skill *is* its
+canonical name, and that same string is what `job_requirements.value` stores —
+which is what makes a requirement and a confirmed skill joinable. Mirroring the
+file into a table would create a second source of truth that can disagree with
+it; minting opaque slugs would create a second identifier space to keep in step
+with the names the extractor already emits. If the taxonomy ever grows real ids,
+they land in this column and the change is a data migration.
+
+**Null is load-bearing.** `add_skill` takes free text on purpose, so a person may
+confirm a skill the vocabulary has never heard of; null says *confirmed, and
+outside the taxonomy*. Such a skill matches no `job_requirements.value`, and the
+score has to say so rather than resolve it to a neighbour — which is the
+substring failure M3b Task 11 measured, one table over.
 
 ---
 
