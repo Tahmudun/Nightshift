@@ -17,179 +17,182 @@ ratings:
   board: akunacapital_eligibility
   id: '8018880'
   title: Hardware Engineer Intern, Summer 2027
-  rating: TO_RATE
+  rating: good
   note: ''
 - n: 2
   board: akunacapital_eligibility
   id: '7496423'
   title: Broker Trader
-  rating: TO_RATE
+  rating: good
   note: ''
 - n: 3
   board: anthropic_eligibility
   id: '5208218008'
   title: AI Compliance Officer
-  rating: TO_RATE
+  rating: good
   note: ''
 - n: 4
   board: anthropic_eligibility
   id: '5023394008'
   title: Anthropic Fellows Program
-  rating: TO_RATE
+  rating: good
   note: ''
 - n: 5
   board: anthropic_eligibility
   id: '5183044008'
   title: Anthropic Fellows Program, AI Safety
-  rating: TO_RATE
+  rating: good
   note: ''
 - n: 6
   board: anthropic_eligibility
   id: '5076109008'
   title: Applied AI Architect
-  rating: TO_RATE
+  rating: good
   note: ''
 - n: 7
   board: databricks_eligibility
   id: '6918763002'
   title: 'Account Executive '
-  rating: TO_RATE
+  rating: good
   note: ''
 - n: 8
   board: databricks_eligibility
   id: '8431935002'
   title: Customer Enablement Specialist
-  rating: TO_RATE
+  rating: good
   note: ''
 - n: 9
   board: databricks_eligibility
   id: '7586263002'
   title: Associate Product Manager, New Grad (2027 Start)
-  rating: TO_RATE
+  rating: good
   note: ''
 - n: 10
   board: databricks_eligibility
   id: '8099751002'
   title: AI Engineer - FDE (Forward Deployed Engineer)
-  rating: TO_RATE
+  rating: good
   note: ''
 - n: 11
   board: imc_eligibility
   id: '4895334101'
   title: AML/KYC Officer (Crypto)
   rating: TO_RATE
-  note: ''
+  note: >-
+    held: rater's first pass placed this between poor and acceptable on the grounds of being underqualified, which is the odds and not the fit the worksheet asks for. Awaiting a re-rating on fit.
 - n: 12
   board: imc_eligibility
   id: '4805270101'
   title: Corporate Development Manager
   rating: TO_RATE
-  note: ''
+  note: >-
+    held: rater's first pass placed this between poor and acceptable on the grounds of being underqualified, which is the odds and not the fit the worksheet asks for. Awaiting a re-rating on fit.
 - n: 13
   board: imc_eligibility
   id: '4914883101'
   title: ' Graduate Machine Learning Researcher - London'
   rating: TO_RATE
-  note: ''
+  note: >-
+    held: rater's first pass placed this between poor and acceptable on the grounds of being underqualified, which is the odds and not the fit the worksheet asks for. Awaiting a re-rating on fit.
 - n: 14
   board: imc_eligibility
   id: '4658374101'
   title: 'Commodities Broker Trader '
-  rating: TO_RATE
+  rating: good
   note: ''
 - n: 15
   board: janestreet_eligibility
   id: '8469230002'
   title: Campus Recruiter
-  rating: TO_RATE
+  rating: good
   note: ''
 - n: 16
   board: jumptrading_eligibility
   id: '8052313'
   title: Campus AI Research Engineer (Full-Time)
-  rating: TO_RATE
+  rating: good
   note: ''
 - n: 17
   board: janestreet_eligibility
   id: '8213653002'
   title: ASIC Engineer
-  rating: TO_RATE
+  rating: good
   note: ''
 - n: 18
   board: jumptrading_eligibility
   id: '8071050'
   title: 'Accounting Manager | Finance '
-  rating: TO_RATE
+  rating: good
   note: ''
 - n: 19
   board: oldmissioncapital_eligibility
   id: '7796180003'
   title: Software Engineer – 2027 Internship Program (June Start)
-  rating: TO_RATE
+  rating: good
   note: ''
 - n: 20
   board: jumptrading_eligibility
   id: '4982814'
   title: AI Research Scientist | Research & Development
-  rating: TO_RATE
+  rating: good
   note: ''
 - n: 21
   board: oldmissioncapital_eligibility
   id: '7790670003'
   title: Employee Experience Specialist (Receptionist)
-  rating: TO_RATE
+  rating: good
   note: ''
 - n: 22
   board: point72_eligibility
   id: '8492784002'
   title: 'Fundamental Research Fellow, Canvas '
-  rating: TO_RATE
+  rating: good
   note: ''
 - n: 23
   board: oldmissioncapital_eligibility
   id: '6515984003'
   title: C++ Software Engineer
-  rating: TO_RATE
+  rating: good
   note: ''
 - n: 24
   board: akunacapital_eligibility
   id: '8018856'
   title: Platform Engineer Intern, Summer 2027
-  rating: TO_RATE
+  rating: good
   note: ''
 - n: 25
   board: openai_eligibility
   id: 0322d6d8-6588-4209-a304-83e768063a25
   title: Security Engineer, Application Security
-  rating: TO_RATE
+  rating: good
   note: ''
 - n: 26
   board: databricks_eligibility
   id: '7011263002'
   title: PhD GenAI Research Scientist Intern
-  rating: TO_RATE
+  rating: good
   note: ''
 - n: 27
   board: point72_eligibility
   id: '8658618002'
   title: AI Data Scientist
-  rating: TO_RATE
+  rating: good
   note: ''
 - n: 28
   board: imc_eligibility
   id: '4823805101'
   title: Graduate Hardware Engineer
-  rating: TO_RATE
+  rating: good
   note: ''
 - n: 29
   board: jumptrading_eligibility
   id: '8052338'
   title: Campus AI Research Engineer - Deep Learning (Intern)
-  rating: TO_RATE
+  rating: good
   note: ''
 - n: 30
   board: point72_eligibility
   id: '8423978002'
   title: 2026 Warsaw MI Data – Web Scraping Internship 
-  rating: TO_RATE
+  rating: good
   note: ''

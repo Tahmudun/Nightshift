@@ -71,12 +71,42 @@ taken in the plan rather than inside the work:
 
 ### Not real yet — M3c, so far
 
-- **The relevance ratings are unfilled.** `ratings.yaml` is thirty `TO_RATE`
-  rows and an empty profile block. Until it is filled in, M3 measures ranking
-  stability and nothing at all about ranking quality — which is Q5's whole
-  point, and is what PROGRESS will say at the milestone review if it stays this
-  way. The tests that read the file pass trivially while it is blank and start
-  checking on the first line written.
+- **The relevance ratings are 27/30 filled, all with the same word, and the
+  profile block is still empty.** The human's first pass on 2026-08-09 rated
+  everything `good` except 11, 12 and 13. Two problems, and the second is worse
+  than the first.
+
+  *Three are held rather than recorded.* The stated reason for marking them down
+  was being underqualified, which is the odds and not the fit — the worksheet
+  asks for fit explicitly, because whether you *can* apply is the gate's
+  question and §5.2 forbids it from ever becoming points. Recording them on that
+  basis would grade the score against something the score deliberately does not
+  contain. They sit at `TO_RATE` with the reason in their `note`, and
+  regeneration preserves notes, so nothing is lost.
+
+  They are also not one case. **11 (AML/KYC Officer, 4+ years crypto
+  compliance) and 12 (Corporate Development Manager, 8+ years in Indian
+  financial markets)** are non-technical senior roles in another field
+  altogether — `poor` on *fit*, and the instinct about them is right even
+  though the reason given was the wrong axis. **13 (Graduate Machine Learning
+  Researcher)** is the opposite: an early-career technical research role, which
+  is the shape this product exists to surface, gated by an MSc minimum and
+  sited in London. Under fit-not-odds that is plausibly `good`, and the two
+  things actually disqualifying it — a hard credential floor and a city outside
+  New York — are both things the engine should be catching on its own.
+
+  *A near-constant label cannot measure a ranking.* 27 of 30 in one class is the
+  ranking-metric version of a gate that answers `uncertain` to everything: every
+  ordering of the corpus scores about the same, so NDCG or precision@k over it
+  would report a number that discriminates nothing. If that ratio survives a
+  second pass, the honest reading is that **the corpus is the problem, not the
+  rater** — these thirty come from nine employers, all quant trading firms or AI
+  labs, selected for eligibility-rule coverage rather than for spanning what a
+  person would actually be shown. M3d then reports ranking quality as
+  unmeasured and says why, rather than reporting a flattering number.
+
+  The tests read the file as it stands and pass; the profile-dependent one
+  skips while `profile` is `TO_RATE`, and starts checking when it is filled.
 - **The thirty come from nine employers, all of them quant trading firms or AI
   labs.** That is the corpus M3a recorded, chosen for eligibility-rule coverage
   rather than for being a fair sample of New York tech — no agency, no startup,
