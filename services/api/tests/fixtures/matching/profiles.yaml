@@ -46,6 +46,30 @@ profiles:
           Trained the reranker in PyTorch across eight GPUs. Wrote the
           evaluation harness in Python and ran it nightly.
 
+  # **`years_experience: 0`, and it is the point of this profile.** Added at
+  # Task 7, because the mutation harness found that five of the seven rungs on
+  # the seniority ladder could be changed without moving a single score — the
+  # other three profiles state 6 years or state nothing, and `gap` is
+  # `max(0, implied - years)`, so a rung only bites somebody below it.
+  #
+  # It is also the gap that mattered most on its own: somebody with no
+  # professional experience yet is *this product's* user, and the fixture set
+  # had nobody in it. Zero is a stated fact and not a silence, which is the
+  # distinction the seniority penalty turns on.
+  - name: early_career_no_experience
+    preferred_roles: [data engineer, machine learning]
+    preferred_locations: [New York, Remote]
+    remote_preference: remote
+    years_experience: 0
+    skills: [Python, SQL, Airflow, dbt, Snowflake]
+    projects:
+      - name: Course scheduling dataset
+        technologies: [Python, SQL, Airflow]
+        evidence: >-
+          Scraped four semesters of course listings with Python and loaded them
+          into SQL. Ran the whole refresh nightly on Airflow so the numbers were
+          never more than a day old.
+
   # Every field empty. The profile a person has the moment they sign up, and
   # the only one that reaches `assessed_out_of == 0` — five postings in the
   # corpus, where the honest score is no score at all.

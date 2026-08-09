@@ -216,3 +216,21 @@ async def db_session(db_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
             await session.execute(text(f"TRUNCATE TABLE {', '.join(_INGESTION_TABLES)}"))
             yield session
         await transaction.rollback()
+
+
+@pytest.fixture(scope="session")
+def scoring_corpus() -> tuple[Any, ...]:
+    """The 153 recorded postings, read and classified once for the whole session.
+
+    Two test modules score this corpus — the golden file and the mutation
+    harness — and building it means running requirement extraction over every
+    posting, which is ~26 seconds. Built per module it was the single largest
+    cost either file had, and neither of them is *about* extraction.
+
+    Deliberately not used by `test_two_full_runs_are_byte_identical`, which
+    rebuilds from scratch on purpose: a determinism test handed a cached corpus
+    is comparing one object against itself.
+    """
+    from tests.test_matching_golden import _load_corpus
+
+    return _load_corpus()

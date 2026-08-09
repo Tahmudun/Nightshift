@@ -350,9 +350,13 @@ def _header(document: str, field: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 
-def _score_everything() -> dict[str, Any]:
-    """One full run: load the corpus, load the profiles, score every pair."""
-    corpus = _load_corpus()
+def _score_everything(corpus: tuple[CorpusPosting, ...] | None = None) -> dict[str, Any]:
+    """One full run: load the corpus, load the profiles, score every pair.
+
+    `corpus` is an escape hatch for callers that already have it — everything
+    except the determinism test, which passes nothing on purpose.
+    """
+    corpus = corpus if corpus is not None else _load_corpus()
     profiles = _load_profiles()
     weights = load_weights()
     scores = {
@@ -369,8 +373,8 @@ def _score_everything() -> dict[str, Any]:
 
 
 @pytest.fixture(scope="module")
-def scored() -> dict[str, Any]:
-    return _score_everything()
+def scored(scoring_corpus: tuple[CorpusPosting, ...]) -> dict[str, Any]:
+    return _score_everything(scoring_corpus)
 
 
 # ---------------------------------------------------------------------------

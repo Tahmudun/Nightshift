@@ -18,14 +18,22 @@
 **M3a: COMPLETE, reviewed, CI-green at `3fbffd6`, merged to `main` as PR #9 (`452ec90`).**
 **M3a.1: COMPLETE. Recall 0.459 → 0.861, precision 0.659 → 0.847, necessity 0.668 → 0.915.**
 **M3b: COMPLETE, reviewed, CI-green at `7bfbf2d`, merged to `main` as PR #11 (`d2273e7`). `main` green after the merge.**
-**Current milestone: M3 — explainable matching. M3c (the score): Tasks 1–6 of 12 done. Q6 answered and implemented.**
+**Current milestone: M3 — explainable matching. M3c (the score): Tasks 1–7 of 12 done. Q6 answered and implemented.**
 **Last updated: 2026-08-09**
 
 ---
 
 ## Next exact action
 
-### M3c Tasks 1–6 are done. Next: Task 7 — mutation testing. Zero each weight in turn and watch a named test go red; six kills, plus the harness guards.
+### M3c Tasks 1–7 are done. Next: Task 8 — the ARQ recompute task and its three triggers, plus the migration that owes `assessed_out_of` and `match_evidence.job_span_field`.
+
+**Task 7 shipped**: every tunable number in `data/matching.yaml` is shown
+load-bearing — all six weights, both penalty ceilings and all eleven
+thresholds, 19 kills rather than the plan's six. 23 tests in
+`test_every_score_number_is_load_bearing.py`. It found five dead mutations and
+the fix was a fourth fixture profile at `years_experience: 0`, which was a gap
+worth closing on its own. Full detail in the M3c Task 7 section below, with the
+table of what each number is worth.
 
 **Task 6 shipped**: the golden test, written before any weight was tuned.
 `tests/fixtures/matching/golden.txt` — 459 scores and 1,098 evidence rows over
@@ -126,7 +134,15 @@ taken in the plan rather than inside the work:
 - **The golden file records the *untuned* weights.** It is a record of what
   §5.1's published numbers produce, and it is deliberately not evidence that
   those numbers are good — no measurement supports 30 for skill overlap over 25.
-  Task 7 mutates them and M3d measures them.
+  Task 7 shows each of them *matters*; nothing yet shows any of them is
+  *right*, and those are different claims. M3d measures the second one.
+- **Three of the seniority ladder's rungs are exercised by exactly one fixture
+  profile.** `internship` and `new_grad` sit at 0 and `junior` at 1, and a rung
+  only bites somebody below it, so only `early_career_no_experience` can reach
+  them. That is not a gap — deleting that profile turns three named mutations
+  red, which is the harness doing its job — but it is a thin margin worth
+  knowing about, and it is why the profile carries a comment saying what it is
+  for.
 - **`match_results` has no `assessed_out_of` column and needs one.** Found by
   implementing Q6's answer. The ranked list sorts on the *fraction*, and §4.2's
   reason for precomputing at all is that "a sort needs the value in the
@@ -224,6 +240,124 @@ taken in the plan rather than inside the work:
   deliberately — turning it on means per-file ignores, and that is its own small
   change rather than a rider on M3c. The two files added this session were
   checked against the same config by hand and are clean.
+
+---
+
+## M3c Task 7 — nineteen kills, and the five dead ones that found a missing user
+
+### What each number in `data/matching.yaml` is worth, measured
+
+Scores that change when the number moves, out of 612 (153 postings × 4
+profiles), on 2026-08-09:
+
+```
+components.role_relevance             → 0    354
+components.skill_overlap              → 0    284
+components.project_evidence           → 0    213
+components.location_and_work_mode     → 0    333
+components.listing_freshness          → 0    580
+components.early_career_priority      → 0    392
+penalties.missing_requirement         → 0    236
+penalties.seniority_mismatch          → 0     80
+thresholds.freshness_days.full        +1    296
+thresholds.freshness_days.zero        −1    580
+thresholds.missing_requirement.per_requirement  +1  194
+thresholds.seniority_mismatch.per_year          +1   47
+thresholds.seniority_years.internship  +1     19
+thresholds.seniority_years.new_grad    +1     15
+thresholds.seniority_years.junior      +1      5
+thresholds.seniority_years.mid         +1     26
+thresholds.seniority_years.senior      +1     17
+thresholds.seniority_years.staff       +1     20
+thresholds.seniority_years.director    +1     12
+```
+
+Reported, not gated — M3a's rule: a floor set before measuring is either
+unreachable or vacuous and there is no way to tell which from outside.
+
+### The plan asked for six kills. Nineteen numbers can move a score
+
+Task 7 is written as "zero each weight". The six weights are not the only
+numbers in the file that change what a person is shown: the two penalty
+ceilings and the eleven thresholds do too, and **a decorative threshold is
+exactly as invisible as a decorative weight**. All nineteen are mutated, and
+`test_every_threshold_has_a_mutation` fails if one is added without one — the
+same guard M3b's harness carries, because the failure mode is a check that looks
+complete because nothing counts what it is missing.
+
+A threshold is mutated by ±1 rather than by zeroing. "Zero it" is meaningless
+for a rung that is already 0 and for a window whose lower bound is 7; ±1 is the
+smallest change that could plausibly be a typo, which is the mutation worth
+defending against.
+
+### Five mutations were dead, and the fix was a user this product exists for
+
+With the three Task 6 profiles, `seniority_years.internship` and `new_grad`
+moved **zero** scores, and `junior` moved zero downwards. The reason is
+arithmetic: `gap` is `max(0, implied - years)`, so a rung only ever bites
+somebody *below* it, and the three profiles state 6 years, nothing and nothing.
+
+The fix was a fourth fixture profile at **`years_experience: 0`** — and finding
+it was worth more than the five kills. Somebody with no professional experience
+yet is this product's user, and the fixture set had nobody in it. Zero is a
+stated fact and not a silence, which is the exact distinction the seniority
+penalty turns on and the one nothing was exercising.
+
+One profile revived all seven rungs: internship 19, new_grad 15, junior 5.
+
+### The named test is the golden file, and that is not a shortcut
+
+No unit test in `test_scoring.py` reads `data/matching.yaml` — every component
+takes its weight as a parameter, deliberately, because that is what keeps those
+tests stable when the numbers are tuned. So the golden test is the only test a
+weight change can turn red, and the harness asserts exactly that by rendering
+the golden document under the mutated number.
+
+That makes each kill stronger than a hand-picked case, not weaker: the assertion
+is over 612 real scores, and the harness reports *which* scores moved rather
+than a count, so a number moving one obscure posting shows up as one.
+
+### The harness is proven able to fail, in both directions
+
+Two guards on the harness itself, because a mutation harness that always says
+"yes, load-bearing" certifies rules it never tested:
+
+- `test_the_harness_reports_no_movement_when_nothing_is_mutated` — if rendering
+  were non-deterministic, every kill above would be a false positive.
+- `test_the_harness_can_tell_which_scores_moved` — a mutation known to move a
+  handful of scores must report more than zero and fewer than all.
+
+And the end-to-end check, run rather than asserted: `score_project_evidence`
+made to return unassessable unconditionally — the shape of a rule somebody
+disabled — turns exactly `[project_evidence]` red with the message naming it,
+and leaves the other five green.
+
+### The suite got slower, and it was the corpus rather than the mutations
+
+The plan's §4 names this risk about Task 8's rescore, and it arrived two tasks
+early. Tasks 6 and 7 took the Python suite from 435s to 753s, and the mutations
+were not the cause: each one is ~0.5s. **Reading and classifying the 153
+postings is ~26 seconds**, and it was happening three times — once for the
+golden file's fixture, once for the determinism test, once for the mutation
+harness — in two modules neither of which is *about* extraction.
+
+It is now a session fixture in `conftest.py`, built once. The determinism test
+still builds its own on purpose: a determinism test handed a cached corpus is
+comparing one object against itself.
+
+Measured: the two files together went 90s → 31s, and the full suite settled at
+685s against 435s before M3c Task 6. The remaining ~250s is the two files' real
+work — 612 scores rendered once for the golden file, once more for determinism,
+and 19 more times for the mutations — and it is the price of checking the score
+against a real corpus rather than against three hand-written postings.
+
+### The mutation bypasses the loader, on purpose
+
+`parse_weights` refuses a zeroed weight (the six must sum to 100) and a zeroed
+per-unit threshold. Both refusals are correct and both are tested. The harness
+constructs `MatchingWeights` directly, because that is the only way to ask what
+a number's absence would look like about a number the loader exists to stop
+reaching production.
 
 ---
 

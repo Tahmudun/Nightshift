@@ -688,6 +688,18 @@ Beyond the evaluation suite:
   neutering it and watching a named test go red. This project has now found
   three tests that could not fail; the gate is where that would be most
   expensive.
+- **Mutation testing on the score's numbers**, built at Task 7 and wider than
+  planned. Not only the six weights: the two penalty ceilings and all eleven
+  thresholds move a score too, and a decorative threshold is exactly as
+  invisible as a decorative weight. Nineteen mutations, each asserted to move
+  at least one of the 612 golden scores.
+
+  It found five dead mutations on first run — the lower rungs of the seniority
+  ladder, because `gap` is `max(0, implied - years)` and a rung only bites
+  somebody below it, and no fixture profile stated a number small enough. The
+  fix was a fourth profile at `years_experience: 0`, which was worth more than
+  the kills: somebody with no professional experience yet is this product's
+  user, and the fixture set had nobody in it.
 - **The span trigger is proven able to fail**, by shifting an offset by one
   character and catching the database error.
 - **Both evidence guards are proven able to fail** — one by committing a
