@@ -495,6 +495,12 @@ measured and ranking *quality* unmeasured, and PROGRESS says so under "Not real
 yet" rather than reporting a metric computed against labels the system wrote for
 itself.
 
+**The worksheet exists as of M3c Task 1** — `docs/labeling/relevance-worksheet.md`,
+generated from the same corpus §3.1's answer key uses, filled in at
+`services/api/tests/fixtures/relevance/ratings.yaml`. It carries the profile the
+ratings were made against, so M3d grades a pure function against a committed
+file rather than against whatever the database holds on the day. QUESTIONS Q5.
+
 ---
 
 ## 8. Testing
