@@ -35,6 +35,31 @@ InternshipName = Literal["yes", "no", "unclear"]
 
 
 @dataclass(frozen=True)
+class TextSpan:
+    """Words the classifier actually read, and where they are.
+
+    Added at M3c Task 3, and the reason is `matching.md` §2.1: role relevance is
+    one of the three components that make a claim about a *person*, so it has to
+    quote the posting. `family_reason` reads `title says 'engineer'` and a human
+    can follow it, but recovering a span by parsing that sentence back apart is
+    the kind of second derivation that goes wrong quietly. The rule already has
+    the match object; this keeps it.
+
+    **`field` exists because the classifier reads two different strings.** Every
+    other span in this system points into `jobs.description_text`; a family is
+    decided on the title, with the description able to veto it. A span that
+    could not say which one it came from would be checked against the wrong text
+    — and the trigger that verifies spans would then reject correct rows and
+    accept nothing useful.
+    """
+
+    field: Literal["title", "description_text"]
+    text: str
+    char_start: int
+    char_end: int
+
+
+@dataclass(frozen=True)
 class RoleClassification:
     role_family: RoleFamily
     seniority: Seniority
@@ -57,6 +82,10 @@ class RoleClassification:
     #: repeating the value is the kind of evidence that looks like evidence.
     family_reason: str
     seniority_reason: str
+    #: The words behind `family_reason`. `None` when no rule matched, which is
+    #: the `unclear` family — and a component with nothing to quote scores
+    #: nothing rather than scoring on an absence.
+    family_span: TextSpan | None = None
 
 
 def _word(*terms: str) -> re.Pattern[str]:
@@ -134,9 +163,13 @@ _FAMILY_TITLE_RULES: tuple[tuple[RoleFamily, re.Pattern[str]], ...] = (
 )
 
 
-def _classify_family(title: str, description: str) -> tuple[RoleFamily, str]:
+def _span(field: Literal["title", "description_text"], m: re.Match[str]) -> TextSpan:
+    return TextSpan(field=field, text=m.group(0), char_start=m.start(), char_end=m.end())
+
+
+def _classify_family(title: str, description: str) -> tuple[RoleFamily, str, TextSpan | None]:
     if m := _NOT_TECH_TITLE.search(title):
-        return RoleFamily.NOT_TECH, f"title says {m.group(0)!r}"
+        return RoleFamily.NOT_TECH, f"title says {m.group(0)!r}", _span("title", m)
     for family, pattern in _FAMILY_TITLE_RULES:
         if m := pattern.search(title):
             # The description can still veto a tech family, and only in the one
@@ -144,9 +177,13 @@ def _classify_family(title: str, description: str) -> tuple[RoleFamily, str]:
             # business title into an engineering family, because these
             # descriptions all talk about technology and most of them at length.
             if d := _NOT_TECH_DESCRIPTION.search(description):
-                return RoleFamily.NOT_TECH, f"description says {d.group(0)!r}"
-            return family, f"title says {m.group(0)!r}"
-    return RoleFamily.UNCLEAR, "no family rule matched the title"
+                return (
+                    RoleFamily.NOT_TECH,
+                    f"description says {d.group(0)!r}",
+                    _span("description_text", d),
+                )
+            return family, f"title says {m.group(0)!r}", _span("title", m)
+    return RoleFamily.UNCLEAR, "no family rule matched the title", None
 
 
 # ---------------------------------------------------------------------------
@@ -266,7 +303,7 @@ def classify_role(
     rather than being re-read here, so the number the gate uses and the number
     the level rule uses cannot diverge.
     """
-    family, family_reason = _classify_family(title, description)
+    family, family_reason, family_span = _classify_family(title, description)
     seniority, seniority_reason = _classify_seniority(title, years)
     is_internship = _classify_internship(title)
     season, year = _read_season(title, is_internship)
@@ -278,4 +315,5 @@ def classify_role(
         internship_year=year,
         family_reason=family_reason,
         seniority_reason=seniority_reason,
+        family_span=family_span,
     )

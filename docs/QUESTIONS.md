@@ -7,6 +7,57 @@ the date, because the reasoning is usually worth more than the decision.
 
 ---
 
+## Q6 — 43% of postings require no technology. What should a score out of 100 do about it?
+
+**Raised:** 2026-08-09 (M3c Task 3) · **Type:** product · **Blocking:** no —
+Task 3 records assessability as data and Task 5 needs the answer
+
+**The measurement, on the committed answer key rather than on the extractor's
+output:** 26 of the 60 labeled postings name **no required technology at all**,
+and 16 of those name no technology of any kind. That is 43%, and it is a fact
+about how employers write rather than about anything this system does — the
+human labeled those postings by hand and there was nothing to label.
+
+Skill overlap is worth 30 of 100 and project evidence another 20. Both read the
+same required-technology list. So on 43% of the corpus, **half the available
+score cannot be computed at all**, and the question is what the total does then.
+
+Scoring those components zero is the option to reject, and §5.1 already rejected
+its twin: application urgency was deferred because scoring an absent deadline as
+zero "measures an employer's ATS configuration, not urgency". This is the same
+shape with a bigger number. A terse posting would sort below a verbose one for
+reasons having nothing to do with the person reading the list.
+
+Awarding the points anyway is not available, and it is worth saying that the
+database is what makes it unavailable: a positive component with no evidence row
+cannot be committed. The guard built at Task 2 removed the tempting option
+before anybody had to be disciplined about it.
+
+That leaves a real choice, and it changes what the number on the screen means:
+
+1. **Score out of what could be assessed.** A posting naming no technologies is
+   scored out of 50, and the page says "50 points not assessable: this posting
+   names no technologies". The ranked list sorts on the fraction. Honest, and it
+   makes two numbers on one screen that a person has to reconcile.
+2. **Score out of 100 always, with the unassessable components visibly empty.**
+   Simpler to read, and it systematically ranks terse postings below verbose
+   ones — which is the defect above, accepted deliberately and disclosed.
+3. **Redistribute the weight** across the components that could be assessed, so
+   every posting is scored out of 100. Comparable, and it silently changes what
+   the weights mean per posting — a posting with no technologies would have
+   location and freshness worth 50 points between them, which nobody chose.
+
+I would take (1): it is the only one that does not quietly lie, and the
+two-numbers problem is a presentation question rather than a measurement one.
+But it is your product, the tradeoff is visible to a user, and Task 5 will
+implement whichever you pick.
+
+Task 3 does not need the answer. Each component already returns `assessable`
+alongside its points, so the information exists either way and no rule has to
+change — only the composition.
+
+---
+
 ## Q5 — Twenty minutes of your judgement, or M3 ships with ranking quality unmeasured
 
 **Raised:** 2026-08-09 (M3c planning) · **Type:** product · **Blocking:** no

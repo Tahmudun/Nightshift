@@ -18,14 +18,25 @@
 **M3a: COMPLETE, reviewed, CI-green at `3fbffd6`, merged to `main` as PR #9 (`452ec90`).**
 **M3a.1: COMPLETE. Recall 0.459 → 0.861, precision 0.659 → 0.847, necessity 0.668 → 0.915.**
 **M3b: COMPLETE, reviewed, CI-green at `7bfbf2d`, merged to `main` as PR #11 (`d2273e7`). `main` green after the merge.**
-**Current milestone: M3 — explainable matching. M3c (the score): Tasks 1 and 2 of 12 done.**
+**Current milestone: M3 — explainable matching. M3c (the score): Tasks 1–3 of 12 done. Q6 is open and Task 5 needs it.**
 **Last updated: 2026-08-09**
 
 ---
 
 ## Next exact action
 
-### M3c Tasks 1 and 2 are done. Next: Task 3 — `domain/scoring.py` and the three span-bound components (role, skill, project), rules only, fixture tests, no database.
+### M3c Tasks 1, 2 and 3 are done. Next: Task 4 — the three exempt components (location, freshness, priority) and the compared values they record instead of spans.
+
+**Task 3 shipped**: `domain/scoring.py` — role relevance, skill overlap and
+project evidence, pure, no ORM, 28 tests in `test_scoring.py` that need no
+database. The classifier now carries the span it matched (`TextSpan`, with the
+field it came from) instead of throwing it away, because role relevance is
+decided on the *title* and every other span in this system points into
+`description_text`.
+
+**Task 3 found the number that shapes the rest of M3c: 43% of the labeled
+corpus names no required technology.** Raised as Q6 — see below, and it is the
+first thing to read before Task 5.
 
 **Task 2 shipped**: migration `0016_match_results` — `match_results`,
 `match_evidence`, `user_skills.skill_id`, three new PG enums, and seven
@@ -116,6 +127,13 @@ taken in the plan rather than inside the work:
 - **The weights are §5.1's published numbers, untuned and unmeasured.** Nothing
   has scored anything yet, so no evidence supports 30 for skill overlap over 25.
   Tuning is deliberately after Task 6's golden test, never before it.
+- **`match_evidence` has no `job_span_field` column and needs one.** Role
+  relevance quotes the *title*; every other span points into `description_text`.
+  The scoring dataclass carries the field, the schema does not yet, and the span
+  trigger would check a title span against the description and reject a correct
+  row. The migration lands with Task 8, when these rows are first persisted —
+  until then nothing writes them, so nothing is wrong today and this is the note
+  that stops it being discovered then.
 - **`match_results` and `match_evidence` are empty and nothing writes them.**
   The tables, the constraints and all seven triggers exist and are exercised by
   tests; the scorer that would fill them is Task 3, the ARQ task that would run
@@ -145,6 +163,90 @@ taken in the plan rather than inside the work:
   deliberately — turning it on means per-file ignores, and that is its own small
   change rather than a rider on M3c. The two files added this session were
   checked against the same config by hand and are clean.
+
+---
+
+## M3c Task 3 — the three components that claim something about a person
+
+`domain/scoring.py`, 28 tests, no database. Pure and importing no ORM, the same
+rule `eligibility.py` follows, so M3d can grade it over 60 postings and Task 7
+can zero a weight and re-run.
+
+### 43% of the corpus names no required technology, and it was measured before anything was designed around it
+
+Counted over the committed answer key on 2026-08-09 — the **human's own
+labels**, not the extractor's output, so this is not a recall problem:
+
+```
+labeled postings                                    60
+naming no required technology                       26   (43.3%)
+  ...of which no technology of any kind             16
+```
+
+Skill overlap is 30 points and project evidence is 20, and both read the same
+required-technology list. So on 43% of the corpus **half the score cannot be
+computed at all**. A component that answers zero there removes 50 points for a
+reason having nothing to do with the person, which is exactly the argument §5.1
+used to defer application urgency — an absent deadline scoring zero "measures an
+employer's ATS configuration, not urgency" — with a bigger number behind it.
+
+So a component returns `assessable` beside its points, and the two are different
+statements: zero means *this person does not match*, unassessable means *the
+posting does not say enough to ask*. What a total does with an unassessable
+component changes what the number means and is **Q6**, for the human, before
+Task 5. Nothing is blocked meanwhile — the flag is data either way.
+
+**The tempting third option was already unavailable, and Task 2 is why.** Award
+the points anyway and the database refuses the row: a positive component with no
+evidence cannot be committed. The guard removed the dishonest fix before anyone
+had to be disciplined about it, which is the argument for putting it in a
+trigger, arriving one task later than the argument.
+
+### The classifier was throwing away the only thing role relevance could quote
+
+`family_reason` reads `title says 'engineer'`. That is fine for a human and
+useless for §2.1, which requires the component to quote the posting — and
+recovering a span by parsing that sentence back apart is the second derivation
+that goes wrong quietly. The rule already had the match object; it now keeps it
+as a `TextSpan`.
+
+**The span carries the field it came from**, which nothing else in this system
+has needed. Every other span points into `description_text`; a role family is
+decided on the *title*, with the description able to veto it toward `not_tech`.
+A span that could not say which string it indexes would be checked against the
+wrong one — and the trigger that verifies spans would then reject correct rows.
+`match_evidence` will need the same column when these rows are persisted at Task
+8; it is carried on the dataclass now and is not yet in the schema.
+
+### Three rules that cost recall on purpose, each with the reason in the module
+
+- **Only `required` technologies score.** §4.1 calls necessity the column the
+  product turns on, and Ramp's Android internship lists nine technologies under
+  *nice to haves*. Scoring those rewards a posting for listing more things.
+- **A project tag with no bullet behind it earns nothing.** `technologies` is a
+  list of tags; `evidence` is what the person wrote. §2.1 does not let a
+  project's *name* stand in for a user-side span, so a tag nobody wrote a
+  sentence about produces no row at all.
+- **A skill with a null `skill_id` matches nothing**, ever. That is the free-text
+  path from `add_skill`, and resolving it to a vocabulary neighbour would
+  fabricate a qualification.
+
+Role relevance is a match or it is not — deliberately not a graded distance
+between families. A number nobody can argue with is what §2.2 rejects
+embedding-first ranking for, and inventing one between `security` and
+`infrastructure` would be the same thing at a smaller scale.
+
+### The remainder is shared out rather than rounded away
+
+Three matched technologies and 20 points is 6.67 each. Integer division gives
+three rows summing to 18 under a component claiming 20, and a breakdown that
+does not add up to its own total is the small version of the defect I4 exists to
+prevent. The remainder goes to the earliest rows one point at a time.
+
+`ComponentScore.__post_init__` refuses two things the database also refuses:
+points on an unassessable component, and points with no evidence row. Both are
+asserted in tests that need no Postgres, so the guard is visible at the unit
+level and enforced at the storage level.
 
 ---
 
