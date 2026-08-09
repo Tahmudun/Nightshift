@@ -43,8 +43,21 @@ export default defineConfig({
       // /health is 200 only when Postgres and Redis both answer, so this doubles
       // as the check that the stack really is seeded and reachable.
       url: 'http://127.0.0.1:8000/health',
-      // Reused unconditionally: an API already running for `make dev` is the
-      // same API, and re-binding port 8000 would just fail.
+      // Reused unconditionally, and the reason this comment used to give was
+      // wrong. It said "an API already running for `make dev` is the same API".
+      // On 2026-08-09 the API already running was three days old, this suite
+      // reused it, and the one test covering that morning's fix skipped itself
+      // green with "no seeded posting is unassessable" — a true sentence about
+      // a binary from Tuesday.
+      //
+      // Still reused, because refusing would break the ordinary `make dev` +
+      // `make test-e2e-seeded` loop and re-binding port 8000 would fail anyway.
+      // Playwright cannot tell a fresh server from a stale one; what it can do
+      // is refuse to pass when the deterministic seeded corpus fails to produce
+      // a case it certainly contains, which is why `eligibility.spec.ts` throws
+      // there instead of skipping. `scripts/verify.py` guards its own half
+      // differently — it starts its own API and now refuses to run at all if
+      // the port is taken.
       reuseExistingServer: true,
       timeout: 60_000,
     },
