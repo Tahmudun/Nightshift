@@ -187,16 +187,20 @@ class EligibilityBlockerOut(BaseModel):
 
 
 class EligibilityUnknownOut(BaseModel):
-    """A profile field whose absence stopped a rule from deciding.
+    """A dimension the gate could not decide, and whether anything would fix it.
 
     Separate from a blocker because they mean opposite things. A blocker says
-    "this is probably not for you"; an unknown says "tell us one more thing and
-    we can answer", and `profile_field` is what the page links to. Rendering
-    them the same way turns an action into a rejection.
+    "this is probably not for you"; an unknown says "we could not decide".
+    Rendering them the same way turns an action into a rejection.
+
+    **`profile_field` is null when no field would resolve it** — the posting
+    accepts equivalent experience, and nothing the person types moves that. The
+    page renders those without a link, because a link that cannot help is worse
+    than no link: they follow it, fill the field, and the answer is unchanged.
     """
 
     dimension: str
-    profile_field: str
+    profile_field: str | None
     why: str
 
 

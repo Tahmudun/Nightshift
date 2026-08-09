@@ -230,13 +230,17 @@ export const eligibilityBlockerSchema = z.object({
 export type EligibilityBlocker = z.infer<typeof eligibilityBlockerSchema>;
 
 /**
- * Something the gate could not decide because the profile is silent. Distinct
- * from a blocker on purpose: this one is an action with somewhere to go, and
- * `profile_field` is where the page links to.
+ * Something the gate could not decide. Distinct from a blocker on purpose: a
+ * blocker is a wall, this is an open question.
+ *
+ * `profile_field` is where the page links to, and it is **nullable** because
+ * some questions have no answer a person could supply — a posting saying
+ * "or equivalent experience" is unassessable however complete the profile is.
+ * A link there is an action that cannot work, so the page renders none.
  */
 export const eligibilityUnknownSchema = z.object({
   dimension: z.string(),
-  profile_field: z.string(),
+  profile_field: z.string().nullable(),
   why: z.string(),
 });
 export type EligibilityUnknown = z.infer<typeof eligibilityUnknownSchema>;

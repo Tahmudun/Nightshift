@@ -43,7 +43,16 @@ GATE_VERSION = "m3b.1"
 #: contradicts it. Either half missing is `cannot_tell`. That is invariant I2
 #: doing the work: an inferred fact never blocks anybody, because an inferred
 #: fact is not a fact.
-Outcome = Literal["passes", "blocks", "soft_blocks", "cannot_tell", "not_applicable"]
+#:
+#: `cannot_tell` and `cannot_assess` both reach `uncertain` and they are two
+#: different sentences to a person. `cannot_tell` is "you have not told us" and
+#: names the field that would settle it. `cannot_assess` is "the *posting* is
+#: written so that nothing you could tell us would settle it" — A13's
+#: equivalence hatch is the only one today. Collapsing them makes the page offer
+#: an action that cannot possibly work, which is the M3b review's finding 1.
+Outcome = Literal[
+    "passes", "blocks", "soft_blocks", "cannot_tell", "cannot_assess", "not_applicable"
+]
 
 #: The dimensions a rule can speak about. `seniority` is deliberately absent:
 #: `matching.md` §5.1 makes a seniority mismatch a score *penalty*, which is
@@ -96,17 +105,27 @@ class Blocker:
 
 @dataclass(frozen=True)
 class Unknown:
-    """A profile field whose absence stopped a rule from deciding.
+    """A dimension the gate could not decide, and whether anything would fix it.
 
     Kept separate from `Blocker` because they mean opposite things to a person.
-    A blocker says "this posting is probably not for you"; an unknown says "tell
-    us one more thing and we can answer". Rendering them the same way turns an
-    action into a rejection.
+    A blocker says "this posting is probably not for you"; an unknown says "we
+    could not decide". Rendering them the same way turns an action into a
+    rejection.
+
+    **`profile_field` is null when nothing the person could add would settle
+    it**, and that distinction is the whole reason this field is optional. Four
+    of the five rules go uncertain only because the profile is silent, so naming
+    the column is a real next step. The degree rule has a fifth path: the
+    posting itself says "or equivalent experience", and no graduation year, no
+    degree and no years figure changes that. Offering "add your degree" there is
+    an action that cannot work — worse than saying nothing, because the person
+    does it and the answer does not move.
     """
 
     dimension: Dimension
     #: The `users` column to ask for, so the UI can link to the right field.
-    profile_field: str
+    #: `None` means no field would resolve this one; see the class docstring.
+    profile_field: str | None
     why: str
 
 
@@ -143,9 +162,17 @@ def _degree_rule(reading: PostingReading, profile: SeekerProfile) -> tuple[Outco
     "Bachelor's degree **or equivalent experience**" is not a hard blocker, and
     a rule that matches `bachelors` and stops has permanently removed that role
     from somebody's world. `+equivalent` therefore demotes what would have been
-    a block to `cannot_tell` — never to a pass, because the posting did ask for
-    something, and never to a block, because it said the degree is not the only
-    way in.
+    a block to an uncertain outcome — never to a pass, because the posting did
+    ask for something, and never to a block, because it said the degree is not
+    the only way in.
+
+    It is `cannot_assess` rather than `cannot_tell`, and the difference is
+    visible on the page. The hatch is a fact about the *posting*: it is checked
+    before `profile.degree` is even read, so a PhD holder hits it exactly as
+    somebody with no degree does. Filed as `cannot_tell` it produced an
+    "add your degree" link beside a profile that already had one — an action
+    that resolves nothing, found in Task 12's browser walk against the seeded
+    Datadog posting.
     """
     required = reading.degree
     if required == "none":
@@ -153,7 +180,7 @@ def _degree_rule(reading: PostingReading, profile: SeekerProfile) -> tuple[Outco
 
     if required.endswith("+equivalent"):
         return (
-            "cannot_tell",
+            "cannot_assess",
             "the posting accepts equivalent experience in place of the degree, "
             "which is not something this system can assess",
         )
@@ -347,16 +374,22 @@ def evaluate(reading: PostingReading, profile: SeekerProfile) -> EligibilityVerd
                     why=why,
                 )
             )
-        elif outcome == "cannot_tell":
+        elif outcome in ("cannot_tell", "cannot_assess"):
             unknowns.append(
-                Unknown(dimension=dimension, profile_field=_ASKS_FOR[dimension], why=why)
+                Unknown(
+                    dimension=dimension,
+                    # The only thing that differs between the two: whether there
+                    # is a field to ask for. Both reach `uncertain` below.
+                    profile_field=_ASKS_FOR[dimension] if outcome == "cannot_tell" else None,
+                    why=why,
+                )
             )
 
     if "blocks" in outcomes:
         state = EligibilityState.INELIGIBLE
     elif "soft_blocks" in outcomes:
         state = EligibilityState.LIKELY_INELIGIBLE
-    elif "cannot_tell" in outcomes:
+    elif "cannot_tell" in outcomes or "cannot_assess" in outcomes:
         state = EligibilityState.UNCERTAIN
     else:
         state = EligibilityState.ELIGIBLE

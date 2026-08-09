@@ -112,6 +112,124 @@ describe('JobEligibility', () => {
     expect(screen.getByText(/Nothing here is a no/i)).toBeInTheDocument();
   });
 
+  it('offers no action for a question no profile field could answer', () => {
+    // Task 12's browser-walk finding. The posting says "PhD or equivalent
+    // experience"; the gate cannot assess that, and it is checked *before* the
+    // profile's degree is read — so this reader has a degree on file and the
+    // link would still have said "Add your degree". An action that leaves the
+    // verdict where it was is worse than no action, because they take it.
+    render(
+      <JobEligibility
+        eligibility={eligibility({
+          state: 'uncertain',
+          unknowns: [
+            {
+              dimension: 'degree',
+              profile_field: null,
+              why: 'the posting accepts equivalent experience in place of the degree, which is not something this system can assess',
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByTestId('eligibility-unassessable')).toHaveTextContent(
+      /accepts equivalent experience/i,
+    );
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    // And it must not be filed under the heading that promises an answer.
+    expect(screen.queryByTestId('eligibility-unknowns')).not.toBeInTheDocument();
+  });
+
+  it('does not promise a fillable answer when there is nothing to fill in', () => {
+    // The same defect as the test above, one heading further up, and splitting
+    // the sections did not fix it. `uncertain` has two causes; the standing
+    // headline and caveat describe only one of them — "not enough in *your
+    // profile*", "fill in what is missing and this can answer" — and both are
+    // false when every open question came from the posting's own wording.
+    // A reader who acts on that sentence does exactly the futile thing the
+    // missing link was removed to prevent.
+    render(
+      <JobEligibility
+        eligibility={eligibility({
+          state: 'uncertain',
+          unknowns: [
+            {
+              dimension: 'degree',
+              profile_field: null,
+              why: 'the posting accepts equivalent experience in place of the degree',
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByTestId('eligibility-state')).toHaveTextContent(/posting.s own wording/i);
+    expect(screen.queryByText(/fill in what is missing/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/not enough in your profile/i)).not.toBeInTheDocument();
+    // Still not a rejection. The correction is to the promised action, not to
+    // the reassurance, and dropping the second with the first would be a
+    // different harm.
+    expect(screen.getByText(/Nothing here is a no/i)).toBeInTheDocument();
+  });
+
+  it('still promises the answer when one unknown really is fillable', () => {
+    // The guard on the guard: a component that took the unassessable wording
+    // whenever *any* unknown was unassessable would stop offering the action to
+    // somebody who does have one to take.
+    render(
+      <JobEligibility
+        eligibility={eligibility({
+          state: 'uncertain',
+          unknowns: [
+            {
+              dimension: 'degree',
+              profile_field: null,
+              why: 'the posting accepts equivalent experience in place of the degree',
+            },
+            {
+              dimension: 'graduation_window',
+              profile_field: 'graduation_year',
+              why: 'the posting wants a graduation date in 2026-2027 and your profile has none',
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByTestId('eligibility-state')).toHaveTextContent(
+      /not enough in your profile/i,
+    );
+    expect(screen.getByText(/fill in what is missing/i)).toBeInTheDocument();
+  });
+
+  it('keeps the two kinds of unknown under separate headings', () => {
+    render(
+      <JobEligibility
+        eligibility={eligibility({
+          state: 'uncertain',
+          unknowns: [
+            {
+              dimension: 'degree',
+              profile_field: null,
+              why: 'the posting accepts equivalent experience in place of the degree',
+            },
+            {
+              dimension: 'graduation_window',
+              profile_field: 'graduation_year',
+              why: 'the posting wants a graduation date in 2026-2027 and your profile has none',
+            },
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByTestId('eligibility-unknowns')).toHaveTextContent(/graduation date/i);
+    expect(screen.getByTestId('eligibility-unknowns')).not.toHaveTextContent(/equivalent/i);
+    expect(screen.getByTestId('eligibility-unassessable')).toHaveTextContent(/equivalent/i);
+    expect(screen.getAllByRole('link')).toHaveLength(1);
+  });
+
   it('says an unread posting is unread rather than saying you are eligible', () => {
     // The null case. Reporting `eligible` here would be a claim about a person
     // derived from a posting nobody has read.

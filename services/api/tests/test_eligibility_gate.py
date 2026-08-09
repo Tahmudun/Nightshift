@@ -98,6 +98,44 @@ def test_every_unknown_names_the_profile_field_that_would_resolve_it() -> None:
     ]
 
 
+def test_an_unknown_no_field_can_resolve_names_no_field() -> None:
+    """The other kind, and the reason `profile_field` is nullable.
+
+    "PhD or equivalent experience" is unassessable however complete the profile
+    is — the hatch is checked before `profile.degree` is read, so this reader
+    holds a PhD and still lands here. Naming `degree` would put "add your
+    degree" on the page beside a degree already on file: an action the person
+    takes and that moves nothing.
+
+    Found in Task 12's browser walk against the seeded Datadog posting, not in
+    this file — which is the argument for the walk existing.
+    """
+    verdict = evaluate(reading(degree="phd+equivalent"), SeekerProfile(degree="phd"))
+    assert verdict.state is EligibilityState.UNCERTAIN
+    assert [(u.dimension, u.profile_field) for u in verdict.unknowns] == [("degree", None)]
+
+
+def test_the_two_kinds_of_unknown_are_distinguishable_and_not_by_wording() -> None:
+    """A guard against the fix being cosmetic.
+
+    Both kinds carry a `why` sentence, and a page could in principle tell them
+    apart by reading the words. It must not have to: the distinction is a null
+    `profile_field`, checkable without parsing English, which is what lets the
+    component render one with a link and one without.
+    """
+    silent = evaluate(reading(degree="phd"), NOBODY).unknowns
+    unassessable = evaluate(reading(degree="phd+equivalent"), NOBODY).unknowns
+
+    assert [u.profile_field for u in silent] == ["degree"]
+    assert [u.profile_field for u in unassessable] == [None]
+    # Same dimension, same state — the field is the only thing that separates them.
+    assert silent[0].dimension == unassessable[0].dimension
+    assert (
+        evaluate(reading(degree="phd"), NOBODY).state
+        is evaluate(reading(degree="phd+equivalent"), NOBODY).state
+    )
+
+
 # ---------------------------------------------------------------------------
 # A13's six hard cases, by name.
 # ---------------------------------------------------------------------------

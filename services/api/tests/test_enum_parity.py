@@ -47,9 +47,18 @@ from nightshift.db.base import (
     TransitionClass,
     WorkAuthorization,
 )
+from nightshift.domain.eligibility import _ASKS_FOR
 from nightshift.domain.queue import QueueSectionKey
 
 SCHEMAS_TS = Path(__file__).resolve().parents[3] / "apps" / "web" / "src" / "lib" / "schemas.ts"
+JOB_ELIGIBILITY_TSX = (
+    Path(__file__).resolve().parents[3]
+    / "apps"
+    / "web"
+    / "src"
+    / "components"
+    / "JobEligibility.tsx"
+)
 
 #: The TypeScript constant name for each Python enum.
 PAIRS: tuple[tuple[str, type[enum.Enum]], ...] = (
@@ -124,4 +133,30 @@ def test_the_browser_knows_exactly_the_values_the_database_can_send(
         f"{name} in schemas.ts and {enum_cls.__name__} disagree. A value the API "
         "can send and the client refuses is an unparseable page; a value the "
         "client accepts and the API cannot send is dead UI."
+    )
+
+
+def test_the_page_has_words_for_every_profile_field_an_unknown_can_ask_for() -> None:
+    """`_ASKS_FOR`'s values against `ASKS`'s keys, which is the same boundary.
+
+    Not a `z.enum`, so the parametrised test above cannot reach it, and it drifts
+    the same way and fails more quietly. `ASKS[field] ?? field` falls back to the
+    raw column name, so a rule added without its phrase does not throw and does
+    not blank the page — it prints **"Add years_experience"** to a person, which
+    reads as a bug in a sentence that is otherwise asking them for help.
+
+    One-directional on purpose. Every field a rule can ask for must have words;
+    a spare phrase in `ASKS` for a field no rule asks for is dead but harmless,
+    and M3c adds rules faster than it removes them.
+    """
+    assert JOB_ELIGIBILITY_TSX.is_file(), f"{JOB_ELIGIBILITY_TSX} does not exist"
+    source = JOB_ELIGIBILITY_TSX.read_text(encoding="utf-8")
+    match = re.search(r"const ASKS: Record<string, string> = \{(.*?)\n\};", source, re.DOTALL)
+    assert match is not None, "ASKS is not declared in JobEligibility.tsx"
+    phrased = set(re.findall(r"^\s*(\w+):", match.group(1), re.MULTILINE))
+
+    missing = set(_ASKS_FOR.values()) - phrased
+    assert not missing, (
+        f"the gate can ask for {sorted(missing)} and JobEligibility.tsx has no words "
+        "for it, so the page would print the column name at a person"
     )

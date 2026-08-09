@@ -11,17 +11,31 @@
  * blocker named, because a hidden row is a parsing bug the reader cannot see.
  * Whatever the verdict, the job is still on the page and still applyable.
  *
- * Two distinctions are load-bearing and neither is cosmetic:
+ * Three distinctions are load-bearing and none is cosmetic:
  *
- *   blocker vs unknown       a wall, versus a question with somewhere to go
+ *   blocker vs unknown       a wall, versus an open question
  *   blocks vs soft_blocks    a stated bar you do not clear, versus a shortfall
+ *   askable vs unassessable  a question your profile can answer, versus one the
+ *                            posting's own wording leaves open
  *
- * Collapsing either one turns something the reader could act on into something
- * that reads as a refusal.
+ * Collapsing either of the first two turns something the reader could act on
+ * into something that reads as a refusal. Collapsing the third does the
+ * opposite and is subtler: it offers an action that cannot work.
  */
 
 import Link from 'next/link';
-import type { Eligibility, EligibilityState } from '@/lib/schemas';
+import type { Eligibility, EligibilityState, EligibilityUnknown } from '@/lib/schemas';
+
+/** An unknown a profile field could settle, narrowed so the field is not optional. */
+type AskableUnknown = EligibilityUnknown & { profile_field: string };
+
+/**
+ * A predicate rather than a `!` after the filter. `Array.filter` does not narrow
+ * the element type, so `row.profile_field!` would compile while asserting
+ * something the compiler has not checked — and the thing being asserted is
+ * precisely the distinction this component was fixed to respect.
+ */
+const isAskable = (row: EligibilityUnknown): row is AskableUnknown => row.profile_field !== null;
 
 const TERM = 'font-mono text-[10px] uppercase tracking-[0.16em] text-paper-faint';
 
@@ -67,7 +81,15 @@ const TONE: Record<EligibilityState, string> = {
   ineligible: 'text-paper-dim',
 };
 
-/** The profile field an unknown asks for, in words rather than as a column name. */
+/**
+ * The profile field an unknown asks for, in words rather than as a column name.
+ *
+ * Kept in step with the gate's `_ASKS_FOR` by
+ * `test_the_page_has_words_for_every_profile_field_an_unknown_can_ask_for`. The
+ * fallback below is `?? row.profile_field`, so a missing phrase prints
+ * "Add years_experience" at a person rather than throwing — which is why the
+ * drift needs a test rather than a runtime guard.
+ */
 const ASKS: Record<string, string> = {
   graduation_year: 'your graduation year',
   degree: 'your degree',
@@ -95,15 +117,32 @@ export function JobEligibility({ eligibility }: { eligibility: Eligibility | nul
   const { state, blockers, unknowns } = eligibility;
   const hard = blockers.filter((row) => row.outcome === 'blocks');
   const soft = blockers.filter((row) => row.outcome === 'soft_blocks');
+  // A null `profile_field` means no field would resolve it, so the two get
+  // different headings and only one gets a link. See `eligibilityUnknownSchema`.
+  const askable = unknowns.filter(isAskable);
+  const unassessable = unknowns.filter((row) => row.profile_field === null);
+
+  // `uncertain` has two causes and only one of them has an action behind it.
+  // The generic pair below say "not enough in *your profile*" and "fill in what
+  // is missing and this can answer" — both false when every open question came
+  // from the posting's own wording. That is the same broken promise the
+  // unassessable section was split out to stop making, one heading further up,
+  // and the split did not fix it here. Found reviewing the fix, not the bug.
+  const nothingToFillIn = state === 'uncertain' && askable.length === 0;
+  const headline = nothingToFillIn ? 'The posting’s own wording leaves this open' : HEADLINE[state];
+  const caveat = nothingToFillIn
+    ? 'Nothing here is a no. What is unresolved is in how the posting is written, not in ' +
+      'anything missing from your profile.'
+    : CAVEAT[state];
 
   return (
     <section data-testid="eligibility">
       <h2 className={TERM}>Eligibility</h2>
 
       <p className={`mt-2 text-[15px] leading-snug ${TONE[state]}`} data-testid="eligibility-state">
-        {HEADLINE[state]}
+        {headline}
       </p>
-      <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-paper-dim">{CAVEAT[state]}</p>
+      <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-paper-dim">{caveat}</p>
 
       {hard.length > 0 && (
         <div className="mt-4" data-testid="eligibility-blockers">
@@ -144,11 +183,11 @@ export function JobEligibility({ eligibility }: { eligibility: Eligibility | nul
         </div>
       )}
 
-      {unknowns.length > 0 && (
+      {askable.length > 0 && (
         <div className="mt-4" data-testid="eligibility-unknowns">
           <h3 className={TERM}>What would let this answer</h3>
           <ul className="mt-2 space-y-1">
-            {unknowns.map((row) => (
+            {askable.map((row) => (
               <li key={row.dimension} className="text-[13px] leading-relaxed text-paper-dim">
                 {row.why}.{' '}
                 <Link
@@ -157,6 +196,24 @@ export function JobEligibility({ eligibility }: { eligibility: Eligibility | nul
                 >
                   Add {ASKS[row.profile_field] ?? row.profile_field}
                 </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {unassessable.length > 0 && (
+        <div className="mt-4" data-testid="eligibility-unassessable">
+          {/* A separate heading, and no link under it. These are questions the
+              posting's own wording leaves open — "or equivalent experience" —
+              and no profile field settles one. Under "What would let this
+              answer" with an "Add your degree" link beside it, the reader does
+              the work and the verdict does not move. */}
+          <h3 className={TERM}>What nothing in your profile can settle</h3>
+          <ul className="mt-2 space-y-1">
+            {unassessable.map((row) => (
+              <li key={row.dimension} className="text-[13px] leading-relaxed text-paper-dim">
+                {row.why}. Worth reading the posting itself on this one.
               </li>
             ))}
           </ul>
