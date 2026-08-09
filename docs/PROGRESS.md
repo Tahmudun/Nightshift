@@ -17,15 +17,46 @@
 **Q4 (CI pinning): ANSWERED and shipped. ADR 0016, merged to `main` as PR #10 (`0c5bcbd`).**
 **M3a: COMPLETE, reviewed, CI-green at `3fbffd6`, merged to `main` as PR #9 (`452ec90`).**
 **M3a.1: COMPLETE. Recall 0.459 → 0.861, precision 0.659 → 0.847, necessity 0.668 → 0.915.**
-**M3b: COMPLETE, reviewed, CI-green on all five jobs at `6656eab`, first attempt. PR #11 ready to merge.**
-**Current milestone: M3 — explainable matching. M3c (the score) is next, after M3b merges.**
+**M3b: COMPLETE, reviewed, CI-green at `7bfbf2d`, merged to `main` as PR #11 (`d2273e7`). `main` green after the merge.**
+**Current milestone: M3 — explainable matching. M3c (the score) is planned and starting.**
 **Last updated: 2026-08-09**
 
 ---
 
 ## Next exact action
 
-### M3b is done, reviewed, and CI-green at `6656eab`. Next: merge PR #11, then start M3c — the score.
+### M3c is planned on `m3c-the-score`. Next: Task 1 — `data/matching.yaml`, the loader, and the sum-to-100 assertion shown able to fail.
+
+The plan is `docs/plans/2026-08-09-m3c-the-score.md`. Twelve tasks. Three calls
+taken in the plan rather than inside the work:
+
+- **The embedding proposal path is Task 11, not Task 3**, and it is allowed to
+  end in a deletion. The span rule means a proposal can only re-rank things that
+  already have spans on both sides — it cannot invent evidence — so the honest
+  question is how many *additional* pairs it finds that the vocabulary missed,
+  and that has no answer until the vocabulary's own yield is on the table. One
+  number with no way to attribute it is what shipping both together produces.
+- **The golden test is written before any weight is tuned.** Written afterwards
+  it pins whatever the code then does, which is a test that cannot fail on the
+  thing it exists to catch.
+- **"Any profile change triggers a rescore" is a trap** and is not implemented
+  as written. M2c's profile PATCH writes fifteen columns and most components
+  read none of them; rescoring the corpus because somebody edited their display
+  name is a retry storm waiting for a demo. A named scoring-relevant column list,
+  guarded against `User.__table__` the way `PROFILE_COLUMNS` now is — because
+  that hand-maintained list is exactly what quietly stopped describing what it
+  named at M3b.
+
+**Q5 is open in QUESTIONS and wants twenty minutes of the human's judgement.**
+M3 can prove the ranking is *stable* and cannot prove it is *good*, because
+whether a role is a good role for somebody is not a property of the posting and
+so cannot come out of the answer key. Thirty postings rated good / acceptable /
+poor is the only thing that produces that measurement. Not blocking M3c; wanted
+before M3d.
+
+---
+
+## M3b — merged to `main` as PR #11 (`d2273e7`)
 
 **CI green on all five jobs, first attempt** — run
 [31310986928](https://github.com/Tahmudun/Nightshift/actions/runs/31310986928).

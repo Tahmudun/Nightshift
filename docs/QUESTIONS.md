@@ -7,6 +7,39 @@ the date, because the reasoning is usually worth more than the decision.
 
 ---
 
+## Q5 — Twenty minutes of your judgement, or M3 ships with ranking quality unmeasured
+
+**Raised:** 2026-08-09 (M3c planning) · **Type:** product · **Blocking:** no
+
+`matching.md` §7.3 names this and M3c's plan brings it forward so it can be
+scheduled rather than discovered at M3d.
+
+**The problem, plainly.** M3 will be able to prove that the ranking is *stable* —
+same inputs, same version, byte-identical output — and it will not be able to
+prove the ranking is *good*. Those are different claims and only one of them is
+what a person cares about.
+
+The reason is not laziness. Whether a role is a **good** role for you is not a
+property of the posting, so it cannot be read out of the 60-posting answer key by
+construction. The key can say "this posting requires a bachelor's degree" because
+that has a right answer. It cannot say "this posting is a 78 for Tahmudun".
+
+**What would fix it:** you rate roughly 30 postings `good` / `acceptable` / `poor`.
+No explanation needed, no tie-breaking, just the three buckets. Roughly twenty
+minutes. That becomes the held-out set the ranking is measured against in M3d,
+and it is the only thing in this project that can produce that measurement.
+
+**What happens if it does not happen:** M3 ships with stability measured and
+quality unmeasured, and PROGRESS says exactly that under "Not real yet" — rather
+than reporting a number computed against labels the system wrote for itself,
+which would be the most flattering and least honest option available.
+
+**Not blocking.** M3c is twelve tasks and none of them needs this. It is wanted
+before M3d starts, and I will generate the worksheet — same shape as M3a's
+labeling worksheet — when you say go.
+
+---
+
 ## Q2 — Deployment target for the M4 ship
 
 **Raised:** 2026-07-29 (M0) · **Type:** cost · **Blocking:** no
