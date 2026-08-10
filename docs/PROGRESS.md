@@ -18,20 +18,46 @@
 **M3a: COMPLETE, reviewed, CI-green at `3fbffd6`, merged to `main` as PR #9 (`452ec90`).**
 **M3a.1: COMPLETE. Recall 0.459 → 0.861, precision 0.659 → 0.847, necessity 0.668 → 0.915.**
 **M3b: COMPLETE, reviewed, CI-green at `7bfbf2d`, merged to `main` as PR #11 (`d2273e7`). `main` green after the merge.**
-**Current milestone: M3 — explainable matching. M3c (the score): Tasks 1–8 of 12 done. Q6 answered and implemented.**
+**Current milestone: M3 — explainable matching. M3c (the score): Tasks 1–9 of 12 done. Q6 answered and implemented.**
 **Last updated: 2026-08-09**
 
 ---
 
 ## Next exact action
 
-### M3c Tasks 1–8 are done. Next: Task 9 — the API returns a `match_result` on the job detail, and refuses a stale `ruleset_version`.
+### M3c Tasks 1–9 are done. Next: Task 10 — the explanation panel and the banded ranked list (§5.3, §6).
 
-Task 8 left Task 9 everything it needs and one thing it must not get wrong: a
-row whose `ruleset_version` is not the current one is **not** a score to be
-labelled stale on the page. It reads as not-yet-computed, because §4.2 keeps
-old-version rows deliberately — a bump computes alongside what it replaced — and
-a route that returns the newest row it can find will serve exactly those.
+Task 9 left the API carrying everything the panel assembles from, and three
+things Task 10 has to get right rather than discover:
+
+1. **Bands are headers, never points.** §5.3 groups by eligibility band then
+   sorts by score *descending within the band*, and the grouping is a visible
+   structure rather than a number the score absorbed. `uncertain` sorts above
+   `likely_ineligible`. An ineligible job is dimmed with its blocker named — never
+   hidden (§3.3).
+2. **The list sorts on the fraction, not on `overall_score`.** `assessed_out_of`
+   is not always 100, so raw totals are not comparable across postings, and the
+   fraction is `null` rather than `0.0` when nothing could be assessed — which is
+   a row to place deliberately rather than to let sort to the bottom by accident.
+   `MatchOut.fraction` is already the computed value; the ranked *list* endpoint
+   does not exist yet and is Task 10's first piece.
+3. **`MatchComponent`, `EvidenceSource` and `JobTextField` cross into TypeScript
+   for the first time.** All three need `schemas.ts` constants and entries in
+   `test_enum_parity.py`'s TypeScript pairs — the half deliberately left to Task
+   10 because there was nothing in the browser to compare against until now. Two
+   of the last four milestones found a hand-transcribed enum defect there.
+
+**Task 9 shipped**: a stored score now reaches `GET /jobs/{id}` as
+`JobDetailOut.match`, decomposed into six components with their weights, their
+evidence quoted on both sides, and each component's own sentence — and a row at a
+non-current `ruleset_version` reads as not-yet-computed rather than as a score.
+It owed a migration for the same reason Task 8 did: `0018_match_component_assessments`
+stores *which* components could not be assessed and why, because §5.1.1 requires
+the page to name them and neither fact is recoverable from `match_results`. Three
+plausible-but-wrong route implementations were written and measured going red.
+Full detail in the M3c Task 9 section below, including why storing a per-component
+sentence is not the `explanation` column §4.2 refused, and the zero-weight hole in
+the loader that the new trigger depends on being closed.
 
 **Task 8 shipped**: scores now reach the database. Migration
 `0017_match_score_denominator` (the two columns Task 5 and Task 3 left owing),
@@ -165,14 +191,29 @@ taken in the plan rather than inside the work:
   question — does this scorer produce more than one number across 31 jobs — is
   still unanswered. It is Task 7's, and it is on the plan's own list of what
   would make it wrong.
-- **No score is visible anywhere.** Task 8 writes `match_results` and
-  `match_evidence` and nothing reads them: the API does not return a score
-  (Task 9) and no page renders one (Task 10). The worker computes rows a browser
-  cannot reach, and `make demo` looks exactly as it did before this task.
-- **`assessed_out_of` is stored and nothing divides by it yet.** The column is
-  written, constrained, and tested; the *fraction* it exists for is the ranked
-  list's sort key, and that list is Task 10's. Until then the denominator is a
-  correct number with no reader.
+- **No score is visible in a browser.** As of Task 9 the API returns one on
+  `GET /jobs/{id}`, and no page renders it: the job detail page ignores the new
+  `match` field, and there is no ranked list. That is Task 10. `make demo` looks
+  exactly as it did before Tasks 8 and 9.
+- **Nothing carries the score's enums into TypeScript yet.** `MatchComponent`,
+  `EvidenceSource` and `JobTextField` are all in the API response as of Task 9 and
+  none of them has a `schemas.ts` constant or an entry in `test_enum_parity.py`'s
+  TypeScript pairs. Adding a field to a Zod object that does not declare it is
+  silently ignored, so the web tests are green and the browser is discarding the
+  whole `match` object — correct for today, and Task 10's first obligation.
+- **`match_results.resume_id` is null on every row.** §6's *Recommended resume*
+  element — which stored resume best covers the required set — has a column, an
+  FK and no writer. It is named in `matching.md` §6 and owed by one of Tasks
+  10–12; it is not computed and must not be described as one of the seven
+  elements that are.
+- **The two penalties reach the page as one number.** §4.2 stores their sum
+  deliberately, so the response carries `penalty_score` and cannot attribute it.
+  The missing-requirement half is re-derivable on the page (required requirements
+  with no evidence row, which §6 already lists as its own element); the
+  seniority-mismatch half is not, so a person seeing `-18` can be told 12 of it
+  came from three unmet technologies and not what the other 6 was. Task 10 decides
+  whether that is acceptable or whether §4.2's one-column decision needs
+  revisiting; nothing about it is broken today.
 - **The recompute sweep is `users × open jobs`, unbounded in principle and
   bounded in practice by the corpus being 31 postings and the user count being
   one.** One anti-join per tick, batched at 500 pairs. At M4's scale this is
@@ -230,35 +271,13 @@ taken in the plan rather than inside the work:
 - **The weights are §5.1's published numbers, untuned and unmeasured.** Nothing
   has scored anything yet, so no evidence supports 30 for skill overlap over 25.
   Tuning is deliberately after Task 6's golden test, never before it.
-- **`match_evidence` has no `job_span_field` column and needs one.** Role
-  relevance quotes the *title*; every other span points into `description_text`.
-  The scoring dataclass carries the field, the schema does not yet, and the span
-  trigger would check a title span against the description and reject a correct
-  row. The migration lands with Task 8, when these rows are first persisted —
-  until then nothing writes them, so nothing is wrong today and this is the note
-  that stops it being discovered then.
-- **`match_results` and `match_evidence` are empty and nothing writes them.**
-  The tables, the constraints and all seven triggers exist and are exercised by
-  tests; the scorer that would fill them is Task 3, the ARQ task that would run
-  it is Task 8, and no page reads either table. Every guard recorded below is a
-  guard over rows that only tests have ever written.
-- **`MatchComponent` and `EvidenceSource` are not in `test_enum_parity.py`'s
-  TypeScript pairs**, because neither has crossed into the browser yet — there
-  is no `schemas.ts` constant to compare against until Task 10 renders the
-  explanation panel. `EligibilityState` was already there. Both new enums *are*
-  asserted equal to the migration's own copies, which is the other half of the
-  same discipline, and adding the TS half is Task 10's business rather than a
-  gap to discover then.
-- **The evidence guard only fires at commit.** It is a deferrable constraint
-  trigger, which is the only shape that works — a score has to exist before an
-  evidence row can reference it — but it means a transaction that never commits
-  never checks. The test suite rolls back, so every test forces it with `SET
-  CONSTRAINTS ALL IMMEDIATE`. Production code commits, so the guarantee is real
-  there; anything that writes a score inside a transaction it then abandons is
-  outside what this guard can see.
-- **`RULESET_LOGIC_VERSION` is a constant a human bumps.** The golden test that
-  makes forgetting it fail loudly is Task 6. Between now and then, a rule change
-  without a bump is caught by nothing.
+- **Both deferred guards only fire at commit** — the evidence guard from Task 2
+  and the assessment guard from Task 9. Deferrable constraint triggers are the only
+  shape that works, since a score has to exist before a child row can reference
+  it, but it means a transaction that never commits never checks. The test suite
+  rolls back, so every test forces them with `SET CONSTRAINTS ALL IMMEDIATE`.
+  Production code commits, so the guarantee is real there; anything that writes a
+  score inside a transaction it then abandons is outside what either guard can see.
 - **`scripts/` is outside the linted tree**, found this session and pre-existing:
   `make lint` runs ruff over `services/api` only, so `verify.py` and both
   worksheet generators are checked by nothing. 22 findings sit there today, most
@@ -266,6 +285,147 @@ taken in the plan rather than inside the work:
   deliberately — turning it on means per-file ignores, and that is its own small
   change rather than a rider on M3c. The two files added this session were
   checked against the same config by hand and are clean.
+
+---
+
+## M3c Task 9 — the score reaches a reader, and a component learns to say why
+
+**Shipped:** `0018_match_component_assessments` (a new table and one deferred
+trigger asserting three things, both migration directions applied),
+`matching.current_result_for` (the version filter),
+`matching.COMPONENT_SCORE_COLUMNS` (one mapping, now read by two modules),
+`scoring.score_fraction` and `scoring.DEFERRED_COMPONENTS`, a zero-weight
+refusal in `matching_weights.parse_weights`, `MatchOut` / `MatchComponentOut` /
+`MatchEvidenceOut` / `DeferredComponentOut` in `api/schemas.py`, and
+`JobDetailOut.match`. 14 tests in a new `test_match_routes.py`, 9 added to
+`test_match_result_models.py`, 1 to `test_matching_weights.py`, 1 to
+`test_nothing_infers.py`, and 3 assertions added to existing recompute tests.
+
+### The task owed a migration, and the reason is Task 8's reason one layer up
+
+Task 8's note says its two columns were "found by implementing the thing that
+fills them". Task 9 is the first task that *reads* a score, and it found the same
+shape: **which components could not be assessed is not recoverable from
+`match_results`.**
+
+§5.1.1 requires the page to name them and say why. Neither half is there:
+
+- A component that scored zero and one nobody could assess both store `0`. That
+  indistinguishability is the entire content of §5.1.1.
+- `assessed_out_of` does not resolve it. The six weights are 20, 30, 20, 10, 10,
+  10 and several subsets sum to the same number, so the denominator names *how
+  much* was assessed and can never name *which*.
+- The `why` sentence exists nowhere else. The three exempt components quote
+  nobody and put their values in `match_evidence.compared`; an assessable
+  component that scored zero has no evidence row at all. Without the sentence
+  those components reach the browser as bare numbers, which is I4 one level below
+  the total.
+
+`match_component_assessments` is six rows per score: `component`, `assessable`,
+`why`. `matching.md` §4.5 is the decision.
+
+### The alternative was re-running the scorer on read, and that is the worse one
+
+The cheap version of this task computes the missing fields at render time —
+`score_match` is pure, the stored row is guaranteed fresh (any input change
+deletes it), so the two "should" agree. That is the second-derivation failure
+`posting_for`'s own docstring is written about, and here it is worse than there:
+a breakdown computed by a second path can disagree with the total printed above
+it, and nothing on the page would look wrong. Every number in `MatchOut` is read
+off the stored row.
+
+### Storing a sentence is not the `explanation` column §4.2 refused
+
+It looks like a reversal and it is not, and the line is worth stating because the
+next person to read §4.2 will ask. An `explanation` is assembled **from** the
+evidence rows, so it is a second version of a claim that can contradict its
+source. A `why` is produced **alongside** the points, by the same call, from the
+same inputs, and has no other source to contradict. Written into `matching.md`
+§4.2 as well as §4.5, next to the refusal it qualifies.
+
+### The trigger asserts three things, and the third one needed a change to the loader
+
+1. **Exactly six rows, one per component** — the database's copy of
+   `MatchScore.__post_init__`. Five means a component silently has no statement.
+2. **An unassessable component scored nothing** — `ComponentScore.__post_init__`
+   in SQL, for anything reaching the table another way.
+3. **`assessed_out_of = 100` exactly when every component was assessable.**
+
+The third is the one that matters on the page: without it the breakdown can name
+three unassessable components beside a denominator of 100, and the ranked list
+then sorts on a fraction that contradicts the rows printed under it.
+
+It holds only while an unassessable component necessarily *narrows* the
+denominator — which needs every weight ≥ 1, and the sum-to-100 assertion does not
+give that. `role_relevance: 0` beside `skill_overlap: 50` totals 100 and passes,
+while removing role relevance from every score in the corpus. That is the silent
+removal `data/matching.yaml`'s own header claims is caught, in the one shape that
+got past it, and `parse_weights` now refuses it. Left unfixed, a legal weights
+file would have produced scores the database rejects, with the error naming a row
+rather than the file that caused it.
+
+### Three plausible wrong routes, each measured going red
+
+The task's own criterion is a negative — *a stale row reads as not-yet-computed,
+never as a score* — so the implementations that fail it were written and run:
+
+| Mutation | What went red |
+|---|---|
+| `ORDER BY created_at DESC LIMIT 1`, no version filter | the stale-version test and the two-rows test |
+| `ORDER BY overall_score DESC LIMIT 1`, no version filter | the same two |
+| the `user_id` filter dropped | `test_another_person_s_score_is_not_served` |
+| `score_fraction` returning `0.0` instead of `None` | one route test and one scoring test |
+| assessments filtered to the assessable ones on write | 14 tests across three files |
+
+**The two-rows test was measured failing to catch the first mutation** before it
+was fixed, and the reason is worth keeping: `created_at` defaults to `now()`,
+which is the *transaction* timestamp, so two rows written in one transaction are
+indistinguishable in order and `ORDER BY created_at DESC` returned the right row
+about half the time. Writing the stale row second is not enough; it now carries an
+explicitly later timestamp and a higher score, so both shortcuts pick it every
+time. A test that catches a bug half the time is a flake whichever way it lands.
+
+### Two derivations of the eligibility state, shown to agree
+
+`match_results.eligibility_status` is what the ranked list's bands will be built
+from; the job page also computes the full verdict on read for its blockers and
+unknowns. The page shows both at once, so two sources for one claim is a defect
+unless something checks them —
+`test_the_stored_eligibility_state_agrees_with_the_live_verdict` is the check.
+
+### The truncate list refused again, on schedule
+
+`_INGESTION_TABLES` in `conftest.py` had to gain `match_component_assessments`,
+and the way that was discovered is 43 tests erroring with *cannot truncate a table
+referenced in a foreign key constraint* within a minute of the table existing.
+Seventh milestone running that this list has been kept correct by the database
+rather than by somebody remembering to edit it.
+
+### Verified, on this machine
+
+| Check | Result |
+|---|---|
+| `make check` | **1616 Python passed**, 1 skipped, 395s; **182 web passed** (20 files); ruff format + lint clean; mypy clean on 67 source files; prettier + eslint clean |
+| `make migrate` | `0017 → 0018` applied |
+| `alembic downgrade 0017` then `upgrade head` | both directions applied, no error |
+| `make drift` | no model/migration drift |
+| Mutation runs | five wrong implementations written and each measured going red — the table above |
+
+One thing this list does **not** include, and it is the honest gap: nothing was
+looked at in a browser, because there is nothing to look at. The response carries
+the score and no page reads it. `make demo` renders exactly what it did before
+Task 8. The browser walk is Task 12's, and Task 10 is what makes one possible.
+
+A note on how the `make check` figure was obtained, because the first two attempts
+reported failures that were not real: three `make check` runs were started
+concurrently against the one development Postgres, and they interfered — the two
+runs produced *different* sets of 19 and 29 errors across ingestion, polling and
+closure tests. `db_session` truncates inside its own transaction (conftest), which
+is correct for one run and is contention for two. The green figure above is from a
+single serial run with nothing else touching the database, confirmed by
+`ps aux | grep pytest` returning nothing first. **Two piped `make check` runs also
+reported exit 0 while failing**, because `cmd | tail` returns the exit status of
+`tail`; the real status came from writing to a file and echoing `$?`.
 
 ---
 

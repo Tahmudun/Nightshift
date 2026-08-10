@@ -312,6 +312,12 @@ disagree with the rows it was built from — the reason `resumes` dropped §6.4'
 `structured_profile` at M2c — and it is also precisely what §2.2 forbids: text
 written after the fact to justify a number that did not come from it.
 
+§4.5's `why` is not a partial reversal of this, and the line between them is worth
+being explicit about because it looks like one: an `explanation` is assembled
+*from* the evidence rows and can therefore contradict them, while a `why` is
+produced *alongside* the points by the same call, from the same inputs, and has no
+other source to contradict.
+
 **`penalty_score` is one column rather than two.** §5.1 keeps two penalties;
 this stores their sum. The evidence trigger binds the six positive components
 (§4.3's enum has no penalty member), so a split column would imply an evidence
@@ -516,6 +522,62 @@ outside the taxonomy*. Such a skill matches no `job_requirements.value`, and the
 score has to say so rather than resolve it to a neighbour — which is the
 substring failure M3b Task 11 measured, one table over.
 
+### 4.5 `match_component_assessments` — what each component says for itself
+
+Added at M3c Task 9 as `0018_match_component_assessments`, and not in the
+original design. Task 9 is the task where a score first had a **reader**, which
+is the point at which a missing column stops being invisible — the same argument
+Task 8 made for `assessed_out_of`, one layer up.
+
+One row per component per score, six exactly: `component`, `assessable`, `why`.
+
+§5.1.1 requires the page to name the components that could not be assessed **and
+why**. Neither half survives in `match_results` alone:
+
+- **`assessable` cannot be recovered from the points.** §5.1.1's whole content is
+  that a component scoring zero and a component the posting said too little to
+  assess are different statements, and both store `0`. `assessed_out_of` does not
+  resolve it either: the six weights are 20, 30, 20, 10, 10, 10, and several
+  subsets sum to the same number, so the denominator names *how much* was
+  assessed and can never name *which*.
+- **`why` is the only sentence a component ever produces.** The three exempt
+  components quote nobody and record their compared values in
+  `match_evidence.compared`; an assessable component that scored zero has no
+  evidence row at all. Without this text those components reach the page as bare
+  numbers, which is I4 one level below the total.
+
+**This is not the `explanation` column §4.2 refused**, and the difference is
+where the text comes from rather than how long it is. That column would have held
+a narrative assembled *from* `match_evidence`, able to disagree with the rows it
+was built from. `why` is the scoring rule's own output, returned by the same call
+and from the same inputs as the points beside it — a sibling of the evidence
+rows, not a summary of them. The alternative is re-running the scorer at render
+time, which is the second-derivation failure `posting_for`'s docstring is written
+about and which can disagree with the stored number while looking plausible.
+
+A deferred constraint trigger asserts three things, each a mistake this table
+makes possible rather than one already prevented:
+
+1. **Exactly six rows, one per component** — the database's copy of
+   `MatchScore.__post_init__`. Five means a component silently has no statement
+   and the page renders five of six with nothing looking wrong.
+2. **An unassessable component scored nothing.** `ComponentScore.__post_init__`
+   refuses this in Python; this is the same refusal for anything reaching the
+   table another way.
+3. **The denominator agrees with the rows** — `assessed_out_of = 100` exactly
+   when every component was assessable. Without it the page can name three
+   unassessable components beside a denominator of 100, and the ranked list then
+   sorts on a fraction that contradicts the breakdown printed under it.
+
+The third assertion is why `matching_weights.parse_weights` now refuses a weight
+of **zero** rather than merely a negative one. It holds only while an
+unassessable component necessarily narrows the denominator, which needs every
+weight ≥ 1 — and the sum-to-100 assertion does not cover that: `role_relevance:
+0` beside `skill_overlap: 50` totals 100 and passes, while removing role
+relevance from every score in the corpus. That is the silent removal
+`data/matching.yaml`'s own header claims is caught, in the one shape that got
+past it.
+
 ---
 
 ## 5. The score
@@ -554,7 +616,15 @@ seniority mismatch penalty      0 to -30
 
 Weights live in `data/matching.yaml` and are versioned; §4.2 records how that
 version is composed with the rule logic's own and stored on every
-`match_results` row.
+`match_results` row. Each is **at least 1** as well as summing to 100 — §4.5
+records why that second assertion had to be added, and why the first one does not
+imply it.
+
+Both deferrals reach the page as `scoring.DEFERRED_COMPONENTS`, carried on the
+score's own response with a weight and a reason, in the shape
+`search.DEFERRED_FILTERS` already uses for the filters M2 would not fake. Ten
+points nobody mentions is an invisible gap; ten points with a reason is a
+decision a reader can check against the total.
 
 ### 5.1.1 A component that cannot be assessed, and what the total does about it
 
@@ -579,6 +649,14 @@ freshness worth 50 points between them on those postings, which nobody chose.
 Awarding the points anyway was never available: §4.3's trigger refuses a
 positive component with no evidence row, so the database removed that option
 before anyone had to be disciplined about it.
+
+**"The page names the components that could not be assessed and why" needed a
+table, and that was found at Task 9.** Which components those are is not
+recoverable from `match_results`: a component that scored zero and one nobody
+could assess both store `0`, and `assessed_out_of` names how much was assessed
+rather than which parts — several subsets of the six weights sum to the same
+number. §4.5 is the table, and it carries the reason as well as the fact, because
+the reason exists nowhere else.
 
 ### 5.1.2 The denominator has to be stored, and that is a column this table does not have yet
 
@@ -701,6 +779,22 @@ No explanation text is generated. Every line is assembled from evidence rows and
 quotes stored strings. There is no template that can produce a sentence about a
 skill with no row behind it — which is exactly what M3d's hallucination check
 asserts.
+
+**One sentence per component is stored rather than assembled**, and §4.5 records
+the argument: it is the rule's own output, produced by the same call as the points
+it explains, and it is the only text a component that scored nothing ever has.
+That is a different thing from the narrative §4.2 refused to store, which would
+have been assembled *from* the evidence rows and could disagree with them.
+
+**Two of the seven are not yet computed, and Task 9 is where that became
+visible** rather than where it was decided. `match_results.resume_id` is the
+*Recommended resume* row above and nothing writes it — it is null on every stored
+score, so the element is named in this table and absent from the response. The
+API carries what the other elements are assembled from (the evidence rows, the
+requirements with no evidence, the gate's blockers and unknowns, the eligibility
+state); assembling them into a panel is Task 10, and the resume recommendation is
+owed by whichever of Tasks 10–12 takes it. Until then it is a null column, not a
+computed one, and PROGRESS says so under "Not real yet."
 
 I5 is unchanged and worth restating here because §8.5 sits next to it: nothing
 rewrites a resume, nothing tailors one, nothing submits anything.
