@@ -48,13 +48,8 @@ from nightshift.domain.matching_weights import (
     load_weights,
 )
 from nightshift.domain.scoring import ScoringProfile, score_match
-from tests.test_matching_golden import (
-    AS_OF,
-    CorpusPosting,
-    _blocks,
-    _load_profiles,
-    render_golden,
-)
+from tests.matching_corpus import AS_OF, CorpusPosting, load_profiles
+from tests.test_matching_golden import _blocks, render_golden
 
 #: How each threshold is mutated. A threshold is not a weight — "zero it" is
 #: meaningless for a rung that is already 0 and for a window whose lower bound
@@ -92,7 +87,7 @@ class Baseline:
 @pytest.fixture(scope="module")
 def baseline(scoring_corpus: tuple[CorpusPosting, ...]) -> Baseline:
     corpus = scoring_corpus
-    profiles = _load_profiles()
+    profiles = load_profiles()
     return Baseline(
         corpus=corpus,
         profiles=profiles,

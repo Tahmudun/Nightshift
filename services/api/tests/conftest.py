@@ -227,15 +227,16 @@ async def db_session(db_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
 def scoring_corpus() -> tuple[Any, ...]:
     """The 153 recorded postings, read and classified once for the whole session.
 
-    Two test modules score this corpus — the golden file and the mutation
-    harness — and building it means running requirement extraction over every
-    posting, which is ~26 seconds. Built per module it was the single largest
-    cost either file had, and neither of them is *about* extraction.
+    Three test modules score this corpus — the golden file, the mutation
+    harness, and Task 11's embedding measurement — and building it means running
+    requirement extraction over every posting, which is ~26 seconds. Built per
+    module it was the single largest cost any of them had, and none of them is
+    *about* extraction.
 
     Deliberately not used by `test_two_full_runs_are_byte_identical`, which
     rebuilds from scratch on purpose: a determinism test handed a cached corpus
     is comparing one object against itself.
     """
-    from tests.test_matching_golden import _load_corpus
+    from tests.matching_corpus import load_corpus
 
-    return _load_corpus()
+    return load_corpus()

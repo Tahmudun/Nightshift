@@ -52,150 +52,24 @@ from __future__ import annotations
 import difflib
 import json
 import os
-from dataclasses import dataclass
-from datetime import date
 from pathlib import Path
 from typing import Any
 
 import pytest
-import yaml
 
-from nightshift.adapters.base import BoardRef, RawJob
-from nightshift.adapters.greenhouse import GreenhouseAdapter
 from nightshift.db.base import MatchComponent
-from nightshift.domain.eligibility_reading import read_posting
 from nightshift.domain.matching_weights import load_weights, ruleset_version
-from nightshift.domain.requirement_extraction import extract_requirements
-from nightshift.domain.role_classification import classify_role
-from nightshift.domain.scoring import (
-    ConfirmedProject,
-    ConfirmedSkill,
-    JobLocationForScoring,
-    MatchScore,
-    PostingForScoring,
-    ScoringProfile,
-    score_match,
-)
-from nightshift.domain.skill_vocabulary import load_vocabulary
+from nightshift.domain.scoring import MatchScore, ScoringProfile, score_match
+from tests.matching_corpus import AS_OF, CorpusPosting, load_corpus, load_profiles
 
 FIXTURES = Path(__file__).parent / "fixtures"
-CORPUS = FIXTURES / "eligibility"
-PROFILES_FILE = FIXTURES / "matching" / "profiles.yaml"
 GOLDEN_FILE = FIXTURES / "matching" / "golden.txt"
-
-#: Frozen, and it has to be. `listing_freshness` is arithmetic against today,
-#: so a golden file computed with `date.today()` would go red every morning and
-#: teach everyone to regenerate it without reading the diff — which is the
-#: habit that makes the guard below pointless.
-AS_OF = date(2026, 8, 9)
 
 UPDATE = os.environ.get("NIGHTSHIFT_UPDATE_GOLDEN") == "1"
 
 
 class GoldenRefusedError(Exception):
     """Regeneration would rewrite a score without bumping the version."""
-
-
-# ---------------------------------------------------------------------------
-# Building the corpus
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class CorpusPosting:
-    key: str
-    posting: PostingForScoring
-
-
-def _load_corpus() -> tuple[CorpusPosting, ...]:
-    """Every recorded posting, through the real adapter and the real extractors.
-
-    The nine boards are all Greenhouse, so one adapter covers them. Going
-    through `normalize` rather than reaching into the payload is deliberate:
-    `remote_policy`, `locations` and `source_published_at` are adapter decisions
-    (A10's warning about `posted_at` being a last-modified stamp lives in
-    there), and a test that re-derived them would pin a second opinion.
-    """
-    adapter = GreenhouseAdapter.__new__(GreenhouseAdapter)  # normalize() is pure; no client needed
-    vocabulary = load_vocabulary()
-    out: list[CorpusPosting] = []
-
-    for path in sorted(CORPUS.glob("*.json")):
-        if path.name.endswith(".meta.json"):
-            continue
-        meta = json.loads(path.with_suffix(".meta.json").read_text(encoding="utf-8"))
-        token = str(meta["provenance"]["board_token"])
-        board = BoardRef(company=token, ats="greenhouse", token=token)
-
-        for job in json.loads(path.read_text(encoding="utf-8"))["jobs"]:
-            raw = RawJob(source_job_id=str(job["id"]), source_company_key=token, payload=job)
-            normalized = adapter.normalize(raw, board)
-            text = normalized.description_text or ""
-            proposals = extract_requirements(text, vocabulary=vocabulary)
-            reading = read_posting(proposals)
-            years = reading.min_years_experience
-            classification = classify_role(
-                normalized.title,
-                description=text,
-                years=years if isinstance(years, int) else None,
-            )
-            out.append(
-                CorpusPosting(
-                    key=f"{token}/{job['id']}",
-                    posting=PostingForScoring(
-                        title=normalized.title,
-                        description_text=text,
-                        role_family=classification.role_family,
-                        role_family_span=classification.family_span,
-                        seniority=classification.seniority,
-                        requirements=tuple(proposals),
-                        locations=tuple(
-                            JobLocationForScoring(city=loc.city, region=loc.state)
-                            for loc in normalized.locations
-                        ),
-                        remote_policy=normalized.remote_policy,
-                        source_published_at=(
-                            normalized.source_published_at.date()
-                            if normalized.source_published_at
-                            else None
-                        ),
-                    ),
-                )
-            )
-    return tuple(sorted(out, key=lambda c: c.key))
-
-
-def _load_profiles() -> tuple[tuple[str, ScoringProfile], ...]:
-    raw = yaml.safe_load(PROFILES_FILE.read_text(encoding="utf-8"))
-    profiles: list[tuple[str, ScoringProfile]] = []
-    for entry in raw["profiles"]:
-        profiles.append(
-            (
-                str(entry["name"]),
-                ScoringProfile(
-                    skills=tuple(
-                        # `taxonomy_id` equals the name because these are all
-                        # vocabulary terms; a fixture skill outside the taxonomy
-                        # would be a different test, not a different fixture.
-                        ConfirmedSkill(name=str(s), taxonomy_id=str(s))
-                        for s in entry["skills"]
-                    ),
-                    projects=tuple(
-                        ConfirmedProject(
-                            name=str(p["name"]),
-                            technologies=tuple(str(t) for t in p["technologies"]),
-                            evidence=str(p["evidence"]),
-                        )
-                        for p in entry["projects"]
-                    ),
-                    preferred_roles=tuple(str(r) for r in entry["preferred_roles"]),
-                    preferred_locations=tuple(str(loc) for loc in entry["preferred_locations"]),
-                    remote_preference=entry["remote_preference"],
-                    years_experience=entry["years_experience"],
-                ),
-            )
-        )
-    return tuple(profiles)
 
 
 # ---------------------------------------------------------------------------
@@ -356,8 +230,8 @@ def _score_everything(corpus: tuple[CorpusPosting, ...] | None = None) -> dict[s
     `corpus` is an escape hatch for callers that already have it — everything
     except the determinism test, which passes nothing on purpose.
     """
-    corpus = corpus if corpus is not None else _load_corpus()
-    profiles = _load_profiles()
+    corpus = corpus if corpus is not None else load_corpus()
+    profiles = load_profiles()
     weights = load_weights()
     scores = {
         (entry.key, name): score_match(entry.posting, profile, weights=weights, as_of=AS_OF)
