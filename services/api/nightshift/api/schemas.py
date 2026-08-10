@@ -474,6 +474,76 @@ class JobListOut(BaseModel):
     deferred_filters: list[DeferredFilterOut] = []
 
 
+class RankedJobOut(BaseModel):
+    """One row of the ranked list: a posting and the score it is ranked on.
+
+    The score is not optional here. A pair with no current-version row cannot be
+    ranked and is counted in `not_yet_scored` instead of being given a position —
+    an unscored posting placed anywhere in an ordering is a claim about it.
+    """
+
+    job: JobSummaryOut
+    match: MatchOut
+
+
+class RankedBandOut(BaseModel):
+    """One eligibility band, and the postings inside it, best first.
+
+    `matching.md` §5.3. **The band is a heading, never points.** Grouping by
+    eligibility and then sorting by score inside the group is the compromise
+    between two things that both matter: a list where a hard blocker does not
+    affect position is not usable, and a score that has silently absorbed a
+    penalty for uncertainty is a lie. Making the grouping a visible structure
+    satisfies both — so this is a list of bands rather than a flat list with an
+    eligibility term folded into its sort key.
+
+    **All five bands are always present, empty or not.** A band that vanishes when
+    nobody is in it makes `ineligible` invisible exactly when there is nothing in
+    it to see, and §3.3 is explicit that an ineligible posting is shown and dimmed
+    rather than hidden — which the reader can only trust if the section is there
+    to be empty.
+    """
+
+    state: EligibilityState
+    items: list[RankedJobOut]
+    #: How many of `items` could not be assessed at all, so their `fraction` is
+    #: null. They sort last within the band and are marked rather than mixed in;
+    #: see `MatchRankingOut.unassessed_sort_last`.
+    unassessed: int = 0
+
+
+class MatchRankingOut(BaseModel):
+    """One person's corpus, banded by eligibility and ranked inside each band.
+
+    **Sorted on the fraction, never on `overall_score`.** `assessed_out_of` is not
+    always 100 (§5.1.1), so raw totals are not comparable across postings: a 40/50
+    is a better match than a 45/100 and sorting on the totals puts them the other
+    way round.
+    """
+
+    bands: list[RankedBandOut]
+    #: Every ranked row, across all bands. Not the size of the corpus.
+    total: int
+    #: Open postings with no score at the current ruleset version — the sweep has
+    #: not reached them, they have no description to read, or their stored row
+    #: predates a ruleset bump. **Named rather than omitted**: a ranked list that
+    #: silently covers 12 of 31 postings looks exactly like a ranked list that
+    #: covers all of them.
+    not_yet_scored: int
+    #: Which arithmetic produced every row here, so a reader can tell that two
+    #: numbers on the page were computed by the same rules.
+    ruleset_version: str
+    #: A constant, serialised so the client cannot quietly choose otherwise: a
+    #: posting nothing could be assessed on has a null fraction, and null is
+    #: neither best nor worst. It keeps its band — the eligibility verdict is
+    #: real — and leaves the ordering, at the end, marked.
+    unassessed_sort_last: Literal[True] = True
+    #: §5.1's two, repeated here because the ranked list is where a total is
+    #: compared against another total, which is the moment the ten points nobody
+    #: scored matter most.
+    deferred_components: list[DeferredComponentOut] = Field(default_factory=list)
+
+
 class JobStatusCounts(BaseModel):
     """How many jobs sit in each closure state.
 

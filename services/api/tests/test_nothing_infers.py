@@ -15,6 +15,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from nightshift.db.base import EligibilityState
+from nightshift.domain.matching import BAND_ORDER
+
 ROOT = Path(__file__).resolve().parents[1] / "nightshift"
 WRITER = ROOT / "domain" / "profile.py"
 MODELS = ROOT / "db" / "models.py"
@@ -264,3 +267,32 @@ def test_every_component_maps_to_its_own_real_score_column() -> None:
     # Distinct, or two components read one column and one of them is silently
     # showing the other's points.
     assert len(mapped) == len(MatchComponent)
+
+
+# ---------------------------------------------------------------------------
+# The ranked list's band order — M3c Task 10
+# ---------------------------------------------------------------------------
+
+
+def test_every_eligibility_state_has_a_band() -> None:
+    """`BAND_ORDER` against the enum, with no database in the way.
+
+    A state missing from the tuple is a band of postings that never renders and
+    never errors — the rows are stored, the counts above them are right, and the
+    section simply is not there.
+    """
+    assert set(BAND_ORDER) == set(EligibilityState)
+    assert len(BAND_ORDER) == len(EligibilityState)
+
+
+def test_uncertain_sorts_above_likely_ineligible() -> None:
+    """§5.3, stated as its own assertion because it is the one ordering choice in
+    the tuple that is a product decision rather than an obvious ranking.
+
+    An open question is not a soft no. Sorting them the other way round buries the
+    postings a person could resolve by filling in one profile field under the ones
+    they cannot resolve at all.
+    """
+    assert BAND_ORDER.index(EligibilityState.UNCERTAIN) < BAND_ORDER.index(
+        EligibilityState.LIKELY_INELIGIBLE
+    )

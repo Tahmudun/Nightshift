@@ -67,7 +67,17 @@ from datetime import date
 from typing import Any, cast
 
 import structlog
-from sqlalchemy import CursorResult, delete, inspect, select
+from sqlalchemy import (
+    CursorResult,
+    Text,
+    and_,
+    case,
+    delete,
+    func,
+    inspect,
+    select,
+)
+from sqlalchemy import cast as sql_cast
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -535,6 +545,21 @@ async def current_result_for(
     ).scalar_one_or_none()
 
 
+#: The order the ranked list groups in (`matching.md` §5.3). Written out rather
+#: than taken from `EligibilityState`'s declaration order, which happens to agree
+#: today: the enum's order is a fact about a Python file and this is a product
+#: decision — `uncertain` sorts **above** `likely_ineligible` because an open
+#: question is not a soft no. A member missing here is a band of postings that
+#: never renders, which `test_every_eligibility_state_has_a_band` refuses.
+BAND_ORDER: tuple[EligibilityState, ...] = (
+    EligibilityState.ELIGIBLE,
+    EligibilityState.LIKELY_ELIGIBLE,
+    EligibilityState.UNCERTAIN,
+    EligibilityState.LIKELY_INELIGIBLE,
+    EligibilityState.INELIGIBLE,
+)
+
+
 def unmet_requirements(
     result: MatchResult, requirements: Sequence[JobRequirement]
 ) -> list[JobRequirement]:
@@ -562,6 +587,111 @@ def unmet_requirements(
         for row in requirements
         if row.necessity is not RequirementNecessity.MENTIONED and row.id not in answered
     ]
+
+
+@dataclass(frozen=True)
+class Ranking:
+    """One person's ranked corpus, and what it could not rank.
+
+    `not_yet_scored` is on the same object as the rows deliberately. A ranked list
+    that quietly covers 12 of 31 open postings looks identical to one that covers
+    all 31, and the difference is invisible from the rows themselves.
+    """
+
+    rows: list[tuple[Job, MatchResult]]
+    not_yet_scored: int
+    ruleset: str
+
+
+def _band_rank() -> Any:
+    """`BAND_ORDER` as a SQL sort key, so the grouping and the ordering agree.
+
+    Built from the same tuple the response groups by rather than written out a
+    second time in SQL: two orderings that agree today are the shape of thing this
+    project keeps finding out of date, and the failure is a band whose rows arrive
+    ahead of the band above it with nothing looking wrong.
+    """
+    # Cast to text rather than binding the enum members: a `CASE ... WHEN` over a
+    # PG enum column binds its whens as `varchar`, and Postgres has no
+    # `eligibility_state = character varying` operator — the query does not
+    # mis-sort, it refuses to run, which is the failure to prefer.
+    return case(
+        {state.value: index for index, state in enumerate(BAND_ORDER)},
+        value=sql_cast(MatchResult.eligibility_status, Text),
+    )
+
+
+async def ranked_for(session: AsyncSession, *, user_id: uuid.UUID, limit: int) -> Ranking:
+    """This person's scored postings, banded and best-first inside each band.
+
+    **The sort is on the fraction, not on `overall_score`** (§5.1.1). Raw totals
+    are not comparable across postings because `assessed_out_of` is not always
+    100: a 40/50 beats a 45/100 and sorting on the totals puts them the other way
+    round. `NULLIF` is what keeps the division from raising on the pairs where
+    nothing could be assessed — five in the committed corpus — and it also gives
+    them the null they are entitled to rather than a zero.
+
+    **A null fraction sorts last within its band, not out of the list.** The
+    eligibility verdict on such a pair is real, so the band is right; the ordering
+    is what has nothing to say. Placing them last is a decision rather than an
+    accident of `NULLS FIRST` being the Postgres default for `DESC`, and the
+    response says so in `unassessed_sort_last` so a client cannot silently choose
+    otherwise.
+
+    Open jobs only, for `pending_pairs`' reason: a closed posting spends the list
+    on rows nobody can apply to, and I3 is what makes `status` trustworthy enough
+    to filter on.
+    """
+    ruleset = load_weights().ruleset_version
+    current = (
+        MatchResult.user_id == user_id,
+        MatchResult.ruleset_version == ruleset,
+    )
+    fraction = MatchResult.overall_score / func.nullif(MatchResult.assessed_out_of, 0)
+
+    rows = (
+        await session.execute(
+            select(Job, MatchResult)
+            .join(MatchResult, MatchResult.job_id == Job.id)
+            .where(Job.status == JobStatus.OPEN, *current)
+            .options(
+                selectinload(Job.company),
+                selectinload(Job.locations),
+                selectinload(MatchResult.evidence),
+                selectinload(MatchResult.assessments),
+                selectinload(MatchResult.penalties),
+            )
+            .order_by(
+                _band_rank(),
+                fraction.desc().nulls_last(),
+                # Deterministic all the way down, as `list_jobs` is: a whole board
+                # shares one `first_seen_at`, so without the id a reload can
+                # reorder two equal rows and the list appears to shuffle itself.
+                MatchResult.overall_score.desc(),
+                Job.first_seen_at,
+                Job.id,
+            )
+            .limit(limit)
+        )
+    ).all()
+
+    # Counted against the same predicate the rows were selected under, so the two
+    # numbers describe one corpus. An anti-join rather than "open jobs minus rows
+    # returned", which `limit` would make wrong.
+    not_yet_scored = (
+        await session.execute(
+            select(func.count())
+            .select_from(Job)
+            .outerjoin(MatchResult, (MatchResult.job_id == Job.id) & and_(*current))
+            .where(Job.status == JobStatus.OPEN, MatchResult.id.is_(None))
+        )
+    ).scalar_one()
+
+    return Ranking(
+        rows=[(job, result) for job, result in rows],
+        not_yet_scored=int(not_yet_scored),
+        ruleset=ruleset,
+    )
 
 
 async def pending_pairs(
