@@ -21,9 +21,11 @@ import argparse
 import asyncio
 import json
 import sys
+import uuid
 from pathlib import Path
 
 from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from nightshift.adapters.ashby import AshbyAdapter
 from nightshift.adapters.base import BoardRef, FetchOutcome, RawJob
@@ -31,17 +33,35 @@ from nightshift.adapters.greenhouse import GreenhouseAdapter
 from nightshift.adapters.http import PoliteClient
 from nightshift.adapters.lever import LeverAdapter
 from nightshift.config import get_settings
-from nightshift.db.base import JobStatus, LocationConfidence, SourceType
-from nightshift.db.models import Company, Job, JobLocation, Source, SourceJobRecord, User
+from nightshift.db.base import (
+    JobStatus,
+    LocationConfidence,
+    ProficiencyLevel,
+    RemotePreference,
+    SourceType,
+    WorkAuthorization,
+)
+from nightshift.db.models import (
+    Company,
+    Job,
+    JobLocation,
+    Source,
+    SourceJobRecord,
+    User,
+    UserProject,
+    UserSkill,
+)
 from nightshift.db.session import dispose_engine, session_scope
 from nightshift.db.types import utcnow
 from nightshift.domain.ingestion import get_or_create_source, ingest_boards
+from nightshift.domain.matching import recompute_pending
 from nightshift.domain.polling import (
     ADAPTERS,
     adapter_for,
     poll_one_board,
     sync_board_poll_state,
 )
+from nightshift.domain.profile import ProfilePatch, add_project, add_skill, update_profile
 from nightshift.domain.registry import get_registry
 from nightshift.logging import configure_logging
 
@@ -156,6 +176,139 @@ class FixtureAshbyAdapter(AshbyAdapter):
         return FetchOutcome(board=board, ok=True, jobs=jobs, http_status=200)
 
 
+#: The confirmed skills the demo profile starts with — a subset of what
+#: `nadia_okonkwo.txt` names, deliberately.
+#:
+#: Four of that resume's skills (SQL, FastAPI, Git, Playwright) are left off, so
+#: pasting the fixture resume into the seeded profile still has something to
+#: propose that nobody has confirmed. Two things depend on that and would fail
+#: silently otherwise: `verify.py`'s `check_profile_confirmation`, which confirms
+#: one previously-unconfirmed proposal, and `profile.spec.ts`, which needs two.
+DEMO_SKILLS = ("Python", "TypeScript", "Go", "React", "PostgreSQL", "Docker")
+
+
+async def seed_demo_profile(session: AsyncSession, user_id: uuid.UUID) -> str:
+    """Give the dev user the profile the committed resume fixture describes.
+
+    **Why the seed does this at all.** M3 scores a *pair*, and half of every pair
+    is a person. Against the empty profile the dev user had until M3c Task 12,
+    five of the six components are unassessable on nearly every posting, every
+    evidence row comes from freshness, and not one of them quotes a description —
+    so `make demo` demonstrates the milestone by rendering its empty state, and
+    the seeded browser suite has no span to check the §7.2 hallucination rule
+    against. The corpus was always half the fixture; this is the other half.
+
+    **Why it is not a fabrication (I2).** Every value below is read off
+    `tests/fixtures/resumes/nadia_okonkwo.txt`, which has been the committed
+    fixture person since M2c, and every one is written through the same function
+    the profile form calls — `update_profile`, `add_skill`, `add_project`, which
+    `test_nothing_infers.py` already holds as the only writers. Nothing here
+    infers anything from anything: `years_experience` is 0 because a student who
+    has tutored is not claiming professional years, not because a subtraction
+    said so.
+
+    **It refuses to overwrite a profile somebody has touched.** The condition is
+    entry state, not a flag: no confirmed skills, no projects, no graduation
+    year. A developer who has typed their own facts in gets to keep them, and
+    re-running `make seed` is then a no-op on this table rather than a silent
+    revert of their afternoon.
+    """
+    user = (await session.execute(select(User).where(User.id == user_id))).scalar_one()
+    skills = int(
+        (
+            await session.execute(
+                select(func.count()).select_from(UserSkill).where(UserSkill.user_id == user_id)
+            )
+        ).scalar_one()
+    )
+    projects = int(
+        (
+            await session.execute(
+                select(func.count()).select_from(UserProject).where(UserProject.user_id == user_id)
+            )
+        ).scalar_one()
+    )
+    if skills or projects or user.graduation_year is not None:
+        return (
+            f"demo profile: left alone ({skills} skill(s), {projects} project(s) already "
+            "on file — `make reset-db` to get the fixture profile back)"
+        )
+
+    await update_profile(
+        session,
+        user_id=user_id,
+        patch=ProfilePatch.from_mapping(
+            {
+                "display_name": "Nadia Okonkwo",
+                # "Expected graduation: May 2027". A month and a year, which is
+                # what a resume says and all ADR 0013 lets us store.
+                "graduation_year": 2027,
+                "graduation_month": 5,
+                "degree": "Bachelor of Science in Computer Science",
+                "school": "Hunter College, CUNY",
+                # A current student with tutoring behind them. This is the value
+                # that puts postings stating a years minimum into the dimmed
+                # bands, which until now no seeded row reached — PROGRESS listed
+                # those bands under "Not real yet" for exactly that reason.
+                "years_experience": 0,
+                "is_enrolled": True,
+                # "Authorized to work in the United States." The resume says that
+                # and no more, so this is `other_authorized` and not
+                # `us_citizen`: the narrower claim is the one nobody made.
+                "work_authorization": WorkAuthorization.OTHER_AUTHORIZED,
+                "home_location_text": "Brooklyn, NY",
+                "remote_preference": RemotePreference.HYBRID,
+                "preferred_roles": ["Software Engineer", "Machine Learning"],
+                "preferred_locations": ["New York", "Brooklyn"],
+                # `minimum_salary` stays null. A10: most postings do not state
+                # one, the compensation component is deferred (§5.1), and a
+                # number here would be invented rather than read.
+            }
+        ),
+    )
+
+    for name in DEMO_SKILLS:
+        await add_skill(
+            session,
+            user_id=user_id,
+            name=name,
+            proficiency_level=ProficiencyLevel.UNSPECIFIED,
+        )
+
+    # The two projects the fixture resume lists, with their own bullets as the
+    # `evidence` text. The bullets matter: `score_project_evidence` quotes the
+    # sentence naming the technology and produces **no row** when there is none,
+    # so a project with a technology list and no prose demonstrates nothing.
+    await add_project(
+        session,
+        user_id=user_id,
+        name="Transit Delay Tracker",
+        summary="Real-time MTA delay tracking, read by around 400 people a week.",
+        evidence=(
+            "Ingested MTA real-time feeds every 30 seconds into a time-series table with "
+            "Python. Stored each snapshot in PostgreSQL and published a dashboard read by "
+            "roughly 400 people a week."
+        ),
+        technologies=["Python", "PostgreSQL"],
+    )
+    await add_project(
+        session,
+        user_id=user_id,
+        name="Cafe Queue",
+        summary="Mobile ordering flow used by a campus coffee shop.",
+        evidence=(
+            "Built the mobile ordering flow in React and TypeScript. Wrote the Playwright "
+            "suite covering the checkout path."
+        ),
+        technologies=["TypeScript", "React"],
+    )
+
+    return (
+        f"demo profile: seeded from the committed resume fixture "
+        f"({len(DEMO_SKILLS)} skills, 2 projects, graduating 2027-05)"
+    )
+
+
 async def cmd_seed(args: argparse.Namespace) -> int:
     """Load the dev user and the three committed fixture boards.
 
@@ -191,6 +344,8 @@ async def cmd_seed(args: argparse.Namespace) -> int:
             print(f"  created dev user {settings.dev_user_email}")
         else:
             print(f"  dev user {settings.dev_user_email} already present")
+
+        print(f"  {await seed_demo_profile(session, settings.dev_user_id)}")
 
         # -- Greenhouse fixture board ----------------------------------------
         adapter = FixtureGreenhouseAdapter(fixture_path)
@@ -254,6 +409,32 @@ async def cmd_seed(args: argparse.Namespace) -> int:
         created = await sync_board_poll_state(session, now=utcnow())
         print(f"  board poll schedules: {created} created (none polled yet)")
 
+        # M3c Task 12: score what was just seeded, through the function the ARQ
+        # cron calls and no other.
+        #
+        # Without this the seeded database has 31 postings and zero scores, and
+        # every M3 surface — the panel, the ranked list — renders its honest
+        # empty state. `make demo` would fill in a minute later when the worker's
+        # cron first fires, but `make acceptance` runs no worker at all, so
+        # `verify` and the seeded browser suite would both be asserting against a
+        # milestone's output that is not there. A suite that passes over an
+        # unscored database is the M3b stale-server failure with a different
+        # cause: green, and about nothing.
+        #
+        # `recompute_pending` and not a seeding shortcut, because a fixture
+        # `match_result` would be exactly the mock I7 forbids — a stored claim
+        # about a person that the scorer never made. These rows are the real
+        # scorer's real output over fixture *inputs*, which is what every other
+        # derived row in this database already is.
+        #
+        # Re-running is a no-op: the sweep selects pairs with no row at the
+        # current ruleset version, and after this there are none.
+        report = await recompute_pending(session)
+        print(
+            f"  match scores: {report.scored} scored, {report.skipped} skipped "
+            f"(ruleset {report.ruleset})"
+        )
+
     await _print_summary()
 
     # A seed that persisted nothing must not exit 0.
@@ -291,6 +472,29 @@ async def cmd_seed(args: argparse.Namespace) -> int:
 async def _canonical_job_count() -> int:
     async with session_scope() as session:
         return int((await session.execute(select(func.count()).select_from(Job))).scalar_one())
+
+
+async def cmd_score(args: argparse.Namespace) -> int:
+    """Score every pair that has no score at the current ruleset version.
+
+    The same sweep the ARQ cron runs each minute, on demand. Two callers wanted
+    it and neither is a test of it: a developer who has just edited their profile
+    and does not want to watch a page say "computed in the background" for a
+    minute, and the seeded browser suite, which runs with no worker behind it and
+    whose earlier specs invalidate every score on their way past.
+
+    It takes no arguments and cannot be pointed at a subset. *Which* pairs are
+    due is `pending_pairs`' answer and nobody else's — a flag here would be a
+    second definition of due-ness, which is the drift M3c Task 8 collapsed three
+    triggers into one query to avoid.
+    """
+    async with session_scope() as session:
+        report = await recompute_pending(session)
+    print(
+        f"scored {report.scored}, skipped {report.skipped} "
+        f"(ruleset {report.ruleset})" + ("" if report.scored else " — nothing was due")
+    )
+    return 0
 
 
 async def cmd_ingest(args: argparse.Namespace) -> int:
@@ -446,6 +650,7 @@ async def cmd_poll(args: argparse.Namespace) -> int:
 
 COMMANDS = {
     "seed": cmd_seed,
+    "score": cmd_score,
     "ingest": cmd_ingest,
     "poll": cmd_poll,
     "enqueue": cmd_enqueue,
@@ -457,6 +662,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="nightshift", description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("seed", help="load dev user + committed fixture board (offline)")
+    subparsers.add_parser("score", help="score every pair due at the current ruleset version")
     subparsers.add_parser("ingest", help="poll live boards from the registry")
     poll = subparsers.add_parser(
         "poll", help="poll one board conditionally, through board_poll_state"

@@ -28,7 +28,7 @@ LOADENV := set -a && source .env && set +a
         test-e2e check fmt lint typecheck reset-db ingest logs ps clean doctor \
         verify acceptance test-e2e-seeded browsers drift constraints \
         discover registry-validate registry-approve registry-approve-write coverage \
-        worksheets
+        worksheets score
 
 help: ## Show available targets
 	@echo "Nightshift — make targets"
@@ -100,8 +100,11 @@ migrate: setup ## Alembic upgrade head
 migrate-down: setup ## Alembic downgrade one revision
 	@$(LOADENV) && cd $(API_DIR) && ../../$(ALEMBIC) downgrade -1
 
-seed: setup ## Load fixture data (dev user, sources, companies, jobs)
+seed: setup ## Load fixture data (dev user, demo profile, sources, companies, jobs, scores)
 	@$(LOADENV) && $(PY) -m nightshift.cli seed
+
+score: setup ## Run the match sweep now instead of waiting for the worker's cron
+	@$(LOADENV) && $(PY) -m nightshift.cli score
 
 reset-db: ## Drop, recreate, migrate, seed
 	@$(COMPOSE) down -v
