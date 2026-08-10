@@ -71,7 +71,11 @@ export function SaveJobButton({ jobId }: { readonly jobId: string }) {
   // browser test catching the element mid-swap.
   if (isPending) {
     return (
-      <span className={`${CHIP} border-ink-700 text-paper-faint`} aria-busy="true">
+      <span
+        className={`${CHIP} border-ink-700 text-paper-faint`}
+        aria-busy="true"
+        data-testid="save-or-track"
+      >
         …
       </span>
     );
@@ -80,6 +84,7 @@ export function SaveJobButton({ jobId }: { readonly jobId: string }) {
   if (tracked !== null) {
     return (
       <Link
+        data-testid="save-or-track"
         href={`/operate/applications/${tracked.id}`}
         className={`${CHIP} ${
           tracked.archived_at !== null
@@ -97,6 +102,7 @@ export function SaveJobButton({ jobId }: { readonly jobId: string }) {
     <span className="inline-flex items-center gap-2">
       <button
         type="button"
+        data-testid="save-or-track"
         onClick={() => save.mutate()}
         disabled={save.isPending}
         className={`${CHIP} border-ink-700 text-paper-dim hover:border-signal-400 hover:text-signal-400 disabled:opacity-50`}

@@ -89,6 +89,16 @@ test('a resume proposes, and confirms nothing until it is told to', async ({ pag
   test.slow();
 
   const before = new Set((await skills()).map((skill) => skill.name));
+  // Restored to what it was, not to null, which is what this test used to do.
+  // Harmless while the seeded profile was empty and destructive the moment it
+  // was not: `make seed` gives the dev user the fixture resume's graduation date
+  // as of M3c Task 12, and blanking it here would leave the demo profile
+  // quietly missing a field every run — and, because graduation year is a
+  // scoring input, withdraw every score in the database on the way out.
+  const graduationBefore = (await (await fetch(`${API}/profile`)).json()) as {
+    graduation_year: number | null;
+    graduation_month: number | null;
+  };
 
   await paste(page, 'e2e nadia', RESUME_TEXT);
 
@@ -166,7 +176,10 @@ test('a resume proposes, and confirms nothing until it is told to', async ({ pag
   await fetch(`${API}/profile`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ graduation_year: null, graduation_month: null }),
+    body: JSON.stringify({
+      graduation_year: graduationBefore.graduation_year,
+      graduation_month: graduationBefore.graduation_month,
+    }),
   });
 });
 
