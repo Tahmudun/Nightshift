@@ -36,6 +36,7 @@ from nightshift.db.base import (
     JobTextField,
     LocationConfidence,
     MatchComponent,
+    PenaltyName,
     ProficiencyLevel,
     ProjectStatus,
     RemotePolicy,
@@ -286,6 +287,33 @@ class MatchComponentOut(BaseModel):
     evidence: list[MatchEvidenceOut] = Field(default_factory=list)
 
 
+class MatchPenaltyOut(BaseModel):
+    """One of the two subtractions, with what it cost and why.
+
+    `match_results.penalty_score` is a single column by §4.2's decision and that
+    is unchanged — this is what the column is *made of*, which §4.2 itself calls
+    the explanation's business. Until Task 10 nothing carried it, so a reader saw
+    `-18` with no way to learn which half was which. I4 names penalties in the
+    list of things a score stores.
+
+    **`applicable=False` is not "cost nothing".** It is *there was nothing to
+    ask*: a posting naming no required technologies, or a profile stating no years
+    of experience. Both store `points=0`, and only `why` tells them apart from
+    *nothing was missing* — the same distinction `MatchComponentOut.assessable`
+    draws one level up.
+    """
+
+    name: PenaltyName
+    #: Zero or negative, always.
+    points: int
+    applicable: bool
+    #: The rule's own sentence, rendered verbatim. Not assembled from anything.
+    why: str
+    #: What the rule weighed — the required list and the unmet subset, or the
+    #: title's implied years against the stated ones.
+    compared: dict[str, Any] = Field(default_factory=dict)
+
+
 class DeferredComponentOut(BaseModel):
     """A §8.2 component this milestone does not score, named on the page.
 
@@ -333,6 +361,11 @@ class MatchOut(BaseModel):
     #: The two §5.1 penalties, summed — `match_results` stores one column and
     #: §4.2 records why. Zero or negative.
     penalty_score: int
+    #: Both of them, applicable or not, each with what it cost and its own
+    #: sentence. They sum to `penalty_score` and the database asserts it at
+    #: commit, so this is a decomposition of that number rather than a second
+    #: account of it.
+    penalties: list[MatchPenaltyOut] = Field(default_factory=list)
     #: Named, not scored. §5.1's two deferrals.
     deferred_components: list[DeferredComponentOut] = Field(default_factory=list)
     ruleset_version: str
@@ -340,6 +373,38 @@ class MatchOut(BaseModel):
     #: which is every row until Task 11 exists.
     model_version: str | None
     computed_at: datetime
+
+
+class UnmetRequirementOut(BaseModel):
+    """A thing the posting asks for that no evidence row answers.
+
+    `matching.md` §6's second and fourth elements — *why it may not fit* and *soft
+    gaps* — which are the same computation read at two necessities. `required`
+    rows are the first, `preferred` rows the second, and rendering them alike
+    turns a nice-to-have into a bar. `mentioned` requirements never appear:
+    §4.1 says they produce no gap.
+
+    **Derived from the stored evidence, never re-scored.** The set difference is
+    over the `match_evidence` rows this score already committed, so a requirement
+    listed here is one nothing in the graph points at. Re-running the scorer to
+    find out would be a second derivation able to disagree with the stored number
+    — `matching.posting_for`'s subject.
+
+    Its own type rather than a reuse of `JobRequirementOut` because the claim is
+    different: that one says *the posting asks for this*, this one says *and you
+    have nothing on file for it*. The second is about a person and belongs to a
+    score; the first is true with no user in the request at all.
+    """
+
+    kind: RequirementKind
+    value: str
+    raw_text: str
+    char_start: int
+    char_end: int
+    necessity: RequirementNecessity
+    #: "or equivalent experience" — a bar with a stated way around it. Carried so
+    #: the page can say so rather than listing it as a flat gap.
+    has_equivalence: bool
 
 
 class JobDetailOut(JobSummaryOut):
@@ -364,6 +429,12 @@ class JobDetailOut(JobSummaryOut):
     #: version that is no longer current. All three are "no score", which is true
     #: of each; none of them is a number.
     match: MatchOut | None = None
+    #: What the posting asks for and this score found nothing for (§6). **Null
+    #: rather than empty when `match` is null**: without a score there are no
+    #: evidence rows to difference against, and an empty list there would read as
+    #: "you meet everything" — a claim about a person computed from nothing, the
+    #: same failure `eligibility`'s null exists to prevent one field up.
+    unmet_requirements: list[UnmetRequirementOut] | None = None
 
 
 class DeferredFilterOut(BaseModel):

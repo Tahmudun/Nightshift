@@ -43,7 +43,9 @@ from nightshift.api.schemas import (
     MatchComponentOut,
     MatchEvidenceOut,
     MatchOut,
+    MatchPenaltyOut,
     SalaryOut,
+    UnmetRequirementOut,
 )
 from nightshift.db.base import (
     EmploymentType,
@@ -51,6 +53,7 @@ from nightshift.db.base import (
     JobStatus,
     LocationConfidence,
     MatchComponent,
+    PenaltyName,
     RemotePolicy,
 )
 from nightshift.db.models import (
@@ -68,7 +71,11 @@ from nightshift.db.models import (
 from nightshift.db.session import get_db_session
 from nightshift.domain.eligibility import evaluate, profile_from_user
 from nightshift.domain.eligibility_reading import read_posting
-from nightshift.domain.matching import COMPONENT_SCORE_COLUMNS, current_result_for
+from nightshift.domain.matching import (
+    COMPONENT_SCORE_COLUMNS,
+    current_result_for,
+    unmet_requirements,
+)
 from nightshift.domain.matching_weights import load_weights
 from nightshift.domain.requirement_extraction import RequirementProposal
 from nightshift.domain.scoring import DEFERRED_COMPONENTS, WEIGHT_NAME, score_fraction
@@ -449,7 +456,26 @@ async def get_job(
             requirements[0].extractor_version if requirements else None
         ),
         eligibility=eligibility,
-        match=_to_match(stored),
+        match=to_match(stored),
+        # Null rather than empty without a score: there are no evidence rows to
+        # difference against, and `[]` there reads as "you meet everything" —
+        # a claim about a person computed from nothing.
+        unmet_requirements=(
+            [
+                UnmetRequirementOut(
+                    kind=row.kind,
+                    value=row.value,
+                    raw_text=row.raw_text,
+                    char_start=row.char_start,
+                    char_end=row.char_end,
+                    necessity=row.necessity,
+                    has_equivalence=row.has_equivalence,
+                )
+                for row in unmet_requirements(stored, requirements)
+            ]
+            if stored is not None
+            else None
+        ),
         sources=[
             JobSourceOut(
                 source_name=record.source.name,
@@ -463,8 +489,13 @@ async def get_job(
     )
 
 
-def _to_match(result: MatchResult | None) -> MatchOut | None:
+def to_match(result: MatchResult | None) -> MatchOut | None:
     """A stored score as its own breakdown. Serialisation, and nothing more.
+
+    Public rather than underscored because `routes/matches.py` reuses it, for the
+    reason `to_summary` is: one row, one serialiser. Two mappings of the same row
+    drift, and a drifted breakdown is I4's failure with every constraint still
+    green.
 
     Every number here was written by `domain/matching.py`; nothing is recomputed.
     Re-running the scorer to fill in a field would be a second derivation of the
@@ -527,6 +558,22 @@ def _to_match(result: MatchResult | None) -> MatchOut | None:
             for component in MatchComponent
         ],
         penalty_score=result.penalty_score,
+        # In `PenaltyName` order rather than the rows' insertion order, so two
+        # scores print their penalties in the same sequence and a reader comparing
+        # two postings is comparing the same lines. The database asserts both rows
+        # exist, so the lookup cannot come up short.
+        penalties=[
+            MatchPenaltyOut(
+                name=penalty.name,
+                points=penalty.points,
+                applicable=penalty.applicable,
+                why=penalty.why,
+                compared=penalty.compared,
+            )
+            for penalty in sorted(
+                result.penalties, key=lambda row: list(PenaltyName).index(row.name)
+            )
+        ],
         deferred_components=[
             DeferredComponentOut(
                 name=deferred.name,

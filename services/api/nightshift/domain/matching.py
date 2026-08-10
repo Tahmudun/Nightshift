@@ -71,7 +71,12 @@ from sqlalchemy import CursorResult, delete, inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from nightshift.db.base import EligibilityState, JobStatus, MatchComponent
+from nightshift.db.base import (
+    EligibilityState,
+    JobStatus,
+    MatchComponent,
+    RequirementNecessity,
+)
 from nightshift.db.models import (
     Job,
     JobLocation,
@@ -528,6 +533,35 @@ async def current_result_for(
             )
         )
     ).scalar_one_or_none()
+
+
+def unmet_requirements(
+    result: MatchResult, requirements: Sequence[JobRequirement]
+) -> list[JobRequirement]:
+    """The posting's asks that no evidence row on this score answers (§6).
+
+    §6's second and fourth elements — *why it may not fit* and *soft gaps* — are
+    one computation read at two necessities, so this returns both and the caller
+    separates them. `mentioned` requirements are excluded: §4.1 says they never
+    produce a gap, which is the whole reason `necessity` is the column the product
+    turns on.
+
+    **Differenced against the stored evidence, never re-scored.** A requirement is
+    unmet here exactly when nothing in the committed graph points at it, so the
+    list cannot disagree with the number it sits beside. Re-running the rules to
+    recompute it is the second derivation `posting_for` is written about, and it
+    would look right almost always.
+
+    The join is on `job_requirement_id` rather than on the value, because two
+    requirements can normalise to the same skill from different sentences and the
+    evidence row names which one it read.
+    """
+    answered = {row.job_requirement_id for row in result.evidence if row.job_requirement_id}
+    return [
+        row
+        for row in requirements
+        if row.necessity is not RequirementNecessity.MENTIONED and row.id not in answered
+    ]
 
 
 async def pending_pairs(

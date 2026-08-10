@@ -45,9 +45,12 @@ from nightshift.db.base import (
     JobTextField,
     LocationConfidence,
     MatchComponent,
+    PenaltyName,
     ProficiencyLevel,
     RemotePolicy,
     RemotePreference,
+    RequirementKind,
+    RequirementNecessity,
     ResolutionMethod,
     SkillSourceType,
 )
@@ -577,3 +580,154 @@ async def test_the_two_deferred_components_are_named_rather_than_scored(
         assert row["weight"] > 0
         assert row["blocked_on"].strip()
         assert row["reason"].strip()
+
+
+# ---------------------------------------------------------------------------
+# What the subtraction was for, and what it left unanswered
+#
+# M3c Task 10. §4.2 stores the two penalties as one column and calls what each
+# one cost "the explanation's business" — and until this task nothing carried it,
+# so a reader saw `-18` under a score with no way to learn which half was which.
+# I4 lists penalties among the things a score stores.
+# ---------------------------------------------------------------------------
+
+
+async def test_both_penalties_reach_the_page_with_their_own_sentence(
+    client: AsyncClient, db_session: AsyncSession, user: User, job: Job
+) -> None:
+    """Both, applicable or not, in `PenaltyName` order.
+
+    An inapplicable penalty is not an omission: *there was nothing to ask* and
+    *nothing was missing* are different sentences and a person reading a score
+    deserves whichever one is true.
+    """
+    await _score(db_session, user, job)
+
+    penalties = (await _detail(client, job))["match"]["penalties"]
+    assert [row["name"] for row in penalties] == [name.value for name in PenaltyName]
+    for row in penalties:
+        assert row["why"].strip()
+        assert row["points"] <= 0
+        assert row["applicable"] or row["points"] == 0
+
+
+async def test_the_penalties_account_for_the_column_they_were_summed_into(
+    client: AsyncClient, db_session: AsyncSession, user: User, job: Job
+) -> None:
+    """The equality that makes the split a decomposition rather than a second
+    account of the same number.
+
+    Asserted here as well as in the database because the response is a third
+    copy: a serialiser that dropped an inapplicable row, or reordered points and
+    weight, would leave the stored rows correct and the page wrong.
+    """
+    stored = await _score(db_session, user, job)
+
+    match = (await _detail(client, job))["match"]
+    assert sum(row["points"] for row in match["penalties"]) == stored.penalty_score
+    assert match["penalty_score"] == stored.penalty_score
+
+
+async def test_the_missing_technologies_are_the_ones_the_penalty_charged_for(
+    client: AsyncClient, db_session: AsyncSession, user: User, job: Job
+) -> None:
+    """The one place two derivations of the same fact meet, shown to agree.
+
+    `unmet_requirements` differences the stored evidence rows against the
+    posting's requirements; `penalize_missing_requirements` recorded what it
+    charged for in `compared`. They are computed by different code from different
+    inputs, and the page prints one beside the cost of the other — so if they can
+    disagree, a person is told they are missing three things and charged for four.
+    """
+    await _score(db_session, user, job)
+    detail = await _detail(client, job)
+
+    charged = {row["name"]: row for row in detail["match"]["penalties"]}[
+        PenaltyName.MISSING_REQUIREMENT.value
+    ]
+    assert charged["applicable"], "this fixture posting states required technologies"
+
+    listed = {
+        row["value"]
+        for row in detail["unmet_requirements"]
+        if row["kind"] == RequirementKind.TECHNOLOGY.value
+        and row["necessity"] == RequirementNecessity.REQUIRED.value
+    }
+    assert listed == set(charged["compared"]["missing"])
+    assert listed, "the fixture profile confirms one of three required technologies"
+
+
+async def test_a_preferred_requirement_with_no_evidence_is_a_gap_and_not_a_penalty(
+    client: AsyncClient, db_session: AsyncSession, user: User, job: Job
+) -> None:
+    """§4.1: `preferred` never produces a missing-requirement penalty.
+
+    It is still worth naming — §6's *soft gaps* — and the two must arrive
+    distinguishable, because rendering them alike turns a nice-to-have into a bar.
+    The fixture's "Nice to have: Kubernetes" is exactly that case.
+    """
+    await _score(db_session, user, job)
+    detail = await _detail(client, job)
+
+    soft = [
+        row
+        for row in detail["unmet_requirements"]
+        if row["necessity"] == RequirementNecessity.PREFERRED.value
+    ]
+    assert soft, "the fixture posting states a nice-to-have"
+
+    charged = {row["name"]: row for row in detail["match"]["penalties"]}[
+        PenaltyName.MISSING_REQUIREMENT.value
+    ]
+    assert not ({row["value"] for row in soft} & set(charged["compared"].get("missing", [])))
+
+
+async def test_a_requirement_with_evidence_behind_it_is_not_listed_as_unmet(
+    client: AsyncClient, db_session: AsyncSession, user: User, job: Job
+) -> None:
+    """The other direction, which an empty list would satisfy vacuously.
+
+    The fixture profile confirms Python and the posting requires it, so exactly
+    one required technology has an evidence row — and a `unmet_requirements` that
+    simply returned every requirement would pass every assertion above.
+    """
+    stored = await _score(db_session, user, job)
+    answered = {
+        row.job_requirement_id for row in stored.evidence if row.job_requirement_id is not None
+    }
+    assert answered, "the fixture pair produces at least one requirement-linked evidence row"
+
+    listed = {row["value"] for row in (await _detail(client, job))["unmet_requirements"]}
+    by_id = {row.id: row for row in job.requirements}
+    for requirement_id in answered:
+        assert by_id[requirement_id].value not in listed
+
+
+async def test_a_mentioned_requirement_is_never_a_gap(
+    client: AsyncClient, db_session: AsyncSession, user: User, job: Job
+) -> None:
+    """§4.1: `mentioned` produces no penalty and appears as no gap.
+
+    Asserted over whatever the extractor produced rather than against a fixture
+    designed to contain one — the claim is about the necessity, and it has to hold
+    for every posting rather than for the one this file writes.
+    """
+    await _score(db_session, user, job)
+
+    listed = (await _detail(client, job))["unmet_requirements"]
+    assert all(row["necessity"] != RequirementNecessity.MENTIONED.value for row in listed)
+
+
+async def test_without_a_score_there_is_no_gap_list_rather_than_an_empty_one(
+    client: AsyncClient, job: Job
+) -> None:
+    """Null, not `[]`.
+
+    An empty list beside a null score reads as *you meet everything*, which is a
+    claim about a person derived from no evidence rows at all — the same failure
+    `eligibility`'s null exists to prevent one field up, and it would render as a
+    clean page rather than as a bug.
+    """
+    detail = await _detail(client, job)
+    assert detail["match"] is None
+    assert detail["unmet_requirements"] is None
