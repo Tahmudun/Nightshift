@@ -443,6 +443,21 @@ def select_for_labeling(
     return picked
 
 
+def all_postings() -> list[tuple[str, dict[str, Any]]]:
+    """The corpus, for the other worksheet generator (M3c's relevance pass).
+
+    A public name rather than a second reader of the fixture directory: both
+    worksheets must be built from the same 153 postings, or a rating and a label
+    can end up describing different jobs under the same id.
+    """
+    return _all_postings()
+
+
+def has_requirements_heading(text: str) -> bool:
+    """Whether an excerpt of ``text`` would show requirements or a marked guess."""
+    return bool(_heading_positions(text))
+
+
 def _all_postings() -> list[tuple[str, dict[str, Any]]]:
     """Every recorded posting, tagged with its board and its recorded reason."""
     out: list[tuple[str, dict[str, Any]]] = []

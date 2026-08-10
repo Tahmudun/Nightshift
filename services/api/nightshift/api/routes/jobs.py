@@ -25,6 +25,7 @@ from sqlalchemy.orm import selectinload
 from nightshift.api.deps import CurrentUserId
 from nightshift.api.schemas import (
     CompanyOut,
+    DeferredComponentOut,
     DeferredFilterOut,
     EligibilityBlockerOut,
     EligibilityOut,
@@ -39,13 +40,20 @@ from nightshift.api.schemas import (
     JobStatusCounts,
     JobStatusEventOut,
     JobSummaryOut,
+    MatchComponentOut,
+    MatchEvidenceOut,
+    MatchOut,
+    MatchPenaltyOut,
     SalaryOut,
+    UnmetRequirementOut,
 )
 from nightshift.db.base import (
     EmploymentType,
     InternshipSeason,
     JobStatus,
     LocationConfidence,
+    MatchComponent,
+    PenaltyName,
     RemotePolicy,
 )
 from nightshift.db.models import (
@@ -56,13 +64,21 @@ from nightshift.db.models import (
     JobRequirement,
     JobSourceLink,
     JobStatusEvent,
+    MatchResult,
     SourceJobRecord,
     User,
 )
 from nightshift.db.session import get_db_session
 from nightshift.domain.eligibility import evaluate, profile_from_user
 from nightshift.domain.eligibility_reading import read_posting
+from nightshift.domain.matching import (
+    COMPONENT_SCORE_COLUMNS,
+    current_result_for,
+    unmet_requirements,
+)
+from nightshift.domain.matching_weights import load_weights
 from nightshift.domain.requirement_extraction import RequirementProposal
+from nightshift.domain.scoring import DEFERRED_COMPONENTS, WEIGHT_NAME, score_fraction
 from nightshift.domain.search import (
     DEFERRED_FILTERS,
     JobSearchQuery,
@@ -416,6 +432,7 @@ async def get_job(
     requirements = sorted(job.requirements, key=lambda r: (r.char_start, r.char_end))
     summary = to_summary(job)
     eligibility = await _eligibility_for(session, user_id=user_id, requirements=requirements)
+    stored = await current_result_for(session, user_id=user_id, job_id=job_id)
     return JobDetailOut(
         **summary.model_dump(),
         description_text=job.description_text,
@@ -439,6 +456,26 @@ async def get_job(
             requirements[0].extractor_version if requirements else None
         ),
         eligibility=eligibility,
+        match=to_match(stored),
+        # Null rather than empty without a score: there are no evidence rows to
+        # difference against, and `[]` there reads as "you meet everything" —
+        # a claim about a person computed from nothing.
+        unmet_requirements=(
+            [
+                UnmetRequirementOut(
+                    kind=row.kind,
+                    value=row.value,
+                    raw_text=row.raw_text,
+                    char_start=row.char_start,
+                    char_end=row.char_end,
+                    necessity=row.necessity,
+                    has_equivalence=row.has_equivalence,
+                )
+                for row in unmet_requirements(stored, requirements)
+            ]
+            if stored is not None
+            else None
+        ),
         sources=[
             JobSourceOut(
                 source_name=record.source.name,
@@ -449,6 +486,106 @@ async def get_job(
             )
             for record in provenance
         ],
+    )
+
+
+def to_match(result: MatchResult | None) -> MatchOut | None:
+    """A stored score as its own breakdown. Serialisation, and nothing more.
+
+    Public rather than underscored because `routes/matches.py` reuses it, for the
+    reason `to_summary` is: one row, one serialiser. Two mappings of the same row
+    drift, and a drifted breakdown is I4's failure with every constraint still
+    green.
+
+    Every number here was written by `domain/matching.py`; nothing is recomputed.
+    Re-running the scorer to fill in a field would be a second derivation of the
+    same claim, which is what `matching.posting_for` is written about — and here
+    it would produce a breakdown that can disagree with the total printed above
+    it, while looking entirely plausible.
+
+    The one thing read from outside the row is each component's `weight`, out of
+    `data/matching.yaml`. That is safe precisely because `current_result_for`
+    already refused any row whose `ruleset_version` is not the current one: the
+    weights file *is* the data half of that version, so the numbers this reads and
+    the numbers that produced the row are the same numbers by construction.
+    """
+    if result is None:
+        return None
+
+    weights = load_weights()
+    assessed = {row.component: row for row in result.assessments}
+    evidence: dict[MatchComponent, list[MatchEvidenceOut]] = {}
+    for row in result.evidence:
+        evidence.setdefault(row.component, []).append(
+            MatchEvidenceOut(
+                component=row.component,
+                points=row.points,
+                job_span_text=row.job_span_text,
+                job_span_field=row.job_span_field,
+                job_char_start=row.job_char_start,
+                job_char_end=row.job_char_end,
+                user_span_text=row.user_span_text,
+                user_skill_id=row.user_skill_id,
+                user_project_id=row.user_project_id,
+                compared=row.compared,
+                proposed_by=row.proposed_by,
+                job_requirement_id=row.job_requirement_id,
+            )
+        )
+
+    return MatchOut(
+        overall_score=result.overall_score,
+        assessed_out_of=result.assessed_out_of,
+        # The same rule the pure scorer applies before the row exists, so a pair
+        # nothing could be assessed on reads as `null` on both sides of the
+        # database rather than as a zero on one of them.
+        fraction=score_fraction(result.overall_score, result.assessed_out_of),
+        eligibility_status=result.eligibility_status,
+        # Iterating the enum rather than the stored rows or the column mapping:
+        # the order the page renders is the domain's order, not a property of a
+        # dict literal, and a missing assessment raises here rather than silently
+        # shortening the breakdown. The database asserts the same count at commit,
+        # so this is the second net and not the only one.
+        components=[
+            MatchComponentOut(
+                component=component,
+                points=getattr(result, COMPONENT_SCORE_COLUMNS[component]),
+                weight=weights.weight(WEIGHT_NAME[component]),
+                assessable=assessed[component].assessable,
+                why=assessed[component].why,
+                evidence=evidence.get(component, []),
+            )
+            for component in MatchComponent
+        ],
+        penalty_score=result.penalty_score,
+        # In `PenaltyName` order rather than the rows' insertion order, so two
+        # scores print their penalties in the same sequence and a reader comparing
+        # two postings is comparing the same lines. The database asserts both rows
+        # exist, so the lookup cannot come up short.
+        penalties=[
+            MatchPenaltyOut(
+                name=penalty.name,
+                points=penalty.points,
+                applicable=penalty.applicable,
+                why=penalty.why,
+                compared=penalty.compared,
+            )
+            for penalty in sorted(
+                result.penalties, key=lambda row: list(PenaltyName).index(row.name)
+            )
+        ],
+        deferred_components=[
+            DeferredComponentOut(
+                name=deferred.name,
+                weight=deferred.weight,
+                blocked_on=deferred.blocked_on,
+                reason=deferred.reason,
+            )
+            for deferred in DEFERRED_COMPONENTS
+        ],
+        ruleset_version=result.ruleset_version,
+        model_version=result.model_version,
+        computed_at=result.created_at,
     )
 
 

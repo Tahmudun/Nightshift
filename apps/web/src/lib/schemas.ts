@@ -253,12 +253,177 @@ export const eligibilitySchema = z.object({
 });
 export type Eligibility = z.infer<typeof eligibilitySchema>;
 
+/**
+ * The six things a score is made of (`matching.md` §4.3, §5.1). Deliberately
+ * not the weight file's key names — those name a weight, these name a kind of
+ * claim.
+ */
+export const matchComponentSchema = z.enum([
+  'role',
+  'skill',
+  'project',
+  'location',
+  'freshness',
+  'priority',
+]);
+export type MatchComponent = z.infer<typeof matchComponentSchema>;
+
+/**
+ * Which of the posting's strings a span's offsets index into. Everything else
+ * in this system points at `description_text`; role relevance is decided on the
+ * **title** and cannot be otherwise, so a highlight that ignored this field
+ * would underline the wrong text and look entirely plausible doing it.
+ */
+export const jobTextFieldSchema = z.enum(['title', 'description_text']);
+export type JobTextField = z.infer<typeof jobTextFieldSchema>;
+
+/**
+ * Who proposed an evidence row. What makes the semantic layer auditable: it is
+ * possible to ask what share of the awarded points came from an embedding
+ * rather than from a vocabulary hit. Every row says `rule` until M3c Task 11.
+ */
+export const evidenceSourceSchema = z.enum(['rule', 'embedding']);
+export type EvidenceSource = z.infer<typeof evidenceSourceSchema>;
+
+/** The two subtractions a score can carry (`matching.md` §5.1, §5.1.3). */
+export const penaltyNameSchema = z.enum(['missing_requirement', 'seniority_mismatch']);
+export type PenaltyName = z.infer<typeof penaltyNameSchema>;
+
+/**
+ * One link a score rests on, with both sides quoted (§4.3). This is invariant
+ * I4's payload — a client that renders `points` without these has thrown the
+ * breakdown away rather than never having had it.
+ *
+ * The two nullable sides are §2.1's distinction, not missing data. `role`,
+ * `skill` and `project` carry both spans because they claim something about the
+ * person; `location`, `freshness` and `priority` carry `compared` instead,
+ * because there is no qualification being asserted and inventing a span is the
+ * failure the whole arrangement prevents.
+ */
+export const matchEvidenceSchema = z.object({
+  component: matchComponentSchema,
+  points: z.number().int(),
+  job_span_text: z.string().nullable(),
+  job_span_field: jobTextFieldSchema.nullable(),
+  job_char_start: z.number().int().nonnegative().nullable(),
+  job_char_end: z.number().int().nonnegative().nullable(),
+  user_span_text: z.string().nullable(),
+  user_skill_id: z.string().nullable(),
+  user_project_id: z.string().nullable(),
+  compared: z.record(z.unknown()).default({}),
+  proposed_by: evidenceSourceSchema,
+  job_requirement_id: z.string().nullable().default(null),
+});
+export type MatchEvidence = z.infer<typeof matchEvidenceSchema>;
+
+/**
+ * One component: its points, what they were out of, and its own sentence.
+ *
+ * **`assessable` is not "did it score".** False means the posting did not say
+ * enough to ask the question, and §5.1.1 keeps that separate from zero because
+ * collapsing them charges a terse posting up to 50 points for its employer's
+ * prose. The stored number is `0` either way, which is why this field crosses
+ * the boundary instead of being inferred from the points.
+ */
+export const matchComponentDetailSchema = z.object({
+  component: matchComponentSchema,
+  points: z.number().int(),
+  weight: z.number().int(),
+  assessable: z.boolean(),
+  why: z.string(),
+  evidence: z.array(matchEvidenceSchema).default([]),
+});
+export type MatchComponentDetail = z.infer<typeof matchComponentDetailSchema>;
+
+/**
+ * One of the two subtractions, with what it cost and why.
+ *
+ * `applicable: false` is not "cost nothing" — it is *there was nothing to ask*.
+ * Both store `points: 0` and only `why` tells them apart from *nothing was
+ * missing*, the same distinction `assessable` draws one level up.
+ */
+export const matchPenaltySchema = z.object({
+  name: penaltyNameSchema,
+  points: z.number().int(),
+  applicable: z.boolean(),
+  why: z.string(),
+  compared: z.record(z.unknown()).default({}),
+});
+export type MatchPenalty = z.infer<typeof matchPenaltySchema>;
+
+/** A §8.2 component this milestone does not score, named on the page (§5.1). */
+export const deferredComponentSchema = z.object({
+  name: z.string(),
+  weight: z.number().int(),
+  blocked_on: z.string(),
+  reason: z.string(),
+});
+export type DeferredComponent = z.infer<typeof deferredComponentSchema>;
+
+/**
+ * A stored score, decomposed. Never a bare number (I4).
+ *
+ * **`fraction` is the ranking key and it is nullable.** `overall_score` is out
+ * of `assessed_out_of`, which is not always 100, so raw totals are not
+ * comparable across postings. `null` means nothing could be assessed at all and
+ * is deliberately not `0.0`, which would sort such a posting last as though it
+ * had been measured and found wanting.
+ *
+ * **`eligibility_status` sits beside the number and is never inside it** (§5.2).
+ * A posting can be an 82 and `uncertain`, and this object states both without
+ * reconciling them.
+ */
+export const matchSchema = z.object({
+  overall_score: z.number().int(),
+  assessed_out_of: z.number().int(),
+  fraction: z.number().nullable(),
+  eligibility_status: eligibilityStateSchema,
+  components: z.array(matchComponentDetailSchema),
+  penalty_score: z.number().int(),
+  penalties: z.array(matchPenaltySchema).default([]),
+  deferred_components: z.array(deferredComponentSchema).default([]),
+  ruleset_version: z.string(),
+  model_version: z.string().nullable(),
+  computed_at: z.string(),
+});
+export type Match = z.infer<typeof matchSchema>;
+
+/**
+ * Something the posting asks for that no evidence row answers (§6). `required`
+ * rows are *why it may not fit*; `preferred` rows are *soft gaps*. Rendering
+ * them alike turns a nice-to-have into a bar, which is why `necessity` crosses
+ * the boundary rather than the API sending two lists that could disagree.
+ */
+export const unmetRequirementSchema = z.object({
+  kind: requirementKindSchema,
+  value: z.string(),
+  raw_text: z.string(),
+  char_start: z.number().int().nonnegative(),
+  char_end: z.number().int().nonnegative(),
+  necessity: requirementNecessitySchema,
+  has_equivalence: z.boolean(),
+});
+export type UnmetRequirement = z.infer<typeof unmetRequirementSchema>;
+
 export const jobDetailSchema = jobSummarySchema
   .extend({
     description_text: z.string().nullable(),
     description_html: z.string().nullable(),
     sources: z.array(jobSourceSchema),
     requirements: z.array(jobRequirementSchema),
+    /**
+     * The stored score at the current ruleset version. **Null means not yet
+     * computed** and covers three situations with one honest sentence: the
+     * sweep has not reached this pair, the posting has no description to read,
+     * or the stored row predates a ruleset bump. None of them is a number.
+     */
+    match: matchSchema.nullable().default(null),
+    /**
+     * Null rather than `[]` when `match` is null. Without a score there are no
+     * evidence rows to difference against, and an empty list would read as
+     * "you meet everything" — a claim about a person computed from nothing.
+     */
+    unmet_requirements: z.array(unmetRequirementSchema).nullable().default(null),
     /**
      * Null when nothing has been extracted. An empty `requirements` with a
      * version is "we read it and found nothing"; an empty one without is "we
@@ -315,6 +480,44 @@ export const jobListSchema = z.object({
   deferred_filters: z.array(deferredFilterSchema).default([]),
 });
 export type JobList = z.infer<typeof jobListSchema>;
+
+/** One row of the ranked list. The score is not optional: a posting nobody has
+ * scored cannot be ranked, and is counted in `not_yet_scored` instead. */
+export const rankedJobSchema = z.object({
+  job: jobSummarySchema,
+  match: matchSchema,
+});
+export type RankedJob = z.infer<typeof rankedJobSchema>;
+
+/**
+ * One eligibility band and the postings inside it, best first (§5.3).
+ *
+ * **The band is a heading, never points.** Grouping by eligibility and sorting
+ * by score inside the group is the compromise between two things that both
+ * matter: a list where a hard blocker does not affect position is not usable,
+ * and a score that has silently absorbed a penalty for uncertainty is a lie.
+ */
+export const rankedBandSchema = z.object({
+  state: eligibilityStateSchema,
+  items: z.array(rankedJobSchema),
+  unassessed: z.number().int().default(0),
+});
+export type RankedBand = z.infer<typeof rankedBandSchema>;
+
+export const matchRankingSchema = z.object({
+  bands: z.array(rankedBandSchema),
+  total: z.number().int(),
+  /**
+   * Open postings with no score at the current ruleset version. Rendered, not
+   * swallowed: a ranked list covering 12 of 31 postings looks exactly like one
+   * covering all 31.
+   */
+  not_yet_scored: z.number().int(),
+  ruleset_version: z.string(),
+  unassessed_sort_last: z.literal(true).default(true),
+  deferred_components: z.array(deferredComponentSchema).default([]),
+});
+export type MatchRanking = z.infer<typeof matchRankingSchema>;
 
 export const healthComponentSchema = z.object({
   ok: z.boolean(),

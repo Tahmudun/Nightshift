@@ -19,29 +19,30 @@ import Link from 'next/link';
 import { ConfidenceLadder } from './ConfidenceLadder';
 import { JobEligibility } from './JobEligibility';
 import { JobRequirements } from './JobRequirements';
+import { MatchPanel } from './MatchPanel';
 import { SaveJobButton } from './SaveJobButton';
 import { fetchJob } from '@/lib/api';
 import type { JobDetail } from '@/lib/schemas';
 
 /**
- * What this page still cannot compute. **`Eligibility` was removed at M3b**,
- * the milestone that built it — this list had otherwise been about to make the
- * same claim beside a section answering it.
+ * What this page still cannot compute. **`Eligibility` went at M3b and five of
+ * the six went at M3c Task 10** — the milestone that built them. Each time this
+ * list had otherwise been about to make a claim beside a section answering it.
  *
  * That is not a hypothetical tidy-up. A stale "not built yet" list has gone
  * unnoticed for a whole milestone three times in this project, always in the
  * same direction: nobody re-reads the list when the thing it waits on lands.
- * It was caught here only because the new section put the word "Eligibility" on
- * the page twice and an existing test could no longer tell them apart.
+ * The M3b case was caught only because the new section put the word
+ * "Eligibility" on the page twice and an existing test could no longer tell
+ * them apart, and `JobDetail.test.tsx` now asserts the list against the sections
+ * rather than trusting a reader to notice.
+ *
+ * *Recommended resume* is deliberately **not** here. It is one of `matching.md`
+ * §6's nine elements, and `MatchPanel` names it beside the other two that are
+ * not built — a score's missing parts belong with the score, where somebody
+ * reading the breakdown will see them.
  */
-const DEFERRED_FACTS = [
-  'Match score',
-  'Match breakdown',
-  'Missing requirements',
-  'Project evidence',
-  'Recommended resume',
-  'Similar jobs',
-] as const;
+const DEFERRED_FACTS = ['Similar jobs'] as const;
 
 const TERM = 'font-mono text-[10px] uppercase tracking-[0.16em] text-paper-faint';
 const VALUE = 'mt-1 text-[14px] text-paper';
@@ -154,11 +155,18 @@ export function JobFacts({ job }: { readonly job: JobDetail }) {
           scrolled the posting is being told what they just read. */}
       <JobEligibility eligibility={job.eligibility} />
 
+      {/* Directly under eligibility, and that ordering is §5.2 rendered as a
+          layout: whether this posting is open to you and how well it matches are
+          two separate answers that are never reconciled into one. Reading them
+          in that order is also the order they are worth knowing in — a hard
+          blocker matters before a number does. */}
+      <MatchPanel match={job.match} unmetRequirements={job.unmet_requirements} />
+
       <section data-testid="deferred-facts">
         <h2 className={TERM}>Not yet computed</h2>
         <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-paper-dim">
-          These arrive with the matching engine at milestone 3. They are listed rather than hidden,
-          because a score with no breakdown behind it is a bug and an invented one is worse.
+          Listed rather than hidden, because a reader cannot check for a section that was never
+          mentioned.
         </p>
         <ul className="mt-3 flex flex-wrap gap-x-6 gap-y-1">
           {DEFERRED_FACTS.map((fact) => (

@@ -1,0 +1,125 @@
+# The match score's weights.
+#
+# `docs/architecture/matching.md` §5.1 fixes these numbers; this file is where
+# they live so that changing one is a traceable data change rather than a code
+# edit or a migration — the same arrangement as `data/skills.yaml`.
+#
+# `version` is composed with the rule logic's own `RULESET_LOGIC_VERSION` and
+# stored on every `match_results` row as `"<logic>+<data>"` (§4.2). Bump this
+# whenever any number below changes. Two things then follow, both wanted: the
+# golden test goes red with a diff showing exactly what moved, and every stored
+# result computed under the old numbers reads as not-yet-computed instead of as
+# a score (§4.2, "a stale result is never silently served").
+#
+# **Every weight is a whole number and the six sum to exactly 100**, asserted on
+# load. Both halves of that matter. A component that quietly reads as zero
+# removes itself from every score in the corpus while every test still passes,
+# which is how a weight typo becomes invisible; and a weight tuned to a tenth of
+# a point claims a precision nothing in this project can evidence.
+#
+# Two of PRODUCT-SPEC §8.2's ten components are deliberately absent — company
+# preference and application urgency. §5.1 records why, and the remaining eight
+# numbers already total 100 without them, so nothing here is renormalised.
+version: "2026-08-09.1"
+
+components:
+  # 0-20. How close the posting's role family is to the roles the user wants.
+  role_relevance: 20
+  # 0-30. The largest single component, and the one the span rule binds hardest:
+  # every point traces to a technology named in the posting and confirmed by the
+  # user, with both spans stored.
+  skill_overlap: 30
+  # 0-20. Evidence from the user's own projects, quoted from their own text.
+  project_evidence: 20
+  # 0-10. `job_locations.city` and `remote_policy` against a stated preference.
+  # No coordinates, no boroughs, no neighbourhoods — those are M4.
+  location_and_work_mode: 10
+  # 0-10. Arithmetic on the listing's dates. Makes no claim about the person.
+  listing_freshness: 10
+  # 0-10. Whether the posting is an internship or new-grad role, read off the
+  # posting's own seniority language rather than off the user's status.
+  early_career_priority: 10
+
+# Ceilings, not curves. Each is the most a penalty may subtract; how a penalty
+# approaches its ceiling is rule logic and carries the logic version.
+#
+# Both are negative and asserted to be. A penalty entered as a positive number
+# would add points for a mismatch, which is not a smaller bug than a wrong
+# weight — it is the score meaning the opposite of what it says.
+penalties:
+  # Required requirements with no evidence row behind them. `preferred` and
+  # `mentioned` never reach this (§4.1).
+  missing_requirement: -25
+  # A staff-level posting for an early-career profile. A penalty and never a
+  # blocker: M3b refused to let seniority produce `ineligible`, because a
+  # posting's title is not a statement about who may apply.
+  seniority_mismatch: -30
+
+# Rule thresholds. §4.2 puts "every rule threshold" in this file alongside the
+# weights, and for the same reason: a number that changes a score must be a
+# traceable data change carrying the version stored on every row, not a constant
+# somebody edited in Python.
+#
+# How a rule *uses* a threshold is logic and carries `RULESET_LOGIC_VERSION`.
+# What the number is lives here.
+thresholds:
+  # Listing freshness, in days since `jobs.source_published_at` — the date the
+  # **source** says the posting went up (Greenhouse `first_published`, Ashby
+  # `publishedAt`, Lever `createdAt`), carried on 153 of 153 recorded postings.
+  #
+  # **Not `last_seen_at`**, which `matching.md` §2.1 named and which was measured
+  # useless for this: it records when *we* last polled, so on an actively polled
+  # board it is near-now for every open job — 31 seeded jobs, one distinct
+  # `last_seen_at` day, against a 10-to-347-day spread of publication dates. It
+  # would also make the score depend on which poll tier ADR 0007 put the board
+  # on, which is this system's infrastructure and not the posting's freshness.
+  freshness_days:
+    # At or under this, the whole weight. A week is roughly the window in which
+    # a posting is worth treating as new.
+    full: 7
+    # At or over this, nothing. Between the two the score falls linearly, so
+    # there is no cliff where one day costs several points.
+    zero: 90
+
+  # The missing-requirement penalty's curve. It **counts**, it does not divide,
+  # and that is the whole reason this number exists rather than a fraction.
+  #
+  # A fraction-based version combines with `skill_overlap` into
+  # `55·matched − 25`, which is arithmetically one component of weight 55 with
+  # an offset — the penalty would be a weight change wearing a penalty's name,
+  # and Task 7's mutation test could zero either one and see the other absorb
+  # it. Counting reads a different fact about the posting: five required
+  # technologies you cannot evidence are five things to learn whether the
+  # posting lists five of them or fifty.
+  missing_requirement:
+    # Points per required technology with no evidence row behind it. Five of
+    # them reaches the -25 ceiling.
+    per_requirement: 5
+
+  # The seniority-mismatch penalty's curve.
+  seniority_mismatch:
+    # Points per year between what the posting's level implies and what the
+    # person has confirmed. Five years' distance reaches the -30 ceiling.
+    per_year: 6
+
+  # What each `Seniority` level implies about years of experience, which is how
+  # a title becomes comparable with `users.years_experience`.
+  #
+  # Named exhaustively — every level the M3b classifier can emit has a rung —
+  # because a missing rung would make the penalty skip that level silently, and
+  # a skipped level looks exactly like a level that deserves no penalty.
+  #
+  # Asserted on load to rise. A ladder with `junior` above `staff` runs the
+  # penalty backwards: nothing crashes, every score stays in range, and a Lead
+  # posting costs an early-career profile less than a Junior one. That is the
+  # backwards freshness window again, one rule over.
+  seniority_years:
+    internship: 0
+    new_grad: 0
+    junior: 1
+    mid: 3
+    senior: 5
+    # The Lead / Staff / Principal band. M3b's `Seniority` docstring records
+    # that this corpus writes "Lead" and never "Staff".
+    staff: 8
+    director: 10

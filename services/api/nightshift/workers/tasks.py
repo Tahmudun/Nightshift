@@ -13,6 +13,12 @@ rather than a rewrite, and it costs nothing today.
 ``ingest_greenhouse`` stays as it is. It is what ``make ingest`` and the M0 cron
 use, and deleting it would remove the only path that polls without consulting
 ``board_poll_state``.
+
+M3c adds ``recompute_match_results``, which is not queue-driven in the same
+way and deliberately so: its work item is the *absence* of a score at the
+current ruleset version, which is a durable fact in the database rather than
+a message that can be dropped while the worker is down. See its docstring for
+how one task covers all three of ``matching.md`` §4.2's triggers.
 """
 
 from __future__ import annotations
@@ -28,6 +34,7 @@ from nightshift.db.base import SourceType
 from nightshift.db.session import session_scope
 from nightshift.db.types import utcnow
 from nightshift.domain.ingestion import get_or_create_source, ingest_boards
+from nightshift.domain.matching import recompute_pending
 from nightshift.domain.polling import (
     adapter_for,
     due_boards,
@@ -129,3 +136,36 @@ async def enqueue_due_boards(ctx: dict[str, Any]) -> dict[str, Any]:
 
     log.info("boards_enqueued", created=created, enqueued=len(queued))
     return {"boards_created": created, "enqueued": len(queued), "due": len(queued)}
+
+
+async def recompute_match_results(ctx: dict[str, Any], limit: int | None = None) -> dict[str, Any]:
+    """Score one batch of (person, posting) pairs that have no current score.
+
+    M3c Task 8, `matching.md` §4.2. This one task serves all three of §4.2's
+    triggers, and it does so without any of them being an event it receives:
+
+    * a **new or changed job** has its scores deleted by the four triggers
+      written at Task 2, or never had any;
+    * a **ruleset version bump** changes `ruleset_version`, which is part of the
+      uniqueness key, so no stored row matches the current version;
+    * a **profile change** deletes that person's rows inside the request's own
+      transaction (`profile._clear_scores_if_inputs_moved`), and only when a
+      column a score actually reads has moved.
+
+    All three arrive here as the same state — a pair with no row at the current
+    version — which is why there is one code path that computes a score rather
+    than three that can disagree. It also means the work item is a row's absence
+    rather than a queue message, so nothing is lost when the worker is down; the
+    next tick finds exactly what the last one did not finish.
+
+    **Bounded, and re-entrant by construction.** An unbounded rescore after a
+    version bump is one transaction holding the whole corpus, and a failure
+    anywhere in it discards every score it computed. `max_tries = 1` on this
+    worker means ARQ will not retry, so a batch that commits what it finished is
+    the difference between progress and none.
+    """
+    settings = get_settings()
+    batch = limit if limit is not None else settings.match_recompute_batch_limit
+    async with session_scope() as session:
+        report = await recompute_pending(session, limit=batch)
+    return {"scored": report.scored, "skipped": report.skipped, "ruleset": report.ruleset}

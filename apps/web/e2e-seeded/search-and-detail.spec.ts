@@ -135,7 +135,18 @@ test.describe('detail pages', () => {
     await expect(page.getByText(/^posted$/i)).toHaveCount(0);
   });
 
-  test('a role page presents no match score, and no percentage', async ({ page }) => {
+  test('a role page names what it does not compute, with no number on it', async ({ page }) => {
+    // **This test used to read `toContainText(/match score/i)`** and it was
+    // right when M2a wrote it: the score did not exist and the page said so
+    // under "Not yet computed". M3c Task 10 built the score and took it off that
+    // list, which made the assertion stale in the one direction a stale
+    // assertion is worst — it went on passing until somebody ran the seeded
+    // suite again, three tasks later.
+    //
+    // The claim worth keeping is the one underneath it, and it is I7 rather than
+    // I4: whatever this page does not compute is *named*, so a reader can check
+    // for the absence, and nothing on that list carries a number that would make
+    // it look computed after all.
     await page.goto('/explore');
     await page
       .getByRole('link', { name: /engineer/i })
@@ -145,10 +156,15 @@ test.describe('detail pages', () => {
 
     const deferred = page.getByTestId('deferred-facts');
     await expect(deferred).toBeVisible();
-    // I4: the fields are named so the absence is checkable, and no number is
-    // attached to any of them.
-    await expect(deferred).toContainText(/match score/i);
-    await expect(deferred).not.toContainText(/\d+\s*%/);
+    await expect(deferred).toContainText(/not yet computed/i);
+    const named = await deferred.getByRole('listitem').allInnerTexts();
+    expect(
+      named.length,
+      'the section lists nothing, so there is nothing to check for',
+    ).toBeGreaterThan(0);
+    // No number of any kind beside a thing this page cannot compute — a
+    // percentage least of all.
+    await expect(deferred).not.toContainText(/\d/);
   });
 
   test('an employer page counts every closure state, including the zeros', async ({ page }) => {

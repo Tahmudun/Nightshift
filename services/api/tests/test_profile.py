@@ -306,8 +306,61 @@ async def test_manual_skill_entry_does_not_need_a_resume(db_session: AsyncSessio
     skill = await profile.add_skill(db_session, user_id=user.id, name="  Rust ")
     assert skill.name == "Rust"
     assert skill.source_reference == "manual"
-    assert await profile.remove_skill(db_session, user_id=user.id, skill_id=skill.id) is True
+    assert await profile.remove_skill(db_session, user_id=user.id, user_skill_id=skill.id) is True
     assert await _count(db_session, UserSkill, user.id) == 0
+
+
+async def test_a_manually_typed_skill_carries_its_taxonomy_name(
+    db_session: AsyncSession,
+) -> None:
+    """`matching.md` §4.4's `skill_id`. Typed as a lowercase alias and stored
+    under the taxonomy's own name, which is the string `job_requirements.value`
+    holds — without it, a requirement and a confirmed skill cannot be joined
+    without re-running the vocabulary at score time."""
+    user = await _a_user(db_session)
+    skill = await profile.add_skill(db_session, user_id=user.id, name="postgres")
+
+    assert (skill.normalized_name, skill.skill_id) == ("postgres", "PostgreSQL")
+
+
+async def test_a_skill_the_taxonomy_does_not_carry_has_no_taxonomy_name(
+    db_session: AsyncSession,
+) -> None:
+    """Null is a real answer, and the alternative is worse.
+
+    This form takes free text on purpose — "nothing could be proven from this
+    file" has to send somebody somewhere. Resolving an unknown term to its
+    nearest vocabulary neighbour would fabricate a qualification, which is I2;
+    storing the raw string as if it were a taxonomy entry would make every typo
+    its own skill and quietly match nothing forever, with no way to see it. Null
+    says *confirmed, and outside the taxonomy*, which is exactly the case.
+    """
+    user = await _a_user(db_session)
+    skill = await profile.add_skill(db_session, user_id=user.id, name="Underwater basket weaving")
+
+    assert skill.skill_id is None
+    assert skill.name == "Underwater basket weaving"
+
+
+async def test_a_confirmed_proposal_carries_its_taxonomy_name(
+    db_session: AsyncSession,
+) -> None:
+    user = await _a_user(db_session)
+    resume, proposals = await _a_resume_with_proposals(db_session, user)
+    python = next(p for p in proposals if p.value.get("name") == "Python")
+
+    await profile.confirm_extractions(
+        db_session,
+        user_id=user.id,
+        resume_id=resume.id,
+        decisions={python.id: "confirm"},
+        now=NOW,
+    )
+
+    skill = (
+        await db_session.execute(select(UserSkill).where(UserSkill.user_id == user.id))
+    ).scalar_one()
+    assert skill.skill_id == "Python"
 
 
 async def test_a_patch_touches_only_what_it_names(db_session: AsyncSession) -> None:

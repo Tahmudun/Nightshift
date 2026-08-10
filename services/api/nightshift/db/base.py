@@ -454,12 +454,19 @@ class InternshipSeason(enum.StrEnum):
 class EligibilityState(enum.StrEnum):
     """PRODUCT-SPEC §8.3. Never collapsed into a number (`matching.md` §5.2).
 
-    Deliberately **not** a PostgreSQL enum yet, unlike everything else in this
-    module. M3b computes a verdict on read and stores none: a stored verdict
-    goes stale the moment a person edits their graduation year, and there is no
-    column to attach a type to until `match_results` arrives at M3c. Creating a
-    database type with no column would be shape with no use, which is the same
-    reason `user_skills.confidence` was left out at M2c.
+    A PostgreSQL enum as of M3c, and it was not one before. M3b computed a
+    verdict on read and stored none, so there was no column to attach a type to
+    and creating one would have been shape with no use — the same reason
+    `user_skills.confidence` was left out at M2c. `match_results.eligibility_status`
+    is that column.
+
+    **The gate still computes on read and this column does not replace it.** A
+    stored verdict goes stale the moment somebody edits their graduation year,
+    which is why `match_results` rows are discarded rather than updated when the
+    inputs move (see the four `*_clears_match_results` triggers in
+    `0016_match_results`). What is stored here is what the score was computed
+    beside, so a row can never show a number reconciled against one verdict and
+    a verdict computed against another.
     """
 
     ELIGIBLE = "eligible"
@@ -467,6 +474,104 @@ class EligibilityState(enum.StrEnum):
     UNCERTAIN = "uncertain"
     LIKELY_INELIGIBLE = "likely_ineligible"
     INELIGIBLE = "ineligible"
+
+
+class MatchComponent(enum.StrEnum):
+    """The six things a score is made of (`matching.md` §4.3, §5.1).
+
+    The vocabulary of `match_evidence.component`, and the reason it is an enum
+    rather than the weight file's own key names: a typo'd component on an
+    evidence row would satisfy the "every positive component has evidence"
+    trigger for nothing, because the trigger looks the component up by name.
+
+    Deliberately **not** the same strings as `matching.yaml`'s component keys
+    (`role_relevance`, `skill_overlap`, ...). Those name a weight; these name a
+    kind of claim, and `data/matching.yaml` is a file a human edits while this is
+    a database type. `test_every_component_has_a_weight` in the scoring tests is
+    what keeps the two mapped rather than merely similar.
+
+    The first three make a claim **about the person** and are the ones §2.1 binds
+    to a quoted span on both sides. `location`, `freshness` and `priority` make a
+    claim about the posting or about arithmetic, record the values they compared,
+    and are exempt — enforced by `ck_match_evidence_person_claims_quote_both_sides`.
+    """
+
+    ROLE = "role"
+    SKILL = "skill"
+    PROJECT = "project"
+    LOCATION = "location"
+    FRESHNESS = "freshness"
+    PRIORITY = "priority"
+
+
+#: The three components that assert something about the *person*. Both spans are
+#: mandatory on their evidence rows, and the database check constraint below is
+#: the enforcement — this tuple is for the Python side that has to agree with it.
+PERSON_CLAIM_COMPONENTS = (MatchComponent.ROLE, MatchComponent.SKILL, MatchComponent.PROJECT)
+
+
+class PenaltyName(enum.StrEnum):
+    """The two subtractions a score can carry (`matching.md` §5.1, §5.1.3).
+
+    Added at M3c Task 10, and deliberately **not** a member of `MatchComponent`.
+    A penalty has no weight, widens no denominator, and points at no
+    `match_evidence` row — §4.3's evidence trigger binds the six positive
+    components and would bind nothing here. Folding the two vocabularies into one
+    enum would make that trigger's silence look like a decision rather than an
+    absence.
+
+    An enum rather than free text because `match_penalties` asserts *exactly one
+    row per name*, and a count is only an assertion when the domain of the column
+    is closed: a typo'd `seniority_missmatch` beside a correct one is two rows,
+    two names, and a guard that passes.
+    """
+
+    MISSING_REQUIREMENT = "missing_requirement"
+    SENIORITY_MISMATCH = "seniority_mismatch"
+
+
+class JobTextField(enum.StrEnum):
+    """Which of a posting's strings a stored span indexes into.
+
+    Added at M3c Task 8, when a score first reached the database and the guard
+    that verifies spans discovered it had been checking one column for spans
+    that come from two.
+
+    Every span elsewhere in this system points into `jobs.description_text` —
+    `job_requirements`, `resume_extractions`, and every eligibility blocker. Role
+    relevance is the exception and cannot be otherwise: a role family is decided
+    on the **title**, with the description able to veto it (`role_classification`
+    `TextSpan`). A `match_evidence` row that could not say which string its
+    offsets belong to would be checked against the wrong text, and
+    `match_evidence_span_must_quote` would then reject every correct role row
+    while accepting nothing useful.
+
+    An enum rather than a boolean because the third string is already visible:
+    `jobs.title`, `jobs.description_text`, and one day the requirement's own
+    `raw_text`. A boolean named `is_title` would have to be migrated the day
+    that happens; a member does not.
+    """
+
+    TITLE = "title"
+    DESCRIPTION_TEXT = "description_text"
+
+
+class EvidenceSource(enum.StrEnum):
+    """Who proposed an evidence row: a vocabulary rule, or the embedding.
+
+    `matching.md` §4.3. This column is what makes the semantic layer auditable —
+    it is possible to ask what fraction of the points awarded across the corpus
+    came from an embedding proposal rather than a vocabulary hit, and M3d reports
+    that number.
+
+    An embedding may propose and may never score (§2), which is not enforced by
+    this column but by the span rule: a proposal that cannot produce a character
+    span on both sides produces no row at all, and a row with both spans has
+    already met the same bar a rule's row meets.
+    """
+
+    RULE = "rule"
+    EMBEDDING = "embedding"
 
 
 def pg_enum_values(enum_cls: type[enum.Enum]) -> list[str]:

@@ -143,7 +143,19 @@ async def db_engine() -> AsyncIterator[AsyncEngine]:
 # below) and never outside the per-test transaction, so the truncation itself
 # is undone by the same rollback that undoes everything else.
 _INGESTION_TABLES = (
-    # M3a. Referenced by nothing, references `jobs` — added because the
+    # M3c, and first in the list because all four reference `jobs` or each other
+    # and `match_evidence` references `job_requirements` below it. Sixth milestone
+    # running that this list has been kept correct by the database refusing to
+    # truncate rather than by somebody remembering to edit it —
+    # `match_component_assessments` was the seventh time it happened, at Task 9,
+    # and `match_penalties` the eighth, at Task 10, both within a minute of the
+    # table existing.
+    "match_penalties",
+    "match_component_assessments",
+    "match_evidence",
+    "match_results",
+    # M3a. References `jobs`, and referenced by `match_evidence` above as of
+    # M3c — added because the
     # no-CASCADE choice below refused to truncate the moment this table
     # started existing, which is the fifth milestone running that this list
     # has been kept correct by the database rather than by somebody
@@ -209,3 +221,22 @@ async def db_session(db_engine: AsyncEngine) -> AsyncIterator[AsyncSession]:
             await session.execute(text(f"TRUNCATE TABLE {', '.join(_INGESTION_TABLES)}"))
             yield session
         await transaction.rollback()
+
+
+@pytest.fixture(scope="session")
+def scoring_corpus() -> tuple[Any, ...]:
+    """The 153 recorded postings, read and classified once for the whole session.
+
+    Three test modules score this corpus — the golden file, the mutation
+    harness, and Task 11's embedding measurement — and building it means running
+    requirement extraction over every posting, which is ~26 seconds. Built per
+    module it was the single largest cost any of them had, and none of them is
+    *about* extraction.
+
+    Deliberately not used by `test_two_full_runs_are_byte_identical`, which
+    rebuilds from scratch on purpose: a determinism test handed a cached corpus
+    is comparing one object against itself.
+    """
+    from tests.matching_corpus import load_corpus
+
+    return load_corpus()

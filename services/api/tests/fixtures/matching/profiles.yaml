@@ -1,0 +1,82 @@
+# The profiles the golden score is computed against.
+#
+# Fixtures, not users. Three of them, and each exists to reach paths the other
+# two cannot — a golden file over one profile pins one path through the scorer
+# and calls it the whole scorer.
+#
+# Every field here is the shape `domain/scoring.ScoringProfile` takes, which is
+# the shape M2c's confirmed `users` columns produce. Nothing inferred, because
+# nothing inferred may reach a score (I2) and a fixture that broke that rule
+# would make the golden file a record of the invariant being violated.
+profiles:
+  # Skills and projects but **no `years_experience`** — the common shape for
+  # somebody who has just filled in a profile. It is what makes the seniority
+  # penalty inapplicable across the whole corpus for this profile, which is the
+  # branch that must not silently become "0 years".
+  - name: new_grad_backend
+    preferred_roles: [backend engineer, software engineer]
+    preferred_locations: [New York, Brooklyn]
+    remote_preference: hybrid
+    years_experience: null
+    skills: [Python, C++, SQL, Linux, Docker, Git]
+    projects:
+      - name: Transit delay tracker
+        technologies: [Python, SQL, Docker]
+        # Prose rather than a list, because the user-side span is a sentence
+        # lifted out of this text — `score_project_evidence` quotes the bullet
+        # and never the project's name.
+        evidence: >-
+          Ingested the MTA feed every 30 seconds in Python. Stored six months
+          of arrivals in SQL and indexed them for the map. Packaged the whole
+          thing with Docker so a grader could run it.
+
+  # States years, so the seniority penalty is live. Also the only profile that
+  # asks for remote, which is the only one that can score the work-mode
+  # dimension against the two remote postings in the corpus.
+  - name: experienced_ml
+    preferred_roles: [machine learning engineer]
+    preferred_locations: [Remote]
+    remote_preference: remote
+    years_experience: 6
+    skills: [Python, PyTorch, C++, Kubernetes, AWS]
+    projects:
+      - name: Retrieval evaluation harness
+        technologies: [Python, PyTorch]
+        evidence: >-
+          Trained the reranker in PyTorch across eight GPUs. Wrote the
+          evaluation harness in Python and ran it nightly.
+
+  # **`years_experience: 0`, and it is the point of this profile.** Added at
+  # Task 7, because the mutation harness found that five of the seven rungs on
+  # the seniority ladder could be changed without moving a single score — the
+  # other three profiles state 6 years or state nothing, and `gap` is
+  # `max(0, implied - years)`, so a rung only bites somebody below it.
+  #
+  # It is also the gap that mattered most on its own: somebody with no
+  # professional experience yet is *this product's* user, and the fixture set
+  # had nobody in it. Zero is a stated fact and not a silence, which is the
+  # distinction the seniority penalty turns on.
+  - name: early_career_no_experience
+    preferred_roles: [data engineer, machine learning]
+    preferred_locations: [New York, Remote]
+    remote_preference: remote
+    years_experience: 0
+    skills: [Python, SQL, Airflow, dbt, Snowflake]
+    projects:
+      - name: Course scheduling dataset
+        technologies: [Python, SQL, Airflow]
+        evidence: >-
+          Scraped four semesters of course listings with Python and loaded them
+          into SQL. Ran the whole refresh nightly on Airflow so the numbers were
+          never more than a day old.
+
+  # Every field empty. The profile a person has the moment they sign up, and
+  # the only one that reaches `assessed_out_of == 0` — five postings in the
+  # corpus, where the honest score is no score at all.
+  - name: states_nothing
+    preferred_roles: []
+    preferred_locations: []
+    remote_preference: null
+    years_experience: null
+    skills: []
+    projects: []

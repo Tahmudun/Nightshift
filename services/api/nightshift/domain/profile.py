@@ -40,8 +40,12 @@ from nightshift.db.base import (
     WorkAuthorization,
 )
 from nightshift.db.models import Resume, ResumeExtraction, User, UserProject, UserSkill
+from nightshift.domain.matching import (
+    SCORING_RELEVANT_PROFILE_COLUMNS,
+    clear_scores_for_user,
+)
 from nightshift.domain.resume_extraction import EXTRACTOR_VERSION, extract_proposals
-from nightshift.domain.skill_vocabulary import SkillVocabulary
+from nightshift.domain.skill_vocabulary import SkillVocabulary, load_vocabulary
 
 Decision = Literal["confirm", "reject"]
 
@@ -72,6 +76,26 @@ class UnknownProfileFieldError(ProfileError):
 
 class InvalidProfileError(ProfileError):
     pass
+
+
+def taxonomy_id_for(name: str, *, vocabulary: SkillVocabulary | None = None) -> str | None:
+    """The taxonomy's name for ``name``, or ``None`` when it has none.
+
+    `matching.md` §4.4's `skill_id`. The taxonomy is `data/skills.yaml` and its
+    identifier for a skill *is* its canonical name — the same string
+    `job_requirements.value` stores, which is what makes a requirement and a
+    confirmed skill joinable at all.
+
+    **None is a real answer, not a failure.** `add_skill` accepts free text, so
+    a person may confirm a skill the vocabulary has never heard of, and null
+    says exactly that. `SkillVocabulary.canonical` returns its argument
+    unchanged for a term it does not carry, so the membership test below is what
+    separates "resolved" from "not carried" — without it every typo would become
+    its own taxonomy entry.
+    """
+    known = vocabulary or load_vocabulary()
+    resolved = known.canonical(name)
+    return resolved if resolved in known.canonical_names else None
 
 
 def normalize_skill_name(name: str) -> str:
@@ -284,6 +308,14 @@ async def _promote_skill(
             user_id=user_id,
             name=name,
             normalized_name=normalized,
+            # A proposal can only have come from a vocabulary hit, so this
+            # resolves for every row this path writes. It is still resolved
+            # rather than assumed: `name` is read back out of a JSONB column
+            # written by an earlier version of the extractor, and "it must be
+            # canonical because of where it came from" is the kind of reasoning
+            # that stops being true one milestone later without anything saying
+            # so.
+            skill_id=taxonomy_id_for(name),
             proficiency_level=ProficiencyLevel.UNSPECIFIED,
             source_type=SkillSourceType.RESUME,
             source_reference=(
@@ -351,6 +383,11 @@ async def confirm_extractions(
         )
 
     user = await _load_user(session, user_id)
+    # Confirming a graduation year or a degree moves the same columns
+    # `update_profile` does, so it owes the same invalidation. `user_skills` and
+    # `user_projects` are covered by their own database triggers; these three
+    # columns are not covered by anything but this line.
+    before = _scoring_inputs(user)
     confirmed = rejected = skipped = skills_added = projects_added = 0
     fields_set: list[str] = []
 
@@ -389,6 +426,7 @@ async def confirm_extractions(
         extraction.decided_at = now
         confirmed += 1
 
+    await _clear_scores_if_inputs_moved(session, user, before)
     await session.flush()
     return ConfirmationResult(
         confirmed=confirmed,
@@ -405,6 +443,50 @@ async def confirm_extractions(
 # ---------------------------------------------------------------------------
 
 
+def _scoring_inputs(user: User) -> dict[str, Any]:
+    """A snapshot of the columns a stored score reads (`matching.md` §4.2).
+
+    Lists become tuples so the comparison is by value. ``preferred_roles`` is
+    reassigned to a fresh list on every write, so the snapshot would compare a
+    stale reference against a new object and report a change whenever the write
+    happened at all — which is the trap this snapshot exists to avoid.
+    """
+    snapshot: dict[str, Any] = {}
+    for column in SCORING_RELEVANT_PROFILE_COLUMNS:
+        value = getattr(user, column)
+        snapshot[column] = tuple(value) if isinstance(value, list) else value
+    return snapshot
+
+
+async def _clear_scores_if_inputs_moved(
+    session: AsyncSession, user: User, before: Mapping[str, Any]
+) -> frozenset[str]:
+    """Delete this person's `match_results` when a score's inputs really moved.
+
+    §4.2's third trigger, and the one no database trigger can serve: the four
+    written at M3c Task 2 watch `jobs`, `job_requirements`, `user_skills` and
+    `user_projects`, and a `users` column moving touches none of them.
+
+    **Compared, not merely provided**, and that distinction is the whole design.
+    §4.2's wording is *any profile change*, which taken literally means a form
+    submitted unedited — fifteen columns provided, none of them different —
+    rescores the entire corpus. The named set is
+    ``matching.SCORING_RELEVANT_PROFILE_COLUMNS`` and a before/after comparison
+    is what turns it into work only when there is work: editing a display name
+    changes no snapshot entry, so nothing is deleted and nothing is recomputed.
+
+    Deleting rather than recomputing is `matching.clear_scores_for_user`'s own
+    reason — it commits inside this request's transaction, so the invalidation
+    cannot be lost the way an enqueue beside it could, and the sweep rebuilds
+    what it removed.
+    """
+    after = _scoring_inputs(user)
+    changed = frozenset(name for name, value in before.items() if after[name] != value)
+    if changed:
+        await clear_scores_for_user(session, user.id)
+    return changed
+
+
 async def update_profile(session: AsyncSession, *, user_id: UUID, patch: ProfilePatch) -> User:
     """Assign only what was provided. Every assignment is written out by name.
 
@@ -413,6 +495,7 @@ async def update_profile(session: AsyncSession, *, user_id: UUID, patch: Profile
     A guard that a clever refactor can slip past is not a guard.
     """
     user = await _load_user(session, user_id)
+    before = _scoring_inputs(user)
     given = patch.provided
 
     if "display_name" in given:
@@ -453,6 +536,7 @@ async def update_profile(session: AsyncSession, *, user_id: UUID, patch: Profile
         # sentence rather than a 500 with a constraint name.
         raise InvalidProfileError("a graduation month needs a year")
 
+    await _clear_scores_if_inputs_moved(session, user, before)
     await session.flush()
     return user
 
@@ -487,6 +571,11 @@ async def add_skill(
         user_id=user_id,
         name=cleaned,
         normalized_name=normalized,
+        #: Null when the person typed something the taxonomy does not carry,
+        #: which this form allows on purpose. The skill is still confirmed and
+        #: still shown; it simply cannot match a `job_requirements.value`, and
+        #: the score has to say so rather than resolve it to a neighbour.
+        skill_id=taxonomy_id_for(cleaned),
         proficiency_level=proficiency_level,
         source_type=source_type,
         source_reference="manual",
@@ -496,10 +585,17 @@ async def add_skill(
     return skill
 
 
-async def remove_skill(session: AsyncSession, *, user_id: UUID, skill_id: UUID) -> bool:
+async def remove_skill(session: AsyncSession, *, user_id: UUID, user_skill_id: UUID) -> bool:
+    """Delete one confirmed skill.
+
+    The parameter is `user_skill_id` rather than `skill_id` as of M3c: this
+    table now has a column called `skill_id` holding a *taxonomy* name, and a
+    keyword argument meaning the row's own primary key beside it is a
+    fifty-fifty guess for every future caller.
+    """
     skill = (
         await session.execute(
-            select(UserSkill).where(UserSkill.id == skill_id, UserSkill.user_id == user_id)
+            select(UserSkill).where(UserSkill.id == user_skill_id, UserSkill.user_id == user_id)
         )
     ).scalar_one_or_none()
     if skill is None:

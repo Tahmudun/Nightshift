@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Suspense } from 'react';
 
 import { ConfidenceLegend } from '@/components/ConfidenceLadder';
@@ -24,6 +25,24 @@ export default function ExplorePage() {
       </section>
 
       <CorpusReadout />
+
+      <section className="border border-ink-700 bg-ink-900/40 p-5">
+        <h2 className="font-mono text-[10px] uppercase tracking-[0.16em] text-paper-faint">
+          Ranked for you
+        </h2>
+        <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-paper-dim">
+          The same roles, scored against your profile and grouped by whether each one is open to
+          you. Every score decomposes into what it was made of, and every group says what it does
+          not mean. The list below stays ordered by recency, which is a fact about the corpus rather
+          than about you.
+        </p>
+        <Link
+          href="/explore/matches"
+          className="mt-3 inline-block border border-ink-700 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-signal-400 hover:border-signal-400"
+        >
+          Open the ranked list
+        </Link>
+      </section>
 
       {/* JobList reads filter state from the URL via useSearchParams, which
           requires a Suspense boundary — without one, `next build` fails. */}

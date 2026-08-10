@@ -17,15 +17,1702 @@
 **Q4 (CI pinning): ANSWERED and shipped. ADR 0016, merged to `main` as PR #10 (`0c5bcbd`).**
 **M3a: COMPLETE, reviewed, CI-green at `3fbffd6`, merged to `main` as PR #9 (`452ec90`).**
 **M3a.1: COMPLETE. Recall 0.459 → 0.861, precision 0.659 → 0.847, necessity 0.668 → 0.915.**
-**M3b: COMPLETE, reviewed, CI-green on all five jobs at `6656eab`, first attempt. PR #11 ready to merge.**
-**Current milestone: M3 — explainable matching. M3c (the score) is next, after M3b merges.**
-**Last updated: 2026-08-09**
+**M3b: COMPLETE, reviewed, CI-green at `7bfbf2d`, merged to `main` as PR #11 (`d2273e7`). `main` green after the merge.**
+**M3c: COMPLETE — all twelve tasks. `make check` green and `make acceptance` exit 0, both measured at `f0f57f6`. Review: `docs/reviews/milestone-3c-review.md`. Not yet merged to `main`; CI has not run this branch.**
+**Current milestone: M3 — explainable matching. Next: M3d, the evaluation suite.**
+**Task 11 measured the embedding proposal path and declined to ship it — ADR 0018.**
+**Task 12 gave the seed a reader to be about, and found three false claims on the page — ADR 0019.**
+**Last updated: 2026-08-10**
 
 ---
 
 ## Next exact action
 
-### M3b is done, reviewed, and CI-green at `6656eab`. Next: merge PR #11, then start M3c — the score.
+### M3c is closed. Next: M3d — the evaluation suite, in CI.
+
+M3c's twelve tasks are done and `make acceptance` exits 0. What M3d inherits,
+in the order it should be picked up:
+
+1. **The relevance ratings, which need the human.** 27 of 30 rated, all with the
+   same word, three held for a reason recorded in their notes, and the profile
+   block still empty. See "the relevance ratings" below — this is the only thing
+   that can measure whether the ranking is *good* rather than merely stable, and
+   it is roughly twenty minutes of somebody's attention.
+2. **The ordering problem Task 12 saw and did not fix.** On the seeded corpus a
+   Partner Development Representative at 19 of 40 (48%) outranks a Software
+   Engineer Internship at 30 of 100 (30%) for a CS student who asked for software
+   engineering. Every number is right and the order is misleading, because a
+   ratio of two incomparable denominators is not a total order. Review §2.10.
+   **This should be the first thing the relevance pass examines.**
+3. **The `demonstrated_by:` edges ADR 0018 recommends.** 33 concept-term
+   occurrences the scorer misses. It moves scores, so it needs a
+   `ruleset_version` bump — which is a thing to do at the start of a milestone,
+   not at the end of one.
+4. **The metrics themselves** — §7.1's table, run in CI.
+
+**Task 12 shipped** the browser walk (`e2e-seeded/matching.spec.ts`, 7 tests),
+`check_match_results` in `verify.py` (18 checks), `make score`, **ADR 0019**, and
+a demo profile the milestone turned out not to work without. It found three
+statements the page was making that were false about a person and true of a
+database, and one browser test of its own that could not fail. Full detail in the
+M3c Task 12 section below and in `docs/reviews/milestone-3c-review.md`.
+
+**Task 11 shipped a measurement and a decision, and no feature.** The embedding
+proposal path §2 permits was built as an experiment, measured against the
+rules-only baseline the plan required, and declined. **ADR 0018** carries it.
+
+The short version: over 240 required-technology rows per profile, the rules-only
+scorer matches 90 / 88 / 59 / 0 on the four fixture profiles, and the gap of
+150–181 rows is what an embedding was meant to recover. Ranking every (missed
+requirement, confirmed skill) pair under the real `bge-small-en-v1.5`, **the
+highest-confidence proposal in the entire corpus is "you meet the Java
+requirement, because you confirmed Python" at 0.797.** The one relation worth
+having — `Machine Learning` from a confirmed PyTorch — finishes ninth at 0.624.
+
+The ordering is inverted, not weak, and that is why there is no threshold to
+tune: cosine over technology names measures topical relatedness, a match claim
+needs substitutability, and sibling technologies are maximally related and least
+substitutable. Any cut that admits the good relation admits eight fabrications
+first.
+
+**It also corrected `matching.md` §2, which is the part worth carrying forward:
+the span rule proves provenance, not entailment.** "You have Java" quoting the
+posting's *Java* and the user's *Python* satisfies both spans literally, and
+renders beside both quotes looking audited. The rule stops invented text; it
+never stopped unwarranted inference, and the plan had it carrying the whole
+safety argument.
+
+Full detail in the M3c Task 11 section below, including the constructive
+successor the measurement found (`demonstrated_by:` edges in `skills.yaml`, not
+built) and the three tests that keep the decision from being reversed silently.
+
+**Task 10 shipped**: the score is visible in a browser, on two surfaces. The
+explanation panel on the job detail page (`MatchPanel`) and the banded ranked
+list at `/explore/matches` (`RankedMatches`, served by a new `GET /matches`).
+Bands are headings and the list sorts on the *fraction*, so 40 of 50 outranks 45
+of 100. The three enums Task 9 left owing — `MatchComponent`, `EvidenceSource`,
+`JobTextField` — crossed into TypeScript with `PenaltyName` beside them, all four
+now in `test_enum_parity.py`.
+
+It took the decision PROGRESS assigned it and **revisited nothing**: §4.2's single
+`penalty_score` column stands, and `0019_match_penalties` records what that
+column is made of. Before it, the page could render `-18` with no account of it,
+which is I4's *"stores its components, its penalties"* going unmet in the one
+place a person reads. §6's element count moved too: the *recommended resume* is
+now named as **not built** rather than owed, and the reason is I2 — see the Task
+10 section below.
+
+Full detail in the M3c Task 10 section below, including the first end-to-end run
+against the seeded corpus and the two bands `make demo` cannot exercise.
+
+**Task 8 shipped**: scores now reach the database. Migration
+`0017_match_score_denominator` (the two columns Task 5 and Task 3 left owing),
+`domain/matching.py`, an ARQ recompute task on a one-minute cron, and the
+profile-change invalidation with its named column list. The three triggers of
+§4.2 turned out to be three routes into one state — *no row at the current
+ruleset version* — so there is one code path that computes a score rather than
+three that can drift. 14 tests in `test_match_recompute.py`, 3 in
+`test_nothing_infers.py`, 2 in `test_enum_parity.py`. Full detail in the M3c
+Task 8 section below, including one departure from the plan's wording
+(invalidate rather than enqueue) and the reason.
+
+**Task 7 shipped**: every tunable number in `data/matching.yaml` is shown
+load-bearing — all six weights, both penalty ceilings and all eleven
+thresholds, 19 kills rather than the plan's six. 23 tests in
+`test_every_score_number_is_load_bearing.py`. It found five dead mutations and
+the fix was a fourth fixture profile at `years_experience: 0`, which was a gap
+worth closing on its own. Full detail in the M3c Task 7 section below, with the
+table of what each number is worth.
+
+**Task 6 shipped**: the golden test, written before any weight was tuned.
+`tests/fixtures/matching/golden.txt` — 459 scores and 1,098 evidence rows over
+153 recorded postings × 3 fixture profiles, every component decomposed with its
+own sentence. 11 tests in `test_matching_golden.py`. The corpus was measured
+before the format was chosen: 37 distinct scores, 9 distinct denominators, and
+5 pairs that genuinely reach `assessed_out_of == 0`. Full detail in the M3c
+Task 6 section below, including the regeneration guard and the end-to-end run
+that proved it fires.
+
+Task 7 now has what it needs: zeroing a weight will move the golden file, and
+the golden file names which postings moved. **The order matters and it is the
+plan's**: the golden test had to exist before any weight was tuned, or it would
+pin the tuned output and call it a check.
+
+**Task 5 shipped**: both penalties, the composition, and `score_match` — the
+whole score for one (person, posting) pair, still pure and still with no
+database. `data/matching.yaml` gained nine thresholds; the loader gained a
+ladder that must rise. 108 tests in `test_scoring.py`, 40 in
+`test_matching_weights.py`. Full detail in the M3c Task 5 section below,
+including the reason the missing-requirement penalty counts instead of dividing
+and a column Task 8's migration now owes.
+
+**Task 4 shipped**: location and work mode, listing freshness, early-career
+priority — the three components §2.1 exempts from quoting a person, each
+recording the values it compared instead. `data/matching.yaml` gained a
+`thresholds` block and the loader gained its validation, including a freshness
+window that runs backwards, shown able to fail. 44 tests in `test_scoring.py`,
+34 in `test_matching_weights.py`.
+
+**Q6 is answered: score out of what could be assessed.** A posting naming no
+technologies is scored out of 50, the page names what could not be assessed, and
+the ranked list sorts on the fraction. Written into `matching.md` §5.1.1 and
+implemented by Task 5.
+
+**Task 3 shipped**: `domain/scoring.py` — role relevance, skill overlap and
+project evidence, pure, no ORM, 28 tests in `test_scoring.py` that need no
+database. The classifier now carries the span it matched (`TextSpan`, with the
+field it came from) instead of throwing it away, because role relevance is
+decided on the *title* and every other span in this system points into
+`description_text`.
+
+**Task 3 found the number that shapes the rest of M3c: 43% of the labeled
+corpus names no required technology.** Raised as Q6 — see below, and it is the
+first thing to read before Task 5.
+
+**Task 2 shipped**: migration `0016_match_results` — `match_results`,
+`match_evidence`, `user_skills.skill_id`, three new PG enums, and seven
+triggers. 29 tests in `test_match_result_models.py`, three in `test_profile.py`,
+two in `test_enum_parity.py`. Full detail in the M3c Task 2 section below,
+including a check constraint a test found covering only one of its two
+directions and an interaction that would have broken ingestion at commit.
+
+**Task 1 shipped**: `data/matching.yaml` (six components summing to 100, two
+negative penalty ceilings, `version: 2026-08-09.1`),
+`domain/matching_weights.py` (the loader, `RULESET_LOGIC_VERSION = "1"`, and
+`ruleset_version()` composing `"<logic>+<data>"` per §4.2), and 27 tests in
+`test_matching_weights.py`. The sum-to-100 assertion is shown able to fail on
+the realistic mistake — `skill_overlap` typed as 3 instead of 30, which crashes
+nothing, keeps every existing test green, and quietly removes the largest
+component from every score in the corpus.
+
+**The Q5 worksheet is generated and waiting on the human.** Thirty postings at
+`docs/labeling/relevance-worksheet.md`, rated into
+`services/api/tests/fixtures/relevance/ratings.yaml`. Roughly twenty minutes.
+Not blocking M3c; wanted before M3d, because it is the only thing that can
+measure whether the ranking is *good* rather than merely stable.
+
+The plan is `docs/plans/2026-08-09-m3c-the-score.md`. Twelve tasks. Three calls
+taken in the plan rather than inside the work:
+
+- **The embedding proposal path is Task 11, not Task 3**, and it is allowed to
+  end in a deletion. The span rule means a proposal can only re-rank things that
+  already have spans on both sides — it cannot invent evidence — so the honest
+  question is how many *additional* pairs it finds that the vocabulary missed,
+  and that has no answer until the vocabulary's own yield is on the table. One
+  number with no way to attribute it is what shipping both together produces.
+- **The golden test is written before any weight is tuned.** Written afterwards
+  it pins whatever the code then does, which is a test that cannot fail on the
+  thing it exists to catch.
+- **"Any profile change triggers a rescore" is a trap** and is not implemented
+  as written. M2c's profile PATCH writes fifteen columns and most components
+  read none of them; rescoring the corpus because somebody edited their display
+  name is a retry storm waiting for a demo. A named scoring-relevant column list,
+  guarded against `User.__table__` the way `PROFILE_COLUMNS` now is — because
+  that hand-maintained list is exactly what quietly stopped describing what it
+  named at M3b.
+
+### Not real yet — M3c, so far
+
+- **The golden file pins nine employers, all quant trading firms or AI labs.**
+  It is 153 postings and it looks broad; it is the same narrow slice the rest of
+  M3 measures on. A rule that misfires only on an agency's or a hospital's
+  posting moves nothing in that file, and no test in this repository would
+  notice. This is a coverage limit, not a bug, and it is stated in the test
+  module's own docstring so it travels with the file rather than only with this
+  document.
+- **The golden file records the *untuned* weights.** It is a record of what
+  §5.1's published numbers produce, and it is deliberately not evidence that
+  those numbers are good — no measurement supports 30 for skill overlap over 25.
+  Task 7 shows each of them *matters*; nothing yet shows any of them is
+  *right*, and those are different claims. M3d measures the second one.
+- **Three of the seniority ladder's rungs are exercised by exactly one fixture
+  profile.** `internship` and `new_grad` sit at 0 and `junior` at 1, and a rung
+  only bites somebody below it, so only `early_career_no_experience` can reach
+  them. That is not a gap — deleting that profile turns three named mutations
+  red, which is the harness doing its job — but it is a thin margin worth
+  knowing about, and it is why the profile carries a comment saying what it is
+  for.
+- ~~**Nothing has scored a real posting yet.**~~ Answered at Task 10 and
+  strengthened at Task 12: 31 of 31 postings score, 11 distinct fractions, and
+  `make seed` now ends by running the sweep so the corpus is scored from the
+  moment a clean clone finishes seeding.
+- **`match_results.resume_id` is null on every row, and is now named as not
+  built rather than owed.** §6's *Recommended resume* has a column, an FK and no
+  writer. Task 10 declined it on I2 grounds and recorded the argument in
+  `matching.md` §6: a per-resume skill set exists only in `resume_extractions`,
+  which holds **proposals**, and §7.2 forbids a user-side span from quoting one.
+  Doing it honestly needs a confirmation step that attributes a confirmed skill
+  to the resume it came from — its own small design, not a rider on a panel. The
+  panel prints it under "Not built" beside the other two.
+- **Three of §8.5's nine explanation elements are not computed**, not two. The
+  count moved at Task 10 for the reason above, and `matching.md` §6's table now
+  says so. Anything describing M3c as computing seven of nine is out of date.
+- ~~**The seeded corpus fills two of the five bands.**~~ **Fixed at Task 12** by
+  giving the dev user the fixture resume's profile. Now: `eligible` 14,
+  `uncertain` 10, `likely_ineligible` 7 — so §3.3's dimming and the two blocked
+  bands' caveat copy are exercised by something a person can look at, and by a
+  browser test. `likely_eligible` and `ineligible` are still empty on this
+  corpus; the gate reaches `ineligible` only under a profile that contradicts a
+  stated bar, which `check_eligibility_gate` and `eligibility.spec.ts` both
+  construct deliberately.
+- ~~**The same run scores most of the corpus out of 10 to 50, and most of it at
+  zero.**~~ **Fixed at Task 12.** Now 6 distinct denominators including 100, 11
+  distinct fractions across 31 postings, and 102 evidence rows of which 27 quote
+  a posting and 27 quote the reader — against 13 rows quoting nothing before.
+  **What replaces it as the open question is not thinness but order:** a posting
+  assessed on 40 points can outrank one assessed on 100, because the fraction is
+  a ratio of incomparable denominators. Review §2.10, and it is M3d's.
+- **The recompute sweep is `users × open jobs`, unbounded in principle and
+  bounded in practice by the corpus being 31 postings and the user count being
+  one.** One anti-join per tick, batched at 500 pairs. At M4's scale this is
+  fine; the shape that is not fine is a version bump on a corpus of thousands
+  with real multi-user traffic, and the honest statement is that nothing here
+  has been measured above one user.
+- **`EvidenceSource.EMBEDDING` is on the wire, rendered, and unreachable.** The
+  PG enum carries it, `evidenceSourceSchema` carries it, and `MatchPanel` has a
+  branch that prints "proposed by the embedding". **Nothing produces it**, and
+  after ADR 0018 nothing is going to. This is listed here rather than deleted
+  because I7 is about the gap between what a reader would assume and what is
+  true, and a reader of `schemas.ts` would assume there are two sources of
+  evidence in this system. There is one. The branch stays because a row with
+  that source arriving and being labelled "matched by a vocabulary rule" is the
+  failure worth preventing, and `test_the_scorer_emits_no_evidence_row_an_
+  embedding_proposed` is the tripwire that sends the next person to the ADR.
+- **The one real recall gap Task 11 found is not fixed.** 33 occurrences across
+  the corpus of concept terms — `Machine Learning` (26), `Distributed Systems`
+  (4), `Data Structures` (3) — that somebody can genuinely demonstrate with a
+  concrete tool and that the scorer misses entirely. ADR 0018 recommends
+  `demonstrated_by:` edges in `data/skills.yaml`. Not built: it would move scores
+  across the corpus and so needs a `ruleset_version` bump, which is not a thing
+  to do in a milestone's last task.
+- **The seeded profile is one person, and the ranking has never been seen for
+  anybody else.** `make demo` and the whole browser walk read a single fixture
+  profile — a CS student graduating May 2027 with six skills and two projects.
+  The unit suite has four profiles; the seeded stack has one, and every judgement
+  about whether the ordering is useful has been made from that one.
+- **The ranked order is honest and can still mislead.** 19 of 40 outranks 30 of
+  100 because the fraction is a ratio of denominators that are not comparable
+  quantities, so a posting nobody could assess much of can beat one that was
+  assessed thoroughly. Both numbers are printed on every row, which is a
+  mitigation and not a fix. Review §2.10; M3d's relevance pass owns it.
+- **A hand-inserted `match_evidence` row with `proposed_by = 'embedding'` would
+  never be noticed.** Probed at Task 12: the database refuses a fabricated span
+  on INSERT *and* on UPDATE, and accepts a fabricated source. `verify.py`'s check
+  runs after everything that empties the table, so it only ever reads rows it
+  rescored itself — it asserts the *scorer* stores no such row, which is worth
+  having and is not the same claim. `matching.md` §7.2 carries the table.
+- **The ARQ recompute cron is asserted by nothing.** `recompute_pending` is
+  covered from four directions; `workers/tasks.py` scheduling it every minute is
+  covered by having been watched work in `make dev`.
+- **Old-version `match_results` rows are never garbage-collected.** §4.2 keeps
+  them on purpose, so a ruleset bump can be compared against what preceded it.
+  Nothing deletes them, so the table grows by one row per (person, posting) per
+  version bump. At this scale that is invisible and it is still an unbounded
+  growth path with no owner.
+
+- **The relevance ratings are 27/30 filled, all with the same word, and the
+  profile block is still empty.** The human's first pass on 2026-08-09 rated
+  everything `good` except 11, 12 and 13. Two problems, and the second is worse
+  than the first.
+
+  *Three are held rather than recorded.* The stated reason for marking them down
+  was being underqualified, which is the odds and not the fit — the worksheet
+  asks for fit explicitly, because whether you *can* apply is the gate's
+  question and §5.2 forbids it from ever becoming points. Recording them on that
+  basis would grade the score against something the score deliberately does not
+  contain. They sit at `TO_RATE` with the reason in their `note`, and
+  regeneration preserves notes, so nothing is lost.
+
+  They are also not one case. **11 (AML/KYC Officer, 4+ years crypto
+  compliance) and 12 (Corporate Development Manager, 8+ years in Indian
+  financial markets)** are non-technical senior roles in another field
+  altogether — `poor` on *fit*, and the instinct about them is right even
+  though the reason given was the wrong axis. **13 (Graduate Machine Learning
+  Researcher)** is the opposite: an early-career technical research role, which
+  is the shape this product exists to surface, gated by an MSc minimum and
+  sited in London. Under fit-not-odds that is plausibly `good`, and the two
+  things actually disqualifying it — a hard credential floor and a city outside
+  New York — are both things the engine should be catching on its own.
+
+  *A near-constant label cannot measure a ranking.* 27 of 30 in one class is the
+  ranking-metric version of a gate that answers `uncertain` to everything: every
+  ordering of the corpus scores about the same, so NDCG or precision@k over it
+  would report a number that discriminates nothing. If that ratio survives a
+  second pass, the honest reading is that **the corpus is the problem, not the
+  rater** — these thirty come from nine employers, all quant trading firms or AI
+  labs, selected for eligibility-rule coverage rather than for spanning what a
+  person would actually be shown. M3d then reports ranking quality as
+  unmeasured and says why, rather than reporting a flattering number.
+
+  The tests read the file as it stands and pass; the profile-dependent one
+  skips while `profile` is `TO_RATE`, and starts checking when it is filled.
+- **The thirty come from nine employers, all of them quant trading firms or AI
+  labs.** That is the corpus M3a recorded, chosen for eligibility-rule coverage
+  rather than for being a fair sample of New York tech — no agency, no startup,
+  no bank, no hospital, no university. Whatever M3d reports is therefore a
+  measurement over *that* slice, and saying so is the difference between a
+  ranking metric and a ranking metric that sounds broader than it is.
+- **The weights are §5.1's published numbers, untuned and unmeasured.** Nothing
+  has scored anything yet, so no evidence supports 30 for skill overlap over 25.
+  Tuning is deliberately after Task 6's golden test, never before it.
+- **All three deferred guards only fire at commit** — the evidence guard from
+  Task 2, the assessment guard from Task 9 and the penalty guard from Task 10. Deferrable constraint triggers are the only
+  shape that works, since a score has to exist before a child row can reference
+  it, but it means a transaction that never commits never checks. The test suite
+  rolls back, so every test forces them with `SET CONSTRAINTS ALL IMMEDIATE`.
+  Production code commits, so the guarantee is real there; anything that writes a
+  score inside a transaction it then abandons is outside what either guard can see.
+- **`scripts/` is outside the linted tree**, found this session and pre-existing:
+  `make lint` runs ruff over `services/api` only, so `verify.py` and both
+  worksheet generators are checked by nothing. 22 findings sit there today, most
+  of them `T20` on prints that are the point of those files. Left alone
+  deliberately — turning it on means per-file ignores, and that is its own small
+  change rather than a rider on M3c. The two files added this session were
+  checked against the same config by hand and are clean.
+
+---
+
+## M3c Task 12 — the milestone had no reader to be about
+
+**Shipped:** `apps/web/e2e-seeded/matching.spec.ts` (7 tests),
+`check_match_results` in `scripts/verify.py` (18 checks), `seed_demo_profile` and
+`cmd_score` in `nightshift/cli.py`, `make score`,
+`scoring.EVIDENCE_BEARING_REQUIREMENT_KINDS` and the zero-point nice-to-have
+rows, `RULESET_LOGIC_VERSION = "2"` and a regenerated golden file, `workers: 1`
+on the seeded Playwright config, four repaired assertions in three existing
+specs, **ADR 0019**, and `docs/reviews/milestone-3c-review.md`.
+
+### The finding the task existed to find, and it was about the fixtures
+
+`make seed` created a dev user with an email and nothing else. Against that
+profile the milestone could not demonstrate its own headline claim:
+
+```
+                              before   after
+evidence rows                     13     102
+  quoting a posting                0      27
+  quoting the reader               0      27
+components ever assessable    2 of 6   6 of 6
+distinct fractions                 8      11
+postings in a dimmed band          0       7
+```
+
+**Zero evidence rows quoted anything.** All thirteen came from freshness and
+priority, the two components §2.1 exempts from quoting a person. So §7.2 — every
+point traces to two literal spans — was true and unobservable, and the browser
+walk had nothing to check it against.
+
+`make seed` now writes the profile `tests/fixtures/resumes/nadia_okonkwo.txt`
+describes, through `update_profile` / `add_skill` / `add_project` — the same
+functions the form calls and the only writers I2 permits. It refuses to overwrite
+a profile anybody has touched, and it leaves four of the resume's skills
+unconfirmed on purpose, because `check_profile_confirmation` and
+`profile.spec.ts` both need a proposal nobody has accepted.
+
+`years_experience: 0` is what fills the dimmed bands, which is the "Not real yet"
+entry above closing itself.
+
+### Three false statements on the page, none of which a unit test could see
+
+Every one was true of a database and false about a person:
+
+| The page said | Why it was wrong |
+|---|---|
+| *What it asks for that you have nothing on file for:* **2** | A `years_experience` requirement. The profile states its years and the gate directly above reads them |
+| *Nice-to-haves you have nothing on file for:* React, TypeScript, Python | All three confirmed, and quoted by name eight lines higher on the same screen |
+| *0 · matched by a vocabulary rule* under a confirmed skill | True (§4.1) and reads as a judgement of the reader |
+
+The first is `unmet_requirements` differencing against an evidence graph that can
+only contain technologies. The second is `score_skill_overlap`'s **docstring
+describing a feature nobody wrote** — it has promised a zero-point row for a
+matched nice-to-have since Task 3, and the code iterated the required list only.
+
+Both are fixed in the domain rather than in the page, and the rule they leave
+behind is in `matching.md` §6: *a gap is only ever something an evidence row
+could have answered.*
+
+### The golden test refused to regenerate, unprompted, and was right
+
+The nice-to-have rows moved no total — a preferred technology is still worth
+nothing — but they changed the evidence graph, which is part of the score under
+I4 and is what the gap list is differenced against. The regeneration guard
+refused while `ruleset_version` stayed put, which is precisely the failure it was
+written to catch. `RULESET_LOGIC_VERSION` went to `2`. **Nobody remembered to
+bump it; the guard made it impossible not to.**
+
+### A browser test of my own that could not fail
+
+`matching.spec.ts`' load-bearing test — *every quoted word on the panel is text
+printed on the same page* — **survived a mutation that lower-cased every quote
+the panel printed.** It took the span from the API, asked whether some `<mark>`
+matched it through Playwright's `hasText` (case-insensitive, substring), then
+compared the API's span to the API's description: an assertion about something
+the API guarantees and the page cannot break.
+
+The two marks now carry their side and the comparison is rendered-to-rendered.
+The same mutation kills it. The file's docstring says a paraphrasing panel would
+pass every other assertion in it; it was describing itself.
+
+### `git checkout --` ate two files of unstaged work
+
+The first mutation script restored each mutated file with `git checkout --`,
+which restores from the index — and two files had unstaged Task 12 work in them.
+Reverted silently, mid-run; the three mutations after it ran against a tree
+missing the change under test. Reconstructed, and the staged golden file then
+matched byte-for-byte, which is a fair independent check that the reconstruction
+was faithful. The script uses copies now.
+
+### What ran, on this machine
+
+| Check | Result |
+|---|---|
+| `make check` | **1656 Python passed**, 1 skipped, 382s; **214 web passed** (22 files); ruff, mypy, prettier, eslint clean |
+| `make acceptance` | **exit 0** — up, migrate, drift, seed, **92 verify checks**, **55 seeded browser tests** passed, 1 skipped |
+| `make seed` | 31 postings, 31 scored, demo profile written, 7.5s |
+| Verify mutations | 3 written and measured red; a 4th killed by the database before `verify` saw it |
+| Browser mutations | 4 written and measured red, one of them only after §2.5's fix |
+| Screenshots | ranked list and two panels read by eye — where all three false statements were found |
+
+### Not run
+
+The ARQ worker path. `recompute_pending` is exercised by `make seed`,
+`make score`, `verify.py` and the unit suite; the **cron that calls it** has been
+run by `make dev` and by nothing that asserts anything.
+
+---
+
+## M3c Task 11 — the embedding gets measured, and says "you know Java, because you know Python"
+
+**Shipped:** `services/api/tests/test_embedding_proposals.py` (6 tests),
+`services/api/tests/matching_corpus.py` (the corpus loader, extracted from the
+golden test so two files score the same rows), ADR 0018, amendments to
+`matching.md` §2, §2.2, §2.3 and §9, and one comment in `MatchPanel.tsx`.
+
+**Not shipped, deliberately: any embedding proposal path.** No new module, no
+new column, no new dependency, and no change to a single score. `make check`
+green — 1655 passed, 1 skipped.
+
+### What the plan asked for and what came back
+
+The M3c plan §1.1 held this task back behind ten tasks of rules-only work and
+wrote down in advance that not shipping was allowed: *"If Task 11 measures a
+small number, it is correct to not ship it and record the figure, and that
+outcome has to be reachable from the plan rather than embarrassing."*
+
+The number is not small. **It is inverted, which is worse.**
+
+The rules-only baseline first, because §1.1 is right that nothing else means
+anything without it. 153 recorded postings, of which **71 name at least one
+`required` technology**, giving **240 requirement rows per profile**:
+
+| Fixture profile | Matched, of 240 | Missed |
+|---|---|---|
+| `new_grad_backend` | 90 | 150 |
+| `experienced_ml` | 88 | 152 |
+| `early_career_no_experience` | 59 | 181 |
+| `states_nothing` | 0 | 240 |
+
+Then the question the plan actually posed: of what the vocabulary missed, what
+would an embedding propose? Ranking every (missed requirement, confirmed skill)
+pair by cosine similarity under the real `bge-small-en-v1.5`:
+
+| Similarity | The claim it would put on the page |
+|---|---|
+| 0.797 | you meet a **Java** requirement, because you confirmed **Python** |
+| 0.764 | **macOS**, because you confirmed **Linux** |
+| 0.750 | **Azure**, because you confirmed **AWS** |
+| 0.742 | **Excel**, because you confirmed **SQL** |
+| 0.736 | **Windows**, because you confirmed **Linux** |
+| 0.725 | **TensorFlow**, because you confirmed **PyTorch** |
+| 0.705 | **Google Cloud**, because you confirmed **AWS** |
+| 0.699 | **Kubernetes**, because your project used **Docker** |
+| **0.624** | **Machine Learning**, because you confirmed **PyTorch** |
+
+The last row is the only relation in this corpus a person would defend. It comes
+ninth.
+
+### Why there is nothing to tune
+
+A threshold is worth having when the claims worth keeping sit above it. These
+sit below. Cosine over technology names measures **topical relatedness**; a match
+claim needs **substitutability**; and over exactly the pairs that matter the two
+run opposite. Java and Python are maximally related and not interchangeable, and
+it is *because* they are siblings that the model pairs them.
+
+Two checks that were owed before concluding, both of which the layer failed:
+
+- **Was the input impoverished?** Pair A embeds a bare token, and bare tokens
+  embed badly. So the requirement was re-embedded *inside its own sentence from
+  the posting* — the richest job-side text available. `Windows`←Linux,
+  `macOS`←Linux, `Azure`←AWS, `Google Cloud`←AWS, `TensorFlow`←PyTorch and
+  `Java`←Python are all still in the top twenty. The input was not the problem.
+- **Was the yield simply negligible?** No, and this is why "we tried it and it
+  did nothing" would be the wrong lesson. At a 0.70 cut the layer adds 44, 58
+  and 43 rows on the three stating profiles — **+49%, +66% and +73% on top of
+  what the rules matched**. At 0.50 it matches essentially everything the
+  vocabulary missed, and above 0.80 it matches nothing at all, so the entire
+  usable band sits inside the confusion zone. It was not rejected for being
+  ineffective. It was rejected for being wrong.
+
+### The correction to `matching.md` §2, which is the finding worth keeping
+
+The span rule was carrying the safety argument, and it cannot.
+
+A proposal of *"you meet the Java requirement"* quoting the posting's word
+*Java* and the user's word *Python* **satisfies both spans literally and
+completely**. Both strings were really written by the parties named. The rule
+guarantees that no text was invented; it says nothing about whether one string
+implies the other.
+
+**Spans prove provenance, not entailment.** They are a real defence against
+hallucinated text and no defence at all against unwarranted inference — and it
+is the second that a similarity score produces. Worse, both spans render beside
+the claim, so a fabricated qualification arrives *looking audited*. §2 now says
+so, in a note under the rule it corrects.
+
+### What the residue actually contains
+
+The alias table in `data/skills.yaml` already owns every case where two strings
+denote the *same* technology — `golang`/`Go`, `cpp`/`C++`. Those never miss, so
+they never reach a proposal layer. What is left over for an embedding is, by
+construction, pairs of strings denoting **different** technologies. There is no
+honest match hiding in there for a better model to find.
+
+One real gap did surface and it is a different shape: **33 occurrences of
+concept terms** — `Machine Learning` (26), `Distributed Systems` (4),
+`Data Structures` (3) — which a concrete tool can genuinely demonstrate. The
+honest carrier is a `demonstrated_by:` edge in the vocabulary file: reviewable,
+diffable, versioned, and a claim a human wrote down and can be argued with. It
+is also strictly narrower than similarity — it says PyTorch demonstrates machine
+learning and never that PyTorch demonstrates TensorFlow. Recorded in ADR 0018,
+in "Not real yet", and not built, because it moves scores and so needs a
+`ruleset_version` bump.
+
+### How the decision is kept from reversing itself quietly
+
+A decision not to build something is normally invisible. Three tests make this
+one able to go red, and each was **proven able to fail** before being committed:
+
+| Test | Broken by | Result |
+|---|---|---|
+| `test_the_rules_only_baseline_is_what_task_11_was_measured_against` | `90` → `91` in the pinned baseline | red |
+| `test_no_threshold_admits_the_defensible_relation_without_fabrications_first` | `DEFENSIBLE` set to `("Java", "Python")` | red |
+| `test_the_scorer_emits_no_evidence_row_an_embedding_proposed` | `Evidence.proposed_by` defaulted to `EMBEDDING` | red |
+
+The second is the one that would reopen the ADR on evidence: if a future model
+ranks the concept relation above the sibling confusions, it goes red and says so.
+
+### One refactor, and why it was not optional
+
+`_load_corpus` and `_load_profiles` moved out of `test_matching_golden.py` into
+`tests/matching_corpus.py`, and `conftest.py`'s session fixture and
+`test_every_score_number_is_load_bearing.py` now import from there. Copying them
+was the alternative and it is the wrong one: a measurement taken against a corpus
+that is *nearly* the golden file's is a measurement of nothing in particular. The
+34 tests across the golden file and the mutation harness pass unchanged, which is
+what makes it a move rather than a rewrite.
+
+---
+
+## M3c Task 10 — the score reaches a person, and the last bare number gets a reason
+
+**Shipped:** `0019_match_penalties` (a table, a PG enum and one deferred trigger
+asserting two things, both migration directions applied), `matching.BAND_ORDER`,
+`matching.ranked_for` and `matching.unmet_requirements`, a new
+`GET /matches` route, `MatchPenaltyOut` / `UnmetRequirementOut` /
+`RankedJobOut` / `RankedBandOut` / `MatchRankingOut` in `api/schemas.py`,
+`JobDetailOut.unmet_requirements`, and on the web side `MatchPanel`,
+`RankedMatches`, `/explore/matches`, and eleven new schemas in `schemas.ts`.
+11 tests added to `test_match_result_models.py`, 7 to `test_match_routes.py`,
+12 in a new `test_match_ranking_routes.py`, 2 in `test_nothing_infers.py`, 5 in
+`test_enum_parity.py`, 14 in `MatchPanel.test.tsx`, 9 in `RankedMatches.test.tsx`.
+
+### The decision this task was handed, and why the answer was a table
+
+PROGRESS assigned it in as many words: *"Task 10 decides whether that is
+acceptable or whether §4.2's one-column decision needs revisiting."* It is not
+acceptable and §4.2 did not need revisiting, which are two separate answers.
+
+`match_results.penalty_score` stays one column. §4.2's reason holds — the
+evidence trigger binds the six positive components and a second *score* column
+would imply an evidence link that does not exist — and `the_total_is_its_parts`
+still adds it exactly once. What §4.2 also said was *"what each penalty cost
+belongs to the explanation"*, and nothing carried it: a reader saw `-18` and
+could not be told that 12 of it was three unmet technologies and 6 a title
+pitched above their stated years. I4 lists what a score stores as *"its
+components, **its penalties**, its `ruleset_version`, and its evidence"*.
+
+So `match_penalties` is §4.5's table one row down, with the same argument: the
+rule's own sentence, produced by the same call as the points it explains, stored
+rather than re-derived at render time. **Three consecutive tasks have now found
+a missing column the moment somebody read the thing they had written** — Task 8's
+denominator, Task 9's assessments, Task 10's penalties — and the pattern is worth
+naming rather than treating each as a surprise.
+
+### The guard is an equality, because a split invites exactly one failure
+
+A decomposition that can disagree with the number it decomposes is worse than no
+decomposition: it is a second account of the same claim, which is what §4.2
+refused to store an `explanation` column for. So the trigger asserts
+`sum(match_penalties.points) = match_results.penalty_score` at commit, plus
+exactly two rows, one per name.
+
+`PenaltyName` is a PG enum rather than free text and that is what makes the count
+an assertion. With an open domain, a typo'd `seniority_missmatch` beside a
+correct row is two rows, two names, and a guard that passes.
+
+Both directions are tested. The equality was shown to fail with a row summing to
+-4 beside a column of -10, and the count with one row and with none.
+
+### The truncate list refused again, and this is the eighth time
+
+`match_penalties` references `match_results`, so `TRUNCATE` without CASCADE
+failed the moment the table existed — within a minute, exactly as it did for
+`match_component_assessments` at Task 9. Sixth milestone running that
+`_INGESTION_TABLES` has been kept correct by the database rather than by anybody
+remembering to edit it.
+
+### Two derivations of the missing technologies, and a test that they agree
+
+§6's *why it may not fit* is a set difference over the stored evidence rows
+(`matching.unmet_requirements`). The missing-requirement penalty independently
+recorded what it charged for, in `compared["missing"]`. Different code, different
+inputs, and the page prints one list beside the other's cost — so if they can
+disagree, a person is told they are missing three things and charged for four.
+`test_the_missing_technologies_are_the_ones_the_penalty_charged_for` asserts the
+two sets are equal, and asserts the set is non-empty so it cannot pass vacuously.
+
+The list is **null rather than empty when there is no score**. An empty list
+beside a null score reads as *you meet everything*, which is a claim about a
+person derived from no evidence rows at all — the same failure `eligibility`'s
+own null exists to prevent one field up, and it would render as a clean page
+rather than as a bug.
+
+### `ORDER BY overall_score DESC` is the obvious clause and it is wrong
+
+`assessed_out_of` is not always 100, so raw totals are not comparable: 40 of 50
+is a better match than 45 of 100 and the obvious sort puts them the other way
+round, with both numbers on the page staying true and only their comparison
+lying. The list sorts on `overall_score / NULLIF(assessed_out_of, 0)`, and
+`test_the_order_is_the_fraction_and_not_the_total` is the assertion, with the
+fixture built so the two orderings disagree.
+
+`NULLIF` also hands the unassessable pairs the null they are entitled to instead
+of raising. **They sort last inside their band, deliberately** — Postgres'
+default for `DESC` is `NULLS FIRST`, so without the explicit clause the pair
+nobody could score leads the list. Last is a decision and not a default, so
+`unassessed_sort_last` is on the wire; the row renders as *nothing to assess*,
+never as `0%`.
+
+### The band order is written out, not inherited from the enum
+
+`BAND_ORDER` agrees with `EligibilityState`'s declaration order today, and taking
+it from there would make a product decision a property of the order somebody
+typed five members in. `uncertain` above `likely_ineligible` is the line worth
+stating on its own: an open question is not a soft no, and the other way round
+buries the postings a person could resolve by filling in one profile field under
+the ones they cannot resolve at all. Two tests in `test_nothing_infers.py`, which
+is where this repo's other hand-maintained lists are guarded.
+
+The SQL needed a cast that was not obvious: a `CASE ... WHEN` over a PG enum
+column binds its whens as `varchar`, and Postgres has no
+`eligibility_state = character varying` operator. The query does not mis-sort, it
+refuses to run — the better of the two failures, and it fired on the first run.
+
+### The stale "not built yet" list finally has a test rather than a lucky catch
+
+`JobDetail.tsx`'s `DEFERRED_FACTS` went from six entries to one. Five of the six
+— match score, match breakdown, missing requirements, project evidence,
+recommended resume — were about to sit on the same page as the sections that
+answer them. A stale entry there has gone unnoticed for a whole milestone three
+times in this project, and each time it was caught by accident; at M3b it was
+caught only because the word "Eligibility" appeared twice and a test could no
+longer tell the two apart.
+
+`JobDetail.test.tsx` now asserts it structurally: **every name in the deferred
+list must not appear anywhere else on the page.** It fired on this diff for five
+of six entries, which is the first time this failure has been caught on purpose.
+*Recommended resume* moved to `MatchPanel`'s own not-built list rather than being
+deleted, because a score's missing parts belong beside the score.
+
+### The recommended resume was declined, and the reason is I2 rather than time
+
+§6 had it owed by "whichever of Tasks 10–12 takes it". Task 10 built the panel it
+would render in and did not take it. *Which stored resume best covers the required
+set* needs a per-resume set of skills, and there is none: `user_skills` is
+confirmed and belongs to the **person**; `resume_extractions` is per-resume and
+holds **proposals**, which §7.2 forbids any user-side span from quoting.
+Recommending a resume from proposals is a claim about somebody's qualifications
+built on text nobody confirmed.
+
+Doing it honestly needs either a confirmation step that attributes a confirmed
+skill to the resume it came from, or an explicit "this resume mentions" reading
+that is never called evidence. Either is its own design. So the element count in
+`matching.md` §6 moved from *seven computed, two not built* to **six computed,
+three not built**, and the page names all three.
+
+### The first end-to-end run on real postings
+
+Everything before this had scored fixtures. `recompute_pending` against the
+seeded database: **31 of 31 postings scored, 0 skipped**, then `ranked_for`
+returned all 31 with `not_yet_scored = 0`.
+
+What it produced is worth recording exactly, because it is thinner than the test
+suite suggests:
+
+| | |
+|---|---|
+| `eligible` | 13 |
+| `uncertain` | 18 |
+| `likely_eligible`, `likely_ineligible`, `ineligible` | 0 |
+| Distinct denominators | 10, 20, 40, 50 — never 100 |
+| Distinct fractions | 8 across 31 postings |
+
+Two consequences are in "Not real yet" above and both are real: the dimmed bands
+are exercised by no fixture a person can look at, and the seeded profile is empty
+enough that most components are unassessable and most scores are zero. The
+denominators are §5.1.1 working as designed on a corpus of mostly non-engineering
+roles, not a fault — but nothing has yet shown the ordering doing useful work
+against a realistic profile, and that is Task 12's browser walk to say.
+
+### Not run this session
+
+`make acceptance` and the browser walk. Both are Task 12's, and Task 12 also owes
+`check_match_results` in `verify.py` and ADR 0018. `make check` is green.
+
+---
+
+## M3c Task 9 — the score reaches a reader, and a component learns to say why
+
+**Shipped:** `0018_match_component_assessments` (a new table and one deferred
+trigger asserting three things, both migration directions applied),
+`matching.current_result_for` (the version filter),
+`matching.COMPONENT_SCORE_COLUMNS` (one mapping, now read by two modules),
+`scoring.score_fraction` and `scoring.DEFERRED_COMPONENTS`, a zero-weight
+refusal in `matching_weights.parse_weights`, `MatchOut` / `MatchComponentOut` /
+`MatchEvidenceOut` / `DeferredComponentOut` in `api/schemas.py`, and
+`JobDetailOut.match`. 14 tests in a new `test_match_routes.py`, 9 added to
+`test_match_result_models.py`, 1 to `test_matching_weights.py`, 1 to
+`test_nothing_infers.py`, and 3 assertions added to existing recompute tests.
+
+### The task owed a migration, and the reason is Task 8's reason one layer up
+
+Task 8's note says its two columns were "found by implementing the thing that
+fills them". Task 9 is the first task that *reads* a score, and it found the same
+shape: **which components could not be assessed is not recoverable from
+`match_results`.**
+
+§5.1.1 requires the page to name them and say why. Neither half is there:
+
+- A component that scored zero and one nobody could assess both store `0`. That
+  indistinguishability is the entire content of §5.1.1.
+- `assessed_out_of` does not resolve it. The six weights are 20, 30, 20, 10, 10,
+  10 and several subsets sum to the same number, so the denominator names *how
+  much* was assessed and can never name *which*.
+- The `why` sentence exists nowhere else. The three exempt components quote
+  nobody and put their values in `match_evidence.compared`; an assessable
+  component that scored zero has no evidence row at all. Without the sentence
+  those components reach the browser as bare numbers, which is I4 one level below
+  the total.
+
+`match_component_assessments` is six rows per score: `component`, `assessable`,
+`why`. `matching.md` §4.5 is the decision.
+
+### The alternative was re-running the scorer on read, and that is the worse one
+
+The cheap version of this task computes the missing fields at render time —
+`score_match` is pure, the stored row is guaranteed fresh (any input change
+deletes it), so the two "should" agree. That is the second-derivation failure
+`posting_for`'s own docstring is written about, and here it is worse than there:
+a breakdown computed by a second path can disagree with the total printed above
+it, and nothing on the page would look wrong. Every number in `MatchOut` is read
+off the stored row.
+
+### Storing a sentence is not the `explanation` column §4.2 refused
+
+It looks like a reversal and it is not, and the line is worth stating because the
+next person to read §4.2 will ask. An `explanation` is assembled **from** the
+evidence rows, so it is a second version of a claim that can contradict its
+source. A `why` is produced **alongside** the points, by the same call, from the
+same inputs, and has no other source to contradict. Written into `matching.md`
+§4.2 as well as §4.5, next to the refusal it qualifies.
+
+### The trigger asserts three things, and the third one needed a change to the loader
+
+1. **Exactly six rows, one per component** — the database's copy of
+   `MatchScore.__post_init__`. Five means a component silently has no statement.
+2. **An unassessable component scored nothing** — `ComponentScore.__post_init__`
+   in SQL, for anything reaching the table another way.
+3. **`assessed_out_of = 100` exactly when every component was assessable.**
+
+The third is the one that matters on the page: without it the breakdown can name
+three unassessable components beside a denominator of 100, and the ranked list
+then sorts on a fraction that contradicts the rows printed under it.
+
+It holds only while an unassessable component necessarily *narrows* the
+denominator — which needs every weight ≥ 1, and the sum-to-100 assertion does not
+give that. `role_relevance: 0` beside `skill_overlap: 50` totals 100 and passes,
+while removing role relevance from every score in the corpus. That is the silent
+removal `data/matching.yaml`'s own header claims is caught, in the one shape that
+got past it, and `parse_weights` now refuses it. Left unfixed, a legal weights
+file would have produced scores the database rejects, with the error naming a row
+rather than the file that caused it.
+
+### Three plausible wrong routes, each measured going red
+
+The task's own criterion is a negative — *a stale row reads as not-yet-computed,
+never as a score* — so the implementations that fail it were written and run:
+
+| Mutation | What went red |
+|---|---|
+| `ORDER BY created_at DESC LIMIT 1`, no version filter | the stale-version test and the two-rows test |
+| `ORDER BY overall_score DESC LIMIT 1`, no version filter | the same two |
+| the `user_id` filter dropped | `test_another_person_s_score_is_not_served` |
+| `score_fraction` returning `0.0` instead of `None` | one route test and one scoring test |
+| assessments filtered to the assessable ones on write | 14 tests across three files |
+
+**The two-rows test was measured failing to catch the first mutation** before it
+was fixed, and the reason is worth keeping: `created_at` defaults to `now()`,
+which is the *transaction* timestamp, so two rows written in one transaction are
+indistinguishable in order and `ORDER BY created_at DESC` returned the right row
+about half the time. Writing the stale row second is not enough; it now carries an
+explicitly later timestamp and a higher score, so both shortcuts pick it every
+time. A test that catches a bug half the time is a flake whichever way it lands.
+
+### Two derivations of the eligibility state, shown to agree
+
+`match_results.eligibility_status` is what the ranked list's bands will be built
+from; the job page also computes the full verdict on read for its blockers and
+unknowns. The page shows both at once, so two sources for one claim is a defect
+unless something checks them —
+`test_the_stored_eligibility_state_agrees_with_the_live_verdict` is the check.
+
+### The truncate list refused again, on schedule
+
+`_INGESTION_TABLES` in `conftest.py` had to gain `match_component_assessments`,
+and the way that was discovered is 43 tests erroring with *cannot truncate a table
+referenced in a foreign key constraint* within a minute of the table existing.
+Seventh milestone running that this list has been kept correct by the database
+rather than by somebody remembering to edit it.
+
+### Verified, on this machine
+
+| Check | Result |
+|---|---|
+| `make check` | **1616 Python passed**, 1 skipped, 395s; **182 web passed** (20 files); ruff format + lint clean; mypy clean on 67 source files; prettier + eslint clean |
+| `make migrate` | `0017 → 0018` applied |
+| `alembic downgrade 0017` then `upgrade head` | both directions applied, no error |
+| `make drift` | no model/migration drift |
+| Mutation runs | five wrong implementations written and each measured going red — the table above |
+
+One thing this list does **not** include, and it is the honest gap: nothing was
+looked at in a browser, because there is nothing to look at. The response carries
+the score and no page reads it. `make demo` renders exactly what it did before
+Task 8. The browser walk is Task 12's, and Task 10 is what makes one possible.
+
+A note on how the `make check` figure was obtained, because the first two attempts
+reported failures that were not real: three `make check` runs were started
+concurrently against the one development Postgres, and they interfered — the two
+runs produced *different* sets of 19 and 29 errors across ingestion, polling and
+closure tests. `db_session` truncates inside its own transaction (conftest), which
+is correct for one run and is contention for two. The green figure above is from a
+single serial run with nothing else touching the database, confirmed by
+`ps aux | grep pytest` returning nothing first. **Two piped `make check` runs also
+reported exit 0 while failing**, because `cmd | tail` returns the exit status of
+`tail`; the real status came from writing to a file and echoing `$?`.
+
+---
+
+## M3c Task 8 — the score reaches the database, and three triggers turn out to be one state
+
+**Shipped:** `0017_match_score_denominator` (the two owed columns, both
+directions applied), `nightshift/domain/matching.py` (assembly, persistence, and
+the sweep), `workers.tasks.recompute_match_results` on a one-minute cron with
+`run_at_startup=True`, `SCORING_RELEVANT_PROFILE_COLUMNS` and its three parity
+guards, and the invalidation inside `update_profile` and `confirm_extractions`.
+14 tests in `test_match_recompute.py`, 3 added to `test_nothing_infers.py`, 2 to
+`test_enum_parity.py`.
+
+### The three triggers are three routes into one state, not three mechanisms
+
+§4.2 names a new or changed job, any profile change, and a ruleset version bump.
+Implemented literally that is three code paths that can disagree about how a
+score is computed, and two of them are events that can be missed.
+
+They collapse because of what Task 2 already built. A changed job has its scores
+*deleted* by the four triggers written then; a new job never had one; a version
+bump changes `ruleset_version`, which is part of the uniqueness key. All three
+arrive as the same fact — **no row at the current ruleset version** — which one
+anti-join finds. So `recompute_match_results` takes no argument naming what
+changed, and its work item is a row's absence rather than a queue message:
+nothing is lost while the worker is down, and the next tick finds exactly what
+the last one did not finish.
+
+Only the profile change needed code, because no database trigger can see a
+`users` column move.
+
+### The plan said "enqueue"; this invalidates instead, and that is a departure
+
+The M3c plan's Task 8 line is *"the task is enqueued from a named set of
+scoring-relevant columns"*. The named set is exactly as planned. What is not is
+the verb: `update_profile` **deletes** that person's scores inside the request's
+own transaction, and the sweep rebuilds them.
+
+The reason is that the two failure modes are not symmetric. A delete commits
+with the change that caused it or neither happens. An enqueue after commit is
+lost if Redis is unreachable at that instant — and what survives is a stored
+score computed against a profile that no longer exists, with nothing anywhere
+recording that it should not be trusted. It also keeps the API process free of
+an ARQ pool it has no other reason to hold.
+
+What it costs is latency: a score reads as not-yet-computed until the cron runs,
+which is why that cron is every minute rather than hourly. This is the right
+side to be wrong on — a missing score is a true statement and a stale one is
+not — but it is a real difference from what the plan described, so it is
+recorded here and in `matching.md` §4.2 rather than left in a diff.
+
+### "Compared", not "provided", and that is the second half of the trap
+
+The plan named "any profile change" as a trap and answered it with a named
+column list. The list alone is not enough. M2c's `PATCH /profile` carries every
+field the form holds, so somebody who opens the profile page and presses save
+provides the entire scoring-relevant set and changes none of it — and a
+`provided`-based implementation rescores the corpus on every click of a button
+that did nothing.
+
+`_clear_scores_if_inputs_moved` snapshots the named columns before the
+assignments and compares after. `test_resubmitting_the_same_values_changes_nothing`
+is the test for it, and it is the one a plausible implementation fails.
+
+### `confirm_extractions` writes profile columns too, and was nearly missed
+
+`update_profile` is the obvious writer. `confirm_extractions` also assigns
+`graduation_year`, `graduation_month` and `degree` when somebody accepts a
+proposal from their resume — and none of those are read by any *component*.
+They are read by the eligibility gate, and `eligibility_status` is a column of
+`match_results`. A score whose band no longer matches the person is exactly as
+wrong as one whose number does not.
+
+This is why the invalidation is a shared helper on a before/after snapshot
+rather than a line at the end of the PATCH handler: the second writer would have
+been found by nobody until a demo showed an `ineligible` badge on a person who
+had just confirmed they graduate next spring.
+
+### The third parity guard is the one that would actually catch the drift
+
+`test_nothing_infers.py` gained three. Two are bookkeeping — the two tuples
+partition `PROFILE_COLUMNS`, and every name is a real column. The third greps
+`matching.py` and `eligibility.py` for `user.<column>` reads and asserts the
+list names all of them.
+
+That third one is the only one that can catch the expensive direction. A column
+wrongly classified as *not* scoring-relevant is already accounted for by the
+partition test, and produces a score that never updates, never errors, and never
+looks wrong on the page. Shown able to fail: moving `remote_preference` to the
+not-relevant tuple turns it red and leaves the other two green.
+
+### The migration owed two columns and the second one was load-bearing
+
+`assessed_out_of` was known about since Task 5. `match_evidence.job_span_field`
+was not obviously urgent, and it is the one that would have silently cost
+evidence.
+
+Every span in this system points into `jobs.description_text` — so the quoting
+trigger written at Task 2 checked that string. Role relevance is decided on the
+**title**. The first real role evidence row would therefore have been refused
+for not quoting a string it never claimed to come from, and the cheapest fix
+under time pressure is to stop storing the span — which passes every test and
+quietly removes the evidence for the component §2.1 cares most about.
+`test_a_title_span_filed_as_a_description_span_is_refused` is the row that would
+have been written, shown refused.
+
+A second guard came with it: the enum's members and the trigger's `CASE`
+branches are asserted equal. A `CASE` with no matching branch returns null in
+Postgres rather than raising, so a missing branch does not fail loudly — it
+fails as *"scores a job whose title is null"* on a job whose title is right
+there.
+
+### `overall_score <= assessed_out_of` was added because the fraction depends on it
+
+Not in `matching.md` §5.1.2, and added while writing the migration. Each
+component is capped at its weight and only assessable components widen the
+denominator, so the inequality is already true of everything the rules can
+produce. That is the argument for asserting it, not against: the ranked list
+divides by this column, and a fraction above one is a posting sorting ahead of a
+perfect match with nothing else on the row looking wrong.
+
+### Existing rows are deleted rather than backfilled, in both directions
+
+There were none, so it cost nothing. It is still a decision rather than a
+shortcut: `100` is not a neutral default for an unknown denominator, it is the
+assertion that every component was assessable — which is precisely the claim
+§5.1.1 exists to stop anyone making by accident.
+
+### A trap for Task 9, closed here
+
+`profile_for` walks `user.skills` and `user.projects` and is synchronous, so a
+`User` loaded without them raises `MissingGreenlet` rather than returning an
+empty profile. That is the better of the two failures and still a trap, and the
+caller who hits it is whoever loads a user for some other purpose and passes it
+to `score_pair` — which is every route Task 9 adds. `score_pair` now refreshes
+what is missing, which costs one query and only when something is missing.
+
+---
+
+## M3c Task 7 — nineteen kills, and the five dead ones that found a missing user
+
+### What each number in `data/matching.yaml` is worth, measured
+
+Scores that change when the number moves, out of 612 (153 postings × 4
+profiles), on 2026-08-09:
+
+```
+components.role_relevance             → 0    354
+components.skill_overlap              → 0    284
+components.project_evidence           → 0    213
+components.location_and_work_mode     → 0    333
+components.listing_freshness          → 0    580
+components.early_career_priority      → 0    392
+penalties.missing_requirement         → 0    236
+penalties.seniority_mismatch          → 0     80
+thresholds.freshness_days.full        +1    296
+thresholds.freshness_days.zero        −1    580
+thresholds.missing_requirement.per_requirement  +1  194
+thresholds.seniority_mismatch.per_year          +1   47
+thresholds.seniority_years.internship  +1     19
+thresholds.seniority_years.new_grad    +1     15
+thresholds.seniority_years.junior      +1      5
+thresholds.seniority_years.mid         +1     26
+thresholds.seniority_years.senior      +1     17
+thresholds.seniority_years.staff       +1     20
+thresholds.seniority_years.director    +1     12
+```
+
+Reported, not gated — M3a's rule: a floor set before measuring is either
+unreachable or vacuous and there is no way to tell which from outside.
+
+### The plan asked for six kills. Nineteen numbers can move a score
+
+Task 7 is written as "zero each weight". The six weights are not the only
+numbers in the file that change what a person is shown: the two penalty
+ceilings and the eleven thresholds do too, and **a decorative threshold is
+exactly as invisible as a decorative weight**. All nineteen are mutated, and
+`test_every_threshold_has_a_mutation` fails if one is added without one — the
+same guard M3b's harness carries, because the failure mode is a check that looks
+complete because nothing counts what it is missing.
+
+A threshold is mutated by ±1 rather than by zeroing. "Zero it" is meaningless
+for a rung that is already 0 and for a window whose lower bound is 7; ±1 is the
+smallest change that could plausibly be a typo, which is the mutation worth
+defending against.
+
+### Five mutations were dead, and the fix was a user this product exists for
+
+With the three Task 6 profiles, `seniority_years.internship` and `new_grad`
+moved **zero** scores, and `junior` moved zero downwards. The reason is
+arithmetic: `gap` is `max(0, implied - years)`, so a rung only ever bites
+somebody *below* it, and the three profiles state 6 years, nothing and nothing.
+
+The fix was a fourth fixture profile at **`years_experience: 0`** — and finding
+it was worth more than the five kills. Somebody with no professional experience
+yet is this product's user, and the fixture set had nobody in it. Zero is a
+stated fact and not a silence, which is the exact distinction the seniority
+penalty turns on and the one nothing was exercising.
+
+One profile revived all seven rungs: internship 19, new_grad 15, junior 5.
+
+### The named test is the golden file, and that is not a shortcut
+
+No unit test in `test_scoring.py` reads `data/matching.yaml` — every component
+takes its weight as a parameter, deliberately, because that is what keeps those
+tests stable when the numbers are tuned. So the golden test is the only test a
+weight change can turn red, and the harness asserts exactly that by rendering
+the golden document under the mutated number.
+
+That makes each kill stronger than a hand-picked case, not weaker: the assertion
+is over 612 real scores, and the harness reports *which* scores moved rather
+than a count, so a number moving one obscure posting shows up as one.
+
+### The harness is proven able to fail, in both directions
+
+Two guards on the harness itself, because a mutation harness that always says
+"yes, load-bearing" certifies rules it never tested:
+
+- `test_the_harness_reports_no_movement_when_nothing_is_mutated` — if rendering
+  were non-deterministic, every kill above would be a false positive.
+- `test_the_harness_can_tell_which_scores_moved` — a mutation known to move a
+  handful of scores must report more than zero and fewer than all.
+
+And the end-to-end check, run rather than asserted: `score_project_evidence`
+made to return unassessable unconditionally — the shape of a rule somebody
+disabled — turns exactly `[project_evidence]` red with the message naming it,
+and leaves the other five green.
+
+### The suite got slower, and it was the corpus rather than the mutations
+
+The plan's §4 names this risk about Task 8's rescore, and it arrived two tasks
+early. Tasks 6 and 7 took the Python suite from 435s to 753s, and the mutations
+were not the cause: each one is ~0.5s. **Reading and classifying the 153
+postings is ~26 seconds**, and it was happening three times — once for the
+golden file's fixture, once for the determinism test, once for the mutation
+harness — in two modules neither of which is *about* extraction.
+
+It is now a session fixture in `conftest.py`, built once. The determinism test
+still builds its own on purpose: a determinism test handed a cached corpus is
+comparing one object against itself.
+
+Measured: the two files together went 90s → 31s, and the full suite settled at
+685s against 435s before M3c Task 6. The remaining ~250s is the two files' real
+work — 612 scores rendered once for the golden file, once more for determinism,
+and 19 more times for the mutations — and it is the price of checking the score
+against a real corpus rather than against three hand-written postings.
+
+### The mutation bypasses the loader, on purpose
+
+`parse_weights` refuses a zeroed weight (the six must sum to 100) and a zeroed
+per-unit threshold. Both refusals are correct and both are tested. The harness
+constructs `MatchingWeights` directly, because that is the only way to ask what
+a number's absence would look like about a number the loader exists to stop
+reaching production.
+
+---
+
+## M3c Task 6 — the golden test, and the regeneration that refuses
+
+### The corpus was measured before the format was chosen
+
+Scoring all 153 recorded postings against three fixture profiles, on 2026-08-09,
+before writing a line of the golden file:
+
+```
+459 scores          37 distinct overall scores      9 distinct denominators
+1,098 evidence rows  5 pairs with assessed_out_of == 0
+components earning points somewhere in the corpus: all six
+```
+
+That is what makes the file worth having. A scorer returning 50 for everything
+would satisfy every other assertion in the test module — deterministic,
+decomposing, real spans, byte-stable golden — so the anti-vacuity test is the
+one that had to be written, and it is M3b's
+`test_the_corpus_actually_exercises_the_gate` one milestone up.
+
+The 5 pairs reaching `assessed_out_of == 0` matter separately: `fraction is
+None` is a branch the corpus actually visits, not a defensive one. A test asserts
+it stays non-empty, so if the branch ever becomes unreachable that is stated
+rather than discovered.
+
+### All 153 recorded postings, not the labeled 60
+
+Nothing in this file is graded against a key — a golden file makes no claim that
+a score is *right* — so the answer-key labels buy nothing here and the extra 93
+postings buy coverage: more seniority levels, more cities, and postings with no
+publication date at all (8 of 153).
+
+### Every component prints its sentence, not only its points
+
+`why` is what the explanation panel renders (§6). A rule that changes the
+wording without changing the arithmetic has changed what a person is told, and a
+golden file pinning only numbers would call that no change. Both are in the
+file, one line each.
+
+An unassessable component prints **`—` where its points would go, never `0`**.
+That is §5.1.1 made visible: a component that scored zero and a component the
+posting could not answer are different statements, and a file rendering both as
+`0` cannot show a rule change that turns one into the other.
+
+### Text rather than JSON, because the diff is the product
+
+A JSON golden diffs one key per line and buries the number that moved among its
+punctuation. The committed format reads as a breakdown, which is what somebody
+staring at a red test needs:
+
+```
+akunacapital/7496397 · states_nothing
+  0/50  role — · skill 0 · project — · location — · freshness 0 · priority 0 · penalty -25
+  role        —  this profile states no preferred roles
+  skill       0  none of the 5 required technologies is confirmed on this profile
+  project     —  this profile records no projects
+  ...
+  penalty missing_requirement -25  5 of 5 required technologies have no evidence
+  penalty seniority_mismatch —  this profile states no years of experience
+```
+
+### The failure a golden test invites, and the guard that blocks it
+
+Change a rule, see red, regenerate, commit. `ruleset_version` then describes
+rules that no longer exist, every stored `match_results` row claims a ruleset
+that never produced it, and §4.2's "a stale result is never silently served"
+quietly stops being true — because staleness is decided by comparing that
+version.
+
+So regeneration **refuses** when a score present in both the committed file and
+the new one changed while the version stayed put, and it prints the diff rather
+than only saying no. A guard that says only "no" is a guard people learn to
+route around.
+
+**Growing the corpus is deliberately allowed.** A new posting changes no
+existing score. Refusing it would make the only way to add a fixture a version
+bump that describes nothing, which is how a guard earns a reputation for crying
+wolf.
+
+The loop was run end to end rather than asserted: `skill_overlap: 30 → 25` in
+`data/matching.yaml` with no version bump →
+
+```
+the score moved: -  8/30  ... freshness 8 ...   +  9/31  ... freshness 9 ...
+GoldenRefused: N score(s) changed while ruleset_version stayed '1+2026-08-09.1'
+```
+
+→ restore → green again. Five unit tests cover the guard's own branches,
+including the two it must *not* fire on.
+
+### `as_of` is frozen, and that is not laziness
+
+`listing_freshness` is arithmetic against today. A golden computed with
+`date.today()` goes red every morning and teaches everyone to regenerate without
+reading the diff — which makes the guard above pointless. The date is
+2026-08-09 and it is a constant in the test module.
+
+### One thing this file cannot do
+
+It is nine employers, all quant trading firms or AI labs. 153 postings looks
+broad and is the same narrow slice everything else in M3 measures on. A rule
+that misfires only on an agency's posting moves nothing here. That is in the
+test module's own docstring so it travels with the file.
+
+---
+
+## M3c Task 5 — the two penalties, and the total that carries its own denominator
+
+### The missing-requirement penalty may only read `technology`, and that is §5.2
+
+`matching.md` §5.1 describes it as *"required requirements with no evidence row
+behind them"*, and the first thing implementation asked was: which required
+requirements?
+
+A posting's required rows can be `degree`, `graduation_window`,
+`years_experience`, `enrollment`, `authorization`, `technology` or `role_level`.
+The first five are **exactly the five dimensions M3b's eligibility gate owns** —
+`eligibility.Dimension` lists those five and nothing else. Charging points for
+an unmet degree requirement is the eligibility verdict converted into a number
+by a side door, which §5.2 forbids in the plainest language that document has.
+`role_level` belongs to the other penalty. So `technology`, alone.
+
+That exclusion is one line of code and would rot silently, so
+`test_every_requirement_kind_is_owned_by_the_gate_the_penalty_or_the_level`
+asserts the three-way partition covers `RequirementKind` exactly. A seventh kind
+turns it red and forces somebody to decide where it goes, rather than letting it
+default into a penalty or out of one.
+
+### The penalty counts instead of dividing, because the obvious curve is a weight change wearing a penalty's name
+
+§5.1 gives the ceiling, -25, and nothing about the curve. The obvious one is the
+fraction unmet times the ceiling. Written out beside skill overlap, it is:
+
+```
+skill overlap      +30 · matched
+missing penalty    -25 · (1 - matched)
+                   ─────────────────────
+                    55 · matched - 25
+```
+
+That is one component of weight 55 with an offset. The penalty would move no
+score that a weight change could not, and Task 7's mutation test — zero a weight
+and watch a named test go red — could zero either one and see the other absorb
+it, which is a mutation test that passes while measuring nothing.
+
+The rule charges a flat 5 points per unmet required technology instead, capped
+at the ceiling. That reads a fact the fraction cannot: five technologies you
+cannot evidence are five things to learn whether the posting lists five of them
+or fifty.
+
+It reads the **evidence rows**, not the components' verdicts, so a technology
+covered only by a project counts as met. Anything else would contradict a row
+the same score is about to store.
+
+### `None` years is not zero years, and reading it as zero is I2 pointed downwards
+
+The seniority penalty needs both sides: what the posting's title band implies,
+and what the person has confirmed. `users.years_experience` is null on most
+profiles, and null is *not told*.
+
+Reading it as zero charges every silent profile the full penalty against every
+senior posting in the corpus — an invented qualification claim aimed at the
+person rather than for them, which is the same invariant I2 governs and the
+less-obvious direction of it. Both silences stop the rule instead:
+`Seniority.UNCLEAR` is no rule having decided, and a null years figure is
+nothing to compare against. Neither resolves to a number.
+
+Mutating the rule to read `profile.years_experience or 0` turns exactly one
+test red, and it is the one named for it.
+
+### A senior title costs points and cannot block, and the type system is what says so
+
+The task's acceptance line. The mechanical form of M3b's refusal is that
+`eligibility.Dimension` has no seniority member at all, so this rule has no
+route to `ineligible` even if somebody wanted one — A13's argument built into a
+type rather than into a convention. The test asserts that absence rather than
+asserting the penalty behaves, because the penalty behaving is a property of
+today's code and the absence is a property of the design.
+
+Scoring off the *title band* is also what makes the penalty additive rather than
+a second copy of the gate's years rule: the gate reads a stated minimum in the
+posting's text and can only answer when one is stated, so a "Lead Engineer"
+title naming no number is invisible to it and obvious here.
+
+### The ladder is in the data file and is shown able to run backwards
+
+`data/matching.yaml` gained a rung per `Seniority` level, plus the two per-unit
+costs. §4.2 puts every rule threshold in the file, and these are numbers that
+move a score.
+
+Two shapes load cleanly and break the rule silently, and both are now refused:
+
+- **A falling rung.** Swap `junior: 8` and `staff: 1` and nothing crashes, every
+  score stays in range, and a Lead posting costs an early-career profile *less*
+  than a Junior one. The freshness window's failure, one rule over.
+- **A flat ladder.** Every level implying the same years makes every gap zero,
+  which is the seniority penalty deleted in data while every test that does not
+  read this file stays green.
+
+`per_requirement: 0` and `per_year: 0` are refused for the same reason: zero is
+a valid whole number that switches a penalty off for the whole corpus, and the
+result reads as "nothing was penalised" rather than as "this rule stopped
+running".
+
+`unclear` deliberately has **no** rung, and a test asserts it does not — it is
+the one `Seniority` member that means no rule decided, and inventing years for
+it is inventing the mismatch.
+
+### The total carries its denominator, and that is a column Task 8 now owes
+
+Q6's answer implemented: `assessed_out_of` is the sum of the weights of the
+components that could be assessed, `overall` is the literal sum of the parts
+floored at zero — the same arithmetic `match_results.the_total_is_its_parts`
+asserts, re-asserted in Python so a unit test sees it — and the ranked list
+sorts on the fraction.
+
+`fraction` returns **`None`** when nothing at all could be assessed, not 0.0.
+Zero sorts that pair last and 1.0 sorts it first, and both are claims nobody
+made; a profile with no skills, no projects and no stated preferences against a
+posting with no dates and no readable level reaches this.
+
+Implementing it surfaced what the answer implied and nobody had written down:
+**the denominator has to reach the database.** A component that scored zero and
+a component that could not be assessed both store `0`, so the fraction cannot be
+recomputed on read. `match_results` needs an `assessed_out_of` column; it lands
+with Task 8's migration, and `matching.md` §5.1.2 records why the stored
+`overall_score` stays the raw sum rather than being normalised to 100 — doing
+that would break the check constraint *and* destroy the distinction the
+constraint exists to preserve.
+
+---
+
+## M3c Task 4 — the three exempt components, and a date that was measured before it was trusted
+
+### `last_seen_at` would have scored our own polling schedule
+
+`matching.md` §2.1 said freshness is arithmetic on `last_seen_at`. Measured on
+the seeded database before writing the rule:
+
+```
+31 jobs      1 distinct last_seen_at day      1 distinct first_seen_at day
+             source_published_at spread: 10 to 347 days
+```
+
+`last_seen_at` records when *this system* last polled, so on an actively polled
+board it is near-now for every open job and discriminates nothing. Worse, ADR
+0007 gives boards different poll tiers — so an identical job would score higher
+for sitting on the hot tier. That is §5.1's `application_urgency` argument
+pointed at our own infrastructure instead of an employer's.
+
+`source_published_at` is a genuine publication date on all three adapters
+(Greenhouse `first_published`, Ashby `publishedAt`, Lever `createdAt` — checked
+in the adapters rather than assumed from the column name, because A10 warns that
+a `posted_at` is often a last-modified stamp). Present on **153 of 153** recorded
+postings. A source giving none makes the component unassessable, not zero.
+
+The architecture doc now says so; it is the second §2.1 sentence this milestone
+has corrected by measuring it.
+
+### Scored on the dimensions the person actually stated
+
+Location has two comparable dimensions — where the job is, how it is worked —
+and a profile may state either, both or neither. The weight splits across the
+ones stated, so somebody who named cities and no work-mode preference is scored
+entirely on cities. Scoring them on a preference they never expressed would mean
+inventing one and then marking them down against it.
+
+A dimension the *posting* cannot answer is dropped rather than failed: a
+`remote_policy` of `unknown` is the source not saying, which A10 is explicit is
+not the same as a mismatch. And `"remote"` typed into a locations field matches
+a remote posting, because that is the word people actually type there.
+
+Unmatched dimensions still produce evidence rows worth zero. "You asked for
+hybrid and this is on-site" is the line the explanation panel needs, and a
+component recording only its wins is not a breakdown.
+
+### Priority reads the posting and never the person, and PRODUCT-SPEC §23 says otherwise
+
+§23 asks for the opposite — *"boost only when eligibility appears plausible"*,
+*"do not rank an internship highly if the graduation rules clearly exclude the
+user"*. That is overridden, and the precedence is CLAUDE.md's: §5.2 forbids
+eligibility from ever becoming points, and §23 is exactly that.
+
+The concern behind §23 is real and is answered by §5.3 instead. An ineligible
+posting sorts into a lower band whatever it scores, so a graduation rule that
+excludes somebody moves the row without touching the number. Keeping the
+component person-independent is also what keeps it *exempt* — the moment it read
+a graduation year it would be a claim about somebody and would owe a user-side
+span.
+
+Both exempt-component signatures take no `profile` at all, and two tests assert
+that by inspecting the signature. A rule cannot consult what it cannot reach.
+
+### Thresholds moved into the data file, and the backwards window is shown able to fail
+
+§4.2 puts "every rule threshold" in `data/matching.yaml`. Freshness is the first
+rule with a tunable number, so the file gained a `thresholds` block and the
+loader gained exhaustive validation of it — a threshold the code has never heard
+of is a load error, same as a weight.
+
+The assertion worth having is that the window cannot run backwards. Swap
+`full: 7` and `zero: 90` and nothing crashes, every score stays between 0 and
+100, and the ranked list is upside down on the one axis a person can check by
+eye. Equal values are refused too: `zero - full` is a divisor, and a
+ZeroDivisionError inside a worker is a worse failure than a load error.
+
+---
+
+## M3c Task 3 — the three components that claim something about a person
+
+`domain/scoring.py`, 28 tests, no database. Pure and importing no ORM, the same
+rule `eligibility.py` follows, so M3d can grade it over 60 postings and Task 7
+can zero a weight and re-run.
+
+### 43% of the corpus names no required technology, and it was measured before anything was designed around it
+
+Counted over the committed answer key on 2026-08-09 — the **human's own
+labels**, not the extractor's output, so this is not a recall problem:
+
+```
+labeled postings                                    60
+naming no required technology                       26   (43.3%)
+  ...of which no technology of any kind             16
+```
+
+Skill overlap is 30 points and project evidence is 20, and both read the same
+required-technology list. So on 43% of the corpus **half the score cannot be
+computed at all**. A component that answers zero there removes 50 points for a
+reason having nothing to do with the person, which is exactly the argument §5.1
+used to defer application urgency — an absent deadline scoring zero "measures an
+employer's ATS configuration, not urgency" — with a bigger number behind it.
+
+So a component returns `assessable` beside its points, and the two are different
+statements: zero means *this person does not match*, unassessable means *the
+posting does not say enough to ask*. What a total does with an unassessable
+component changes what the number means and is **Q6**, for the human, before
+Task 5. Nothing is blocked meanwhile — the flag is data either way.
+
+**The tempting third option was already unavailable, and Task 2 is why.** Award
+the points anyway and the database refuses the row: a positive component with no
+evidence cannot be committed. The guard removed the dishonest fix before anyone
+had to be disciplined about it, which is the argument for putting it in a
+trigger, arriving one task later than the argument.
+
+### The classifier was throwing away the only thing role relevance could quote
+
+`family_reason` reads `title says 'engineer'`. That is fine for a human and
+useless for §2.1, which requires the component to quote the posting — and
+recovering a span by parsing that sentence back apart is the second derivation
+that goes wrong quietly. The rule already had the match object; it now keeps it
+as a `TextSpan`.
+
+**The span carries the field it came from**, which nothing else in this system
+has needed. Every other span points into `description_text`; a role family is
+decided on the *title*, with the description able to veto it toward `not_tech`.
+A span that could not say which string it indexes would be checked against the
+wrong one — and the trigger that verifies spans would then reject correct rows.
+`match_evidence` will need the same column when these rows are persisted at Task
+8; it is carried on the dataclass now and is not yet in the schema.
+
+### Three rules that cost recall on purpose, each with the reason in the module
+
+- **Only `required` technologies score.** §4.1 calls necessity the column the
+  product turns on, and Ramp's Android internship lists nine technologies under
+  *nice to haves*. Scoring those rewards a posting for listing more things.
+- **A project tag with no bullet behind it earns nothing.** `technologies` is a
+  list of tags; `evidence` is what the person wrote. §2.1 does not let a
+  project's *name* stand in for a user-side span, so a tag nobody wrote a
+  sentence about produces no row at all.
+- **A skill with a null `skill_id` matches nothing**, ever. That is the free-text
+  path from `add_skill`, and resolving it to a vocabulary neighbour would
+  fabricate a qualification.
+
+Role relevance is a match or it is not — deliberately not a graded distance
+between families. A number nobody can argue with is what §2.2 rejects
+embedding-first ranking for, and inventing one between `security` and
+`infrastructure` would be the same thing at a smaller scale.
+
+### The remainder is shared out rather than rounded away
+
+Three matched technologies and 20 points is 6.67 each. Integer division gives
+three rows summing to 18 under a component claiming 20, and a breakdown that
+does not add up to its own total is the small version of the defect I4 exists to
+prevent. The remainder goes to the earliest rows one point at a time.
+
+`ComponentScore.__post_init__` refuses two things the database also refuses:
+points on an unassessable component, and points with no evidence row. Both are
+asserted in tests that need no Postgres, so the guard is visible at the unit
+level and enforced at the storage level.
+
+---
+
+## M3c Task 2 — the tables, and the two guards that make a score refusable
+
+Migration `0016_match_results`. Ran up, down and up against the dev database;
+`make drift` reports no model/migration drift; `make check` passed with **1453
+python tests, 182 web across 20 files**, ruff, mypy, eslint, tsc and prettier
+clean. `make seed` and `make verify` both re-run clean afterwards — verify's
+requirement walk rewrites a job description (9 spans → 0 → 1), which is exactly
+the path the new triggers sit on.
+
+### A check constraint covered one direction of two, and a test is what said so
+
+The constraint enforcing `matching.md` §4.3's second tier was written first as
+the doc phrases it — one biconditional:
+
+```
+(component IN ('role','skill','project')) = (job_span_text IS NOT NULL
+                                             AND user_span_text IS NOT NULL)
+```
+
+It reads like it covers both directions. It does not. For a `freshness` row
+carrying `user_span_text = 'Python'` and no job span, the left side is false and
+the right side is false, the equality holds, and **the row is accepted** — a
+quotation of somebody's own words filed under a component that makes no claim
+about them, which is the exact fabrication §2.1 is arranged to prevent, wearing
+an exempt label.
+
+The test asserting it was refused was written before the constraint was
+re-read, and it failed. There are now two constraints: a person-claim quotes
+both sides, and *only* a person-claim quotes a person. A job-side span on an
+exempt component stays legal on purpose — the priority component reads a
+posting's own seniority and quoting the sentence it read is more auditable, not
+less.
+
+This is the second time in two milestones that stating a rule as an equality
+produced a hole in one quadrant of it. The general shape is worth naming: an
+`A = B` constraint over nullable columns is four cases, and reviewing it as one
+sentence checks two of them.
+
+### Ingestion would not have committed, and the reason is three triggers deep
+
+`_apply_normalized_fields()` rewrites `jobs.description_text` on every re-poll of
+a changed job. That fires M3a's `jobs_description_change_clears_requirements`,
+which deletes the job's `job_requirements`, which cascades to `match_evidence`
+— leaving a `match_results` row with a positive component and no evidence, and
+**failing the deferred guard at commit**. Ingestion, not the scorer, would have
+been what broke, on the first poll after the first score was written.
+
+The fix is that a score is deleted whenever anything it was computed from moves:
+four triggers, on `jobs.description_text`, on `job_requirements` (insert, update
+and delete — re-extraction changes what was scored against even when the text
+did not), and on `user_skills` and `user_projects` (update and delete). An
+absent score reads as not-yet-computed, which is true; Task 8's ARQ task
+recomputes.
+
+**Deletion rather than update, and version-checking is not enough on its own.**
+§4.2 says a stale row is never served and the API refuses one whose
+`ruleset_version` is not current. A rewritten description does not change the
+ruleset version, so that check cannot see this class at all — the row would read
+as current while its evidence quoted characters that had moved.
+
+`test_ingestion_rewriting_a_description_does_not_fail_at_commit` walks the whole
+chain: requirement, score, evidence, description rewrite, commit check, and
+asserts the score is gone rather than that an error was raised.
+
+The insert half of the `user_skills` trigger is deliberately absent. An *added*
+skill cannot invalidate a stored evidence row — it can only mean a score is now
+too low — and a trigger firing on insert would throw away the whole corpus one
+row at a time while a resume's confirmed skills are being written.
+
+### `SET CONSTRAINTS ALL IMMEDIATE` is sticky, and it silently changed what two tests measured
+
+The deferred guard cannot fire in this suite, which rolls back and never
+commits, so the tests force it. The first version of the helper ran `SET
+CONSTRAINTS ALL IMMEDIATE` and stopped there — and that setting holds for the
+**rest of the transaction**. The two tests that check, then delete an evidence
+row, then check again were measured raising on the `DELETE` statement itself
+rather than at the second check: passing tests, asserting immediate-mode
+behaviour, while the deferred behaviour every real commit depends on was never
+observed. The helper now restores `SET CONSTRAINTS ALL DEFERRED` after each
+check, and the reason is in its docstring rather than here alone.
+
+### Autogenerate, run rather than predicted
+
+Three defects, all previously recorded in this repository:
+
+* `nightshift.db.types.UTCDateTime(timezone=True)` emitted for
+  `match_evidence.created_at` with no `nightshift` import — a `NameError` on
+  import. M2c's finding 2, fourth appearance.
+* No `DROP TYPE` on downgrade for any of the three new enums, so the next
+  upgrade would fail with "type already exists". M2c's finding 3.
+* A random hex revision id (`47e471205cf4`) rather than `NNNN_name`.
+
+Everything else came through, including all nine check constraints, both
+composite indexes and every `ondelete`. Worth recording in that direction too:
+the tool is not uniformly untrustworthy and the previous three notes read as if
+it were.
+
+### Three departures from the shapes the specs name, each recorded where it was taken
+
+* **`match_results.explanation` does not exist**, though §6.13 lists it. §6 of
+  `matching.md` says no explanation text is generated and every line is
+  assembled from evidence rows — a stored copy is a second version of the same
+  claim that can disagree with the rows, which is why `resumes` dropped §6.4's
+  `structured_profile` at M2c, and it is what §2.2 forbids outright.
+* **`user_skills.skill_id` is not a foreign key**, though `command-center.md`
+  §2.3 called it one. There is no `skills` table to point at: the taxonomy is
+  `data/skills.yaml`, its identifier for a skill *is* the canonical name, and
+  that is the same string `job_requirements.value` stores — which is what makes
+  a requirement and a confirmed skill joinable at all. Null means confirmed and
+  outside the taxonomy, which `add_skill`'s free-text form makes reachable and
+  which no other column can express.
+* **`match_evidence` gained `job_char_start` / `job_char_end` and `compared`.**
+  §7.2's hallucination check is stated *at the offsets recorded*, and Task 11's
+  embedding proposals point at spans that are no requirement row, so the offsets
+  cannot be read through `job_requirement_id`. `compared` is where the three
+  exempt components record what they weighed — §2.1 exempts them from quoting a
+  span, not from being inspectable.
+
+All three are now written into `docs/architecture/matching.md` §4.2, §4.3 and
+§4.4, so the design document describes what exists rather than what was planned.
+
+### A third guard the plan filed under "test"
+
+The M3c plan's grading table puts "every stored span is a literal substring at
+its offsets" in a test and in `verify.py`. The job side is a trigger here
+instead — `match_evidence_span_must_quote`, the same pattern `job_requirements`
+and `resume_extractions` already carry — because it is the strictly stronger
+version of the same assertion and the pattern was written twice already. It is
+shown able to fail by shifting an offset one character: the row still claims
+`job_span_text = "Python"`, the offsets are still inside the description, and
+nothing about it looks wrong in a debugger.
+
+The user side stays a test. `user_span_text` points into several different
+tables and a trigger there would need per-kind logic; M3d's equality covers
+both.
+
+### One rename, to stop a fifty-fifty guess
+
+`profile.remove_skill(skill_id=...)` meant the row's primary key. `user_skills`
+now has a column called `skill_id` holding a taxonomy name. The parameter is
+`user_skill_id` as of this task; the route's path parameter is unchanged.
+
+---
+
+## M3b — merged to `main` as PR #11 (`d2273e7`)
 
 **CI green on all five jobs, first attempt** — run
 [31310986928](https://github.com/Tahmudun/Nightshift/actions/runs/31310986928).

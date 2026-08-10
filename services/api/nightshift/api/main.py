@@ -14,6 +14,7 @@ from nightshift.api.routes import (
     companies,
     health,
     jobs,
+    matches,
     profile,
     queue,
     resumes,
@@ -57,6 +58,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(jobs.router)
+    app.include_router(matches.router)
     app.include_router(sources.router)
     app.include_router(companies.router)
     app.include_router(applications.router)

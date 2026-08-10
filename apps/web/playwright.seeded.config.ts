@@ -16,7 +16,22 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './e2e-seeded',
+  // One test at a time, across the whole suite.
+  //
+  // Every spec here shares one database and one dev user, and three of them
+  // write to that user: `profile.spec.ts` confirms and removes skills,
+  // `eligibility.spec.ts` rewrites the six gate columns, `matching.spec.ts`
+  // reads the scores those two invalidate. A confirmed skill or a changed
+  // graduation year **deletes every `match_result` row** (M3c Task 8's
+  // invalidation), so run in parallel these files do not merely interleave —
+  // one empties the table another is asserting against, and the failure reads
+  // as "the corpus is not scored" rather than as a race.
+  //
+  // The suite takes about a minute. That is not a price worth paying to keep a
+  // latent flake, and the flake was latent before M3c: two files already wrote
+  // the same six profile columns while a third read verdicts computed from them.
   fullyParallel: true,
+  workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? 'github' : 'list',

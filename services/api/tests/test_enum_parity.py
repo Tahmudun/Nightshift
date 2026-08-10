@@ -31,9 +31,13 @@ from nightshift.db.base import (
     ApplicationPriority,
     ApplicationStage,
     EligibilityState,
+    EvidenceSource,
     ExtractionKind,
     ExtractionStatus,
     InternshipSeason,
+    JobTextField,
+    MatchComponent,
+    PenaltyName,
     ProficiencyLevel,
     ProjectStatus,
     RemotePreference,
@@ -103,6 +107,19 @@ PAIRS: tuple[tuple[str, type[enum.Enum]], ...] = (
     # were eventually found.
     ("requirementKindSchema", RequirementKind),
     ("requirementNecessitySchema", RequirementNecessity),
+    # M3c Task 10. All four crossed the boundary for the first time when the
+    # score reached a page — Task 9 put three of them in the response and left
+    # this half deliberately undone, because there was nothing in the browser to
+    # compare against until a component rendered one.
+    #
+    # `jobTextFieldSchema` is the sharpest of the four. It selects which of the
+    # posting's strings a span's offsets index into, so a wrong value does not
+    # blank a field: it underlines the wrong sentence, in the right place, and
+    # looks entirely plausible doing it.
+    ("matchComponentSchema", MatchComponent),
+    ("jobTextFieldSchema", JobTextField),
+    ("evidenceSourceSchema", EvidenceSource),
+    ("penaltyNameSchema", PenaltyName),
 )
 
 
@@ -160,3 +177,109 @@ def test_the_page_has_words_for_every_profile_field_an_unknown_can_ask_for() -> 
         f"the gate can ask for {sorted(missing)} and JobEligibility.tsx has no words "
         "for it, so the page would print the column name at a person"
     )
+
+
+def test_the_match_migration_creates_exactly_the_types_the_models_declare() -> None:
+    """M3c's three new enums, against the copies inside `0016_match_results`.
+
+    The same boundary `test_eligibility_labels.py` guards for `RoleFamily` and
+    `Seniority`, and the copy is unavoidable for the same reason: a migration
+    that imports a model stops describing the schema as of its own revision and
+    starts describing today's. So the values are module constants there
+    precisely so this test can read them.
+
+    `eligibility_state` is the one to watch. It existed as a Python enum for a
+    whole milestone before it became a database type, which is exactly the shape
+    of transcription this file was written after — a vocabulary that has been
+    correct in one place long enough that nobody re-reads it when it acquires a
+    second.
+    """
+    import importlib
+
+    from nightshift.db.base import EligibilityState, EvidenceSource, MatchComponent
+
+    migration = importlib.import_module("migrations.versions.20260809_1607_match_results")
+
+    assert set(migration.ELIGIBILITY_STATE_VALUES) == {m.value for m in EligibilityState}
+    assert set(migration.MATCH_COMPONENT_VALUES) == {m.value for m in MatchComponent}
+    assert set(migration.EVIDENCE_SOURCE_VALUES) == {m.value for m in EvidenceSource}
+
+
+def test_the_denominator_migration_creates_exactly_the_type_the_model_declares() -> None:
+    """`job_text_field`, against its copy inside `0017_match_score_denominator`.
+
+    A fourth enum with a fourth copy, and the one with the sharpest failure mode
+    of the four: `job_span_field` selects which column of `jobs` the quoting
+    trigger checks a span against. A member missing from the type is not a
+    rendering bug — it is a `CASE` with no matching branch, a null `source_text`,
+    and every evidence row for that field refused at insert.
+    """
+    import importlib
+
+    from nightshift.db.base import JobTextField
+
+    migration = importlib.import_module("migrations.versions.20260809_1930_match_score_denominator")
+
+    assert set(migration.JOB_TEXT_FIELD_VALUES) == {m.value for m in JobTextField}
+
+
+def test_the_penalty_migration_creates_exactly_the_type_the_model_declares() -> None:
+    """`penalty_name`, against its copy inside `0019_match_penalties`.
+
+    A fifth enum with a fifth copy. This one closes the domain of a column the
+    guard counts rows over: `match_penalties` asserts *exactly one row per name*,
+    and a count is only an assertion when nothing else can be written there. A
+    typo'd `seniority_missmatch` beside a correct one is two rows, two names, and
+    a guard that passes.
+    """
+    import importlib
+
+    from nightshift.db.base import PenaltyName
+
+    migration = importlib.import_module("migrations.versions.20260810_0100_match_penalties")
+
+    assert set(migration.PENALTY_NAME_VALUES) == {m.value for m in PenaltyName}
+
+
+def test_the_quoting_trigger_reads_every_field_the_enum_can_hold() -> None:
+    """The `CASE` inside the trigger, against the enum, rather than by eye.
+
+    This is the assertion the test above cannot make. The two vocabularies can
+    agree perfectly while the trigger's `CASE` handles only one of them — and a
+    `CASE` with no matching branch returns null in Postgres rather than raising,
+    so the row is refused with *'scores a job whose title is null'* on a job
+    whose title is right there. A message that sends the reader to look at the
+    wrong table is worse than no message.
+    """
+    import importlib
+
+    from nightshift.db.base import JobTextField
+
+    migration = importlib.import_module("migrations.versions.20260809_1930_match_score_denominator")
+    branches = set(re.findall(r"WHEN '([^']+)' THEN", migration._SELECT_BY_FIELD))
+
+    assert branches == {m.value for m in JobTextField}
+
+
+def test_every_match_component_is_scored_by_a_column_of_its_own() -> None:
+    """The evidence guard walks a hand-written list of (component, column) pairs
+    inside the migration, and a component missing from it is a component nothing
+    checks.
+
+    This is the failure mode the guard cannot report on itself: adding a seventh
+    component to `MatchComponent` and a seventh score column to `match_results`
+    without extending `COMPONENT_SCORE_COLUMNS` produces a component that can be
+    scored with no evidence and no error, forever. `PROFILE_COLUMNS` stopped
+    describing what it named at M3b in precisely this way.
+    """
+    import importlib
+
+    from nightshift.db.base import MatchComponent
+    from nightshift.db.models import MatchResult
+
+    migration = importlib.import_module("migrations.versions.20260809_1607_match_results")
+    pairs = dict(migration.COMPONENT_SCORE_COLUMNS)
+
+    assert set(pairs) == {m.value for m in MatchComponent}
+    columns = set(MatchResult.__table__.columns.keys())
+    assert set(pairs.values()) <= columns, sorted(set(pairs.values()) - columns)

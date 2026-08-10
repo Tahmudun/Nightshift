@@ -83,6 +83,12 @@ class Settings(BaseSettings):
     # registry at once — reintroducing exactly the stampede `next_poll_at` was
     # chosen to avoid.
     poll_enqueue_batch_limit: int = Field(default=500, ge=1, le=10_000)
+    # How many (person, posting) pairs one recompute tick may score. The case
+    # this exists for is the ruleset version bump: every pair in the corpus goes
+    # due at once, and an unbounded run is a single transaction over the whole
+    # cross product whose failure discards everything it computed. A batch
+    # commits what it finished and the next tick continues from where it stopped.
+    match_recompute_batch_limit: int = Field(default=500, ge=1, le=10_000)
     # Per-board backoff, distinct from `http_backoff_base_seconds` above: that
     # one handles a single flaky response and is measured in seconds, this one
     # handles a board that is simply gone. The ceiling matches the warm tier, so

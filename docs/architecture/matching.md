@@ -64,6 +64,26 @@ produces nothing — no points, no explanation line, no mention.
 There is no cosine similarity anywhere in the score. There is no component whose
 value came from a model.
 
+> **M3c Task 11 measured this permission and then declined to use it. Nothing in
+> this system proposes.** ADR 0018 has the figures. Two corrections belong here
+> rather than only in the ADR, because this section's argument depends on them:
+>
+> 1. **The span rule proves provenance, not entailment**, and the paragraph
+>    above quietly assumed otherwise. A proposal of *"you meet the Java
+>    requirement"* quoting the posting's word *Java* and the user's word
+>    *Python* satisfies both spans literally and completely — and renders on the
+>    page beside both quotes, looking audited. The rule stops invented text. It
+>    does not stop unwarranted inference, which is the thing a similarity score
+>    actually produces.
+> 2. **Cosine over technology names ranks siblings above concepts**, so the
+>    permission has nothing safe to spend itself on. Measured over this corpus,
+>    the highest-confidence proposal available anywhere is *Java from Python* at
+>    0.797, and the one relation worth having — *Machine Learning* from PyTorch
+>    — finishes ninth at 0.624.
+>
+> The rule stated at the top of this section still stands and is still the
+> boundary. It is now enforced by there being no proposer at all.
+
 ### 2.1 The span rule binds three components, and the reason is not arbitrary
 
 The rule above applies to **role relevance, skill overlap and project
@@ -71,10 +91,22 @@ evidence** — the three components that make a claim about *the person*. Those
 are the claims I2 exists to govern, and each must trace to two quotable strings.
 
 **Location, freshness and internship priority make no claim about the person.**
-Freshness is arithmetic on `last_seen_at`; location compares
+Freshness is arithmetic on a date the source published; location compares
 `job_locations.city` and `remote_policy` against a preference the user typed;
 priority reads the posting's own seniority. There is no span to quote on the
 user's side because there is no assertion about their qualifications being made.
+
+**Freshness reads `source_published_at`, not `last_seen_at`**, and this
+paragraph said `last_seen_at` until M3c Task 4 measured it. `last_seen_at`
+records when *this system* last polled: across 31 seeded jobs it held one
+distinct day, against a 10-to-347-day spread of publication dates over the same
+rows. Scoring on it would also make a job's freshness depend on which poll tier
+ADR 0007 assigned its board — this system's own infrastructure, which is the
+`application_urgency` argument in §5.1 pointed at ourselves. `source_published_at`
+is a genuine publication date on all three adapters (Greenhouse
+`first_published`, Ashby `publishedAt`, Lever `createdAt`) and is present on 153
+of 153 recorded postings. A source that gives none makes the component
+unassessable rather than zero.
 
 These components still record evidence — the values that were compared, so the
 breakdown is inspectable and I4 holds — but they are exempt from the span
@@ -88,6 +120,12 @@ failure this whole section is arranged to prevent.
 defensible and was seriously considered. Its failure mode is invisible: matches
 the user never sees, with no signal that they were missed. Rejected for that
 reason rather than for capability.
+
+**And then chosen anyway, on evidence, at Task 11.** M3 ships fully
+deterministic. The invisible-recall objection above is real and still stands as
+a cost; what Task 11 established is that the semantic layer offered to pay it
+would have bought fabricated qualifications rather than missed matches. §2.3
+now carries the measurement.
 
 **Embedding-first ranking**, with rules as a post-filter, makes I4
 unsatisfiable. "You scored 0.83" has no breakdown because there is not one; any
@@ -103,6 +141,23 @@ carry, and which the embedding cannot tie back to a span, is a requirement this
 system will not see. That is a real limitation and it is measured rather than
 assumed: M3d reports skill-extraction recall against the answer key, so the size
 of the gap is a number in CI rather than a hope.
+
+**Measured, at Task 11.** Against the committed corpus — 71 postings naming at
+least one required technology, 240 requirement rows per profile — the rules-only
+scorer matches 90, 88, 59 and 0 rows on the four fixture profiles. So the gap is
+150 to 181 rows on any profile that states anything.
+
+The number that matters is what is *inside* that gap, and it is not a queue of
+matches waiting for a model. Ranked by similarity, it is dominated by sibling
+technologies the person specifically does not have — `Java` beside Python,
+`Azure` beside AWS, `TensorFlow` beside PyTorch. See ADR 0018.
+
+The residue that is genuinely recoverable is small, specific, and not an
+embedding problem: concept terms like `Machine Learning` (26 occurrences),
+`Distributed Systems` (4) and `Data Structures` (3), which a concrete tool can
+demonstrate. The carrier for those is a `demonstrated_by:` relation in
+`data/skills.yaml` — a claim a human writes down and can be argued with. Not
+built in M3.
 
 ---
 
@@ -290,8 +345,42 @@ because a requirement nobody can trace back to a sentence is not auditable.
 
 ### 4.2 `match_results` — PRODUCT-SPEC §6.13
 
-Shape as §6.13. `model_version` records the embedding model that produced the
-proposals. Unique on `(user_id, job_id, ruleset_version)`.
+Shape as §6.13, with two departures taken when the table was built at M3c Task 2
+and recorded here rather than left for a reader to find in a migration.
+
+**`explanation` is not a column.** §6.13 lists one; §6 of this document says no
+explanation text is generated and every line is assembled from `match_evidence`
+rows. A stored copy is therefore a second version of the same claim that can
+disagree with the rows it was built from — the reason `resumes` dropped §6.4's
+`structured_profile` at M2c — and it is also precisely what §2.2 forbids: text
+written after the fact to justify a number that did not come from it.
+
+§4.5's `why` is not a partial reversal of this, and the line between them is worth
+being explicit about because it looks like one: an `explanation` is assembled
+*from* the evidence rows and can therefore contradict them, while a `why` is
+produced *alongside* the points by the same call, from the same inputs, and has no
+other source to contradict.
+
+**`penalty_score` is one column rather than two.** §5.1 keeps two penalties;
+this stores their sum. The evidence trigger binds the six positive components
+(§4.3's enum has no penalty member), so a split column would imply an evidence
+link that does not exist. What each penalty cost belongs to the explanation —
+and §4.6 is where it went at Task 10, because until then nothing carried it and
+a reader saw `-18` with no account of it.
+
+`model_version` records the embedding model that produced the proposals; it is
+null for a rules-only score, which is every row until Task 11. Unique on
+`(user_id, job_id, ruleset_version)`.
+
+**Rows are deleted, never left stale.** Version-checking on read is necessary
+and not sufficient: a rewritten job description does not change the ruleset
+version, and the evidence rows underneath hold character offsets into text that
+has moved. Four triggers added at Task 2 — on `jobs.description_text`,
+`job_requirements`, `user_skills` and `user_projects` — delete the affected
+scores, which then read as not-yet-computed. Without them ingestion cannot
+commit at all: rewriting a description deletes the job's requirements, which
+cascades to `match_evidence`, which leaves a positive component with no evidence
+and fails the guard below.
 
 **`ruleset_version` is one column covering both the rules and the weights**, and
 it has to be, because M3's acceptance criterion is *identical inputs + identical
@@ -312,10 +401,58 @@ corpus. Changing a rule without bumping the constant turns it red with a diff
 showing exactly what moved, which is the moment to bump. Relying on a developer
 remembering is the version of this that fails silently.
 
+Built at Task 6: `tests/fixtures/matching/golden.txt`, 459 scores over 153
+recorded postings × 3 fixture profiles, rendered as text because the diff is the
+product. One thing had to be added that this paragraph did not anticipate — the
+red test alone is not the guard, because the obvious response to it is to
+regenerate. **Regeneration itself refuses** when a score present in both files
+moved while `ruleset_version` stayed put, and prints what moved; growing the
+corpus is allowed, because a new posting changes no existing score. `as_of` is a
+frozen date rather than today, or freshness arithmetic would turn the file red
+every morning and train everyone to regenerate without reading it.
+
 **Precomputed, not computed on read.** The daily queue has to sort thousands of
 jobs by score, and a sort needs the value in the database. Recomputed on: a new
 or changed job, any profile change, and a ruleset version bump. An ARQ task,
 inside the existing worker module.
+
+Built at Task 8 as `domain/matching.py` and `workers.tasks.recompute_match_results`,
+and the three triggers turned out to be **three routes into one state** rather
+than three mechanisms. That was the design decision of the task and it is worth
+stating plainly, because the shape it replaces is the obvious one:
+
+* A **new or changed job** already has its scores deleted, by the four triggers
+  above. A brand-new job never had any. Either way: no row at the current
+  version.
+* A **ruleset version bump** changes `ruleset_version`, which is part of the
+  uniqueness key. No row at the current version, for every pair at once.
+* A **profile change** is the only one no database trigger can see, so
+  `domain/profile.py` deletes that person's rows itself — inside the request's
+  own transaction. No row at the current version.
+
+So the recompute task takes no arguments naming what changed. Its work item is
+the *absence* of a row, found by one anti-join, which means there is no event to
+miss and no queue message to lose while the worker is down: the next tick finds
+exactly what the last one did not finish. It also means one code path computes a
+score rather than three that can disagree about how.
+
+**The profile trigger invalidates rather than enqueues, and that is a departure
+from the M3c plan's wording** ("the task is enqueued from a named set of
+scoring-relevant columns"). The named set is unchanged and is
+`matching.SCORING_RELEVANT_PROFILE_COLUMNS`; what changed is what happens when
+one of them moves. A delete committing with the change that caused it cannot be
+lost the way an enqueue after commit can, and it needs no ARQ pool in the API
+process. The cost is latency — a score reads as not-yet-computed until the cron
+runs, which is every minute — and that is the right side to be wrong on: a
+missing score is true, and a score computed against a profile the person has
+just replaced is not.
+
+**Compared, not provided.** The named set is only half the trap §4.2's wording
+sets. M2c's `PATCH /profile` carries every field the form holds, so a person who
+opens the page and presses save provides the entire scoring-relevant set and
+changes none of it. `profile._clear_scores_if_inputs_moved` snapshots those
+columns before the assignments and compares after, so an unedited save costs
+nothing.
 
 **A stale result is never silently served.** Results carry the
 `ruleset_version` that produced them; the API refuses to return one whose
@@ -334,13 +471,38 @@ match_evidence
   component             role | skill | project | location | freshness | priority
   job_requirement_id    FK, nullable
   job_span_text         the words in the posting
+  job_span_field        which of the posting's strings, added at Task 8 — below
+  job_char_start        where they are, added at Task 2 — see below
+  job_char_end
   user_skill_id         FK, nullable
   user_project_id       FK, nullable
   user_span_text        the words in the user's own confirmed data
+  compared              what the exempt components compared, added at Task 2
   proposed_by           rule | embedding
   points                the contribution this row justifies
   created_at
 ```
+
+The two additions are both from building it. **The offsets live on this row**
+rather than being read through `job_requirement_id`, because §7.2's first
+equality is stated *at the offsets recorded* and Task 11's embedding proposals
+point at spans that are no requirement row at all. **`compared`** is where the
+three exempt components put the values they weighed, so §2.1's exemption is from
+quoting a span and not from being inspectable.
+
+**`job_span_field` is a third addition, from Task 8**, and it is the column that
+made the difference between storing role relevance's evidence and quietly
+dropping it. Every other span in this system indexes into
+`jobs.description_text` — `job_requirements`, `resume_extractions`, every
+eligibility blocker — so the guard below was written checking that one string.
+Role relevance is decided on the **title** and cannot be otherwise (§2.1 binds
+it to a quoted span, and `role_classification.TextSpan` has carried the field it
+read since Task 3). Left as it was, the first real role evidence row would have
+been refused for not quoting a string it never claimed to come from, and the
+cheapest way to make the insert pass would have been to stop storing the span —
+losing the evidence for the component §2.1 cares most about, with a green
+test suite. The span therefore travels as four things, not three: text, field,
+and both offsets, tied together by `the_job_span_travels_together`.
 
 **This table is the mechanism behind §2's rule**, and it enforces it in two
 tiers matching §2.1's distinction:
@@ -352,6 +514,28 @@ tiers matching §2.1's distinction:
    `project` has **both** `job_span_text` and `user_span_text` non-null. The
    other three components may leave them null, and record the compared values
    instead.
+
+   Built at Task 2 as **two** constraints rather than one, because a test found
+   the half the obvious version does not cover. Written as the biconditional
+   this paragraph describes — `component IN (role, skill, project)` equals
+   *both spans non-null* — it accepts a `freshness` row carrying a user-side
+   span and no job span, since both sides then evaluate false. That row quotes
+   somebody's own words under a component that makes no claim about them. The
+   second constraint says only a person-claim may carry a user-side span. A
+   *job*-side span on an exempt component stays legal on purpose: the priority
+   component reads a posting's own seniority and quoting the sentence it read is
+   more auditable, not less.
+
+A third guard, not in the original design: the job-side span is refused unless
+it literally quotes the posting at the offsets it claims, the same trigger
+`job_requirements` and `resume_extractions` carry. §7.2 files this under a test,
+and it is both — the trigger is the strictly stronger version and cannot see
+`user_span_text`, which points into several different tables and stays M3d's.
+Rewritten at Task 8 to read the column `job_span_field` names rather than
+`description_text` alone; the enum's members and the trigger's `CASE` branches
+are asserted equal by a test, because a `CASE` with no matching branch returns
+null in Postgres rather than raising, and the row would then be refused with a
+message naming the wrong problem.
 
 A score with no evidence cannot be committed, and a claim about the person with
 no quoted span on both sides cannot be committed. Both are database errors
@@ -366,6 +550,128 @@ vocabulary hit, and that number belongs in M3d's report.
 The column `command-center.md` §2.3 deferred. M3's taxonomy makes it real. The
 existing `normalized_name` stays — a rename in the taxonomy must not orphan a
 confirmed fact.
+
+§2.3 called it an FK and Task 2 built it as a plain string, holding the
+taxonomy's canonical name. There is no `skills` table to point at: the taxonomy
+is `data/skills.yaml`, a versioned file whose identifier for a skill *is* its
+canonical name, and that same string is what `job_requirements.value` stores —
+which is what makes a requirement and a confirmed skill joinable. Mirroring the
+file into a table would create a second source of truth that can disagree with
+it; minting opaque slugs would create a second identifier space to keep in step
+with the names the extractor already emits. If the taxonomy ever grows real ids,
+they land in this column and the change is a data migration.
+
+**Null is load-bearing.** `add_skill` takes free text on purpose, so a person may
+confirm a skill the vocabulary has never heard of; null says *confirmed, and
+outside the taxonomy*. Such a skill matches no `job_requirements.value`, and the
+score has to say so rather than resolve it to a neighbour — which is the
+substring failure M3b Task 11 measured, one table over.
+
+### 4.5 `match_component_assessments` — what each component says for itself
+
+Added at M3c Task 9 as `0018_match_component_assessments`, and not in the
+original design. Task 9 is the task where a score first had a **reader**, which
+is the point at which a missing column stops being invisible — the same argument
+Task 8 made for `assessed_out_of`, one layer up.
+
+One row per component per score, six exactly: `component`, `assessable`, `why`.
+
+§5.1.1 requires the page to name the components that could not be assessed **and
+why**. Neither half survives in `match_results` alone:
+
+- **`assessable` cannot be recovered from the points.** §5.1.1's whole content is
+  that a component scoring zero and a component the posting said too little to
+  assess are different statements, and both store `0`. `assessed_out_of` does not
+  resolve it either: the six weights are 20, 30, 20, 10, 10, 10, and several
+  subsets sum to the same number, so the denominator names *how much* was
+  assessed and can never name *which*.
+- **`why` is the only sentence a component ever produces.** The three exempt
+  components quote nobody and record their compared values in
+  `match_evidence.compared`; an assessable component that scored zero has no
+  evidence row at all. Without this text those components reach the page as bare
+  numbers, which is I4 one level below the total.
+
+**This is not the `explanation` column §4.2 refused**, and the difference is
+where the text comes from rather than how long it is. That column would have held
+a narrative assembled *from* `match_evidence`, able to disagree with the rows it
+was built from. `why` is the scoring rule's own output, returned by the same call
+and from the same inputs as the points beside it — a sibling of the evidence
+rows, not a summary of them. The alternative is re-running the scorer at render
+time, which is the second-derivation failure `posting_for`'s docstring is written
+about and which can disagree with the stored number while looking plausible.
+
+A deferred constraint trigger asserts three things, each a mistake this table
+makes possible rather than one already prevented:
+
+1. **Exactly six rows, one per component** — the database's copy of
+   `MatchScore.__post_init__`. Five means a component silently has no statement
+   and the page renders five of six with nothing looking wrong.
+2. **An unassessable component scored nothing.** `ComponentScore.__post_init__`
+   refuses this in Python; this is the same refusal for anything reaching the
+   table another way.
+3. **The denominator agrees with the rows** — `assessed_out_of = 100` exactly
+   when every component was assessable. Without it the page can name three
+   unassessable components beside a denominator of 100, and the ranked list then
+   sorts on a fraction that contradicts the breakdown printed under it.
+
+The third assertion is why `matching_weights.parse_weights` now refuses a weight
+of **zero** rather than merely a negative one. It holds only while an
+unassessable component necessarily narrows the denominator, which needs every
+weight ≥ 1 — and the sum-to-100 assertion does not cover that: `role_relevance:
+0` beside `skill_overlap: 50` totals 100 and passes, while removing role
+relevance from every score in the corpus. That is the silent removal
+`data/matching.yaml`'s own header claims is caught, in the one shape that got
+past it.
+
+### 4.6 `match_penalties` — what each subtraction cost, and why
+
+Added at M3c Task 10 as `0019_match_penalties`, and not in the original design.
+PROGRESS assigned the call to this task in as many words: *"Task 10 decides
+whether that is acceptable or whether §4.2's one-column decision needs
+revisiting."*
+
+**§4.2's one column is not revisited.** `match_results.penalty_score` still
+stores the sum and `the_total_is_its_parts` still adds it exactly once, for
+§4.2's reason: `match_evidence.component` has no penalty member, so a second
+*score* column would imply an evidence link that does not exist. What this table
+adds is the half §4.2 named and left to somebody else — *what each penalty cost
+belongs to the explanation* — which nothing then carried.
+
+The gap was not theoretical. Before this task the page could render `-18` and
+nothing else, and invariant I4 lists what a score stores as *"its components,
+**its penalties**, its `ruleset_version`, and its evidence"*. Task 10 is the
+task where a person reads a score, which is the point at which a missing column
+stops being invisible — the same argument §4.5 made at Task 9 and §5.1.2 at
+Task 8, now three times in three consecutive tasks.
+
+One row per penalty per score, two exactly: `name`, `points`, `applicable`,
+`why`, `compared`.
+
+- **`applicable` is `assessable` one row down.** *There was nothing to ask* — a
+  posting naming no required technologies, a profile stating no years — and
+  *nothing was missing* both store `points = 0`, and only the flag and the
+  sentence tell them apart.
+- **`compared` is where §6's *why it may not fit* gets its list.** The
+  missing-requirement rule already recorded which required technologies it
+  charged for; the page shows that list rather than recomputing one that could
+  differ from the number beside it.
+
+A deferred constraint trigger asserts two things:
+
+1. **The parts sum to the column.** Without this the table is a second account
+   of the same claim, free to disagree with the number the total was actually
+   computed from — which is the failure a split is supposed to avoid, arriving
+   by the other door.
+2. **Exactly two rows, one per name.** `score_match` always returns both
+   penalties; dropping the inapplicable one keeps the arithmetic right and
+   removes a sentence a person would have read.
+
+`PenaltyName` is a PG enum rather than free text, and that is what makes the
+count an assertion: a typo'd `seniority_missmatch` beside a correct row is two
+rows, two names, and a guard that passes.
+
+The page renders both, and prints no number for an inapplicable one — for the
+same reason §5.1.1 prints none for an unassessable component.
 
 ---
 
@@ -405,7 +711,124 @@ seniority mismatch penalty      0 to -30
 
 Weights live in `data/matching.yaml` and are versioned; §4.2 records how that
 version is composed with the rule logic's own and stored on every
-`match_results` row.
+`match_results` row. Each is **at least 1** as well as summing to 100 — §4.5
+records why that second assertion had to be added, and why the first one does not
+imply it.
+
+Both deferrals reach the page as `scoring.DEFERRED_COMPONENTS`, carried on the
+score's own response with a weight and a reason, in the shape
+`search.DEFERRED_FILTERS` already uses for the filters M2 would not fake. Ten
+points nobody mentions is an invisible gap; ten points with a reason is a
+decision a reader can check against the total.
+
+### 5.1.1 A component that cannot be assessed, and what the total does about it
+
+Decided 2026-08-09, QUESTIONS Q6, after M3c Task 3 measured the size of it: **26
+of the 60 labeled postings name no required technology**, and 16 name none of
+any kind. Skill overlap and project evidence both read that list, so on 43% of
+the corpus half the available score cannot be computed.
+
+A component that answers zero there subtracts 50 points for something about the
+employer's prose, which is §5.1's `application_urgency` argument with a bigger
+number. So each component returns whether it could be **assessed** alongside its
+points, and the two are different statements: zero means this person does not
+match, unassessable means the posting does not say enough to ask.
+
+**The total is out of what could be assessed.** A posting naming no technologies
+is scored out of 50, the page names the components that could not be assessed
+and why, and the ranked list sorts on the fraction. The alternative — always out
+of 100, with the gaps shown — systematically ranks terse postings below verbose
+ones, and redistributing the missing weight would silently make location and
+freshness worth 50 points between them on those postings, which nobody chose.
+
+Awarding the points anyway was never available: §4.3's trigger refuses a
+positive component with no evidence row, so the database removed that option
+before anyone had to be disciplined about it.
+
+**"The page names the components that could not be assessed and why" needed a
+table, and that was found at Task 9.** Which components those are is not
+recoverable from `match_results`: a component that scored zero and one nobody
+could assess both store `0`, and `assessed_out_of` names how much was assessed
+rather than which parts — several subsets of the six weights sum to the same
+number. §4.5 is the table, and it carries the reason as well as the fact, because
+the reason exists nowhere else.
+
+### 5.1.2 The denominator has to be stored, and that is a column this table does not have yet
+
+Following from §5.1.1 and found while implementing it at Task 5. §4.2 says the
+score is precomputed because "a sort needs the value in the database" — and the
+ranked list sorts on the *fraction*, so the denominator is part of that value.
+
+It cannot be recomputed from the stored components. A component that scored zero
+and a component that could not be assessed both store `0`, and telling those two
+apart is the entire content of §5.1.1. `match_results` therefore needs an
+`assessed_out_of` column beside `overall_score`. It lands with Task 8's
+migration, alongside `match_evidence.job_span_field`, because Task 8 is when a
+score first reaches the database — nothing writes these tables before then.
+
+Shipped as `0017_match_score_denominator`, with one constraint the paragraph
+above did not anticipate: **`overall_score <= assessed_out_of`**. Each component
+is capped at its own weight and only assessable components widen the
+denominator, so the inequality is already true of every score the rules can
+produce — which is exactly why it is worth asserting. The ranked list divides by
+this column, and a fraction above one is a posting sorting ahead of a perfect
+match with nothing else on the row looking wrong. It also catches the specific
+mistake of a total from one weights version stored beside a denominator from
+another.
+
+Existing rows are **deleted rather than backfilled**, in both directions. There
+were none — nothing wrote these tables before Task 8 — so the choice cost
+nothing, and it is still the right one to have made deliberately: `100` is not
+an unknown denominator's default value, it is the assertion that every component
+was assessable, which is the claim §5.1.1 exists to stop anybody making by
+accident.
+
+`match_results.the_total_is_its_parts` stays exactly as built: `overall_score`
+remains the literal sum of the six components and the penalty, floored at zero.
+Normalising the stored total to 100 would break that constraint and, worse,
+would destroy the distinction the constraint exists to preserve. The fraction is
+a division performed by the query, not a number written down.
+
+### 5.1.3 The two penalty curves, decided at Task 5
+
+§5.1 gives the ceilings — -25 and -30 — and nothing else. Both curves were
+decided when the rules were written, and both decisions are constrained by
+something other than taste.
+
+**Missing requirement counts; it does not divide.** A fraction-based penalty —
+*the share of required technologies you failed to meet, times 25* — combines
+with skill overlap's *the share you met, times 30* into `55·matched - 25`. That
+is arithmetically one component of weight 55 with an offset, so the penalty
+would be a weight change wearing a penalty's name, and §8's mutation test could
+zero either one and watch the other absorb it. The rule charges a flat 5 points
+per unmet required technology instead, capped at the ceiling, because that reads
+a fact the fraction cannot: five technologies you cannot evidence are five
+things to learn whether the posting lists five of them or fifty.
+
+**It may only read `technology`, and that is §5.2 rather than convenience.** The
+other required kinds a posting can carry are `degree`, `graduation_window`,
+`years_experience`, `enrollment` and `authorization` — which is exactly the set
+of dimensions M3b's gate owns. Charging points for an unmet degree requirement
+is the eligibility verdict converted into a number by a side door. A test
+asserts that every `RequirementKind` is owned by the gate, by this penalty, or
+by the seniority one, so a seventh kind forces the decision rather than
+inheriting one.
+
+**Seniority mismatch compares the posting's title band against confirmed years,
+and can never block.** `data/matching.yaml` carries a rung per `Seniority`
+level; the penalty charges 6 points per year of gap, capped at -30. Two silences
+stop it: `unclear` is no rule having decided, and a null `years_experience` is
+the person not having told us (I2) — neither resolves to zero, because reading
+null as zero charges every silent profile the full penalty against every senior
+posting in the corpus.
+
+Scoring it off the *title band* is also what makes it additive rather than a
+second copy of the gate's years rule: the gate reads a stated minimum in the
+posting's text and can only answer when one is stated, so a "Lead Engineer"
+title naming no number is invisible to it and obvious here. And the mechanical
+form of "never a blocker" is that `eligibility.Dimension` has no seniority
+member at all — this rule has no route to `ineligible` even if somebody wanted
+one, which is A13's argument built into the type rather than into a convention.
 
 ### 5.2 Eligibility is never part of the number
 
@@ -428,12 +851,53 @@ absorbed a penalty for uncertainty is a lie. Making the grouping a visible
 structure satisfies both — the ordering reflects eligibility, and the number
 never does.
 
+**Built at Task 10 as `GET /matches`**, its own route rather than a flag on
+`/jobs`. The two are different resources: `/jobs` is the corpus, the same rows
+for everybody, ordered by recency and deliberately carrying no relevance number;
+this is a list of `match_results`, which exist only for a person and only for the
+pairs the sweep has reached. Folding them together gives one endpoint whose
+shape, ordering and meaning change with a flag, and leaves `not_yet_scored`
+nowhere honest to live.
+
+Three decisions the section above did not settle, taken when it was built:
+
+- **All five bands are always returned, empty or not.** §3.3's promise that an
+  ineligible posting is shown and dimmed rather than hidden is only checkable if
+  the heading is there when there is nothing under it. A band that vanishes when
+  empty makes `ineligible` invisible exactly when there is nothing in it to see.
+- **The sort is on the fraction, not on `overall_score`** (§5.1.1). 40 out of 50
+  beats 45 out of 100, and `ORDER BY overall_score DESC` — the obvious clause —
+  puts them the other way round while both numbers on the page stay true. In
+  SQL that is `NULLIF(assessed_out_of, 0)`, which also hands the unassessable
+  pairs the null they are entitled to instead of raising.
+- **A null fraction sorts last inside its band, and the response says so.** Such
+  a pair keeps its band, because the eligibility verdict on it is real; what it
+  has nothing to say about is the ordering. Last rather than first is a decision
+  rather than an accident of `NULLS FIRST` being Postgres' default for `DESC`,
+  and `unassessed_sort_last` is on the wire so a client cannot quietly choose
+  otherwise. The row renders as *nothing to assess*, never as `0%`.
+
+**`not_yet_scored` is part of the response.** A ranked list covering 12 of 31
+open postings renders identically to one covering all 31, and nothing in the rows
+themselves can tell a reader which they are looking at. It counts stale-version
+rows too: §4.2 refuses to serve one, and *refused* and *never computed* are the
+same thing to a list — the sweep will fix both.
+
+`BAND_ORDER` is written out in `domain/matching.py` rather than taken from
+`EligibilityState`'s declaration order, which happens to agree today. The enum's
+order is a fact about a Python file; the band order is a product decision, and
+`uncertain` above `likely_ineligible` is the one line of it worth stating on its
+own — an open question is not a soft no, and sorting them the other way round
+buries the postings a person could resolve by filling in one profile field
+underneath the ones they cannot resolve at all.
+
 ---
 
 ## 6. Explanation
 
-§8.5 requires nine elements. Seven are computed in M3c; two are not built and
-are named rather than faked.
+§8.5 requires nine elements. **Six are computed in M3c; three are named rather
+than faked** — the count moved at Task 10, which is when the panel was built and
+the resume recommendation turned out to need a design of its own (below).
 
 | Element | M3 |
 |---|---|
@@ -442,7 +906,7 @@ are named rather than faked.
 | Hard blockers | The eligibility gate's failing rules, each quoting the sentence |
 | Soft gaps | `preferred` requirements with no evidence |
 | Relevant project evidence | `match_evidence` rows with a `user_project_id` |
-| Recommended resume | Which stored resume best covers the required set |
+| Recommended resume | **Not built.** Which stored resume best covers the required set. The column exists, nothing writes it, and doing it from `resume_extractions` would be a claim about a person built on proposals (I2) — see below |
 | Confidence | The eligibility state. **Not a number** |
 | Recommended emphasis | **Not built.** Advice about how to present oneself, which this system has no basis for |
 | Suggested next action | **Not built.** M2d's queue owns next actions and computes them from application state |
@@ -451,6 +915,64 @@ No explanation text is generated. Every line is assembled from evidence rows and
 quotes stored strings. There is no template that can produce a sentence about a
 skill with no row behind it — which is exactly what M3d's hallucination check
 asserts.
+
+**One sentence per component is stored rather than assembled**, and §4.5 records
+the argument: it is the rule's own output, produced by the same call as the points
+it explains, and it is the only text a component that scored nothing ever has.
+That is a different thing from the narrative §4.2 refused to store, which would
+have been assembled *from* the evidence rows and could disagree with them.
+
+**One of the seven is not computed, and Task 9 is where that became visible**
+rather than where it was decided. `match_results.resume_id` is the *Recommended
+resume* row above and nothing writes it — it is null on every stored score.
+
+**Task 10 built the panel and did not take the resume recommendation**, which is
+a decision rather than a slip, and the reason is I2. *Which stored resume best
+covers the required set* needs a per-resume set of skills, and this system has
+none: `user_skills` is confirmed and belongs to the **person**, not to a
+document, while `resume_extractions` is per-resume and holds **proposals** —
+which §7.2 forbids any user-side span from quoting. Recommending a resume from
+proposals would be a claim about somebody's qualifications derived from text
+nobody has confirmed. Doing it honestly needs either a confirmation step that
+attributes a confirmed skill to the resume it came from, or an explicit
+"this resume mentions" reading that is never called evidence. Either is its own
+small design and neither is a rider on the explanation panel.
+
+So the panel **names it beside the two that are not built** — `MatchPanel`'s
+`NOT_BUILT` list, printed on the page rather than left in a comment — and
+PROGRESS carries it under "Not real yet." It is not one of the seven computed
+elements and must not be described as one.
+
+**The other six were assembled at Task 10.** *Why it may not fit* and *soft
+gaps* are one computation read at two necessities, and it is a set difference
+over the stored evidence rows — `matching.unmet_requirements`, served as
+`JobDetailOut.unmet_requirements` and **null rather than empty when there is no
+score**, because an empty list there reads as *you meet everything*: a claim
+about a person computed from no evidence at all, which is the failure
+`eligibility`'s own null exists to prevent one field up.
+
+**A set difference is only honest over a set the other side can populate**, and
+Task 12 found two ways it was not, both by looking at the page rather than at a
+test:
+
+- The difference ran over *every* non-`mentioned` requirement, and the evidence
+  graph only ever contains technologies — so every degree, years, enrollment and
+  graduation ask came back unanswered, and the page printed a bare **"2"** under
+  *what it asks for that you have nothing on file for*. Those dimensions belong
+  to the gate directly above. Fixed by filtering to
+  `scoring.EVIDENCE_BEARING_REQUIREMENT_KINDS`.
+- No component emitted a row for a `preferred` technology, so **every**
+  nice-to-have was listed as one you have nothing on file for — including three
+  the same page quoted as confirmed, eight lines higher. Fixed by having skill
+  overlap and project evidence emit **zero-point** evidence rows for confirmed
+  nice-to-haves, which is what `score_skill_overlap`'s docstring had claimed
+  since Task 3 without any code behind it. No total moved; `RULESET_LOGIC_VERSION`
+  went to `2` anyway, because the evidence graph is part of the score under I4
+  and the golden test refused to regenerate without it.
+
+The rule this leaves behind: **a gap is only ever something an evidence row could
+have answered.** Anything else is an absence of information being rendered as a
+statement about a person.
 
 I5 is unchanged and worth restating here because §8.5 sits next to it: nothing
 rewrites a resume, nothing tailors one, nothing submits anything.
@@ -481,6 +1003,22 @@ Two assertions, both of which must hold for every row in the corpus:
 
 Neither is a percentage to improve. A single violation is a failing test.
 
+**Where each is actually enforced, measured at M3c Task 12 by attacking the
+database rather than by reasoning about it.** The two assertions do not have the
+same teeth and it matters which:
+
+| | Enforced by |
+|---|---|
+| A job span that does not match its offsets | A trigger, on INSERT **and** on UPDATE. Probed: both refused |
+| A user span quoting something unconfirmed | `check_match_results` in `verify.py`, and the unit suite. Nothing in DDL |
+| `proposed_by = 'embedding'` (ADR 0018) | `check_match_results`, three unit tests. **The database accepts such a row** |
+
+`check_match_results` runs last in `verify.py`, after every check that edits a
+profile column or a confirmed skill — each of which deletes every score — so it
+reads only rows it rescored itself. It therefore asserts *the scorer produces no
+such row over the whole seeded corpus*, and cannot catch one inserted by hand.
+That limit is stated in its docstring rather than implied.
+
 ### 7.3 What M3 does not measure, stated plainly
 
 **Top-k relevance.** §8.6 asks for it and M3 will not have it. Relevance is
@@ -495,6 +1033,12 @@ measured and ranking *quality* unmeasured, and PROGRESS says so under "Not real
 yet" rather than reporting a metric computed against labels the system wrote for
 itself.
 
+**The worksheet exists as of M3c Task 1** — `docs/labeling/relevance-worksheet.md`,
+generated from the same corpus §3.1's answer key uses, filled in at
+`services/api/tests/fixtures/relevance/ratings.yaml`. It carries the profile the
+ratings were made against, so M3d grades a pure function against a committed
+file rather than against whatever the database holds on the day. QUESTIONS Q5.
+
 ---
 
 ## 8. Testing
@@ -507,6 +1051,18 @@ Beyond the evaluation suite:
   neutering it and watching a named test go red. This project has now found
   three tests that could not fail; the gate is where that would be most
   expensive.
+- **Mutation testing on the score's numbers**, built at Task 7 and wider than
+  planned. Not only the six weights: the two penalty ceilings and all eleven
+  thresholds move a score too, and a decorative threshold is exactly as
+  invisible as a decorative weight. Nineteen mutations, each asserted to move
+  at least one of the 612 golden scores.
+
+  It found five dead mutations on first run — the lower rungs of the seniority
+  ladder, because `gap` is `max(0, implied - years)` and a rung only bites
+  somebody below it, and no fixture profile stated a number small enough. The
+  fix was a fourth profile at `years_experience: 0`, which was worth more than
+  the kills: somebody with no professional experience yet is this product's
+  user, and the fixture set had nobody in it.
 - **The span trigger is proven able to fail**, by shifting an offset by one
   character and catching the database error.
 - **Both evidence guards are proven able to fail** — one by committing a
@@ -519,6 +1075,15 @@ Beyond the evaluation suite:
 - **A determinism test that actually reruns.** Same fixtures, two full runs,
   byte-identical `match_results` and `match_evidence`. Embeddings are local and
   deterministic (A5), so this is a real assertion rather than an aspiration.
+  Built at Task 6 — and it rebuilds the corpus, re-extracts every requirement
+  and rescores every pair on the second run, because comparing a cached string
+  against itself proves nothing.
+- **An anti-vacuity test on the corpus, not only on the rules.** A scorer
+  returning 50 for everything satisfies every line above it. Task 6 asserts the
+  corpus reaches several distinct scores, several distinct *denominators*, and
+  that every one of the six components earns points somewhere — the last of
+  which is what stops Task 7's mutation test from "proving" a component
+  load-bearing against a corpus that could never tell.
 
 ---
 
@@ -528,8 +1093,14 @@ Named here so nothing in M3 is quietly assumed to be coming.
 
 - **Any LLM.** §8.1 permits one to assist; §2 of this document gives it nothing
   to do that would not violate the span rule. No ADR, no dependency, no key.
+- **Any embedding proposal path.** §2 permits one; Task 11 measured what it
+  would say and ADR 0018 declines it. `EvidenceSource.EMBEDDING` remains on the
+  wire and unreachable, deliberately — see the ADR's consequences.
+- **`demonstrated_by:` edges in `data/skills.yaml`** — the constructive successor
+  ADR 0018 recommends. Would move scores across the corpus, so it needs a
+  `ruleset_version` bump and does not belong in M3c's last task.
 - **Resume rewriting, tailoring, or generation.** I5.
-- **Recommended emphasis and suggested next action** — §6.
+- **Recommended emphasis, suggested next action, and the recommended resume** — §6.
 - **Company preference and application urgency** — §5.1.
 - **Top-k relevance**, unless the second labeling pass happens — §7.3.
 - **Coordinates, boroughs, neighborhoods.** M4. The location component scores

@@ -7,6 +7,137 @@ the date, because the reasoning is usually worth more than the decision.
 
 ---
 
+## Q6 — 43% of postings require no technology. What should a score out of 100 do about it?
+
+**Raised:** 2026-08-09 (M3c Task 3) · **Type:** product · **Blocking:** no
+**ANSWERED 2026-08-09: option 1 — score out of what could be assessed.**
+
+A posting naming no technologies is scored out of 50, not out of 100, and the
+page says which components could not be assessed and why. The ranked list sorts
+on the fraction; the number shown carries its own denominator. Task 10 owns how
+two numbers read on one screen.
+
+**Implemented at Task 5** — `scoring.compose_score`, and `MatchScore.fraction`
+returns `None` rather than a number when *nothing* could be assessed, because
+0.0 sorts a pair last and 1.0 sorts it first and both are claims nobody made.
+Implementing it surfaced one thing the answer implied and nobody had written
+down: **the denominator has to reach the database**. A component that scored
+zero and a component that could not be assessed both store `0`, so the fraction
+cannot be recomputed on read — `match_results` needs an `assessed_out_of`
+column, and it lands with Task 8's migration. Recorded in `matching.md` §5.1.2.
+
+What this buys, restated so the reason survives the decision: a terse posting no
+longer sorts below a verbose one for reasons about the employer's prose. What it
+costs is that the headline number is no longer always out of 100, which is a
+presentation problem rather than a measurement one.
+
+**The measurement, on the committed answer key rather than on the extractor's
+output:** 26 of the 60 labeled postings name **no required technology at all**,
+and 16 of those name no technology of any kind. That is 43%, and it is a fact
+about how employers write rather than about anything this system does — the
+human labeled those postings by hand and there was nothing to label.
+
+Skill overlap is worth 30 of 100 and project evidence another 20. Both read the
+same required-technology list. So on 43% of the corpus, **half the available
+score cannot be computed at all**, and the question is what the total does then.
+
+Scoring those components zero is the option to reject, and §5.1 already rejected
+its twin: application urgency was deferred because scoring an absent deadline as
+zero "measures an employer's ATS configuration, not urgency". This is the same
+shape with a bigger number. A terse posting would sort below a verbose one for
+reasons having nothing to do with the person reading the list.
+
+Awarding the points anyway is not available, and it is worth saying that the
+database is what makes it unavailable: a positive component with no evidence row
+cannot be committed. The guard built at Task 2 removed the tempting option
+before anybody had to be disciplined about it.
+
+That leaves a real choice, and it changes what the number on the screen means:
+
+1. **Score out of what could be assessed.** A posting naming no technologies is
+   scored out of 50, and the page says "50 points not assessable: this posting
+   names no technologies". The ranked list sorts on the fraction. Honest, and it
+   makes two numbers on one screen that a person has to reconcile.
+2. **Score out of 100 always, with the unassessable components visibly empty.**
+   Simpler to read, and it systematically ranks terse postings below verbose
+   ones — which is the defect above, accepted deliberately and disclosed.
+3. **Redistribute the weight** across the components that could be assessed, so
+   every posting is scored out of 100. Comparable, and it silently changes what
+   the weights mean per posting — a posting with no technologies would have
+   location and freshness worth 50 points between them, which nobody chose.
+
+I would take (1): it is the only one that does not quietly lie, and the
+two-numbers problem is a presentation question rather than a measurement one.
+But it is your product, the tradeoff is visible to a user, and Task 5 will
+implement whichever you pick.
+
+Task 3 does not need the answer. Each component already returns `assessable`
+alongside its points, so the information exists either way and no rule has to
+change — only the composition.
+
+---
+
+## Q5 — Twenty minutes of your judgement, or M3 ships with ranking quality unmeasured
+
+**Raised:** 2026-08-09 (M3c planning) · **Type:** product · **Blocking:** no
+
+`matching.md` §7.3 names this and M3c's plan brings it forward so it can be
+scheduled rather than discovered at M3d.
+
+**The problem, plainly.** M3 will be able to prove that the ranking is *stable* —
+same inputs, same version, byte-identical output — and it will not be able to
+prove the ranking is *good*. Those are different claims and only one of them is
+what a person cares about.
+
+The reason is not laziness. Whether a role is a **good** role for you is not a
+property of the posting, so it cannot be read out of the 60-posting answer key by
+construction. The key can say "this posting requires a bachelor's degree" because
+that has a right answer. It cannot say "this posting is a 78 for Tahmudun".
+
+**What would fix it:** you rate roughly 30 postings `good` / `acceptable` / `poor`.
+No explanation needed, no tie-breaking, just the three buckets. Roughly twenty
+minutes. That becomes the held-out set the ranking is measured against in M3d,
+and it is the only thing in this project that can produce that measurement.
+
+**What happens if it does not happen:** M3 ships with stability measured and
+quality unmeasured, and PROGRESS says exactly that under "Not real yet" — rather
+than reporting a number computed against labels the system wrote for itself,
+which would be the most flattering and least honest option available.
+
+**Not blocking.** M3c is twelve tasks and none of them needs this. It is wanted
+before M3d starts.
+
+### The worksheet exists — 2026-08-09
+
+`docs/labeling/relevance-worksheet.md`, thirty postings, filled in at
+`services/api/tests/fixtures/relevance/ratings.yaml`. Generated by
+`scripts/make_relevance_worksheet.py` from the same 153-posting corpus M3a
+labeled, so a rating and an eligibility label always describe the same job.
+
+Two things about it that are not in the question above, both decided while
+building it:
+
+- **The file carries the profile the ratings were made against**, and the first
+  two minutes go there. A rating without one is unusable: `poor` from a
+  first-year student and `poor` from a staff engineer are different claims about
+  the same posting. It also means M3d grades a pure function against a committed
+  file rather than against whatever is in the database that day.
+- **The thirty are stratified by role shape, not drawn evenly.** Twelve
+  early-career technical, nine experienced technical, six clearly non-technical,
+  three residual. The first draft round-robined by employer and produced four
+  engineering roles and twenty-six accountants, receptionists and AML analysts —
+  every one a `poor`, and a ranker that sorts them last is not thereby good.
+  `test_the_set_spreads_across_employers_and_role_shapes` is that guard.
+
+**One limit worth knowing before you spend the twenty minutes.** The nine
+employers in that corpus are all quant trading firms or AI labs, because M3a
+recorded them for eligibility-rule coverage rather than as a sample of New York
+tech. So the resulting number measures the ranking over that slice, not over the
+job market. It is still the only measurement available and it is worth having;
+it is not worth over-claiming, and PROGRESS says so where the number will go.
+
+---
+
 ## Q2 — Deployment target for the M4 ship
 
 **Raised:** 2026-07-29 (M0) · **Type:** cost · **Blocking:** no

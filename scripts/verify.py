@@ -952,6 +952,367 @@ async def check_job_requirements() -> None:
     await dispose_engine()
 
 
+async def check_match_results() -> None:
+    """M3c over HTTP and then over the database: the score, and what it rests on.
+
+    Four claims, and none of them is reachable from the unit suite, the component
+    tests or the browser walk:
+
+      1. **`matching.md` §7.2, as an equality over every stored row.** Every
+         `match_evidence.job_span_text` is the literal text at the offsets it
+         recorded, in the field it named; every `user_span_text` is a literal
+         substring of a *confirmed* record — a `user_skills.name` or a
+         `user_projects.evidence` — and never of `resume_extractions`, which
+         holds proposals. The unit suite asserts this about what the scorer
+         returns. This asserts it about what is in the table, which is where a
+         description edited after a score, or a row somebody inserted by hand,
+         would show up. §7.2 is explicit that it is not a rate: one violation
+         fails.
+      2. **No stored row was proposed by an embedding** (ADR 0018), asserted
+         against the whole corpus rather than against a fixture pair.
+
+         **Its reach is smaller than it looks and the limit is worth stating.**
+         Every check above this one edits a profile column or a confirmed skill,
+         each of which deletes every `match_result` row, so by the time this runs
+         the only rows in the table are the ones it rescored itself moments
+         earlier. It therefore asserts that *the scorer, over 31 real postings,
+         stores no such row* — and it cannot catch one somebody inserted by hand,
+         which the database will accept: a fabricated **span** is refused by a
+         trigger on INSERT and on UPDATE, and a fabricated **source** is refused
+         by nothing but this code. Both halves were probed directly to find that
+         out (M3c review §2).
+      3. **I4 against live rows.** Six component assessments per score, a total
+         that is its own parts, a `penalty_score` that is the sum of the
+         penalties beneath it, and no positive component without evidence.
+      4. **ADR 0019: the score is stored, and a profile change withdraws it.**
+         This is the exact opposite of `check_eligibility_gate`'s last three
+         lines and the pairing is the point — a verdict is recomputed on read
+         and a score is not, so the only honest thing to do with a score whose
+         inputs moved is to delete it. Editing a scoring-relevant column empties
+         the table and `/jobs/{id}` reports `match: null`; editing a display name
+         leaves every row alone; the sweep puts back exactly what it removed.
+
+    **It writes to the developer's own profile and to `match_results`**, and it
+    restores both — the profile columns from a snapshot, the scores by running
+    the same `recompute_pending` the ARQ cron calls. The limit is the one
+    `check_eligibility_gate` states: killed mid-run, the profile keeps this
+    function's values. The scores are safe either way, because they are derived
+    and `make seed` recomputes them.
+
+    Ordered last in `main` deliberately. Everything above it that touches a
+    profile column or a confirmed skill invalidates every score on the way past
+    — `check_profile_confirmation` does it twice — so a scoring check anywhere
+    else in the list would be reading a table something after it was about to
+    empty.
+    """
+    print("\nthe score, and what it rests on")
+
+    sys.path.insert(0, str(API_DIR))
+    from sqlalchemy import text as sql  # noqa: PLC0415
+
+    from nightshift.db.session import (  # noqa: PLC0415
+        dispose_engine,
+        get_engine,
+        session_scope,
+    )
+    from nightshift.domain.matching import recompute_pending  # noqa: PLC0415
+
+    engine = get_engine()
+
+    async def rescore() -> int:
+        async with session_scope() as session:
+            report = await recompute_pending(session)
+            return report.scored
+
+    def ranked_now() -> dict[str, tuple[int, int, str]]:
+        """Every scored posting's number, keyed by posting. One request."""
+        _, body = get_json("/matches?limit=200")
+        return {
+            row["job"]["id"]: (
+                row["match"]["overall_score"],
+                row["match"]["assessed_out_of"],
+                row["match"]["eligibility_status"],
+            )
+            for band in body["bands"]
+            for row in band["items"]
+        }
+
+    async def score_count() -> int:
+        async with engine.begin() as connection:
+            return int(
+                (await connection.execute(sql("SELECT count(*) FROM match_results"))).scalar_one()
+            )
+
+    code, before_profile = get_json("/profile")
+    if code != 200 or not isinstance(before_profile, dict):
+        check(False, "the profile is readable", f"HTTP {code}")
+        await dispose_engine()
+        return
+    snapshot = {field: before_profile[field] for field in GATE_FIELDS}
+    display_name = before_profile.get("display_name")
+    #: Filled once the corpus has been scored, and compared against again in the
+    #: `finally` — §7.1's ranking-stability row, asserted against a running stack
+    #: rather than against a golden file. The golden test proves the *scorer* is
+    #: deterministic; this proves that deleting every row and computing them
+    #: again from the same profile lands on the same numbers, which is the thing
+    #: a person actually does when they edit a field and change it back.
+    as_found: dict[str, tuple[int, int, str]] = {}
+
+    try:
+        # Everything before this point in `main` has changed a profile column or
+        # a confirmed skill at least once, so the table is empty by now. Putting
+        # it back is this check's first act rather than an assumption.
+        restored = await rescore()
+        if not check(restored > 0, "the corpus scores", f"{restored} pair(s) scored"):
+            return
+
+        # -- 1. the ranked list, and the order it claims ---------------------
+        code, ranking = get_json("/matches?limit=200")
+        if code != 200 or not isinstance(ranking, dict):
+            check(False, "/matches returns a ranking", f"HTTP {code}")
+            return
+        bands = ranking["bands"]
+        tally = ", ".join(f"{b['state']} {len(b['items'])}" for b in bands if b["items"])
+        check(ranking["total"] > 0, "the ranking has postings in it", tally)
+        check(
+            ranking["not_yet_scored"] == 0,
+            "every open posting is scored",
+            f"{ranking['not_yet_scored']} not yet scored",
+        )
+
+        misordered: list[str] = []
+        for band in bands:
+            fractions = [row["match"]["fraction"] for row in band["items"]]
+            # `None` sorts last and is never compared as a number — a pair
+            # nothing could be assessed on is not a pair that scored zero.
+            ranked = [f for f in fractions if f is not None]
+            if ranked != sorted(ranked, reverse=True):
+                misordered.append(band["state"])
+            if any(f is None for f in fractions) and ranked != [
+                f for f in fractions[: len(ranked)] if f is not None
+            ]:
+                misordered.append(f"{band['state']}: an unassessed row sorts above a scored one")
+        check(not misordered, "each band is ordered on the fraction", "; ".join(misordered[:3]))
+
+        # The claim above is only worth making if this corpus can distinguish
+        # the two orderings. `assessed_out_of` varies here — 20, 30, 40, 50, 90,
+        # 100 — so sorting on `overall_score` gives a different answer, and
+        # saying so in the output stops a green tick standing for a comparison
+        # with one possible result.
+        rows = [row for band in bands for row in band["items"]]
+        by_fraction = [
+            r["job"]["id"] for r in rows if r["match"]["fraction"] is not None
+        ]
+        by_total = [
+            r["job"]["id"]
+            for r in sorted(
+                (r for r in rows if r["match"]["fraction"] is not None),
+                key=lambda r: -r["match"]["overall_score"],
+            )
+        ]
+        check(
+            by_fraction != by_total,
+            "sorting on the fraction is not the same as sorting on the total",
+            f"{len({r['match']['assessed_out_of'] for r in rows})} distinct denominators",
+        )
+
+        # -- 2. the two surfaces agree ---------------------------------------
+        subject = max(
+            (r for r in rows if r["match"]["fraction"] is not None),
+            key=lambda r: r["match"]["fraction"],
+            default=None,
+        )
+        if subject is None:
+            check(False, "a scored posting exists to open")
+            return
+        code, detail = get_json(f"/jobs/{subject['job']['id']}")
+        listed, opened = subject["match"], detail.get("match")
+        check(
+            opened is not None
+            and (opened["overall_score"], opened["assessed_out_of"], opened["ruleset_version"])
+            == (listed["overall_score"], listed["assessed_out_of"], listed["ruleset_version"]),
+            "the ranked row and the job detail report one score",
+            f"{listed['overall_score']} of {listed['assessed_out_of']}",
+        )
+
+        # -- 3. I4 against every stored row -----------------------------------
+        bare: list[str] = []
+        for row in rows:
+            match = row["match"]
+            title = row["job"]["title"]
+            components = match["components"]
+            if len(components) != 6:
+                bare.append(f"{title}: {len(components)} components, not 6")
+            if match["overall_score"] != max(
+                0, sum(c["points"] for c in components) + match["penalty_score"]
+            ):
+                bare.append(f"{title}: the total is not its parts")
+            if match["penalty_score"] != sum(p["points"] for p in match["penalties"]):
+                bare.append(f"{title}: the penalty total is not its penalties")
+            for component in components:
+                if component["points"] > 0 and not component["evidence"]:
+                    bare.append(f"{title}: {component['component']} scored with no evidence")
+                if not component["assessable"] and component["points"] != 0:
+                    bare.append(f"{title}: {component['component']} scored while unassessable")
+                if not component["why"].strip():
+                    bare.append(f"{title}: {component['component']} has no sentence")
+            if not match["ruleset_version"]:
+                bare.append(f"{title}: no ruleset version")
+        check(
+            not bare,
+            "invariant I4: no score without its breakdown",
+            "; ".join(bare[:3]) if bare else f"{len(rows)} scores decomposed",
+        )
+
+        # -- 4. §7.2, as an equality over the table ---------------------------
+        async with engine.begin() as connection:
+            evidence = (
+                await connection.execute(
+                    sql(
+                        "SELECT e.component::text, e.job_span_field::text, e.job_span_text, "
+                        "       e.job_char_start, e.job_char_end, e.user_span_text, "
+                        "       e.proposed_by::text, j.title, j.description_text "
+                        "FROM match_evidence e "
+                        "JOIN match_results m ON m.id = e.match_result_id "
+                        "JOIN jobs j ON j.id = m.job_id"
+                    )
+                )
+            ).all()
+            confirmed = (
+                await connection.execute(
+                    sql(
+                        "SELECT name FROM user_skills "
+                        "UNION ALL SELECT evidence FROM user_projects WHERE evidence IS NOT NULL "
+                        "UNION ALL SELECT name FROM user_projects "
+                        # `preferred_roles` is the user span the role component
+                        # quotes and `preferred_locations` feeds the location
+                        # one. Both are JSONB arrays of strings a person typed,
+                        # so they are confirmed records in exactly §7.2's sense.
+                        "UNION ALL SELECT jsonb_array_elements_text(preferred_roles) FROM users "
+                        "UNION ALL SELECT jsonb_array_elements_text(preferred_locations) FROM users"
+                    )
+                )
+            ).scalars().all()
+
+        check(len(evidence) > 0, "the corpus produced evidence rows", f"{len(evidence)} rows")
+        drifted: list[str] = []
+        unconfirmed: list[str] = []
+        for component, field, span, start, end, user_span, proposed_by, title, body in evidence:
+            if span is not None:
+                text = title if field == "title" else (body or "")
+                if start is None or end is None or text[start:end] != span:
+                    drifted.append(f"{title}: {component} quotes {span!r}")
+            if user_span is not None and not any(user_span in row for row in confirmed):
+                unconfirmed.append(f"{title}: {component} quotes {user_span!r}")
+        # Read-time re-assertion of something the database already enforces on
+        # write. Kept because the two guards fail differently: the trigger reads
+        # `jobs.description_text` as it is at INSERT, and this reads it as the
+        # API serves it now. A probe confirmed the trigger refuses both a
+        # rewritten span and moved offsets, so this line is a second opinion
+        # rather than the only one.
+        check(
+            not drifted,
+            "every job span is the text at the offsets it recorded (§7.2)",
+            "; ".join(drifted[:3]) if drifted else f"{sum(1 for r in evidence if r[2])} job spans",
+        )
+        check(
+            not unconfirmed,
+            "every user span quotes a confirmed record, never a proposal (§7.2)",
+            "; ".join(unconfirmed[:3])
+            if unconfirmed
+            else f"{sum(1 for r in evidence if r[5])} user spans",
+        )
+        proposed = sorted({row[6] for row in evidence})
+        check(
+            "embedding" not in proposed,
+            "the scorer stored no evidence row proposed by an embedding (ADR 0018)",
+            ", ".join(proposed),
+        )
+
+        # -- 5. ADR 0019: stored, and withdrawn when its inputs move ----------
+        as_found = ranked_now()
+        stored_before = await score_count()
+        code, _ = send_json("/profile", "PATCH", {"display_name": "verify.py"})
+        check(
+            code == 200 and await score_count() == stored_before,
+            "editing a display name withdraws no score",
+            f"{stored_before} rows",
+        )
+        send_json("/profile", "PATCH", {"display_name": display_name})
+
+        code, _ = send_json("/profile", "PATCH", {"years_experience": 12})
+        emptied = await score_count()
+        check(
+            code == 200 and emptied == 0,
+            "editing a scoring input withdraws every score",
+            f"{stored_before} -> {emptied}",
+        )
+        code, withdrawn = get_json(f"/jobs/{subject['job']['id']}")
+        check(
+            withdrawn.get("match") is None,
+            "and the posting reads as not-yet-scored, never as a stale number",
+            "ADR 0019",
+        )
+        code, empty_ranking = get_json("/matches?limit=200")
+        check(
+            empty_ranking["total"] == 0 and empty_ranking["not_yet_scored"] > 0,
+            "the ranked list counts them as unscored rather than dropping them",
+            f"{empty_ranking['not_yet_scored']} awaiting the sweep",
+        )
+
+        again = await rescore()
+        code, rescored = get_json(f"/jobs/{subject['job']['id']}")
+        check(
+            again == restored and rescored.get("match") is not None,
+            "the sweep rebuilds what the edit removed",
+            f"{again} pair(s) rescored",
+        )
+
+        # And the sweep really read the new profile, rather than rebuilding the
+        # same numbers regardless.
+        #
+        # Asserted over the corpus and not over the posting opened above, which
+        # is what the first version of this line did — it picked the
+        # highest-scoring pair, that posting states no years minimum, and twelve
+        # years is correctly no answer at all to a question nobody asked. The
+        # check went red on its first run for a reason that was not a defect,
+        # which is its own kind of wrong assertion: a claim about the profile
+        # being read has to be made where the profile is read.
+        with_twelve_years = ranked_now()
+        moved = [
+            job_id for job_id, before in as_found.items() if with_twelve_years.get(job_id) != before
+        ]
+        check(
+            len(moved) > 0,
+            "twelve years of experience is a different answer to the corpus",
+            f"{len(moved)} of {len(as_found)} postings moved",
+        )
+    finally:
+        code, _ = send_json("/profile", "PATCH", snapshot)
+        _, final = get_json("/profile")
+        put_back = await rescore()
+        check(
+            code == 200
+            and all(final.get(f) == snapshot[f] for f in GATE_FIELDS)
+            and put_back > 0,
+            "the profile and the scores are left as they were found",
+            f"{put_back} pair(s) rescored, nothing left behind",
+        )
+        if as_found:
+            # §7.1's stability row, on a stack. Every score in the corpus was
+            # deleted twice and recomputed twice between here and where
+            # `as_found` was taken, from a profile put back to the same values —
+            # so the same numbers are the only acceptable answer.
+            again = ranked_now()
+            differing = [job_id for job_id, row in as_found.items() if again.get(job_id) != row]
+            check(
+                not differing,
+                "and the same profile scores the same corpus identically (§7.1)",
+                f"{len(as_found)} postings, {len(differing)} differ",
+            )
+        await dispose_engine()
+
+
 async def verify_constraints() -> None:
     """Attempt each job_locations violation and require the database to refuse it."""
     print("\ndatabase constraints (invariant I1 in DDL)")
@@ -1057,6 +1418,10 @@ def main() -> int:
         check_eligibility_gate()
         asyncio.run(check_job_requirements())
         asyncio.run(verify_constraints())
+        # Last, and the docstring says why: everything above it invalidates
+        # scores on its way past, so this is the only position from which it is
+        # reading a table nothing is about to empty.
+        asyncio.run(check_match_results())
     finally:
         api.terminate()
         try:

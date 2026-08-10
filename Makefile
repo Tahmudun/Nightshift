@@ -27,7 +27,8 @@ LOADENV := set -a && source .env && set +a
 .PHONY: help setup up down migrate migrate-down seed dev demo test test-py test-web \
         test-e2e check fmt lint typecheck reset-db ingest logs ps clean doctor \
         verify acceptance test-e2e-seeded browsers drift constraints \
-        discover registry-validate registry-approve registry-approve-write coverage
+        discover registry-validate registry-approve registry-approve-write coverage \
+        worksheets score
 
 help: ## Show available targets
 	@echo "Nightshift — make targets"
@@ -99,8 +100,11 @@ migrate: setup ## Alembic upgrade head
 migrate-down: setup ## Alembic downgrade one revision
 	@$(LOADENV) && cd $(API_DIR) && ../../$(ALEMBIC) downgrade -1
 
-seed: setup ## Load fixture data (dev user, sources, companies, jobs)
+seed: setup ## Load fixture data (dev user, demo profile, sources, companies, jobs, scores)
 	@$(LOADENV) && $(PY) -m nightshift.cli seed
+
+score: setup ## Run the match sweep now instead of waiting for the worker's cron
+	@$(LOADENV) && $(PY) -m nightshift.cli score
 
 reset-db: ## Drop, recreate, migrate, seed
 	@$(COMPOSE) down -v
@@ -165,6 +169,13 @@ registry-approve-write: setup ## Actually promote approved candidates, then comm
 
 coverage: setup ## Print what is covered and, more to the point, what is not
 	@$(LOADENV) && $(PY) -m nightshift.discovery.cli coverage
+
+# Both labeling worksheets. Neither reads the database or the network — they are
+# built from the committed fixture corpus — and both preserve every answer
+# already filled in, so this is safe to run at any time.
+worksheets: setup ## Regenerate the eligibility and relevance labeling worksheets
+	@$(PY) scripts/make_label_worksheet.py
+	@$(PY) scripts/make_relevance_worksheet.py
 
 verify: setup ## Assert the stack actually works, and exit with a status code
 	@$(LOADENV) && $(PY) scripts/verify.py

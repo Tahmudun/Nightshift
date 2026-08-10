@@ -190,7 +190,7 @@ async def delete_skill(
     session: Annotated[AsyncSession, Depends(get_db_session)],
     user_id: CurrentUserId,
 ) -> Response:
-    if not await remove_skill(session, user_id=user_id, skill_id=skill_id):
+    if not await remove_skill(session, user_id=user_id, user_skill_id=skill_id):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="skill not found")
     await session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -10,6 +10,8 @@ import {
   jobDetailSchema,
   jobListSchema,
   jobLocationSchema,
+  matchRankingSchema,
+  matchSchema,
   extractionSchema,
   profileSchema,
   resumeDetailSchema,
@@ -526,5 +528,103 @@ describe('dailyQueueSchema', () => {
 
   it('refuses a section key the API does not serve', () => {
     expect(queueSectionKeySchema.safeParse('recommended_action').success).toBe(false);
+  });
+});
+
+describe('matchSchema — the score at the network boundary', () => {
+  const score = {
+    overall_score: 40,
+    assessed_out_of: 50,
+    fraction: 0.8,
+    eligibility_status: 'uncertain',
+    components: [],
+    penalty_score: 0,
+    penalties: [],
+    deferred_components: [],
+    ruleset_version: '1+2026-08-09.1',
+    model_version: null,
+    computed_at: '2026-08-09T00:00:00+00:00',
+  };
+
+  it('keeps a null fraction null rather than coercing it to zero', () => {
+    // The ranking key. `null` means nothing could be assessed; `0` means
+    // measured and found wanting, and the two sort at opposite ends.
+    const parsed = matchSchema.parse({ ...score, assessed_out_of: 0, fraction: null });
+    expect(parsed.fraction).toBeNull();
+  });
+
+  it('refuses an eligibility state the API cannot send', () => {
+    expect(matchSchema.safeParse({ ...score, eligibility_status: 'maybe' }).success).toBe(false);
+  });
+
+  it('refuses a penalty name outside the two', () => {
+    const result = matchSchema.safeParse({
+      ...score,
+      penalties: [{ name: 'salary_mismatch', points: 0, applicable: false, why: 'x' }],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('refuses an evidence row that names a field of the posting we do not have', () => {
+    // `job_span_field` selects which string the offsets index into. A value the
+    // browser accepts and the API cannot send is dead UI; a value it refuses is
+    // an unparseable page — and a wrong one underlines the wrong sentence.
+    const result = matchSchema.safeParse({
+      ...score,
+      components: [
+        {
+          component: 'role',
+          points: 20,
+          weight: 20,
+          assessable: true,
+          why: 'x',
+          evidence: [
+            {
+              component: 'role',
+              points: 20,
+              job_span_text: 'Engineer',
+              job_span_field: 'summary',
+              job_char_start: 0,
+              job_char_end: 8,
+              user_span_text: 'engineer',
+              user_skill_id: null,
+              user_project_id: null,
+              compared: {},
+              proposed_by: 'rule',
+            },
+          ],
+        },
+      ],
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('matchRankingSchema', () => {
+  const ranking = {
+    bands: [],
+    total: 0,
+    not_yet_scored: 0,
+    ruleset_version: '1+2026-08-09.1',
+  };
+
+  it('defaults the ordering promise rather than leaving it undefined', () => {
+    // A constant on the wire so a client cannot quietly decide that a pair
+    // nothing could be assessed on belongs at the top.
+    expect(matchRankingSchema.parse(ranking).unassessed_sort_last).toBe(true);
+  });
+
+  it('refuses a response that claims unassessed rows sort first', () => {
+    expect(matchRankingSchema.safeParse({ ...ranking, unassessed_sort_last: false }).success).toBe(
+      false,
+    );
+  });
+
+  it('requires the count of what it could not rank', () => {
+    // Omitting it is how a list covering 12 of 31 postings comes to look like a
+    // list covering all 31, so it is required rather than defaulted to zero.
+    const without: Record<string, unknown> = { ...ranking };
+    delete without.not_yet_scored;
+    expect(matchRankingSchema.safeParse(without).success).toBe(false);
   });
 });

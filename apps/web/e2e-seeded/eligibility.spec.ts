@@ -206,12 +206,20 @@ test.describe('whether a posting is open to you', () => {
     // the link that button becomes. Either is an open door. The failure this
     // guards is a blocked posting whose apply path has been taken away, which
     // is the same harm as hiding the row with an extra step in front of it.
-    await expect(
-      page
-        .getByRole('button', { name: /^sav/i })
-        .or(page.getByRole('link', { name: /saved|applied|interview|offer|rejected/i }))
-        .first(),
-    ).toBeVisible({ timeout: FIRST_COMPILE });
+    //
+    // **By test id and not by its words**, since M3c Task 12. It used to be
+    // `getByRole('link', { name: /saved|applied|interview|offer|rejected/i })`
+    // — five of `STAGE_LABELS`' ten stages, hand-copied — and `make acceptance`
+    // put `verify.py` in front of this suite, which leaves an archived
+    // application on exactly this posting at stage **Preparing**. The control
+    // was on screen, reading "Preparing · archived", and this test reported that
+    // an ineligible posting had had its apply path taken away.
+    //
+    // Third hand-transcribed map to go wrong in three milestones (M3b's review
+    // found `ASKS`). The rule that keeps falling over is the same one: if a
+    // vocabulary lives in a `Record<Enum, string>`, a test must not keep its own
+    // copy of a subset of it.
+    await expect(page.getByTestId('save-or-track')).toBeVisible({ timeout: FIRST_COMPILE });
   });
 
   test('the verdict follows the profile rather than a stored row', async ({ page }) => {
