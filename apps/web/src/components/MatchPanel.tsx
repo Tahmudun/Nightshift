@@ -87,10 +87,18 @@ const NOT_BUILT = [
  * A `<mark>` rather than italics or quotation marks: the whole point of an
  * evidence row is that these characters were not written by this system, and
  * that has to survive being read aloud as well as being looked at.
+ *
+ * **`from` is why this takes a prop at all**, and it is for the browser walk
+ * rather than for the layout — the two sides are checked against two different
+ * haystacks. A quote from the posting must be a literal slice of the text
+ * printed below; a quote from the reader must be a literal slice of something
+ * they confirmed. With one shared test id the walk could only ask whether *some*
+ * mark loosely matched, which it did, and which let a paraphrase through
+ * (M3c review §3).
  */
-function Quoted({ children }: { readonly children: string }) {
+function Quoted({ children, from }: { readonly children: string; readonly from: 'job' | 'user' }) {
   return (
-    <mark className="bg-signal-900/50 px-1 text-paper" data-testid="quoted-span">
+    <mark className="bg-signal-900/50 px-1 text-paper" data-testid={`quoted-${from}-span`}>
       {children}
     </mark>
   );
@@ -108,7 +116,7 @@ function Evidence({ row }: { readonly row: MatchEvidence }) {
     <li className="border-l-2 border-ink-500 pl-3">
       {row.job_span_text !== null && (
         <p className="text-[13px] leading-relaxed text-paper">
-          The posting says <Quoted>{row.job_span_text}</Quoted>
+          The posting says <Quoted from="job">{row.job_span_text}</Quoted>
           {/* Which of the posting's strings this came from. Role relevance is
               decided on the title and everything else on the description, and a
               reader searching the description for a title phrase would conclude
@@ -122,7 +130,7 @@ function Evidence({ row }: { readonly row: MatchEvidence }) {
       )}
       {row.user_span_text !== null && (
         <p className="mt-1 text-[13px] leading-relaxed text-paper-dim">
-          You have confirmed <Quoted>{row.user_span_text}</Quoted>
+          You have confirmed <Quoted from="user">{row.user_span_text}</Quoted>
         </p>
       )}
       {/* §2.1's exempt components quote nobody — there is no claim about your
@@ -144,8 +152,17 @@ function Evidence({ row }: { readonly row: MatchEvidence }) {
           rule" is the failure worth preventing — an unreachable branch that is
           correct beats a reachable one that lies. */}
       <p className="mt-1 text-[11px] text-paper-faint">
-        {row.points > 0 ? `+${row.points}` : row.points} ·{' '}
-        {row.proposed_by === 'rule' ? 'matched by a vocabulary rule' : 'proposed by the embedding'}
+        {/* A nice-to-have says so rather than printing a bare `0`. The row is
+            here because §4.1 means what it says — a preferred technology is
+            worth nothing — and "0" beside a skill somebody has confirmed reads
+            as a judgement of them rather than of the posting's wording. */}
+        {row.compared.necessity === 'preferred'
+          ? 'worth nothing — the posting lists this as a nice-to-have'
+          : `${row.points > 0 ? `+${row.points}` : row.points} · ${
+              row.proposed_by === 'rule'
+                ? 'matched by a vocabulary rule'
+                : 'proposed by the embedding'
+            }`}
       </p>
     </li>
   );

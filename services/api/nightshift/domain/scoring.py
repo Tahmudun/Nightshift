@@ -305,9 +305,34 @@ def _normalize(text: str) -> str:
     return " ".join(text.split()).casefold()
 
 
+#: The requirement kinds a `match_evidence` row can ever point at.
+#:
+#: Skill overlap and project evidence are the only components that read
+#: `job_requirements` at all, and both read technologies — so a `degree` or a
+#: `years_experience` row is not something this score can answer, and the
+#: absence of an evidence row against one says nothing whatsoever.
+#:
+#: Named here because `matching.unmet_requirements` differences requirements
+#: against the evidence graph, and without this set it reports every degree,
+#: enrollment and years ask in the corpus as an unanswered gap — which is how
+#: the job page came to print a bare **"2"** under *"what it asks for that you
+#: have nothing on file for"*, beside a profile that states its years. Those
+#: dimensions belong to the eligibility gate, which quotes the sentence and
+#: names the field, and to the seniority penalty, which charges for the
+#: distance.
+EVIDENCE_BEARING_REQUIREMENT_KINDS = frozenset({"technology"})
+
+
 def _required_technologies(posting: PostingForScoring) -> list[RequirementProposal]:
     """Only `required`. `preferred` and `mentioned` are §4.1's whole point."""
     return [r for r in posting.requirements if r.kind == "technology" and r.necessity == "required"]
+
+
+def _preferred_technologies(posting: PostingForScoring) -> list[RequirementProposal]:
+    """The nice-to-haves. Worth zero points and not worth zero information."""
+    return [
+        r for r in posting.requirements if r.kind == "technology" and r.necessity == "preferred"
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -345,41 +370,75 @@ def score_skill_overlap(
     A matched preferred technology still produces an evidence row worth zero
     points, because the explanation panel needs it to say "you also have this"
     without claiming it earned anything.
+
+    **That last paragraph described nothing until M3c Task 12.** It was written
+    with the component and the code only ever iterated the required list, and the
+    consequence was visible on the job page rather than in any test: `preferred`
+    requirements can never acquire an evidence row, `unmet_requirements`
+    differences requirements against exactly those rows, so **every nice-to-have
+    was reported as one you have nothing on file for** — including the three this
+    profile had confirmed and the panel quoted three sections higher on the same
+    screen. A zero-point row is the same device the location component already
+    uses for a dimension it weighed and did not award: evidence records what was
+    *considered*, not only what was won.
     """
     required = _required_technologies(posting)
+    index = _skill_index(profile)
+
+    def confirmed_rows(requirements: list[RequirementProposal]) -> tuple[list[Evidence], int]:
+        rows: list[Evidence] = []
+        for requirement in requirements:
+            skill = index.get(_normalize(requirement.value))
+            if skill is None:
+                continue
+            rows.append(
+                Evidence(
+                    component=MatchComponent.SKILL,
+                    # Filled in below for the required rows, once the fraction is
+                    # known. Points per row are the component's points shared
+                    # out, not a second scale — and a preferred row keeps the
+                    # zero, which is what §4.1 means by "worth nothing here".
+                    points=0,
+                    job_span_text=requirement.raw_text,
+                    job_span_field=JobTextField.DESCRIPTION_TEXT,
+                    job_char_start=requirement.char_start,
+                    job_char_end=requirement.char_end,
+                    user_span_text=skill.name,
+                    user_skill_id=skill.user_skill_id,
+                    compared={
+                        "requirement": requirement.value,
+                        "confirmed_as": skill.name,
+                        "necessity": requirement.necessity,
+                    },
+                    requirement=requirement,
+                )
+            )
+        return rows, len(rows)
+
+    # Computed before the no-required branch below, because a posting that states
+    # only nice-to-haves still has to record which of them are met. Without that
+    # the gap list under an unassessable component names every one of them.
+    nice_to_haves, also_confirmed = confirmed_rows(_preferred_technologies(posting))
+
     if not required:
         return ComponentScore(
             component=MatchComponent.SKILL,
             points=0,
             assessable=False,
-            why="this posting names no required technologies",
+            why=(
+                "this posting names no required technologies"
+                + (
+                    f", and {also_confirmed} of its nice-to-haves "
+                    f"{'is' if also_confirmed == 1 else 'are'} confirmed here — "
+                    "worth nothing, by design"
+                    if also_confirmed
+                    else ""
+                )
+            ),
+            evidence=tuple(nice_to_haves),
         )
 
-    index = _skill_index(profile)
-    rows: list[Evidence] = []
-    matched = 0
-    for requirement in required:
-        skill = index.get(_normalize(requirement.value))
-        if skill is None:
-            continue
-        matched += 1
-        rows.append(
-            Evidence(
-                component=MatchComponent.SKILL,
-                # Filled in below, once the fraction is known. Points per row
-                # are the component's points shared out, not a second scale.
-                points=0,
-                job_span_text=requirement.raw_text,
-                job_span_field=JobTextField.DESCRIPTION_TEXT,
-                job_char_start=requirement.char_start,
-                job_char_end=requirement.char_end,
-                user_span_text=skill.name,
-                user_skill_id=skill.user_skill_id,
-                compared={"requirement": requirement.value, "confirmed_as": skill.name},
-                requirement=requirement,
-            )
-        )
-
+    rows, matched = confirmed_rows(required)
     points = round(weight * matched / len(required))
     if not rows:
         return ComponentScore(
@@ -387,6 +446,7 @@ def score_skill_overlap(
             points=0,
             assessable=True,
             why=f"none of the {len(required)} required technologies is confirmed on this profile",
+            evidence=tuple(nice_to_haves),
         )
 
     rows = _share_out(points, rows)
@@ -395,7 +455,7 @@ def score_skill_overlap(
         points=points,
         assessable=True,
         why=f"{matched} of {len(required)} required technologies confirmed",
-        evidence=tuple(rows),
+        evidence=tuple(rows + nice_to_haves),
     )
 
 
@@ -544,14 +604,65 @@ def score_project_evidence(
     listing a technology with no bullet mentioning it produces **no row**: there
     would be nothing on the person's side to quote, and §2.1 does not allow the
     name of the project to stand in for it.
+
+    A demonstrated *preferred* technology produces a zero-point row for
+    `score_skill_overlap`'s reason, added in the same task and for the same
+    defect: a nice-to-have with no row anywhere on the score is reported as a
+    gap, and "you have built nothing with React" is a false thing to print under
+    a project whose own bullet says otherwise.
     """
     required = _required_technologies(posting)
+
+    def demonstrating_rows(
+        requirements: list[RequirementProposal],
+    ) -> tuple[list[Evidence], set[str]]:
+        rows: list[Evidence] = []
+        demonstrated: set[str] = set()
+        for requirement in requirements:
+            wanted = _normalize(requirement.value)
+            for project in profile.projects:
+                if wanted not in {_normalize(t) for t in project.technologies}:
+                    continue
+                quoted = _quote_from(project.evidence, requirement.value)
+                if quoted is None:
+                    continue
+                demonstrated.add(wanted)
+                rows.append(
+                    Evidence(
+                        component=MatchComponent.PROJECT,
+                        points=0,
+                        job_span_text=requirement.raw_text,
+                        job_span_field=JobTextField.DESCRIPTION_TEXT,
+                        job_char_start=requirement.char_start,
+                        job_char_end=requirement.char_end,
+                        user_span_text=quoted,
+                        user_project_id=project.user_project_id,
+                        compared={
+                            "requirement": requirement.value,
+                            "project": project.name,
+                            "necessity": requirement.necessity,
+                        },
+                        requirement=requirement,
+                    )
+                )
+                break
+        return rows, demonstrated
+
+    # Both early returns keep the order and the sentences they had before the
+    # nice-to-have rows existed — the posting's silence is reported before the
+    # profile's, because a posting naming no required technology cannot be
+    # assessed however complete the profile is. `demonstrating_rows` returns
+    # nothing when there are no projects, so the second branch stays empty
+    # rather than needing its own guard.
+    nice_to_haves, _ = demonstrating_rows(_preferred_technologies(posting))
+
     if not required:
         return ComponentScore(
             component=MatchComponent.PROJECT,
             points=0,
             assessable=False,
             why="this posting names no required technologies",
+            evidence=tuple(nice_to_haves),
         )
     if not profile.projects:
         return ComponentScore(
@@ -561,39 +672,14 @@ def score_project_evidence(
             why="this profile records no projects",
         )
 
-    rows: list[Evidence] = []
-    demonstrated: set[str] = set()
-    for requirement in required:
-        wanted = _normalize(requirement.value)
-        for project in profile.projects:
-            if wanted not in {_normalize(t) for t in project.technologies}:
-                continue
-            quoted = _quote_from(project.evidence, requirement.value)
-            if quoted is None:
-                continue
-            demonstrated.add(wanted)
-            rows.append(
-                Evidence(
-                    component=MatchComponent.PROJECT,
-                    points=0,
-                    job_span_text=requirement.raw_text,
-                    job_span_field=JobTextField.DESCRIPTION_TEXT,
-                    job_char_start=requirement.char_start,
-                    job_char_end=requirement.char_end,
-                    user_span_text=quoted,
-                    user_project_id=project.user_project_id,
-                    compared={"requirement": requirement.value, "project": project.name},
-                    requirement=requirement,
-                )
-            )
-            break
-
+    rows, demonstrated = demonstrating_rows(required)
     if not rows:
         return ComponentScore(
             component=MatchComponent.PROJECT,
             points=0,
             assessable=True,
             why=f"no project demonstrates any of the {len(required)} required technologies",
+            evidence=tuple(nice_to_haves),
         )
 
     points = round(weight * len(demonstrated) / len(required))
@@ -603,7 +689,7 @@ def score_project_evidence(
         points=points,
         assessable=True,
         why=f"projects demonstrate {len(demonstrated)} of {len(required)} required technologies",
-        evidence=tuple(rows),
+        evidence=tuple(rows + nice_to_haves),
     )
 
 

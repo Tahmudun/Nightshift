@@ -104,6 +104,7 @@ from nightshift.domain.matching_weights import MatchingWeights, load_weights
 from nightshift.domain.requirement_extraction import RequirementProposal
 from nightshift.domain.role_classification import classify_role
 from nightshift.domain.scoring import (
+    EVIDENCE_BEARING_REQUIREMENT_KINDS,
     ConfirmedProject,
     ConfirmedSkill,
     Evidence,
@@ -580,12 +581,25 @@ def unmet_requirements(
     The join is on `job_requirement_id` rather than on the value, because two
     requirements can normalise to the same skill from different sentences and the
     evidence row names which one it read.
+
+    **Restricted to the kinds an evidence row can answer**, which today is
+    technologies alone (`scoring.EVIDENCE_BEARING_REQUIREMENT_KINDS`). Without
+    that filter the difference is taken against a set nothing in this score ever
+    populates, so every `degree`, `years_experience`, `enrollment` and
+    `graduation_window` ask in the corpus comes back unanswered — and the page
+    prints it under *"what it asks for that you have nothing on file for"*, which
+    is false twice over. The profile does hold those facts, and the surface that
+    reads them is the eligibility gate directly above, which quotes the posting's
+    sentence and names the field. Found by looking at the page: a Ramp posting
+    asking for two years rendered as a bare **"2"** in a list of missing skills.
     """
     answered = {row.job_requirement_id for row in result.evidence if row.job_requirement_id}
     return [
         row
         for row in requirements
-        if row.necessity is not RequirementNecessity.MENTIONED and row.id not in answered
+        if row.necessity is not RequirementNecessity.MENTIONED
+        and row.kind.value in EVIDENCE_BEARING_REQUIREMENT_KINDS
+        and row.id not in answered
     ]
 
 

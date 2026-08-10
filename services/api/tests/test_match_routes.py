@@ -70,7 +70,11 @@ from nightshift.domain.eligibility_reading import read_posting
 from nightshift.domain.ingestion import sync_requirements
 from nightshift.domain.matching_weights import load_weights
 from nightshift.domain.requirement_extraction import RequirementProposal
-from nightshift.domain.scoring import DEFERRED_COMPONENTS, WEIGHT_NAME
+from nightshift.domain.scoring import (
+    DEFERRED_COMPONENTS,
+    EVIDENCE_BEARING_REQUIREMENT_KINDS,
+    WEIGHT_NAME,
+)
 from tests.conftest import make_job_with_text, requires_db
 
 pytestmark = [requires_db, pytest.mark.asyncio(loop_scope="session")]
@@ -78,9 +82,17 @@ pytestmark = [requires_db, pytest.mark.asyncio(loop_scope="session")]
 #: Long enough that skill overlap, the missing-requirement penalty and role
 #: relevance are all live, so the response under test has a breakdown worth
 #: asserting about rather than six zeroes.
+#: The years line is load-bearing and was added at M3c Task 12.
+#:
+#: Without it every requirement this posting states is a technology, and
+#: `test_a_gap_is_only_ever_something_the_evidence_graph_could_have_answered`
+#: cannot fail — which is precisely how the defect it covers survived: no fixture
+#: here asked for anything the evidence graph was structurally unable to answer,
+#: so nothing noticed that the gap list reported those asks as unanswered.
 DESCRIPTION = (
     "About the role. We are hiring for our core team in New York. "
     "Requirements: strong Python, experience with PostgreSQL, and familiarity with Docker. "
+    "2+ years of experience required. "
     "Nice to have: Kubernetes."
 )
 
@@ -716,6 +728,39 @@ async def test_a_mentioned_requirement_is_never_a_gap(
 
     listed = (await _detail(client, job))["unmet_requirements"]
     assert all(row["necessity"] != RequirementNecessity.MENTIONED.value for row in listed)
+
+
+async def test_a_gap_is_only_ever_something_the_evidence_graph_could_have_answered(
+    client: AsyncClient, db_session: AsyncSession, user: User, job: Job
+) -> None:
+    """A degree or a years minimum is not a gap in *this* list, and was.
+
+    Found in a browser at M3c Task 12, which is the only place it was visible:
+    the fixture posting asks for two years of experience, `unmet_requirements`
+    differenced that ask against an evidence graph that can only ever contain
+    technologies, and the job page printed a bare **"2"** under *"what it asks
+    for that you have nothing on file for"* — beside a profile that states its
+    years, under a sentence reading *"nothing you have confirmed answers these"*.
+
+    False twice: the fact is on file, and the surface that reads it is the
+    eligibility gate directly above, which quotes the posting and names the
+    field. The absence of an evidence row against a `years_experience`
+    requirement is not information, because no component was ever going to
+    produce one.
+
+    Asserted against `EVIDENCE_BEARING_REQUIREMENT_KINDS` rather than against the
+    literal string, so a component that starts answering a new kind has one place
+    to say so and this test follows it.
+    """
+    await _score(db_session, user, job)
+    listed = (await _detail(client, job))["unmet_requirements"]
+
+    kinds_asked = {row.kind.value for row in job.requirements}
+    assert kinds_asked - EVIDENCE_BEARING_REQUIREMENT_KINDS, (
+        "this fixture posting only asks for technologies, so the test cannot fail"
+    )
+    assert {row["kind"] for row in listed} <= EVIDENCE_BEARING_REQUIREMENT_KINDS
+    assert listed, "and it is not empty, which would satisfy the line above vacuously"
 
 
 async def test_without_a_score_there_is_no_gap_list_rather_than_an_empty_one(

@@ -270,6 +270,48 @@ describe('MatchPanel', () => {
     expect(screen.getByTestId('match-version').textContent ?? '').toMatch(/rules only/i);
   });
 
+  it('says a confirmed nice-to-have is worth nothing, rather than printing a bare 0', () => {
+    // The rows added at M3c Task 12 (`score_skill_overlap`'s zero-point
+    // preferred evidence). They exist so a confirmed nice-to-have stops being
+    // reported as a gap, and they arrive worth zero — which is a statement about
+    // §4.1's necessity column and not about the reader. "0 · matched by a
+    // vocabulary rule" underneath a skill somebody confirmed reads as the second
+    // thing.
+    render(
+      <MatchPanel
+        match={score({
+          components: score().components.map((component) =>
+            component.component === 'skill'
+              ? {
+                  ...component,
+                  evidence: [
+                    {
+                      component: 'skill',
+                      points: 0,
+                      job_span_text: 'React',
+                      job_span_field: 'description_text',
+                      job_char_start: 10,
+                      job_char_end: 15,
+                      user_span_text: 'React',
+                      user_skill_id: null,
+                      user_project_id: null,
+                      compared: { requirement: 'React', necessity: 'preferred' },
+                      proposed_by: 'rule',
+                      job_requirement_id: null,
+                    },
+                  ],
+                }
+              : component,
+          ),
+        })}
+        unmetRequirements={null}
+      />,
+    );
+    const skill = screen.getByTestId('component-skill').textContent ?? '';
+    expect(skill).toMatch(/nice-to-have/i);
+    expect(skill).not.toMatch(/0 · matched by a vocabulary rule/);
+  });
+
   it('says a missing score is not computed rather than showing zeroes', () => {
     render(<MatchPanel match={null} unmetRequirements={null} />);
     const panel = screen.getByTestId('match');

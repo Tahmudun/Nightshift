@@ -34,7 +34,14 @@ DEFAULT_WEIGHTS_PATH = Path(__file__).resolve().parents[4] / "data" / "matching.
 #: Changing a rule without bumping it turns that test red with a diff showing
 #: exactly what moved, which is the moment to bump. A developer remembering is
 #: the version of this that fails silently.
-RULESET_LOGIC_VERSION = "1"
+#: ``2`` since M3c Task 12: skill overlap and project evidence now emit a
+#: zero-point evidence row for a *confirmed* nice-to-have. No total moved — a
+#: preferred technology is still worth nothing (§4.1) — but the evidence graph
+#: is part of the score under I4, and the gap list is differenced against it, so
+#: a row appearing is a change to what a person is told. The golden test refused
+#: to regenerate until this line moved, which is the paragraph above working
+#: rather than a developer remembering.
+RULESET_LOGIC_VERSION = "2"
 
 #: The six components, in the order §5.1 lists them. Named here rather than read
 #: from the file: a component the code has never heard of must be a load error,
