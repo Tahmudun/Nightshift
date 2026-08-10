@@ -61,7 +61,7 @@ same kind will do it again if nothing watches.
 from __future__ import annotations
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from typing import Any, cast
@@ -76,6 +76,7 @@ from nightshift.db.models import (
     Job,
     JobLocation,
     JobRequirement,
+    MatchComponentAssessment,
     MatchEvidence,
     MatchResult,
     User,
@@ -140,6 +141,25 @@ NOT_SCORING_RELEVANT_PROFILE_COLUMNS = (
     "home_location_text",
     "minimum_salary",
 )
+
+
+#: Which column on `match_results` holds which component's points.
+#:
+#: One mapping rather than two, because both directions of the copy exist: this
+#: module writes the columns and the job route reads them back to rebuild the
+#: breakdown. A transposition in either is invisible — the total still adds up,
+#: every constraint still holds, and only the decomposition is wrong, which is the
+#: one thing I4 is a claim about. `test_nothing_infers.py` guards it beside the
+#: other two hand-maintained lists: every component has an entry, every entry is a
+#: real column, and no two components share one.
+COMPONENT_SCORE_COLUMNS: Mapping[MatchComponent, str] = {
+    MatchComponent.ROLE: "role_score",
+    MatchComponent.SKILL: "skill_score",
+    MatchComponent.PROJECT: "project_evidence_score",
+    MatchComponent.LOCATION: "location_score",
+    MatchComponent.FRESHNESS: "freshness_score",
+    MatchComponent.PRIORITY: "priority_score",
+}
 
 
 @dataclass(frozen=True)
@@ -296,14 +316,14 @@ def _score_row(
     ruleset: str,
     requirement_ids: dict[tuple[str, str, int], uuid.UUID],
 ) -> MatchResult:
-    """One `match_results` row and its `match_evidence` children, unsaved.
+    """One `match_results` row and its two sets of children, unsaved.
 
-    The component columns are filled from the component enum rather than from
-    the tuple's order. `MatchScore.__post_init__` already refuses a tuple that is
-    not exactly the six, so this cannot silently write a zero for a missing one —
-    but reading by position would make the mapping between a component and its
-    column a fact about two files agreeing on an order, and that is the shape of
-    thing this project keeps finding out of date.
+    The component columns are filled through `COMPONENT_SCORE_COLUMNS` rather
+    than from the tuple's order. `MatchScore.__post_init__` already refuses a
+    tuple that is not exactly the six, so this cannot silently write a zero for a
+    missing one — but reading by position would make the mapping between a
+    component and its column a fact about two files agreeing on an order, and
+    that is the shape of thing this project keeps finding out of date.
     """
     points = {component.component: component.points for component in score.components}
     result = MatchResult(
@@ -312,12 +332,7 @@ def _score_row(
         overall_score=score.overall,
         assessed_out_of=score.assessed_out_of,
         eligibility_status=eligibility,
-        role_score=points[MatchComponent.ROLE],
-        skill_score=points[MatchComponent.SKILL],
-        project_evidence_score=points[MatchComponent.PROJECT],
-        location_score=points[MatchComponent.LOCATION],
-        freshness_score=points[MatchComponent.FRESHNESS],
-        priority_score=points[MatchComponent.PRIORITY],
+        **{column: points[component] for component, column in COMPONENT_SCORE_COLUMNS.items()},
         penalty_score=score.penalty_total,
         # Null until Task 11. A rules-only score has no embedding behind it and
         # naming one here would make `proposed_by` unauditable.
@@ -326,6 +341,18 @@ def _score_row(
     )
     result.evidence = [
         _evidence_row(row, requirement_ids=requirement_ids) for row in score.evidence
+    ]
+    # All six, assessable or not. The database asserts the count at commit
+    # (`match_results_components_are_assessed`), so a component quietly left
+    # without a statement is a failed transaction rather than a page rendering
+    # five of six with nothing looking wrong.
+    result.assessments = [
+        MatchComponentAssessment(
+            component=component.component,
+            assessable=component.assessable,
+            why=component.why,
+        )
+        for component in score.components
     ]
     return result
 
@@ -440,6 +467,49 @@ async def score_pair(
     )
     session.add(row)
     return row
+
+
+async def current_result_for(
+    session: AsyncSession, *, user_id: uuid.UUID, job_id: uuid.UUID
+) -> MatchResult | None:
+    """This pair's score **at the current ruleset version**, or `None`.
+
+    `None` means *not yet computed*, and it is the only other answer this
+    function has. There is deliberately no third state for "computed under rules
+    that no longer exist", because the page has nothing true to do with one: a
+    number produced by arithmetic that has since changed is not a worse score, it
+    is not a score (§4.2, *a stale result is never silently served*).
+
+    **The version is a filter, not a sort.** §4.2 keeps old-version rows on
+    purpose — a bump computes alongside what it replaced, so the comparison is
+    possible — which means `match_results` legitimately holds several rows for one
+    pair, and the newest is not necessarily the current one either: the sweep
+    processes a bump in batches, so a row written a minute ago can carry the old
+    version while a row written last week carries the new one only after its batch
+    lands. Any query that reaches for the latest row, or the highest score, or the
+    only row it can find, therefore serves exactly the rows this function exists
+    to refuse. It compares `ruleset_version` to `load_weights()` and nothing else.
+
+    Both children are eager-loaded because every caller needs both: a score with
+    its evidence left behind is I4's bare number, and one with its assessments
+    left behind cannot tell a component that scored zero from one nobody could
+    ask (§5.1.1).
+    """
+    ruleset = load_weights().ruleset_version
+    return (
+        await session.execute(
+            select(MatchResult)
+            .where(
+                MatchResult.user_id == user_id,
+                MatchResult.job_id == job_id,
+                MatchResult.ruleset_version == ruleset,
+            )
+            .options(
+                selectinload(MatchResult.evidence),
+                selectinload(MatchResult.assessments),
+            )
+        )
+    ).scalar_one_or_none()
 
 
 async def pending_pairs(

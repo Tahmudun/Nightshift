@@ -74,6 +74,63 @@ SCORING_VERSION = "m3c.1"
 
 
 @dataclass(frozen=True)
+class DeferredComponent:
+    """A PRODUCT-SPEC §8.2 component this milestone will not fake.
+
+    §5.1 defers two of the ten and says of the first: *"Deferred, and named on the
+    page."* This is how it gets named. The shape is `search.DeferredFilter`'s,
+    because it is the same disclosure one subsystem over: a component nobody
+    mentions is an invisible gap, and a named one is a decision a reader can check
+    against the total it is missing from.
+    """
+
+    name: str
+    weight: int
+    blocked_on: str
+    reason: str
+
+
+#: The two §5.1 defers. Both are real points a person's score does not contain,
+#: which is why they travel to the page beside the six that do.
+DEFERRED_COMPONENTS = (
+    DeferredComponent(
+        name="company_preference",
+        weight=5,
+        blocked_on="a preferred-companies field on `users`",
+        reason=(
+            "`users` carries preferred roles and preferred locations and no "
+            "preferred companies, so there is no stated taste to score against"
+        ),
+    ),
+    DeferredComponent(
+        name="application_urgency",
+        weight=5,
+        blocked_on="`jobs.application_deadline` being populated by any source",
+        reason=(
+            "deadlines are rarely published — Datadog's board publishes none at "
+            "all — so scoring an absent one as zero would penalise every employer "
+            "whose ATS omits the field, which measures a configuration rather "
+            "than urgency"
+        ),
+    ),
+)
+
+
+def score_fraction(overall: int, assessed_out_of: int) -> float | None:
+    """`overall / assessed_out_of`, or `None` when nothing could be assessed.
+
+    One function because there are two callers with one rule between them:
+    `MatchScore.fraction` before a score reaches the database, and the API
+    reading a stored row back out. **Never 0.0 for an unassessed pair** — zero
+    sorts a posting last and one sorts it first, and both of those are claims
+    about a pair nobody could score.
+    """
+    if not assessed_out_of:
+        return None
+    return overall / assessed_out_of
+
+
+@dataclass(frozen=True)
 class ConfirmedSkill:
     """One row of `user_skills`. Confirmed, never a proposal (I2)."""
 
@@ -1021,10 +1078,13 @@ class MatchScore:
         A profile with no skills, no projects and no stated preferences against
         a posting with no dates and no readable level reaches this, and the
         honest answer there is that this pair was not scored.
+
+        Delegates to `score_fraction` so the API reading a stored row applies the
+        same rule as this property does before the row exists. Two
+        implementations of *when a fraction is `None`* is two places for a 0.0 to
+        appear in a sort.
         """
-        if not self.assessed_out_of:
-            return None
-        return self.overall / self.assessed_out_of
+        return score_fraction(self.overall, self.assessed_out_of)
 
     @property
     def unassessable(self) -> tuple[ComponentScore, ...]:

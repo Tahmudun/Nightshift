@@ -233,3 +233,34 @@ def test_every_column_a_score_reads_is_named_scoring_relevant() -> None:
         "A profile edit to one of them would leave every stored score stale, "
         "with nothing failing."
     )
+
+
+# ---------------------------------------------------------------------------
+# The third hand-maintained mapping, added at M3c Task 9
+#
+# `matching.COMPONENT_SCORE_COLUMNS` was one function's local detail until the
+# job route began reading the columns back to rebuild the breakdown. Two
+# hand-written mappings of the same six pairs is the drift this file exists for,
+# and this one is invisible when it goes wrong: a transposition leaves the total
+# adding up and every constraint holding, and only the decomposition is wrong —
+# which is the one thing invariant I4 is a claim about.
+# ---------------------------------------------------------------------------
+
+
+def test_every_component_maps_to_its_own_real_score_column() -> None:
+    from nightshift.db.base import MatchComponent
+    from nightshift.db.models import MatchResult
+    from nightshift.domain.matching import COMPONENT_SCORE_COLUMNS
+
+    named = set(COMPONENT_SCORE_COLUMNS)
+    assert named == set(MatchComponent), (
+        f"components with no column: {sorted(set(MatchComponent) - named)}; "
+        f"columns for no component: {sorted(named - set(MatchComponent))}"
+    )
+
+    columns = {column.name for column in MatchResult.__table__.columns}
+    mapped = set(COMPONENT_SCORE_COLUMNS.values())
+    assert mapped - columns == set(), f"named but not columns: {sorted(mapped - columns)}"
+    # Distinct, or two components read one column and one of them is silently
+    # showing the other's points.
+    assert len(mapped) == len(MatchComponent)

@@ -140,6 +140,20 @@ async def test_a_scored_pair_stores_the_number_the_scorer_produced(
     assert stored.priority_score == by_component[MatchComponent.PRIORITY]
     assert len(stored.evidence) == len(expected.evidence)
 
+    # Written out by hand rather than through `COMPONENT_SCORE_COLUMNS`, on
+    # purpose: this is the test that would catch a transposition *in* that
+    # mapping, and reading the row through the same mapping that wrote it would
+    # agree with itself whatever it said.
+    #
+    # The assessments, added at Task 9. Both fields, because they answer different
+    # questions and only one of them is recoverable from anything else: a zero and
+    # an unassessable component both store `0` in their score column (§5.1.1).
+    assert {row.component for row in stored.assessments} == set(MatchComponent)
+    stated = {row.component: row for row in stored.assessments}
+    for component in expected.components:
+        assert stated[component.component].assessable == component.assessable
+        assert stated[component.component].why == component.why
+
 
 async def _requirements_and_locations(session: AsyncSession, job: Job) -> tuple[list, list]:
     from nightshift.db.models import JobLocation, JobRequirement
@@ -303,6 +317,20 @@ async def test_a_terse_posting_is_scored_out_of_less_than_a_hundred(
     assert result.assessed_out_of < 100
     assert result.skill_score == 0
     assert result.project_evidence_score == 0
+
+    # The two facts the page needs and the score columns cannot carry: *which*
+    # components could not be assessed, and why. `assessed_out_of` names how much
+    # was assessed and can never name which — several subsets of the six weights
+    # sum to the same number — so without these rows a terse posting reaches the
+    # browser as two components scoring zero, which is the reading §5.1.1 exists
+    # to prevent.
+    stated = {row.component: row for row in result.assessments}
+    assert stated[MatchComponent.SKILL].assessable is False
+    assert stated[MatchComponent.PROJECT].assessable is False
+    assert "no required technologies" in stated[MatchComponent.SKILL].why
+    # And not everything: a fixture where all six were unassessable would satisfy
+    # the two assertions above while proving nothing about the distinction.
+    assert stated[MatchComponent.FRESHNESS].assessable is True
 
 
 async def test_a_score_may_not_exceed_what_was_assessed(db_session: AsyncSession) -> None:
