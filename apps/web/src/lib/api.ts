@@ -22,6 +22,7 @@ import {
   jobAdminListSchema,
   jobListSchema,
   jobStatusEventSchema,
+  matchRankingSchema,
   boardPollStateSchema,
   sourceHealthSchema,
   statsSchema,
@@ -40,6 +41,7 @@ import {
   type JobAdminList,
   type JobList,
   type JobStatusEvent,
+  type MatchRanking,
   type BoardPollState,
   type SourceHealth,
   type Stats,
@@ -200,6 +202,18 @@ export function fetchJobs(query: JobQuery = {}): Promise<JobList> {
 /** One job in full, with its provenance. */
 export function fetchJob(jobId: string): Promise<JobDetail> {
   return request(`/jobs/${jobId}`, jobDetailSchema);
+}
+
+/**
+ * The ranked list: this person's scored postings, banded by eligibility.
+ *
+ * A separate endpoint from `fetchJobs` rather than a flag on it, because they
+ * are different resources — `/jobs` is the corpus, the same rows for everybody
+ * and ordered by recency; this is a list of `match_results`, which exist only
+ * for a person.
+ */
+export function fetchMatches(limit = 100): Promise<MatchRanking> {
+  return request(`/matches?limit=${limit}`, matchRankingSchema);
 }
 
 /** Every employer we have ingested a role from. */

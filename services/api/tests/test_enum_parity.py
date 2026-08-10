@@ -31,9 +31,13 @@ from nightshift.db.base import (
     ApplicationPriority,
     ApplicationStage,
     EligibilityState,
+    EvidenceSource,
     ExtractionKind,
     ExtractionStatus,
     InternshipSeason,
+    JobTextField,
+    MatchComponent,
+    PenaltyName,
     ProficiencyLevel,
     ProjectStatus,
     RemotePreference,
@@ -103,6 +107,19 @@ PAIRS: tuple[tuple[str, type[enum.Enum]], ...] = (
     # were eventually found.
     ("requirementKindSchema", RequirementKind),
     ("requirementNecessitySchema", RequirementNecessity),
+    # M3c Task 10. All four crossed the boundary for the first time when the
+    # score reached a page — Task 9 put three of them in the response and left
+    # this half deliberately undone, because there was nothing in the browser to
+    # compare against until a component rendered one.
+    #
+    # `jobTextFieldSchema` is the sharpest of the four. It selects which of the
+    # posting's strings a span's offsets index into, so a wrong value does not
+    # blank a field: it underlines the wrong sentence, in the right place, and
+    # looks entirely plausible doing it.
+    ("matchComponentSchema", MatchComponent),
+    ("jobTextFieldSchema", JobTextField),
+    ("evidenceSourceSchema", EvidenceSource),
+    ("penaltyNameSchema", PenaltyName),
 )
 
 
@@ -204,6 +221,24 @@ def test_the_denominator_migration_creates_exactly_the_type_the_model_declares()
     migration = importlib.import_module("migrations.versions.20260809_1930_match_score_denominator")
 
     assert set(migration.JOB_TEXT_FIELD_VALUES) == {m.value for m in JobTextField}
+
+
+def test_the_penalty_migration_creates_exactly_the_type_the_model_declares() -> None:
+    """`penalty_name`, against its copy inside `0019_match_penalties`.
+
+    A fifth enum with a fifth copy. This one closes the domain of a column the
+    guard counts rows over: `match_penalties` asserts *exactly one row per name*,
+    and a count is only an assertion when nothing else can be written there. A
+    typo'd `seniority_missmatch` beside a correct one is two rows, two names, and
+    a guard that passes.
+    """
+    import importlib
+
+    from nightshift.db.base import PenaltyName
+
+    migration = importlib.import_module("migrations.versions.20260810_0100_match_penalties")
+
+    assert set(migration.PENALTY_NAME_VALUES) == {m.value for m in PenaltyName}
 
 
 def test_the_quoting_trigger_reads_every_field_the_enum_can_hold() -> None:

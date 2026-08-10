@@ -56,10 +56,38 @@ describe('JobFacts', () => {
     expect(screen.getByText(/not yet computed/i)).toBeVisible();
   });
 
-  it('names the M3 fields it cannot compute yet', () => {
+  it('names something it cannot compute yet, and nothing the page now answers', () => {
+    // The guard the "not built yet" list has needed since M0. A stale entry has
+    // gone unnoticed for a whole milestone three times here, always in the same
+    // direction — nobody re-reads the list when the thing it waits on lands —
+    // and each time it was caught by accident. This is the check that is not an
+    // accident: every deferred name must not appear as a heading of a section
+    // that answers it.
+    //
+    // It fired on the M3c Task 10 diff for five of six entries.
     render(<JobFacts job={BASE} />);
-    expect(screen.getByText(/match score/i)).toBeVisible();
-    expect(screen.getByText(/eligibility/i)).toBeVisible();
+    const deferred = screen.getByTestId('deferred-facts');
+    const named = [...deferred.querySelectorAll('li')].map((row) => row.textContent ?? '');
+    expect(named.length).toBeGreaterThan(0);
+
+    for (const fact of named) {
+      const elsewhere = screen
+        .queryAllByText(new RegExp(fact, 'i'))
+        .filter((node) => !deferred.contains(node));
+      expect(elsewhere, `"${fact}" is listed as not computed and appears elsewhere`).toHaveLength(
+        0,
+      );
+    }
+  });
+
+  it('says a score is not yet computed rather than showing a zero', () => {
+    // I4's other half. `match: null` covers three situations — the sweep has not
+    // reached this pair, the posting has no description, the stored row predates
+    // a ruleset bump — and all three are "no score", none of them is a number.
+    render(<JobFacts job={BASE} />);
+    const match = screen.getByTestId('match');
+    expect(match.textContent ?? '').toMatch(/not scored yet/i);
+    expect(match.textContent ?? '').not.toMatch(/\b0 of \d+/);
   });
 
   it('shows no percentage anywhere in the deferred block', () => {
