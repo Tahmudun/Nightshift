@@ -30,6 +30,7 @@ from nightshift.db.base import (
     EvidenceSource,
     JobTextField,
     MatchComponent,
+    PenaltyName,
     ProficiencyLevel,
     RequirementKind,
     RequirementNecessity,
@@ -40,6 +41,7 @@ from nightshift.db.models import (
     JobRequirement,
     MatchComponentAssessment,
     MatchEvidence,
+    MatchPenalty,
     MatchResult,
     User,
     UserProject,
@@ -100,7 +102,33 @@ def _result(user: User, job: Job, **overrides: Any) -> MatchResult:
     # the trigger ties the two together, so an unassessable component would make
     # the denominator the thing that fires in a test naming a different rule.
     result.assessments = _assessments()
+    # Added with the table at `0019_match_penalties`, and every score in this
+    # file needed it within a minute of the trigger existing — the same thing
+    # `_assessments` records one comment up, and the same guard doing its job.
+    # Both inapplicable, summing to the `penalty_score` of 0 above, because these
+    # tests are about the other guards; `test_match_recompute.py` is where a real
+    # subtraction is exercised.
+    result.penalties = _penalties()
     return result
+
+
+def _penalties(**overrides: Any) -> list[MatchPenalty]:
+    """One statement per penalty, both, inapplicable and free unless overridden.
+
+    Keyed by name so a test that is *about* a penalty can replace one and leave
+    the other stating what it always states.
+    """
+    charged: dict[PenaltyName, tuple[int, bool]] = dict.fromkeys(PenaltyName, (0, False))
+    charged.update(overrides)
+    return [
+        MatchPenalty(
+            name=name,
+            points=points,
+            applicable=applicable,
+            why="a reason this test does not depend on",
+        )
+        for name, (points, applicable) in charged.items()
+    ]
 
 
 def _assessments(**overrides: Any) -> list[MatchComponentAssessment]:
@@ -504,6 +532,10 @@ async def test_a_penalty_below_the_components_floors_at_zero(
     user = await _user(db_session)
     job = await _job(db_session)
     result = _result(user, job, skill_score=5, penalty_score=-25, overall_score=0)
+    # The one score in this file that actually subtracts something, so it is the
+    # one whose penalty rows have to account for it. `0019`'s guard is what said
+    # so, on the first run after the trigger existed.
+    result.penalties = _penalties(missing_requirement=(-25, True))
     db_session.add(result)
     await db_session.flush()
     db_session.add(_skill_evidence(result, points=5))
@@ -713,6 +745,181 @@ async def test_assessments_die_with_the_score(db_session: AsyncSession) -> None:
 
     remaining = (
         await db_session.execute(select(func.count()).select_from(MatchComponentAssessment))
+    ).scalar_one()
+    assert remaining == 0
+
+
+# ---------------------------------------------------------------------------
+# Guard 5 — the two penalties account for the one column they were summed into
+#
+# `0019_match_penalties`, M3c Task 10. §4.2 keeps `penalty_score` as a single
+# column and this does not reopen that; what the table adds is *what the column
+# is made of*, which §4.2 called the explanation's business and nothing then
+# carried. The risk a split creates is a second version of the same claim, free
+# to disagree with the number the total was actually computed from — so the guard
+# is an equality, and it is here in both directions like the four above it.
+# ---------------------------------------------------------------------------
+
+
+async def test_a_score_that_states_no_penalties_is_refused(db_session: AsyncSession) -> None:
+    """A subtraction with no statement behind it is I4's bare number, one level
+    down from the total.
+
+    The mistake is not exotic: `penalty_score` has a server default of 0, so a
+    writer that fills the six components and forgets these two rows produces a
+    score that adds up perfectly and explains nothing.
+    """
+    user = await _user(db_session)
+    job = await _job(db_session)
+    result = _result(user, job)
+    result.penalties = []
+    db_session.add(result)
+    await db_session.flush()
+
+    with pytest.raises(DBAPIError, match="states 0 of 2 penalties"):
+        await _commit_check(db_session)
+
+
+async def test_a_penalty_stated_once_is_not_enough(db_session: AsyncSession) -> None:
+    """One row summing correctly is the version of this that nearly works.
+
+    `score_match` always returns both penalties, applicable or not, because
+    *"there was nothing to ask"* and *"nothing was missing"* are different
+    sentences. Dropping the inapplicable one keeps the arithmetic right and
+    removes a sentence a person would have read.
+    """
+    user = await _user(db_session)
+    job = await _job(db_session)
+    result = _result(user, job)
+    result.penalties = [
+        row for row in _penalties() if row.name is not PenaltyName.SENIORITY_MISMATCH
+    ]
+    db_session.add(result)
+    await db_session.flush()
+
+    with pytest.raises(DBAPIError, match="states 1 of 2 penalties"):
+        await _commit_check(db_session)
+
+
+async def test_penalties_that_do_not_sum_to_the_column_are_refused(
+    db_session: AsyncSession,
+) -> None:
+    """The equality that makes the split safe rather than merely informative.
+
+    Without it the rows are a narrative beside the number instead of a
+    decomposition of it — which is exactly what §4.2 refused to store an
+    `explanation` column for.
+    """
+    user = await _user(db_session)
+    job = await _job(db_session)
+    result = _result(user, job, skill_score=20, penalty_score=-10, overall_score=10)
+    result.penalties = _penalties(missing_requirement=(-4, True))
+    db_session.add(result)
+    await db_session.flush()
+    db_session.add(_skill_evidence(result, points=20))
+    await db_session.flush()
+
+    with pytest.raises(DBAPIError, match="subtracted -10 and its penalties account for -4"):
+        await _commit_check(db_session)
+
+
+async def test_penalties_that_do_sum_to_the_column_commit(db_session: AsyncSession) -> None:
+    """The same row with the arithmetic right, so the test above is shown to be
+    about the sum and not about the rows existing."""
+    user = await _user(db_session)
+    job = await _job(db_session)
+    result = _result(user, job, skill_score=20, penalty_score=-10, overall_score=10)
+    result.penalties = _penalties(missing_requirement=(-4, True), seniority_mismatch=(-6, True))
+    db_session.add(result)
+    await db_session.flush()
+    db_session.add(_skill_evidence(result, points=20))
+    await db_session.flush()
+    await _commit_check(db_session)
+
+    assert await _match_result_count(db_session, job_id=job.id) == 1
+
+
+async def test_a_penalty_row_that_adds_points_is_refused(db_session: AsyncSession) -> None:
+    """The assertion `match_results.a_penalty_never_adds` makes about the total,
+    made about the part — otherwise two rows of +5 and -5 sum to a legal zero."""
+    user = await _user(db_session)
+    job = await _job(db_session)
+    result = _result(user, job)
+    result.penalties = _penalties(missing_requirement=(5, True), seniority_mismatch=(-5, True))
+    db_session.add(result)
+
+    with pytest.raises(IntegrityError, match="a_penalty_never_adds"):
+        await db_session.flush()
+
+
+async def test_an_inapplicable_penalty_that_cost_something_is_refused(
+    db_session: AsyncSession,
+) -> None:
+    """`Penalty.__post_init__` refuses this in Python; this is the same refusal
+    for anything that reaches the table another way.
+
+    *There was nothing to ask* and *it cost 6 points* cannot both be true, and the
+    page renders the first while the total carries the second.
+    """
+    user = await _user(db_session)
+    job = await _job(db_session)
+    result = _result(user, job, penalty_score=-6, overall_score=0)
+    result.penalties = _penalties(missing_requirement=(-6, False))
+    db_session.add(result)
+
+    with pytest.raises(IntegrityError, match="an_inapplicable_penalty_costs_nothing"):
+        await db_session.flush()
+
+
+async def test_a_penalty_with_no_reason_is_refused(db_session: AsyncSession) -> None:
+    """§5.1.1's argument one table over: the reason is the point, not the fact
+    that there is one. A blank `why` renders as a subtraction for no stated
+    reason, which is a page nobody can check."""
+    user = await _user(db_session)
+    job = await _job(db_session)
+    result = _result(user, job)
+    result.penalties[0].why = "   "
+    db_session.add(result)
+
+    with pytest.raises(IntegrityError, match="a_reason_is_never_blank"):
+        await db_session.flush()
+
+
+async def test_deleting_a_penalty_is_refused(db_session: AsyncSession) -> None:
+    """The guard is on both tables, as `0016`'s and `0018`'s are, and for the
+    same reason: a trigger on `match_results` alone is satisfied at insert and
+    blind to the statement that removes a reason afterwards."""
+    user = await _user(db_session)
+    job = await _job(db_session)
+    result = _result(user, job)
+    db_session.add(result)
+    await db_session.flush()
+    await _commit_check(db_session)
+
+    await db_session.delete(result.penalties[0])
+    await db_session.flush()
+
+    with pytest.raises(DBAPIError, match="states 1 of 2 penalties"):
+        await _commit_check(db_session)
+
+
+async def test_penalties_die_with_the_score(db_session: AsyncSession) -> None:
+    """`ON DELETE CASCADE`. A penalty outliving its score is a subtraction from a
+    number that no longer exists, and the next insert for the same pair would
+    find two rows already there."""
+    user = await _user(db_session)
+    job = await _job(db_session)
+    result = _result(user, job)
+    db_session.add(result)
+    await db_session.flush()
+    await _commit_check(db_session)
+
+    await db_session.delete(result)
+    await db_session.flush()
+    await _commit_check(db_session)
+
+    remaining = (
+        await db_session.execute(select(func.count()).select_from(MatchPenalty))
     ).scalar_one()
     assert remaining == 0
 

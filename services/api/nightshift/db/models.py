@@ -66,6 +66,7 @@ from nightshift.db.base import (
     JobTextField,
     LocationConfidence,
     MatchComponent,
+    PenaltyName,
     ProficiencyLevel,
     ProjectStatus,
     RemotePolicy,
@@ -1370,6 +1371,74 @@ class MatchResult(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     assessments: Mapped[list[MatchComponentAssessment]] = relationship(
         back_populates="match_result", cascade="all, delete-orphan"
     )
+    penalties: Mapped[list[MatchPenalty]] = relationship(
+        back_populates="match_result", cascade="all, delete-orphan"
+    )
+
+
+class MatchPenalty(UUIDPrimaryKeyMixin, Base):
+    """What each of the two subtractions cost, and why.
+
+    Added at M3c Task 10, and it is `MatchComponentAssessment`'s argument one row
+    down. §4.2 stores the two §5.1 penalties as **one** column and that decision
+    stands — `match_evidence.component` has no penalty member, so a split score
+    column would imply an evidence link that does not exist, and
+    `the_total_is_its_parts` still adds `penalty_score` exactly once.
+
+    What §4.2 left to somebody else is *"what each penalty cost belongs to the
+    explanation"*, and nothing carried it. A reader saw `-18` with no way to learn
+    that 12 of it was three unmet technologies and 6 was a title pitched above
+    their stated years. That is invariant I4's *"stores its components, **its
+    penalties**"* going unmet in the one place a person reads.
+
+    **Not the `explanation` column §4.2 refused.** `why` is
+    `penalize_missing_requirements`'s own sentence, returned by the same call and
+    from the same inputs as the points beside it — a sibling of the number, not a
+    summary of it. Re-deriving it at render time is the second-derivation failure
+    `matching.posting_for` documents.
+
+    **Both rows always exist**, applicable or not, and the trigger asserts it.
+    *"There was nothing to ask"* and *"nothing was missing"* are different
+    sentences and both are worth printing; a row that is simply absent prints
+    neither while `penalty_score` still adds up.
+    """
+
+    __tablename__ = "match_penalties"
+    __table_args__ = (
+        # What makes "exactly two rows" a count rather than a set comparison, and
+        # what makes the count mean anything at all given `PenaltyName` closes the
+        # column's domain.
+        UniqueConstraint("match_result_id", "name", name="uq_match_penalties_result_name"),
+        # The assertion `match_results.a_penalty_never_adds` makes about the
+        # total, made about the part.
+        CheckConstraint("points <= 0", name="a_penalty_never_adds"),
+        CheckConstraint("applicable OR points = 0", name="an_inapplicable_penalty_costs_nothing"),
+        CheckConstraint("length(btrim(why)) > 0", name="a_reason_is_never_blank"),
+    )
+
+    match_result_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("match_results.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[PenaltyName] = mapped_column(_enum(PenaltyName, "penalty_name"), nullable=False)
+    #: Zero or negative, and zero has two meanings the row keeps apart with
+    #: `applicable`: nothing was missing, versus there was nothing to ask.
+    points: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    applicable: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    #: The rule's own sentence — "2 of 5 required technologies have no evidence",
+    #: "this profile states no years of experience". Rendered verbatim.
+    why: Mapped[str] = mapped_column(Text, nullable=False)
+    #: What the rule weighed: the required list and the unmet subset, or the
+    #: title's implied years against the stated ones. §6's *"why it may not fit"*
+    #: is read from here rather than re-derived on the page, so the list a person
+    #: is shown is the list the subtraction was computed from.
+    compared: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, nullable=False, server_default=func.now()
+    )
+
+    match_result: Mapped[MatchResult] = relationship(back_populates="penalties")
 
 
 class MatchComponentAssessment(UUIDPrimaryKeyMixin, Base):

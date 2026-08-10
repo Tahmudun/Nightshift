@@ -60,6 +60,7 @@ from nightshift.db.base import (
     EvidenceSource,
     JobTextField,
     MatchComponent,
+    PenaltyName,
     RoleFamily,
     Seniority,
 )
@@ -275,9 +276,16 @@ class Penalty:
     `applicable is False` always means `points == 0`, the same distinction
     `ComponentScore.assessable` draws: zero means *nothing was missing*,
     inapplicable means *there was nothing to ask*.
+
+    **What each penalty cost is stored**, as of Task 10, in `match_penalties` —
+    one row per name, summing to `match_results.penalty_score`. The sentence
+    below was previously assembled nowhere and rendered nowhere, which meant a
+    reader saw `-18` and could not be told what half of it was for. That is I4's
+    *"stores its components, its penalties"* going unmet in the one place a
+    person actually reads.
     """
 
-    name: str
+    name: PenaltyName
     points: int
     applicable: bool
     why: str
@@ -892,7 +900,7 @@ def penalize_missing_requirements(
     ]
     if not required:
         return Penalty(
-            name="missing_requirement",
+            name=PenaltyName.MISSING_REQUIREMENT,
             points=0,
             applicable=False,
             why="this posting names no required technologies",
@@ -904,7 +912,7 @@ def penalize_missing_requirements(
     missing = [r.value for r in required if _normalize(r.value) not in evidenced]
     if not missing:
         return Penalty(
-            name="missing_requirement",
+            name=PenaltyName.MISSING_REQUIREMENT,
             points=0,
             applicable=True,
             why=f"all {len(required)} required technologies have evidence behind them",
@@ -916,7 +924,7 @@ def penalize_missing_requirements(
     # this line that gets a sign wrong six months from now.
     points = max(ceiling, -per_requirement * len(missing))
     return Penalty(
-        name="missing_requirement",
+        name=PenaltyName.MISSING_REQUIREMENT,
         points=points,
         applicable=True,
         why=f"{len(missing)} of {len(required)} required technologies have no evidence",
@@ -959,14 +967,14 @@ def penalize_seniority_mismatch(
     level = posting.seniority
     if level is None or level is Seniority.UNCLEAR:
         return Penalty(
-            name="seniority_mismatch",
+            name=PenaltyName.SENIORITY_MISMATCH,
             points=0,
             applicable=False,
             why="no rule could tell what level this posting is",
         )
     if profile.years_experience is None:
         return Penalty(
-            name="seniority_mismatch",
+            name=PenaltyName.SENIORITY_MISMATCH,
             points=0,
             applicable=False,
             why="this profile states no years of experience",
@@ -984,7 +992,7 @@ def penalize_seniority_mismatch(
     }
     if not gap:
         return Penalty(
-            name="seniority_mismatch",
+            name=PenaltyName.SENIORITY_MISMATCH,
             points=0,
             applicable=True,
             why=(
@@ -993,7 +1001,7 @@ def penalize_seniority_mismatch(
             compared=compared,
         )
     return Penalty(
-        name="seniority_mismatch",
+        name=PenaltyName.SENIORITY_MISMATCH,
         points=max(ceiling, -per_year * gap),
         applicable=True,
         why=(

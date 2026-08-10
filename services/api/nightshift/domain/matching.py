@@ -78,6 +78,7 @@ from nightshift.db.models import (
     JobRequirement,
     MatchComponentAssessment,
     MatchEvidence,
+    MatchPenalty,
     MatchResult,
     User,
 )
@@ -354,6 +355,22 @@ def _score_row(
         )
         for component in score.components
     ]
+    # Both, applicable or not. §4.2 keeps `penalty_score` as one column and this
+    # does not reopen that — it records what the column is made of, which §4.2
+    # itself calls the explanation's business and nothing then carried. The
+    # database asserts at commit that these sum to the column
+    # (`match_results_penalties_are_accounted_for`), so the split cannot drift
+    # from the total it decomposes.
+    result.penalties = [
+        MatchPenalty(
+            name=penalty.name,
+            points=penalty.points,
+            applicable=penalty.applicable,
+            why=penalty.why,
+            compared=dict(penalty.compared),
+        )
+        for penalty in score.penalties
+    ]
     return result
 
 
@@ -507,6 +524,7 @@ async def current_result_for(
             .options(
                 selectinload(MatchResult.evidence),
                 selectinload(MatchResult.assessments),
+                selectinload(MatchResult.penalties),
             )
         )
     ).scalar_one_or_none()

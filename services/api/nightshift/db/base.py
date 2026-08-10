@@ -510,6 +510,26 @@ class MatchComponent(enum.StrEnum):
 PERSON_CLAIM_COMPONENTS = (MatchComponent.ROLE, MatchComponent.SKILL, MatchComponent.PROJECT)
 
 
+class PenaltyName(enum.StrEnum):
+    """The two subtractions a score can carry (`matching.md` §5.1, §5.1.3).
+
+    Added at M3c Task 10, and deliberately **not** a member of `MatchComponent`.
+    A penalty has no weight, widens no denominator, and points at no
+    `match_evidence` row — §4.3's evidence trigger binds the six positive
+    components and would bind nothing here. Folding the two vocabularies into one
+    enum would make that trigger's silence look like a decision rather than an
+    absence.
+
+    An enum rather than free text because `match_penalties` asserts *exactly one
+    row per name*, and a count is only an assertion when the domain of the column
+    is closed: a typo'd `seniority_missmatch` beside a correct one is two rows,
+    two names, and a guard that passes.
+    """
+
+    MISSING_REQUIREMENT = "missing_requirement"
+    SENIORITY_MISMATCH = "seniority_mismatch"
+
+
 class JobTextField(enum.StrEnum):
     """Which of a posting's strings a stored span indexes into.
 
