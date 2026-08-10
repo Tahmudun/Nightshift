@@ -951,6 +951,29 @@ score**, because an empty list there reads as *you meet everything*: a claim
 about a person computed from no evidence at all, which is the failure
 `eligibility`'s own null exists to prevent one field up.
 
+**A set difference is only honest over a set the other side can populate**, and
+Task 12 found two ways it was not, both by looking at the page rather than at a
+test:
+
+- The difference ran over *every* non-`mentioned` requirement, and the evidence
+  graph only ever contains technologies — so every degree, years, enrollment and
+  graduation ask came back unanswered, and the page printed a bare **"2"** under
+  *what it asks for that you have nothing on file for*. Those dimensions belong
+  to the gate directly above. Fixed by filtering to
+  `scoring.EVIDENCE_BEARING_REQUIREMENT_KINDS`.
+- No component emitted a row for a `preferred` technology, so **every**
+  nice-to-have was listed as one you have nothing on file for — including three
+  the same page quoted as confirmed, eight lines higher. Fixed by having skill
+  overlap and project evidence emit **zero-point** evidence rows for confirmed
+  nice-to-haves, which is what `score_skill_overlap`'s docstring had claimed
+  since Task 3 without any code behind it. No total moved; `RULESET_LOGIC_VERSION`
+  went to `2` anyway, because the evidence graph is part of the score under I4
+  and the golden test refused to regenerate without it.
+
+The rule this leaves behind: **a gap is only ever something an evidence row could
+have answered.** Anything else is an absence of information being rendered as a
+statement about a person.
+
 I5 is unchanged and worth restating here because §8.5 sits next to it: nothing
 rewrites a resume, nothing tailors one, nothing submits anything.
 
@@ -979,6 +1002,22 @@ Two assertions, both of which must hold for every row in the corpus:
    user record — never of `resume_extractions`, which holds proposals.
 
 Neither is a percentage to improve. A single violation is a failing test.
+
+**Where each is actually enforced, measured at M3c Task 12 by attacking the
+database rather than by reasoning about it.** The two assertions do not have the
+same teeth and it matters which:
+
+| | Enforced by |
+|---|---|
+| A job span that does not match its offsets | A trigger, on INSERT **and** on UPDATE. Probed: both refused |
+| A user span quoting something unconfirmed | `check_match_results` in `verify.py`, and the unit suite. Nothing in DDL |
+| `proposed_by = 'embedding'` (ADR 0018) | `check_match_results`, three unit tests. **The database accepts such a row** |
+
+`check_match_results` runs last in `verify.py`, after every check that edits a
+profile column or a confirmed skill — each of which deletes every score — so it
+reads only rows it rescored itself. It therefore asserts *the scorer produces no
+such row over the whole seeded corpus*, and cannot catch one inserted by hand.
+That limit is stated in its docstring rather than implied.
 
 ### 7.3 What M3 does not measure, stated plainly
 

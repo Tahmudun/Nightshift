@@ -18,31 +18,44 @@
 **M3a: COMPLETE, reviewed, CI-green at `3fbffd6`, merged to `main` as PR #9 (`452ec90`).**
 **M3a.1: COMPLETE. Recall 0.459 → 0.861, precision 0.659 → 0.847, necessity 0.668 → 0.915.**
 **M3b: COMPLETE, reviewed, CI-green at `7bfbf2d`, merged to `main` as PR #11 (`d2273e7`). `main` green after the merge.**
-**Current milestone: M3 — explainable matching. M3c (the score): Tasks 1–11 of 12 done. Q6 answered and implemented.**
+**M3c: COMPLETE — all twelve tasks. `make check` green and `make acceptance` exit 0, both measured at `f0f57f6`. Review: `docs/reviews/milestone-3c-review.md`. Not yet merged to `main`; CI has not run this branch.**
+**Current milestone: M3 — explainable matching. Next: M3d, the evaluation suite.**
 **Task 11 measured the embedding proposal path and declined to ship it — ADR 0018.**
+**Task 12 gave the seed a reader to be about, and found three false claims on the page — ADR 0019.**
 **Last updated: 2026-08-10**
 
 ---
 
 ## Next exact action
 
-### M3c Tasks 1–11 are done. Next: Task 12 — the browser walk, `check_match_results` in `verify.py`, ADR 0019, the M3c review, and PROGRESS.
+### M3c is closed. Next: M3d — the evaluation suite, in CI.
 
-Task 12 is M3c's last, and three things about it moved at Task 11:
+M3c's twelve tasks are done and `make acceptance` exits 0. What M3d inherits,
+in the order it should be picked up:
 
-1. **The ADR number is 0019, not 0018.** Task 11 needed an ADR of its own and
-   took 0018. Task 12's is the one the plan describes — the score, its
-   denominator, and the recompute triggers.
-2. **`verify.py`'s `check_match_results` has one more assertion available to
-   it.** §7.2's hallucination check is *"every stored span is a literal substring
-   at the offsets recorded"*, and after Task 11 there is a second equality worth
-   asserting against a running stack: **no stored `match_evidence` row has
-   `proposed_by = 'embedding'`.** The unit suite asserts it about the scorer;
-   `verify` would assert it about the database, which is where a hand-inserted
-   row would live.
-3. **The browser walk has nothing new to cover.** Task 11 shipped no UI. The
-   only frontend change is a comment in `MatchPanel` explaining why its
-   "proposed by the embedding" branch is unreachable and stays.
+1. **The relevance ratings, which need the human.** 27 of 30 rated, all with the
+   same word, three held for a reason recorded in their notes, and the profile
+   block still empty. See "the relevance ratings" below — this is the only thing
+   that can measure whether the ranking is *good* rather than merely stable, and
+   it is roughly twenty minutes of somebody's attention.
+2. **The ordering problem Task 12 saw and did not fix.** On the seeded corpus a
+   Partner Development Representative at 19 of 40 (48%) outranks a Software
+   Engineer Internship at 30 of 100 (30%) for a CS student who asked for software
+   engineering. Every number is right and the order is misleading, because a
+   ratio of two incomparable denominators is not a total order. Review §2.10.
+   **This should be the first thing the relevance pass examines.**
+3. **The `demonstrated_by:` edges ADR 0018 recommends.** 33 concept-term
+   occurrences the scorer misses. It moves scores, so it needs a
+   `ruleset_version` bump — which is a thing to do at the start of a milestone,
+   not at the end of one.
+4. **The metrics themselves** — §7.1's table, run in CI.
+
+**Task 12 shipped** the browser walk (`e2e-seeded/matching.spec.ts`, 7 tests),
+`check_match_results` in `verify.py` (18 checks), `make score`, **ADR 0019**, and
+a demo profile the milestone turned out not to work without. It found three
+statements the page was making that were false about a person and true of a
+database, and one browser test of its own that could not fail. Full detail in the
+M3c Task 12 section below and in `docs/reviews/milestone-3c-review.md`.
 
 **Task 11 shipped a measurement and a decision, and no feature.** The embedding
 proposal path §2 permits was built as an experiment, measured against the
@@ -219,11 +232,10 @@ taken in the plan rather than inside the work:
   red, which is the harness doing its job — but it is a thin margin worth
   knowing about, and it is why the profile carries a comment saying what it is
   for.
-- **Nothing has scored a real posting yet.** `score_match` runs end to end on
-  fixtures and has never been pointed at the seeded corpus, so the anti-vacuity
-  question — does this scorer produce more than one number across 31 jobs — is
-  still unanswered. It is Task 7's, and it is on the plan's own list of what
-  would make it wrong.
+- ~~**Nothing has scored a real posting yet.**~~ Answered at Task 10 and
+  strengthened at Task 12: 31 of 31 postings score, 11 distinct fractions, and
+  `make seed` now ends by running the sweep so the corpus is scored from the
+  moment a clean clone finishes seeding.
 - **`match_results.resume_id` is null on every row, and is now named as not
   built rather than owed.** §6's *Recommended resume* has a column, an FK and no
   writer. Task 10 declined it on I2 grounds and recorded the argument in
@@ -235,22 +247,21 @@ taken in the plan rather than inside the work:
 - **Three of §8.5's nine explanation elements are not computed**, not two. The
   count moved at Task 10 for the reason above, and `matching.md` §6's table now
   says so. Anything describing M3c as computing seven of nine is out of date.
-- **The seeded corpus fills two of the five bands.** The first real run — 31
-  postings, the seeded dev profile — produced 13 `eligible` and 18 `uncertain`,
-  and nothing in `likely_eligible`, `likely_ineligible` or `ineligible`. So the
-  dimming that §3.3 promises, and the `RankedMatches` caveat copy under the two
-  blocked bands, **are not exercised by `make demo` at all**: they are covered by
-  component tests and route tests with hand-built rows, and by nothing a person
-  can look at. That is a fixture gap, not a rendering bug, and it is the kind of
-  gap this project has shipped before.
-- **The same run scores most of the corpus out of 10 to 50, and most of it at
-  zero.** Denominators seen: 10, 20, 40, 50 — never 100 — and 8 distinct
-  fractions across 31 postings, most of them `0.0`. That is the seeded profile
-  (no confirmed skills, no projects, no stated preferences) meeting a corpus of
-  mostly non-engineering Alloy roles, which is exactly the case §5.1.1 was
-  designed to keep honest rather than a failure of it. It does mean the ranked
-  list in `make demo` is thin and heavily tied, and that nothing has yet shown
-  the ordering doing useful work on a realistic profile.
+- ~~**The seeded corpus fills two of the five bands.**~~ **Fixed at Task 12** by
+  giving the dev user the fixture resume's profile. Now: `eligible` 14,
+  `uncertain` 10, `likely_ineligible` 7 — so §3.3's dimming and the two blocked
+  bands' caveat copy are exercised by something a person can look at, and by a
+  browser test. `likely_eligible` and `ineligible` are still empty on this
+  corpus; the gate reaches `ineligible` only under a profile that contradicts a
+  stated bar, which `check_eligibility_gate` and `eligibility.spec.ts` both
+  construct deliberately.
+- ~~**The same run scores most of the corpus out of 10 to 50, and most of it at
+  zero.**~~ **Fixed at Task 12.** Now 6 distinct denominators including 100, 11
+  distinct fractions across 31 postings, and 102 evidence rows of which 27 quote
+  a posting and 27 quote the reader — against 13 rows quoting nothing before.
+  **What replaces it as the open question is not thinness but order:** a posting
+  assessed on 40 points can outrank one assessed on 100, because the fraction is
+  a ratio of incomparable denominators. Review §2.10, and it is M3d's.
 - **The recompute sweep is `users × open jobs`, unbounded in principle and
   bounded in practice by the corpus being 31 postings and the user count being
   one.** One anti-join per tick, batched at 500 pairs. At M4's scale this is
@@ -274,6 +285,25 @@ taken in the plan rather than inside the work:
   `demonstrated_by:` edges in `data/skills.yaml`. Not built: it would move scores
   across the corpus and so needs a `ruleset_version` bump, which is not a thing
   to do in a milestone's last task.
+- **The seeded profile is one person, and the ranking has never been seen for
+  anybody else.** `make demo` and the whole browser walk read a single fixture
+  profile — a CS student graduating May 2027 with six skills and two projects.
+  The unit suite has four profiles; the seeded stack has one, and every judgement
+  about whether the ordering is useful has been made from that one.
+- **The ranked order is honest and can still mislead.** 19 of 40 outranks 30 of
+  100 because the fraction is a ratio of denominators that are not comparable
+  quantities, so a posting nobody could assess much of can beat one that was
+  assessed thoroughly. Both numbers are printed on every row, which is a
+  mitigation and not a fix. Review §2.10; M3d's relevance pass owns it.
+- **A hand-inserted `match_evidence` row with `proposed_by = 'embedding'` would
+  never be noticed.** Probed at Task 12: the database refuses a fabricated span
+  on INSERT *and* on UPDATE, and accepts a fabricated source. `verify.py`'s check
+  runs after everything that empties the table, so it only ever reads rows it
+  rescored itself — it asserts the *scorer* stores no such row, which is worth
+  having and is not the same claim. `matching.md` §7.2 carries the table.
+- **The ARQ recompute cron is asserted by nothing.** `recompute_pending` is
+  covered from four directions; `workers/tasks.py` scheduling it every minute is
+  covered by having been watched work in `make dev`.
 - **Old-version `match_results` rows are never garbage-collected.** §4.2 keeps
   them on purpose, so a ruleset bump can be compared against what preceded it.
   Nothing deletes them, so the table grows by one row per (person, posting) per
@@ -339,6 +369,115 @@ taken in the plan rather than inside the work:
   deliberately — turning it on means per-file ignores, and that is its own small
   change rather than a rider on M3c. The two files added this session were
   checked against the same config by hand and are clean.
+
+---
+
+## M3c Task 12 — the milestone had no reader to be about
+
+**Shipped:** `apps/web/e2e-seeded/matching.spec.ts` (7 tests),
+`check_match_results` in `scripts/verify.py` (18 checks), `seed_demo_profile` and
+`cmd_score` in `nightshift/cli.py`, `make score`,
+`scoring.EVIDENCE_BEARING_REQUIREMENT_KINDS` and the zero-point nice-to-have
+rows, `RULESET_LOGIC_VERSION = "2"` and a regenerated golden file, `workers: 1`
+on the seeded Playwright config, four repaired assertions in three existing
+specs, **ADR 0019**, and `docs/reviews/milestone-3c-review.md`.
+
+### The finding the task existed to find, and it was about the fixtures
+
+`make seed` created a dev user with an email and nothing else. Against that
+profile the milestone could not demonstrate its own headline claim:
+
+```
+                              before   after
+evidence rows                     13     102
+  quoting a posting                0      27
+  quoting the reader               0      27
+components ever assessable    2 of 6   6 of 6
+distinct fractions                 8      11
+postings in a dimmed band          0       7
+```
+
+**Zero evidence rows quoted anything.** All thirteen came from freshness and
+priority, the two components §2.1 exempts from quoting a person. So §7.2 — every
+point traces to two literal spans — was true and unobservable, and the browser
+walk had nothing to check it against.
+
+`make seed` now writes the profile `tests/fixtures/resumes/nadia_okonkwo.txt`
+describes, through `update_profile` / `add_skill` / `add_project` — the same
+functions the form calls and the only writers I2 permits. It refuses to overwrite
+a profile anybody has touched, and it leaves four of the resume's skills
+unconfirmed on purpose, because `check_profile_confirmation` and
+`profile.spec.ts` both need a proposal nobody has accepted.
+
+`years_experience: 0` is what fills the dimmed bands, which is the "Not real yet"
+entry above closing itself.
+
+### Three false statements on the page, none of which a unit test could see
+
+Every one was true of a database and false about a person:
+
+| The page said | Why it was wrong |
+|---|---|
+| *What it asks for that you have nothing on file for:* **2** | A `years_experience` requirement. The profile states its years and the gate directly above reads them |
+| *Nice-to-haves you have nothing on file for:* React, TypeScript, Python | All three confirmed, and quoted by name eight lines higher on the same screen |
+| *0 · matched by a vocabulary rule* under a confirmed skill | True (§4.1) and reads as a judgement of the reader |
+
+The first is `unmet_requirements` differencing against an evidence graph that can
+only contain technologies. The second is `score_skill_overlap`'s **docstring
+describing a feature nobody wrote** — it has promised a zero-point row for a
+matched nice-to-have since Task 3, and the code iterated the required list only.
+
+Both are fixed in the domain rather than in the page, and the rule they leave
+behind is in `matching.md` §6: *a gap is only ever something an evidence row
+could have answered.*
+
+### The golden test refused to regenerate, unprompted, and was right
+
+The nice-to-have rows moved no total — a preferred technology is still worth
+nothing — but they changed the evidence graph, which is part of the score under
+I4 and is what the gap list is differenced against. The regeneration guard
+refused while `ruleset_version` stayed put, which is precisely the failure it was
+written to catch. `RULESET_LOGIC_VERSION` went to `2`. **Nobody remembered to
+bump it; the guard made it impossible not to.**
+
+### A browser test of my own that could not fail
+
+`matching.spec.ts`' load-bearing test — *every quoted word on the panel is text
+printed on the same page* — **survived a mutation that lower-cased every quote
+the panel printed.** It took the span from the API, asked whether some `<mark>`
+matched it through Playwright's `hasText` (case-insensitive, substring), then
+compared the API's span to the API's description: an assertion about something
+the API guarantees and the page cannot break.
+
+The two marks now carry their side and the comparison is rendered-to-rendered.
+The same mutation kills it. The file's docstring says a paraphrasing panel would
+pass every other assertion in it; it was describing itself.
+
+### `git checkout --` ate two files of unstaged work
+
+The first mutation script restored each mutated file with `git checkout --`,
+which restores from the index — and two files had unstaged Task 12 work in them.
+Reverted silently, mid-run; the three mutations after it ran against a tree
+missing the change under test. Reconstructed, and the staged golden file then
+matched byte-for-byte, which is a fair independent check that the reconstruction
+was faithful. The script uses copies now.
+
+### What ran, on this machine
+
+| Check | Result |
+|---|---|
+| `make check` | **1656 Python passed**, 1 skipped, 382s; **214 web passed** (22 files); ruff, mypy, prettier, eslint clean |
+| `make acceptance` | **exit 0** — up, migrate, drift, seed, **92 verify checks**, **55 seeded browser tests** passed, 1 skipped |
+| `make seed` | 31 postings, 31 scored, demo profile written, 7.5s |
+| Verify mutations | 3 written and measured red; a 4th killed by the database before `verify` saw it |
+| Browser mutations | 4 written and measured red, one of them only after §2.5's fix |
+| Screenshots | ranked list and two panels read by eye — where all three false statements were found |
+
+### Not run
+
+The ARQ worker path. `recompute_pending` is exercised by `make seed`,
+`make score`, `verify.py` and the unit suite; the **cron that calls it** has been
+run by `make dev` and by nothing that asserts anything.
 
 ---
 
