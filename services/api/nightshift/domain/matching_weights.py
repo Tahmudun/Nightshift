@@ -160,6 +160,24 @@ def parse_weights(raw: Any) -> MatchingWeights:
     for name, value in weights.items():
         if value < 0:
             raise WeightsError(f"components.{name} is negative ({value}); penalties are separate")
+        # **At least 1, not merely non-negative**, and the sum-to-100 assertion
+        # below does not cover it: `role_relevance: 0` beside `skill_overlap: 50`
+        # totals 100 and passes, while removing role relevance from every score in
+        # the corpus — which is the silent removal `data/matching.yaml`'s own
+        # header claims is caught.
+        #
+        # It is also what `match_results_components_are_assessed` rests on. That
+        # trigger asserts `assessed_out_of = 100` exactly when every component was
+        # assessable, which is only true while an unassessable component
+        # necessarily narrows the denominator. A zero weight would make a legal
+        # weights file produce scores the database refuses, with the error naming
+        # the row rather than the file.
+        if value == 0:
+            raise WeightsError(
+                f"components.{name} is 0; a component worth nothing is a component "
+                "that does not exist — delete it and renormalise, rather than "
+                "leaving a score with a part that can never contribute"
+            )
     total = sum(weights.values())
     if total != WEIGHT_TOTAL:
         breakdown = ", ".join(f"{name}={weights[name]}" for name in COMPONENT_NAMES)

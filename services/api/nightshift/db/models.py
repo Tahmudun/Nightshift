@@ -1367,6 +1367,80 @@ class MatchResult(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     evidence: Mapped[list[MatchEvidence]] = relationship(
         back_populates="match_result", cascade="all, delete-orphan"
     )
+    assessments: Mapped[list[MatchComponentAssessment]] = relationship(
+        back_populates="match_result", cascade="all, delete-orphan"
+    )
+
+
+class MatchComponentAssessment(UUIDPrimaryKeyMixin, Base):
+    """What each of the six components has to say for itself.
+
+    Added at M3c Task 9, when a score first had a *reader*. `matching.md` §5.1.1
+    requires the page to name the components that could not be assessed **and
+    why**, and neither half of that survives in `match_results` alone:
+
+    * **`assessable` is not recoverable from the points.** A component that
+      scored zero and a component the posting said too little to assess both
+      store `0` in their score column — that indistinguishability is the entire
+      content of §5.1.1, and `assessed_out_of` does not resolve it either,
+      because the six weights (20, 30, 20, 10, 10, 10) have several subsets
+      summing to the same number.
+    * **`why` is the only sentence the component ever produces.** The three
+      exempt components record their compared values in `match_evidence.compared`
+      and quote nobody; an assessable component that scored zero has no evidence
+      row at all. Without this column those components reach the page as a bare
+      number, which is I4 one level down from the total.
+
+    **This is not the `explanation` column §4.2 refused**, and the difference is
+    where the text comes from rather than how long it is. That column would have
+    held a narrative assembled *from* `match_evidence`, so it could disagree with
+    the rows it was built from. `why` is the scoring rule's own output, returned
+    by the same call and from the same inputs as the points beside it — a sibling
+    of the evidence rows, not a summary of them. The alternative is re-running the
+    scorer at render time, which is a second derivation that can disagree with the
+    stored number: the failure `matching.posting_for` documents, one table over.
+
+    **Six rows, exactly, one per component**, enforced at commit by
+    `match_results_components_are_assessed` — the database's copy of
+    `MatchScore.__post_init__`. Five components sum to a smaller total *and* a
+    smaller denominator, so the fraction still looks plausible and nothing
+    downstream notices.
+    """
+
+    __tablename__ = "match_component_assessments"
+    __table_args__ = (
+        # One statement per component per score. The unique constraint is what
+        # makes "exactly six rows" checkable as a count rather than as a set
+        # comparison.
+        UniqueConstraint(
+            "match_result_id", "component", name="uq_match_component_assessments_result_component"
+        ),
+        # §5.1.1 asks for the reason, not for the fact that there is one. A blank
+        # `why` renders as a component that could not be assessed for no stated
+        # reason, which is the shape of a page nobody can check.
+        CheckConstraint("length(btrim(why)) > 0", name="a_reason_is_never_blank"),
+    )
+
+    match_result_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("match_results.id", ondelete="CASCADE"), nullable=False
+    )
+    component: Mapped[MatchComponent] = mapped_column(
+        _enum(MatchComponent, "match_component"), nullable=False
+    )
+    #: False means *the posting did not say enough to ask the question*, and it
+    #: is never the same statement as zero points. The trigger asserts the one
+    #: direction that is checkable in SQL: an unassessable component scored
+    #: nothing.
+    assessable: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    #: The rule's own sentence — "3 of 5 required technologies confirmed",
+    #: "this source gave no publication date". Rendered verbatim; nothing
+    #: paraphrases it.
+    why: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime, nullable=False, server_default=func.now()
+    )
+
+    match_result: Mapped[MatchResult] = relationship(back_populates="assessments")
 
 
 class MatchEvidence(UUIDPrimaryKeyMixin, Base):

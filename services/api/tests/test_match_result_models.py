@@ -38,6 +38,7 @@ from nightshift.db.base import (
 from nightshift.db.models import (
     Job,
     JobRequirement,
+    MatchComponentAssessment,
     MatchEvidence,
     MatchResult,
     User,
@@ -90,7 +91,30 @@ def _result(user: User, job: Job, **overrides: Any) -> MatchResult:
         "ruleset_version": "1+test",
     }
     fields.update(overrides)
-    return MatchResult(**fields)
+    result = MatchResult(**fields)
+    # Added with the table at `0018_match_component_assessments`, and every score
+    # in this file needed it the moment the trigger existed — which is the guard
+    # doing its job: a score that states nothing about a component is one the
+    # database refuses. `assessable=True` for all six here for the same reason
+    # `assessed_out_of` is 100 above: these tests are about the other guards, and
+    # the trigger ties the two together, so an unassessable component would make
+    # the denominator the thing that fires in a test naming a different rule.
+    result.assessments = _assessments()
+    return result
+
+
+def _assessments(**overrides: Any) -> list[MatchComponentAssessment]:
+    """One statement per component, all six, assessable unless overridden."""
+    stated: dict[MatchComponent, bool] = dict.fromkeys(MatchComponent, True)
+    stated.update(overrides)
+    return [
+        MatchComponentAssessment(
+            component=component,
+            assessable=assessable,
+            why="a reason this test does not depend on",
+        )
+        for component, assessable in stated.items()
+    ]
 
 
 def _skill_evidence(result: MatchResult, *, points: int = 12, **overrides: Any) -> MatchEvidence:
@@ -496,6 +520,201 @@ async def test_a_penalty_that_adds_points_is_refused(db_session: AsyncSession) -
 
     with pytest.raises(IntegrityError, match="a_penalty_never_adds"):
         await db_session.flush()
+
+
+# ---------------------------------------------------------------------------
+# Guard 4 — every component says something, and it agrees with the denominator
+#
+# `0018_match_component_assessments`, M3c Task 9. Three assertions in one
+# deferred trigger, and each is here twice: the row that violates it, and the row
+# that does not. A guard shown only to accept is a guard nobody has seen work.
+# ---------------------------------------------------------------------------
+
+
+async def test_a_score_that_states_nothing_about_a_component_is_refused(
+    db_session: AsyncSession,
+) -> None:
+    """Five statements for six components: the page would render five of six and
+    nothing else on the row would look wrong.
+
+    `MatchScore.__post_init__` refuses this before a database is involved. This is
+    the same refusal for anything that reaches the table another way — a seed
+    script, a fixture, a future writer that builds the row field by field.
+    """
+    user = await _user(db_session)
+    job = await _job(db_session)
+    result = _result(user, job)
+    result.assessments = [
+        row for row in _assessments() if row.component is not MatchComponent.PRIORITY
+    ]
+    db_session.add(result)
+    await db_session.flush()
+
+    with pytest.raises(DBAPIError, match="states 5 of 6 components"):
+        await _commit_check(db_session)
+
+
+async def test_a_component_stated_twice_is_refused(db_session: AsyncSession) -> None:
+    """The other way to reach six rows without covering six components.
+
+    Caught by the unique constraint rather than by the count, which is why the
+    count is a *count*: with `uq_match_component_assessments_result_component` in
+    place, six rows and six components are the same statement.
+    """
+    user = await _user(db_session)
+    job = await _job(db_session)
+    result = _result(user, job)
+    result.assessments = [
+        *_assessments(),
+        MatchComponentAssessment(component=MatchComponent.SKILL, assessable=True, why="said twice"),
+    ]
+    db_session.add(result)
+
+    with pytest.raises(IntegrityError, match="uq_match_component_assessments_result_component"):
+        await db_session.flush()
+
+
+async def test_a_blank_reason_is_refused(db_session: AsyncSession) -> None:
+    """§5.1.1 asks for the reason, not for the fact that there is one.
+
+    Whitespace rather than the empty string, because a `NOT NULL` and a
+    `<> ''` both accept `"   "` and the page renders that as a component that
+    could not be assessed for no stated reason.
+    """
+    user = await _user(db_session)
+    job = await _job(db_session)
+    result = _result(user, job)
+    result.assessments[0].why = "   "
+    db_session.add(result)
+
+    with pytest.raises(IntegrityError, match="a_reason_is_never_blank"):
+        await db_session.flush()
+
+
+async def test_a_component_that_could_not_be_assessed_and_still_scored_is_refused(
+    db_session: AsyncSession,
+) -> None:
+    """Unassessable and non-zero is the score contradicting its own breakdown.
+
+    `ComponentScore.__post_init__` refuses it in Python; this is the database's
+    copy, and it is the half that survives a writer which never constructed a
+    `ComponentScore`. Note the denominator moves with it — 70, not 100 — because
+    the third assertion would otherwise fire first and the failure message would
+    name the wrong rule.
+    """
+    user = await _user(db_session)
+    job = await _job(db_session)
+    result = _result(user, job, skill_score=12, overall_score=12, assessed_out_of=70)
+    result.assessments = _assessments(skill=False)
+    db_session.add(result)
+    await db_session.flush()
+    db_session.add(_skill_evidence(result, points=12))
+    await db_session.flush()
+
+    with pytest.raises(DBAPIError, match="could not assess skill and scored 12"):
+        await _commit_check(db_session)
+
+
+async def test_an_unassessable_component_narrows_the_denominator(
+    db_session: AsyncSession,
+) -> None:
+    """The accepting half of the same rule: 70, and nothing raises."""
+    user = await _user(db_session)
+    job = await _job(db_session)
+    result = _result(user, job, assessed_out_of=70)
+    result.assessments = _assessments(skill=False)
+    db_session.add(result)
+    await db_session.flush()
+    await _commit_check(db_session)
+
+    assert await _match_result_count(db_session, job_id=job.id) == 1
+
+
+async def test_a_full_denominator_beside_an_unassessable_component_is_refused(
+    db_session: AsyncSession,
+) -> None:
+    """The failure this third assertion exists for, and it is a page-level lie.
+
+    Without it the breakdown can name three components nobody could assess while
+    the total claims to be out of 100 — and the ranked list then sorts on a
+    fraction that contradicts the rows printed underneath it. It holds because the
+    six weights sum to 100 and each is at least 1, both asserted by
+    `matching_weights.parse_weights`.
+    """
+    user = await _user(db_session)
+    job = await _job(db_session)
+    result = _result(user, job)
+    result.assessments = _assessments(freshness=False)
+    db_session.add(result)
+    await db_session.flush()
+
+    with pytest.raises(DBAPIError, match="could not assess 1 components"):
+        await _commit_check(db_session)
+
+
+async def test_a_narrowed_denominator_with_every_component_assessed_is_refused(
+    db_session: AsyncSession,
+) -> None:
+    """The same assertion from the other side.
+
+    This is the mistake §5.1.2 names — a total from one weights version stored
+    beside a denominator from another — and the direction that would silently
+    *flatter* a posting, since a smaller denominator raises the fraction.
+    """
+    user = await _user(db_session)
+    job = await _job(db_session)
+    db_session.add(_result(user, job, assessed_out_of=50))
+    await db_session.flush()
+
+    with pytest.raises(DBAPIError, match="assessed every component and is scored out of 50"):
+        await _commit_check(db_session)
+
+
+async def test_deleting_an_assessment_is_refused(db_session: AsyncSession) -> None:
+    """The guard is on both tables, as `0016`'s evidence guard is.
+
+    A trigger on `match_results` alone is satisfied at insert and then blind: the
+    statement that removes a component's reason afterwards is the one nobody would
+    write deliberately and the one a cascade or a cleanup script writes by
+    accident.
+    """
+    user = await _user(db_session)
+    job = await _job(db_session)
+    result = _result(user, job)
+    db_session.add(result)
+    await db_session.flush()
+    await _commit_check(db_session)
+
+    await db_session.delete(result.assessments[0])
+    await db_session.flush()
+
+    with pytest.raises(DBAPIError, match="states 5 of 6 components"):
+        await _commit_check(db_session)
+
+
+async def test_assessments_die_with_the_score(db_session: AsyncSession) -> None:
+    """`ON DELETE CASCADE`, and the reason it must not be `SET NULL` or a refusal.
+
+    Every path that invalidates a score deletes the `match_results` row (§4.2), so
+    an assessment that outlived its score would be a reason for a number that no
+    longer exists — and the next insert for the same pair would then find six rows
+    already there.
+    """
+    user = await _user(db_session)
+    job = await _job(db_session)
+    result = _result(user, job)
+    db_session.add(result)
+    await db_session.flush()
+    await _commit_check(db_session)
+
+    await db_session.delete(result)
+    await db_session.flush()
+    await _commit_check(db_session)
+
+    remaining = (
+        await db_session.execute(select(func.count()).select_from(MatchComponentAssessment))
+    ).scalar_one()
+    assert remaining == 0
 
 
 # ---------------------------------------------------------------------------

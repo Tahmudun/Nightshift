@@ -145,6 +145,26 @@ def test_a_negative_component_is_refused(raw: dict[str, Any]) -> None:
         parse_weights(raw)
 
 
+def test_a_component_worth_nothing_is_refused(raw: dict[str, Any]) -> None:
+    """Added at M3c Task 9, and the sum-to-100 assertion does not cover it.
+
+    Zero and 50 sum to 100, so this file passes every other check while role
+    relevance has been removed from every score in the corpus — the same silent
+    removal `test_a_weight_typed_short_by_a_digit_is_refused` catches, in the one
+    shape that gets past it.
+
+    It is also what `match_results_components_are_assessed` rests on: that trigger
+    asserts a full denominator means every component was assessable, which is only
+    true while an unassessable component necessarily narrows it. A zero weight
+    would make a legal weights file produce scores the database refuses, with the
+    error naming a row rather than the file that caused it.
+    """
+    raw["components"]["role_relevance"] = 0
+    raw["components"]["skill_overlap"] = 50
+    with pytest.raises(WeightsError, match="is 0; a component worth nothing"):
+        parse_weights(raw)
+
+
 @pytest.mark.parametrize("version", ["", "   ", None, 20260809])
 def test_a_file_with_no_usable_version_is_refused(raw: dict[str, Any], version: object) -> None:
     """Every stored score names the version that produced it. A blank or numeric
