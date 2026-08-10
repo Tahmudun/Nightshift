@@ -64,6 +64,26 @@ produces nothing — no points, no explanation line, no mention.
 There is no cosine similarity anywhere in the score. There is no component whose
 value came from a model.
 
+> **M3c Task 11 measured this permission and then declined to use it. Nothing in
+> this system proposes.** ADR 0018 has the figures. Two corrections belong here
+> rather than only in the ADR, because this section's argument depends on them:
+>
+> 1. **The span rule proves provenance, not entailment**, and the paragraph
+>    above quietly assumed otherwise. A proposal of *"you meet the Java
+>    requirement"* quoting the posting's word *Java* and the user's word
+>    *Python* satisfies both spans literally and completely — and renders on the
+>    page beside both quotes, looking audited. The rule stops invented text. It
+>    does not stop unwarranted inference, which is the thing a similarity score
+>    actually produces.
+> 2. **Cosine over technology names ranks siblings above concepts**, so the
+>    permission has nothing safe to spend itself on. Measured over this corpus,
+>    the highest-confidence proposal available anywhere is *Java from Python* at
+>    0.797, and the one relation worth having — *Machine Learning* from PyTorch
+>    — finishes ninth at 0.624.
+>
+> The rule stated at the top of this section still stands and is still the
+> boundary. It is now enforced by there being no proposer at all.
+
 ### 2.1 The span rule binds three components, and the reason is not arbitrary
 
 The rule above applies to **role relevance, skill overlap and project
@@ -101,6 +121,12 @@ defensible and was seriously considered. Its failure mode is invisible: matches
 the user never sees, with no signal that they were missed. Rejected for that
 reason rather than for capability.
 
+**And then chosen anyway, on evidence, at Task 11.** M3 ships fully
+deterministic. The invisible-recall objection above is real and still stands as
+a cost; what Task 11 established is that the semantic layer offered to pay it
+would have bought fabricated qualifications rather than missed matches. §2.3
+now carries the measurement.
+
 **Embedding-first ranking**, with rules as a post-filter, makes I4
 unsatisfiable. "You scored 0.83" has no breakdown because there is not one; any
 explanation panel built on top of it is text generated after the fact to justify
@@ -115,6 +141,23 @@ carry, and which the embedding cannot tie back to a span, is a requirement this
 system will not see. That is a real limitation and it is measured rather than
 assumed: M3d reports skill-extraction recall against the answer key, so the size
 of the gap is a number in CI rather than a hope.
+
+**Measured, at Task 11.** Against the committed corpus — 71 postings naming at
+least one required technology, 240 requirement rows per profile — the rules-only
+scorer matches 90, 88, 59 and 0 rows on the four fixture profiles. So the gap is
+150 to 181 rows on any profile that states anything.
+
+The number that matters is what is *inside* that gap, and it is not a queue of
+matches waiting for a model. Ranked by similarity, it is dominated by sibling
+technologies the person specifically does not have — `Java` beside Python,
+`Azure` beside AWS, `TensorFlow` beside PyTorch. See ADR 0018.
+
+The residue that is genuinely recoverable is small, specific, and not an
+embedding problem: concept terms like `Machine Learning` (26 occurrences),
+`Distributed Systems` (4) and `Data Structures` (3), which a concrete tool can
+demonstrate. The carrier for those is a `demonstrated_by:` relation in
+`data/skills.yaml` — a claim a human writes down and can be argued with. Not
+built in M3.
 
 ---
 
@@ -1011,6 +1054,12 @@ Named here so nothing in M3 is quietly assumed to be coming.
 
 - **Any LLM.** §8.1 permits one to assist; §2 of this document gives it nothing
   to do that would not violate the span rule. No ADR, no dependency, no key.
+- **Any embedding proposal path.** §2 permits one; Task 11 measured what it
+  would say and ADR 0018 declines it. `EvidenceSource.EMBEDDING` remains on the
+  wire and unreachable, deliberately — see the ADR's consequences.
+- **`demonstrated_by:` edges in `data/skills.yaml`** — the constructive successor
+  ADR 0018 recommends. Would move scores across the corpus, so it needs a
+  `ruleset_version` bump and does not belong in M3c's last task.
 - **Resume rewriting, tailoring, or generation.** I5.
 - **Recommended emphasis, suggested next action, and the recommended resume** — §6.
 - **Company preference and application urgency** — §5.1.

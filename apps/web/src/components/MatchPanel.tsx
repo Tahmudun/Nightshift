@@ -137,6 +137,12 @@ function Evidence({ row }: { readonly row: MatchEvidence }) {
           ))}
         </dl>
       )}
+      {/* The second branch is unreachable today and stays anyway (ADR 0018).
+          Nothing proposes: M3c Task 11 measured what an embedding would say and
+          the answer was `Java` from a confirmed `Python`. But if a row carrying
+          that source ever did arrive, labelling it "matched by a vocabulary
+          rule" is the failure worth preventing — an unreachable branch that is
+          correct beats a reachable one that lies. */}
       <p className="mt-1 text-[11px] text-paper-faint">
         {row.points > 0 ? `+${row.points}` : row.points} ·{' '}
         {row.proposed_by === 'rule' ? 'matched by a vocabulary rule' : 'proposed by the embedding'}

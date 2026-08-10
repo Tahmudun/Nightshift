@@ -18,33 +18,60 @@
 **M3a: COMPLETE, reviewed, CI-green at `3fbffd6`, merged to `main` as PR #9 (`452ec90`).**
 **M3a.1: COMPLETE. Recall 0.459 → 0.861, precision 0.659 → 0.847, necessity 0.668 → 0.915.**
 **M3b: COMPLETE, reviewed, CI-green at `7bfbf2d`, merged to `main` as PR #11 (`d2273e7`). `main` green after the merge.**
-**Current milestone: M3 — explainable matching. M3c (the score): Tasks 1–10 of 12 done. Q6 answered and implemented.**
-**Last updated: 2026-08-09**
+**Current milestone: M3 — explainable matching. M3c (the score): Tasks 1–11 of 12 done. Q6 answered and implemented.**
+**Task 11 measured the embedding proposal path and declined to ship it — ADR 0018.**
+**Last updated: 2026-08-10**
 
 ---
 
 ## Next exact action
 
-### M3c Tasks 1–10 are done. Next: Task 11 — the embedding proposal path (§2, plan §1.1).
+### M3c Tasks 1–11 are done. Next: Task 12 — the browser walk, `check_match_results` in `verify.py`, ADR 0019, the M3c review, and PROGRESS.
 
-Task 11 is deliberately sized as unknown and deliberately allowed to end in a
-deletion. Three things it inherits from Task 10 rather than has to discover:
+Task 12 is M3c's last, and three things about it moved at Task 11:
 
-1. **A proposal still has to produce two spans.** §2's rule is unchanged and the
-   database enforces it: a `role`, `skill` or `project` row with a null span on
-   either side is refused, and the job-side span is refused unless it literally
-   quotes the field it names. So the honest question is how many *additional*
-   pairs the embedding finds that the vocabulary missed — not how much a
-   similarity number moves a score, because no similarity number reaches one.
-2. **`proposed_by` is already on the wire and already rendered.** `MatchPanel`
-   prints "matched by a vocabulary rule" or "proposed by the embedding" per
-   evidence row, so the share is visible on the page before M3d reports it as a
-   number. Nothing needs adding to make the layer auditable.
-3. **The baseline is on disk.** `tests/fixtures/matching/golden.txt` pins 459
-   rules-only scores, and regeneration refuses when a score moves while
-   `ruleset_version` stays put. An embedding that changes any score therefore has
-   to bump the version and show the diff, which is exactly the attribution the
-   plan wanted.
+1. **The ADR number is 0019, not 0018.** Task 11 needed an ADR of its own and
+   took 0018. Task 12's is the one the plan describes — the score, its
+   denominator, and the recompute triggers.
+2. **`verify.py`'s `check_match_results` has one more assertion available to
+   it.** §7.2's hallucination check is *"every stored span is a literal substring
+   at the offsets recorded"*, and after Task 11 there is a second equality worth
+   asserting against a running stack: **no stored `match_evidence` row has
+   `proposed_by = 'embedding'`.** The unit suite asserts it about the scorer;
+   `verify` would assert it about the database, which is where a hand-inserted
+   row would live.
+3. **The browser walk has nothing new to cover.** Task 11 shipped no UI. The
+   only frontend change is a comment in `MatchPanel` explaining why its
+   "proposed by the embedding" branch is unreachable and stays.
+
+**Task 11 shipped a measurement and a decision, and no feature.** The embedding
+proposal path §2 permits was built as an experiment, measured against the
+rules-only baseline the plan required, and declined. **ADR 0018** carries it.
+
+The short version: over 240 required-technology rows per profile, the rules-only
+scorer matches 90 / 88 / 59 / 0 on the four fixture profiles, and the gap of
+150–181 rows is what an embedding was meant to recover. Ranking every (missed
+requirement, confirmed skill) pair under the real `bge-small-en-v1.5`, **the
+highest-confidence proposal in the entire corpus is "you meet the Java
+requirement, because you confirmed Python" at 0.797.** The one relation worth
+having — `Machine Learning` from a confirmed PyTorch — finishes ninth at 0.624.
+
+The ordering is inverted, not weak, and that is why there is no threshold to
+tune: cosine over technology names measures topical relatedness, a match claim
+needs substitutability, and sibling technologies are maximally related and least
+substitutable. Any cut that admits the good relation admits eight fabrications
+first.
+
+**It also corrected `matching.md` §2, which is the part worth carrying forward:
+the span rule proves provenance, not entailment.** "You have Java" quoting the
+posting's *Java* and the user's *Python* satisfies both spans literally, and
+renders beside both quotes looking audited. The rule stops invented text; it
+never stopped unwarranted inference, and the plan had it carrying the whole
+safety argument.
+
+Full detail in the M3c Task 11 section below, including the constructive
+successor the measurement found (`demonstrated_by:` edges in `skills.yaml`, not
+built) and the three tests that keep the decision from being reversed silently.
 
 **Task 10 shipped**: the score is visible in a browser, on two surfaces. The
 explanation panel on the job detail page (`MatchPanel`) and the banded ranked
@@ -230,6 +257,23 @@ taken in the plan rather than inside the work:
   fine; the shape that is not fine is a version bump on a corpus of thousands
   with real multi-user traffic, and the honest statement is that nothing here
   has been measured above one user.
+- **`EvidenceSource.EMBEDDING` is on the wire, rendered, and unreachable.** The
+  PG enum carries it, `evidenceSourceSchema` carries it, and `MatchPanel` has a
+  branch that prints "proposed by the embedding". **Nothing produces it**, and
+  after ADR 0018 nothing is going to. This is listed here rather than deleted
+  because I7 is about the gap between what a reader would assume and what is
+  true, and a reader of `schemas.ts` would assume there are two sources of
+  evidence in this system. There is one. The branch stays because a row with
+  that source arriving and being labelled "matched by a vocabulary rule" is the
+  failure worth preventing, and `test_the_scorer_emits_no_evidence_row_an_
+  embedding_proposed` is the tripwire that sends the next person to the ADR.
+- **The one real recall gap Task 11 found is not fixed.** 33 occurrences across
+  the corpus of concept terms — `Machine Learning` (26), `Distributed Systems`
+  (4), `Data Structures` (3) — that somebody can genuinely demonstrate with a
+  concrete tool and that the scorer misses entirely. ADR 0018 recommends
+  `demonstrated_by:` edges in `data/skills.yaml`. Not built: it would move scores
+  across the corpus and so needs a `ruleset_version` bump, which is not a thing
+  to do in a milestone's last task.
 - **Old-version `match_results` rows are never garbage-collected.** §4.2 keeps
   them on purpose, so a ruleset bump can be compared against what preceded it.
   Nothing deletes them, so the table grows by one row per (person, posting) per
@@ -295,6 +339,139 @@ taken in the plan rather than inside the work:
   deliberately — turning it on means per-file ignores, and that is its own small
   change rather than a rider on M3c. The two files added this session were
   checked against the same config by hand and are clean.
+
+---
+
+## M3c Task 11 — the embedding gets measured, and says "you know Java, because you know Python"
+
+**Shipped:** `services/api/tests/test_embedding_proposals.py` (6 tests),
+`services/api/tests/matching_corpus.py` (the corpus loader, extracted from the
+golden test so two files score the same rows), ADR 0018, amendments to
+`matching.md` §2, §2.2, §2.3 and §9, and one comment in `MatchPanel.tsx`.
+
+**Not shipped, deliberately: any embedding proposal path.** No new module, no
+new column, no new dependency, and no change to a single score. `make check`
+green — 1655 passed, 1 skipped.
+
+### What the plan asked for and what came back
+
+The M3c plan §1.1 held this task back behind ten tasks of rules-only work and
+wrote down in advance that not shipping was allowed: *"If Task 11 measures a
+small number, it is correct to not ship it and record the figure, and that
+outcome has to be reachable from the plan rather than embarrassing."*
+
+The number is not small. **It is inverted, which is worse.**
+
+The rules-only baseline first, because §1.1 is right that nothing else means
+anything without it. 153 recorded postings, of which **71 name at least one
+`required` technology**, giving **240 requirement rows per profile**:
+
+| Fixture profile | Matched, of 240 | Missed |
+|---|---|---|
+| `new_grad_backend` | 90 | 150 |
+| `experienced_ml` | 88 | 152 |
+| `early_career_no_experience` | 59 | 181 |
+| `states_nothing` | 0 | 240 |
+
+Then the question the plan actually posed: of what the vocabulary missed, what
+would an embedding propose? Ranking every (missed requirement, confirmed skill)
+pair by cosine similarity under the real `bge-small-en-v1.5`:
+
+| Similarity | The claim it would put on the page |
+|---|---|
+| 0.797 | you meet a **Java** requirement, because you confirmed **Python** |
+| 0.764 | **macOS**, because you confirmed **Linux** |
+| 0.750 | **Azure**, because you confirmed **AWS** |
+| 0.742 | **Excel**, because you confirmed **SQL** |
+| 0.736 | **Windows**, because you confirmed **Linux** |
+| 0.725 | **TensorFlow**, because you confirmed **PyTorch** |
+| 0.705 | **Google Cloud**, because you confirmed **AWS** |
+| 0.699 | **Kubernetes**, because your project used **Docker** |
+| **0.624** | **Machine Learning**, because you confirmed **PyTorch** |
+
+The last row is the only relation in this corpus a person would defend. It comes
+ninth.
+
+### Why there is nothing to tune
+
+A threshold is worth having when the claims worth keeping sit above it. These
+sit below. Cosine over technology names measures **topical relatedness**; a match
+claim needs **substitutability**; and over exactly the pairs that matter the two
+run opposite. Java and Python are maximally related and not interchangeable, and
+it is *because* they are siblings that the model pairs them.
+
+Two checks that were owed before concluding, both of which the layer failed:
+
+- **Was the input impoverished?** Pair A embeds a bare token, and bare tokens
+  embed badly. So the requirement was re-embedded *inside its own sentence from
+  the posting* — the richest job-side text available. `Windows`←Linux,
+  `macOS`←Linux, `Azure`←AWS, `Google Cloud`←AWS, `TensorFlow`←PyTorch and
+  `Java`←Python are all still in the top twenty. The input was not the problem.
+- **Was the yield simply negligible?** No, and this is why "we tried it and it
+  did nothing" would be the wrong lesson. At a 0.70 cut the layer adds 44, 58
+  and 43 rows on the three stating profiles — **+49%, +66% and +73% on top of
+  what the rules matched**. At 0.50 it matches essentially everything the
+  vocabulary missed, and above 0.80 it matches nothing at all, so the entire
+  usable band sits inside the confusion zone. It was not rejected for being
+  ineffective. It was rejected for being wrong.
+
+### The correction to `matching.md` §2, which is the finding worth keeping
+
+The span rule was carrying the safety argument, and it cannot.
+
+A proposal of *"you meet the Java requirement"* quoting the posting's word
+*Java* and the user's word *Python* **satisfies both spans literally and
+completely**. Both strings were really written by the parties named. The rule
+guarantees that no text was invented; it says nothing about whether one string
+implies the other.
+
+**Spans prove provenance, not entailment.** They are a real defence against
+hallucinated text and no defence at all against unwarranted inference — and it
+is the second that a similarity score produces. Worse, both spans render beside
+the claim, so a fabricated qualification arrives *looking audited*. §2 now says
+so, in a note under the rule it corrects.
+
+### What the residue actually contains
+
+The alias table in `data/skills.yaml` already owns every case where two strings
+denote the *same* technology — `golang`/`Go`, `cpp`/`C++`. Those never miss, so
+they never reach a proposal layer. What is left over for an embedding is, by
+construction, pairs of strings denoting **different** technologies. There is no
+honest match hiding in there for a better model to find.
+
+One real gap did surface and it is a different shape: **33 occurrences of
+concept terms** — `Machine Learning` (26), `Distributed Systems` (4),
+`Data Structures` (3) — which a concrete tool can genuinely demonstrate. The
+honest carrier is a `demonstrated_by:` edge in the vocabulary file: reviewable,
+diffable, versioned, and a claim a human wrote down and can be argued with. It
+is also strictly narrower than similarity — it says PyTorch demonstrates machine
+learning and never that PyTorch demonstrates TensorFlow. Recorded in ADR 0018,
+in "Not real yet", and not built, because it moves scores and so needs a
+`ruleset_version` bump.
+
+### How the decision is kept from reversing itself quietly
+
+A decision not to build something is normally invisible. Three tests make this
+one able to go red, and each was **proven able to fail** before being committed:
+
+| Test | Broken by | Result |
+|---|---|---|
+| `test_the_rules_only_baseline_is_what_task_11_was_measured_against` | `90` → `91` in the pinned baseline | red |
+| `test_no_threshold_admits_the_defensible_relation_without_fabrications_first` | `DEFENSIBLE` set to `("Java", "Python")` | red |
+| `test_the_scorer_emits_no_evidence_row_an_embedding_proposed` | `Evidence.proposed_by` defaulted to `EMBEDDING` | red |
+
+The second is the one that would reopen the ADR on evidence: if a future model
+ranks the concept relation above the sibling confusions, it goes red and says so.
+
+### One refactor, and why it was not optional
+
+`_load_corpus` and `_load_profiles` moved out of `test_matching_golden.py` into
+`tests/matching_corpus.py`, and `conftest.py`'s session fixture and
+`test_every_score_number_is_load_bearing.py` now import from there. Copying them
+was the alternative and it is the wrong one: a measurement taken against a corpus
+that is *nearly* the golden file's is a measurement of nothing in particular. The
+34 tests across the golden file and the mutation harness pass unchanged, which is
+what makes it a move rather than a rewrite.
 
 ---
 
