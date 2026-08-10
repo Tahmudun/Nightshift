@@ -18,46 +18,52 @@
 **M3a: COMPLETE, reviewed, CI-green at `3fbffd6`, merged to `main` as PR #9 (`452ec90`).**
 **M3a.1: COMPLETE. Recall 0.459 → 0.861, precision 0.659 → 0.847, necessity 0.668 → 0.915.**
 **M3b: COMPLETE, reviewed, CI-green at `7bfbf2d`, merged to `main` as PR #11 (`d2273e7`). `main` green after the merge.**
-**Current milestone: M3 — explainable matching. M3c (the score): Tasks 1–9 of 12 done. Q6 answered and implemented.**
+**Current milestone: M3 — explainable matching. M3c (the score): Tasks 1–10 of 12 done. Q6 answered and implemented.**
 **Last updated: 2026-08-09**
 
 ---
 
 ## Next exact action
 
-### M3c Tasks 1–9 are done. Next: Task 10 — the explanation panel and the banded ranked list (§5.3, §6).
+### M3c Tasks 1–10 are done. Next: Task 11 — the embedding proposal path (§2, plan §1.1).
 
-Task 9 left the API carrying everything the panel assembles from, and three
-things Task 10 has to get right rather than discover:
+Task 11 is deliberately sized as unknown and deliberately allowed to end in a
+deletion. Three things it inherits from Task 10 rather than has to discover:
 
-1. **Bands are headers, never points.** §5.3 groups by eligibility band then
-   sorts by score *descending within the band*, and the grouping is a visible
-   structure rather than a number the score absorbed. `uncertain` sorts above
-   `likely_ineligible`. An ineligible job is dimmed with its blocker named — never
-   hidden (§3.3).
-2. **The list sorts on the fraction, not on `overall_score`.** `assessed_out_of`
-   is not always 100, so raw totals are not comparable across postings, and the
-   fraction is `null` rather than `0.0` when nothing could be assessed — which is
-   a row to place deliberately rather than to let sort to the bottom by accident.
-   `MatchOut.fraction` is already the computed value; the ranked *list* endpoint
-   does not exist yet and is Task 10's first piece.
-3. **`MatchComponent`, `EvidenceSource` and `JobTextField` cross into TypeScript
-   for the first time.** All three need `schemas.ts` constants and entries in
-   `test_enum_parity.py`'s TypeScript pairs — the half deliberately left to Task
-   10 because there was nothing in the browser to compare against until now. Two
-   of the last four milestones found a hand-transcribed enum defect there.
+1. **A proposal still has to produce two spans.** §2's rule is unchanged and the
+   database enforces it: a `role`, `skill` or `project` row with a null span on
+   either side is refused, and the job-side span is refused unless it literally
+   quotes the field it names. So the honest question is how many *additional*
+   pairs the embedding finds that the vocabulary missed — not how much a
+   similarity number moves a score, because no similarity number reaches one.
+2. **`proposed_by` is already on the wire and already rendered.** `MatchPanel`
+   prints "matched by a vocabulary rule" or "proposed by the embedding" per
+   evidence row, so the share is visible on the page before M3d reports it as a
+   number. Nothing needs adding to make the layer auditable.
+3. **The baseline is on disk.** `tests/fixtures/matching/golden.txt` pins 459
+   rules-only scores, and regeneration refuses when a score moves while
+   `ruleset_version` stays put. An embedding that changes any score therefore has
+   to bump the version and show the diff, which is exactly the attribution the
+   plan wanted.
 
-**Task 9 shipped**: a stored score now reaches `GET /jobs/{id}` as
-`JobDetailOut.match`, decomposed into six components with their weights, their
-evidence quoted on both sides, and each component's own sentence — and a row at a
-non-current `ruleset_version` reads as not-yet-computed rather than as a score.
-It owed a migration for the same reason Task 8 did: `0018_match_component_assessments`
-stores *which* components could not be assessed and why, because §5.1.1 requires
-the page to name them and neither fact is recoverable from `match_results`. Three
-plausible-but-wrong route implementations were written and measured going red.
-Full detail in the M3c Task 9 section below, including why storing a per-component
-sentence is not the `explanation` column §4.2 refused, and the zero-weight hole in
-the loader that the new trigger depends on being closed.
+**Task 10 shipped**: the score is visible in a browser, on two surfaces. The
+explanation panel on the job detail page (`MatchPanel`) and the banded ranked
+list at `/explore/matches` (`RankedMatches`, served by a new `GET /matches`).
+Bands are headings and the list sorts on the *fraction*, so 40 of 50 outranks 45
+of 100. The three enums Task 9 left owing — `MatchComponent`, `EvidenceSource`,
+`JobTextField` — crossed into TypeScript with `PenaltyName` beside them, all four
+now in `test_enum_parity.py`.
+
+It took the decision PROGRESS assigned it and **revisited nothing**: §4.2's single
+`penalty_score` column stands, and `0019_match_penalties` records what that
+column is made of. Before it, the page could render `-18` with no account of it,
+which is I4's *"stores its components, its penalties"* going unmet in the one
+place a person reads. §6's element count moved too: the *recommended resume* is
+now named as **not built** rather than owed, and the reason is I2 — see the Task
+10 section below.
+
+Full detail in the M3c Task 10 section below, including the first end-to-end run
+against the seeded corpus and the two bands `make demo` cannot exercise.
 
 **Task 8 shipped**: scores now reach the database. Migration
 `0017_match_score_denominator` (the two columns Task 5 and Task 3 left owing),
@@ -191,29 +197,33 @@ taken in the plan rather than inside the work:
   question — does this scorer produce more than one number across 31 jobs — is
   still unanswered. It is Task 7's, and it is on the plan's own list of what
   would make it wrong.
-- **No score is visible in a browser.** As of Task 9 the API returns one on
-  `GET /jobs/{id}`, and no page renders it: the job detail page ignores the new
-  `match` field, and there is no ranked list. That is Task 10. `make demo` looks
-  exactly as it did before Tasks 8 and 9.
-- **Nothing carries the score's enums into TypeScript yet.** `MatchComponent`,
-  `EvidenceSource` and `JobTextField` are all in the API response as of Task 9 and
-  none of them has a `schemas.ts` constant or an entry in `test_enum_parity.py`'s
-  TypeScript pairs. Adding a field to a Zod object that does not declare it is
-  silently ignored, so the web tests are green and the browser is discarding the
-  whole `match` object — correct for today, and Task 10's first obligation.
-- **`match_results.resume_id` is null on every row.** §6's *Recommended resume*
-  element — which stored resume best covers the required set — has a column, an
-  FK and no writer. It is named in `matching.md` §6 and owed by one of Tasks
-  10–12; it is not computed and must not be described as one of the seven
-  elements that are.
-- **The two penalties reach the page as one number.** §4.2 stores their sum
-  deliberately, so the response carries `penalty_score` and cannot attribute it.
-  The missing-requirement half is re-derivable on the page (required requirements
-  with no evidence row, which §6 already lists as its own element); the
-  seniority-mismatch half is not, so a person seeing `-18` can be told 12 of it
-  came from three unmet technologies and not what the other 6 was. Task 10 decides
-  whether that is acceptable or whether §4.2's one-column decision needs
-  revisiting; nothing about it is broken today.
+- **`match_results.resume_id` is null on every row, and is now named as not
+  built rather than owed.** §6's *Recommended resume* has a column, an FK and no
+  writer. Task 10 declined it on I2 grounds and recorded the argument in
+  `matching.md` §6: a per-resume skill set exists only in `resume_extractions`,
+  which holds **proposals**, and §7.2 forbids a user-side span from quoting one.
+  Doing it honestly needs a confirmation step that attributes a confirmed skill
+  to the resume it came from — its own small design, not a rider on a panel. The
+  panel prints it under "Not built" beside the other two.
+- **Three of §8.5's nine explanation elements are not computed**, not two. The
+  count moved at Task 10 for the reason above, and `matching.md` §6's table now
+  says so. Anything describing M3c as computing seven of nine is out of date.
+- **The seeded corpus fills two of the five bands.** The first real run — 31
+  postings, the seeded dev profile — produced 13 `eligible` and 18 `uncertain`,
+  and nothing in `likely_eligible`, `likely_ineligible` or `ineligible`. So the
+  dimming that §3.3 promises, and the `RankedMatches` caveat copy under the two
+  blocked bands, **are not exercised by `make demo` at all**: they are covered by
+  component tests and route tests with hand-built rows, and by nothing a person
+  can look at. That is a fixture gap, not a rendering bug, and it is the kind of
+  gap this project has shipped before.
+- **The same run scores most of the corpus out of 10 to 50, and most of it at
+  zero.** Denominators seen: 10, 20, 40, 50 — never 100 — and 8 distinct
+  fractions across 31 postings, most of them `0.0`. That is the seeded profile
+  (no confirmed skills, no projects, no stated preferences) meeting a corpus of
+  mostly non-engineering Alloy roles, which is exactly the case §5.1.1 was
+  designed to keep honest rather than a failure of it. It does mean the ranked
+  list in `make demo` is thin and heavily tied, and that nothing has yet shown
+  the ordering doing useful work on a realistic profile.
 - **The recompute sweep is `users × open jobs`, unbounded in principle and
   bounded in practice by the corpus being 31 postings and the user count being
   one.** One anti-join per tick, batched at 500 pairs. At M4's scale this is
@@ -271,8 +281,8 @@ taken in the plan rather than inside the work:
 - **The weights are §5.1's published numbers, untuned and unmeasured.** Nothing
   has scored anything yet, so no evidence supports 30 for skill overlap over 25.
   Tuning is deliberately after Task 6's golden test, never before it.
-- **Both deferred guards only fire at commit** — the evidence guard from Task 2
-  and the assessment guard from Task 9. Deferrable constraint triggers are the only
+- **All three deferred guards only fire at commit** — the evidence guard from
+  Task 2, the assessment guard from Task 9 and the penalty guard from Task 10. Deferrable constraint triggers are the only
   shape that works, since a score has to exist before a child row can reference
   it, but it means a transaction that never commits never checks. The test suite
   rolls back, so every test forces them with `SET CONSTRAINTS ALL IMMEDIATE`.
@@ -285,6 +295,174 @@ taken in the plan rather than inside the work:
   deliberately — turning it on means per-file ignores, and that is its own small
   change rather than a rider on M3c. The two files added this session were
   checked against the same config by hand and are clean.
+
+---
+
+## M3c Task 10 — the score reaches a person, and the last bare number gets a reason
+
+**Shipped:** `0019_match_penalties` (a table, a PG enum and one deferred trigger
+asserting two things, both migration directions applied), `matching.BAND_ORDER`,
+`matching.ranked_for` and `matching.unmet_requirements`, a new
+`GET /matches` route, `MatchPenaltyOut` / `UnmetRequirementOut` /
+`RankedJobOut` / `RankedBandOut` / `MatchRankingOut` in `api/schemas.py`,
+`JobDetailOut.unmet_requirements`, and on the web side `MatchPanel`,
+`RankedMatches`, `/explore/matches`, and eleven new schemas in `schemas.ts`.
+11 tests added to `test_match_result_models.py`, 7 to `test_match_routes.py`,
+12 in a new `test_match_ranking_routes.py`, 2 in `test_nothing_infers.py`, 5 in
+`test_enum_parity.py`, 14 in `MatchPanel.test.tsx`, 9 in `RankedMatches.test.tsx`.
+
+### The decision this task was handed, and why the answer was a table
+
+PROGRESS assigned it in as many words: *"Task 10 decides whether that is
+acceptable or whether §4.2's one-column decision needs revisiting."* It is not
+acceptable and §4.2 did not need revisiting, which are two separate answers.
+
+`match_results.penalty_score` stays one column. §4.2's reason holds — the
+evidence trigger binds the six positive components and a second *score* column
+would imply an evidence link that does not exist — and `the_total_is_its_parts`
+still adds it exactly once. What §4.2 also said was *"what each penalty cost
+belongs to the explanation"*, and nothing carried it: a reader saw `-18` and
+could not be told that 12 of it was three unmet technologies and 6 a title
+pitched above their stated years. I4 lists what a score stores as *"its
+components, **its penalties**, its `ruleset_version`, and its evidence"*.
+
+So `match_penalties` is §4.5's table one row down, with the same argument: the
+rule's own sentence, produced by the same call as the points it explains, stored
+rather than re-derived at render time. **Three consecutive tasks have now found
+a missing column the moment somebody read the thing they had written** — Task 8's
+denominator, Task 9's assessments, Task 10's penalties — and the pattern is worth
+naming rather than treating each as a surprise.
+
+### The guard is an equality, because a split invites exactly one failure
+
+A decomposition that can disagree with the number it decomposes is worse than no
+decomposition: it is a second account of the same claim, which is what §4.2
+refused to store an `explanation` column for. So the trigger asserts
+`sum(match_penalties.points) = match_results.penalty_score` at commit, plus
+exactly two rows, one per name.
+
+`PenaltyName` is a PG enum rather than free text and that is what makes the count
+an assertion. With an open domain, a typo'd `seniority_missmatch` beside a
+correct row is two rows, two names, and a guard that passes.
+
+Both directions are tested. The equality was shown to fail with a row summing to
+-4 beside a column of -10, and the count with one row and with none.
+
+### The truncate list refused again, and this is the eighth time
+
+`match_penalties` references `match_results`, so `TRUNCATE` without CASCADE
+failed the moment the table existed — within a minute, exactly as it did for
+`match_component_assessments` at Task 9. Sixth milestone running that
+`_INGESTION_TABLES` has been kept correct by the database rather than by anybody
+remembering to edit it.
+
+### Two derivations of the missing technologies, and a test that they agree
+
+§6's *why it may not fit* is a set difference over the stored evidence rows
+(`matching.unmet_requirements`). The missing-requirement penalty independently
+recorded what it charged for, in `compared["missing"]`. Different code, different
+inputs, and the page prints one list beside the other's cost — so if they can
+disagree, a person is told they are missing three things and charged for four.
+`test_the_missing_technologies_are_the_ones_the_penalty_charged_for` asserts the
+two sets are equal, and asserts the set is non-empty so it cannot pass vacuously.
+
+The list is **null rather than empty when there is no score**. An empty list
+beside a null score reads as *you meet everything*, which is a claim about a
+person derived from no evidence rows at all — the same failure `eligibility`'s
+own null exists to prevent one field up, and it would render as a clean page
+rather than as a bug.
+
+### `ORDER BY overall_score DESC` is the obvious clause and it is wrong
+
+`assessed_out_of` is not always 100, so raw totals are not comparable: 40 of 50
+is a better match than 45 of 100 and the obvious sort puts them the other way
+round, with both numbers on the page staying true and only their comparison
+lying. The list sorts on `overall_score / NULLIF(assessed_out_of, 0)`, and
+`test_the_order_is_the_fraction_and_not_the_total` is the assertion, with the
+fixture built so the two orderings disagree.
+
+`NULLIF` also hands the unassessable pairs the null they are entitled to instead
+of raising. **They sort last inside their band, deliberately** — Postgres'
+default for `DESC` is `NULLS FIRST`, so without the explicit clause the pair
+nobody could score leads the list. Last is a decision and not a default, so
+`unassessed_sort_last` is on the wire; the row renders as *nothing to assess*,
+never as `0%`.
+
+### The band order is written out, not inherited from the enum
+
+`BAND_ORDER` agrees with `EligibilityState`'s declaration order today, and taking
+it from there would make a product decision a property of the order somebody
+typed five members in. `uncertain` above `likely_ineligible` is the line worth
+stating on its own: an open question is not a soft no, and the other way round
+buries the postings a person could resolve by filling in one profile field under
+the ones they cannot resolve at all. Two tests in `test_nothing_infers.py`, which
+is where this repo's other hand-maintained lists are guarded.
+
+The SQL needed a cast that was not obvious: a `CASE ... WHEN` over a PG enum
+column binds its whens as `varchar`, and Postgres has no
+`eligibility_state = character varying` operator. The query does not mis-sort, it
+refuses to run — the better of the two failures, and it fired on the first run.
+
+### The stale "not built yet" list finally has a test rather than a lucky catch
+
+`JobDetail.tsx`'s `DEFERRED_FACTS` went from six entries to one. Five of the six
+— match score, match breakdown, missing requirements, project evidence,
+recommended resume — were about to sit on the same page as the sections that
+answer them. A stale entry there has gone unnoticed for a whole milestone three
+times in this project, and each time it was caught by accident; at M3b it was
+caught only because the word "Eligibility" appeared twice and a test could no
+longer tell the two apart.
+
+`JobDetail.test.tsx` now asserts it structurally: **every name in the deferred
+list must not appear anywhere else on the page.** It fired on this diff for five
+of six entries, which is the first time this failure has been caught on purpose.
+*Recommended resume* moved to `MatchPanel`'s own not-built list rather than being
+deleted, because a score's missing parts belong beside the score.
+
+### The recommended resume was declined, and the reason is I2 rather than time
+
+§6 had it owed by "whichever of Tasks 10–12 takes it". Task 10 built the panel it
+would render in and did not take it. *Which stored resume best covers the required
+set* needs a per-resume set of skills, and there is none: `user_skills` is
+confirmed and belongs to the **person**; `resume_extractions` is per-resume and
+holds **proposals**, which §7.2 forbids any user-side span from quoting.
+Recommending a resume from proposals is a claim about somebody's qualifications
+built on text nobody confirmed.
+
+Doing it honestly needs either a confirmation step that attributes a confirmed
+skill to the resume it came from, or an explicit "this resume mentions" reading
+that is never called evidence. Either is its own design. So the element count in
+`matching.md` §6 moved from *seven computed, two not built* to **six computed,
+three not built**, and the page names all three.
+
+### The first end-to-end run on real postings
+
+Everything before this had scored fixtures. `recompute_pending` against the
+seeded database: **31 of 31 postings scored, 0 skipped**, then `ranked_for`
+returned all 31 with `not_yet_scored = 0`.
+
+What it produced is worth recording exactly, because it is thinner than the test
+suite suggests:
+
+| | |
+|---|---|
+| `eligible` | 13 |
+| `uncertain` | 18 |
+| `likely_eligible`, `likely_ineligible`, `ineligible` | 0 |
+| Distinct denominators | 10, 20, 40, 50 — never 100 |
+| Distinct fractions | 8 across 31 postings |
+
+Two consequences are in "Not real yet" above and both are real: the dimmed bands
+are exercised by no fixture a person can look at, and the seeded profile is empty
+enough that most components are unassessable and most scores are zero. The
+denominators are §5.1.1 working as designed on a corpus of mostly non-engineering
+roles, not a fault — but nothing has yet shown the ordering doing useful work
+against a realistic profile, and that is Task 12's browser walk to say.
+
+### Not run this session
+
+`make acceptance` and the browser walk. Both are Task 12's, and Task 12 also owes
+`check_match_results` in `verify.py` and ADR 0018. `make check` is green.
 
 ---
 

@@ -321,7 +321,9 @@ other source to contradict.
 **`penalty_score` is one column rather than two.** §5.1 keeps two penalties;
 this stores their sum. The evidence trigger binds the six positive components
 (§4.3's enum has no penalty member), so a split column would imply an evidence
-link that does not exist. What each penalty cost belongs to the explanation.
+link that does not exist. What each penalty cost belongs to the explanation —
+and §4.6 is where it went at Task 10, because until then nothing carried it and
+a reader saw `-18` with no account of it.
 
 `model_version` records the embedding model that produced the proposals; it is
 null for a rules-only score, which is every row until Task 11. Unique on
@@ -578,6 +580,56 @@ relevance from every score in the corpus. That is the silent removal
 `data/matching.yaml`'s own header claims is caught, in the one shape that got
 past it.
 
+### 4.6 `match_penalties` — what each subtraction cost, and why
+
+Added at M3c Task 10 as `0019_match_penalties`, and not in the original design.
+PROGRESS assigned the call to this task in as many words: *"Task 10 decides
+whether that is acceptable or whether §4.2's one-column decision needs
+revisiting."*
+
+**§4.2's one column is not revisited.** `match_results.penalty_score` still
+stores the sum and `the_total_is_its_parts` still adds it exactly once, for
+§4.2's reason: `match_evidence.component` has no penalty member, so a second
+*score* column would imply an evidence link that does not exist. What this table
+adds is the half §4.2 named and left to somebody else — *what each penalty cost
+belongs to the explanation* — which nothing then carried.
+
+The gap was not theoretical. Before this task the page could render `-18` and
+nothing else, and invariant I4 lists what a score stores as *"its components,
+**its penalties**, its `ruleset_version`, and its evidence"*. Task 10 is the
+task where a person reads a score, which is the point at which a missing column
+stops being invisible — the same argument §4.5 made at Task 9 and §5.1.2 at
+Task 8, now three times in three consecutive tasks.
+
+One row per penalty per score, two exactly: `name`, `points`, `applicable`,
+`why`, `compared`.
+
+- **`applicable` is `assessable` one row down.** *There was nothing to ask* — a
+  posting naming no required technologies, a profile stating no years — and
+  *nothing was missing* both store `points = 0`, and only the flag and the
+  sentence tell them apart.
+- **`compared` is where §6's *why it may not fit* gets its list.** The
+  missing-requirement rule already recorded which required technologies it
+  charged for; the page shows that list rather than recomputing one that could
+  differ from the number beside it.
+
+A deferred constraint trigger asserts two things:
+
+1. **The parts sum to the column.** Without this the table is a second account
+   of the same claim, free to disagree with the number the total was actually
+   computed from — which is the failure a split is supposed to avoid, arriving
+   by the other door.
+2. **Exactly two rows, one per name.** `score_match` always returns both
+   penalties; dropping the inapplicable one keeps the arithmetic right and
+   removes a sentence a person would have read.
+
+`PenaltyName` is a PG enum rather than free text, and that is what makes the
+count an assertion: a typo'd `seniority_missmatch` beside a correct row is two
+rows, two names, and a guard that passes.
+
+The page renders both, and prints no number for an inapplicable one — for the
+same reason §5.1.1 prints none for an unassessable component.
+
 ---
 
 ## 5. The score
@@ -756,12 +808,53 @@ absorbed a penalty for uncertainty is a lie. Making the grouping a visible
 structure satisfies both — the ordering reflects eligibility, and the number
 never does.
 
+**Built at Task 10 as `GET /matches`**, its own route rather than a flag on
+`/jobs`. The two are different resources: `/jobs` is the corpus, the same rows
+for everybody, ordered by recency and deliberately carrying no relevance number;
+this is a list of `match_results`, which exist only for a person and only for the
+pairs the sweep has reached. Folding them together gives one endpoint whose
+shape, ordering and meaning change with a flag, and leaves `not_yet_scored`
+nowhere honest to live.
+
+Three decisions the section above did not settle, taken when it was built:
+
+- **All five bands are always returned, empty or not.** §3.3's promise that an
+  ineligible posting is shown and dimmed rather than hidden is only checkable if
+  the heading is there when there is nothing under it. A band that vanishes when
+  empty makes `ineligible` invisible exactly when there is nothing in it to see.
+- **The sort is on the fraction, not on `overall_score`** (§5.1.1). 40 out of 50
+  beats 45 out of 100, and `ORDER BY overall_score DESC` — the obvious clause —
+  puts them the other way round while both numbers on the page stay true. In
+  SQL that is `NULLIF(assessed_out_of, 0)`, which also hands the unassessable
+  pairs the null they are entitled to instead of raising.
+- **A null fraction sorts last inside its band, and the response says so.** Such
+  a pair keeps its band, because the eligibility verdict on it is real; what it
+  has nothing to say about is the ordering. Last rather than first is a decision
+  rather than an accident of `NULLS FIRST` being Postgres' default for `DESC`,
+  and `unassessed_sort_last` is on the wire so a client cannot quietly choose
+  otherwise. The row renders as *nothing to assess*, never as `0%`.
+
+**`not_yet_scored` is part of the response.** A ranked list covering 12 of 31
+open postings renders identically to one covering all 31, and nothing in the rows
+themselves can tell a reader which they are looking at. It counts stale-version
+rows too: §4.2 refuses to serve one, and *refused* and *never computed* are the
+same thing to a list — the sweep will fix both.
+
+`BAND_ORDER` is written out in `domain/matching.py` rather than taken from
+`EligibilityState`'s declaration order, which happens to agree today. The enum's
+order is a fact about a Python file; the band order is a product decision, and
+`uncertain` above `likely_ineligible` is the one line of it worth stating on its
+own — an open question is not a soft no, and sorting them the other way round
+buries the postings a person could resolve by filling in one profile field
+underneath the ones they cannot resolve at all.
+
 ---
 
 ## 6. Explanation
 
-§8.5 requires nine elements. Seven are computed in M3c; two are not built and
-are named rather than faked.
+§8.5 requires nine elements. **Six are computed in M3c; three are named rather
+than faked** — the count moved at Task 10, which is when the panel was built and
+the resume recommendation turned out to need a design of its own (below).
 
 | Element | M3 |
 |---|---|
@@ -770,7 +863,7 @@ are named rather than faked.
 | Hard blockers | The eligibility gate's failing rules, each quoting the sentence |
 | Soft gaps | `preferred` requirements with no evidence |
 | Relevant project evidence | `match_evidence` rows with a `user_project_id` |
-| Recommended resume | Which stored resume best covers the required set |
+| Recommended resume | **Not built.** Which stored resume best covers the required set. The column exists, nothing writes it, and doing it from `resume_extractions` would be a claim about a person built on proposals (I2) — see below |
 | Confidence | The eligibility state. **Not a number** |
 | Recommended emphasis | **Not built.** Advice about how to present oneself, which this system has no basis for |
 | Suggested next action | **Not built.** M2d's queue owns next actions and computes them from application state |
@@ -786,15 +879,34 @@ it explains, and it is the only text a component that scored nothing ever has.
 That is a different thing from the narrative §4.2 refused to store, which would
 have been assembled *from* the evidence rows and could disagree with them.
 
-**Two of the seven are not yet computed, and Task 9 is where that became
-visible** rather than where it was decided. `match_results.resume_id` is the
-*Recommended resume* row above and nothing writes it — it is null on every stored
-score, so the element is named in this table and absent from the response. The
-API carries what the other elements are assembled from (the evidence rows, the
-requirements with no evidence, the gate's blockers and unknowns, the eligibility
-state); assembling them into a panel is Task 10, and the resume recommendation is
-owed by whichever of Tasks 10–12 takes it. Until then it is a null column, not a
-computed one, and PROGRESS says so under "Not real yet."
+**One of the seven is not computed, and Task 9 is where that became visible**
+rather than where it was decided. `match_results.resume_id` is the *Recommended
+resume* row above and nothing writes it — it is null on every stored score.
+
+**Task 10 built the panel and did not take the resume recommendation**, which is
+a decision rather than a slip, and the reason is I2. *Which stored resume best
+covers the required set* needs a per-resume set of skills, and this system has
+none: `user_skills` is confirmed and belongs to the **person**, not to a
+document, while `resume_extractions` is per-resume and holds **proposals** —
+which §7.2 forbids any user-side span from quoting. Recommending a resume from
+proposals would be a claim about somebody's qualifications derived from text
+nobody has confirmed. Doing it honestly needs either a confirmation step that
+attributes a confirmed skill to the resume it came from, or an explicit
+"this resume mentions" reading that is never called evidence. Either is its own
+small design and neither is a rider on the explanation panel.
+
+So the panel **names it beside the two that are not built** — `MatchPanel`'s
+`NOT_BUILT` list, printed on the page rather than left in a comment — and
+PROGRESS carries it under "Not real yet." It is not one of the seven computed
+elements and must not be described as one.
+
+**The other six were assembled at Task 10.** *Why it may not fit* and *soft
+gaps* are one computation read at two necessities, and it is a set difference
+over the stored evidence rows — `matching.unmet_requirements`, served as
+`JobDetailOut.unmet_requirements` and **null rather than empty when there is no
+score**, because an empty list there reads as *you meet everything*: a claim
+about a person computed from no evidence at all, which is the failure
+`eligibility`'s own null exists to prevent one field up.
 
 I5 is unchanged and worth restating here because §8.5 sits next to it: nothing
 rewrites a resume, nothing tailors one, nothing submits anything.
@@ -900,7 +1012,7 @@ Named here so nothing in M3 is quietly assumed to be coming.
 - **Any LLM.** §8.1 permits one to assist; §2 of this document gives it nothing
   to do that would not violate the span rule. No ADR, no dependency, no key.
 - **Resume rewriting, tailoring, or generation.** I5.
-- **Recommended emphasis and suggested next action** — §6.
+- **Recommended emphasis, suggested next action, and the recommended resume** — §6.
 - **Company preference and application urgency** — §5.1.
 - **Top-k relevance**, unless the second labeling pass happens — §7.3.
 - **Coordinates, boroughs, neighborhoods.** M4. The location component scores
