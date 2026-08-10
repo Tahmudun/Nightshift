@@ -25,13 +25,17 @@ from nightshift.db.base import (
     ApplicationPriority,
     ApplicationStage,
     BoardTier,
+    EligibilityState,
     EmploymentType,
     EventActor,
+    EvidenceSource,
     ExtractionKind,
     ExtractionStatus,
     IngestionRunStatus,
     JobStatus,
+    JobTextField,
     LocationConfidence,
+    MatchComponent,
     ProficiencyLevel,
     ProjectStatus,
     RemotePolicy,
@@ -219,6 +223,125 @@ class EligibilityOut(BaseModel):
     gate_version: str
 
 
+class MatchEvidenceOut(BaseModel):
+    """One link the score rests on, with both sides quoted (`matching.md` §4.3).
+
+    This is invariant I4's payload. Every positive component has at least one of
+    these behind it — the database refuses the row otherwise — so a client that
+    renders `points` without rendering these has thrown the breakdown away rather
+    than never having had it.
+
+    The two nullable sides are §2.1's distinction, not missing data. `role`,
+    `skill` and `project` rows carry both spans because they claim something about
+    the person; `location`, `freshness` and `priority` carry `compared` instead,
+    because there is no claim about anybody's qualifications to quote and
+    inventing a span is the failure the whole arrangement prevents.
+    """
+
+    component: MatchComponent
+    points: int
+    #: The posting's own words, and which of its strings they came from. The
+    #: field travels with the offsets: role relevance quotes the **title** and
+    #: everything else quotes `description_text`, so offsets alone would
+    #: highlight the wrong text and look plausible doing it.
+    job_span_text: str | None
+    job_span_field: JobTextField | None
+    job_char_start: int | None
+    job_char_end: int | None
+    #: The person's own **confirmed** words — never a resume proposal.
+    user_span_text: str | None
+    user_skill_id: UUID | None
+    user_project_id: UUID | None
+    #: What the exempt components weighed: `{"job": "New York, NY", ...}`.
+    compared: dict[str, Any] = Field(default_factory=dict)
+    #: `rule` or `embedding`. What makes the semantic layer auditable — M3d
+    #: reports the share of awarded points that came from a proposal.
+    proposed_by: EvidenceSource
+    job_requirement_id: UUID | None = None
+
+
+class MatchComponentOut(BaseModel):
+    """One component: its points, what they were out of, and its own sentence.
+
+    **`assessable` is not "did it score".** False means the posting did not say
+    enough to ask the question, and §5.1.1 keeps that separate from zero because
+    collapsing them charges a terse posting up to 50 points for its employer's
+    prose. A client rendering `points` alone cannot tell the two apart — the
+    stored number is `0` either way — which is why this field crosses the
+    boundary rather than being inferred from it.
+
+    `weight` is what the component would have been out of. It is the same number
+    whether or not the component was assessable: an unassessable one is left out
+    of the total's denominator, not scaled down inside it.
+    """
+
+    component: MatchComponent
+    points: int
+    weight: int
+    assessable: bool
+    #: The rule's own sentence, stored beside the points it explains and rendered
+    #: verbatim. Not generated at render time, and not a summary of the evidence
+    #: rows below — see `MatchComponentAssessment`.
+    why: str
+    evidence: list[MatchEvidenceOut] = Field(default_factory=list)
+
+
+class DeferredComponentOut(BaseModel):
+    """A §8.2 component this milestone does not score, named on the page.
+
+    §5.1 defers company preference and application urgency and says of the first
+    *"deferred, and named on the page"*. Same disclosure as `DeferredFilterOut`
+    one subsystem over: five points nobody mentions is an invisible gap, and five
+    points with a reason is a decision a reader can check.
+    """
+
+    name: str
+    weight: int
+    blocked_on: str
+    reason: str
+
+
+class MatchOut(BaseModel):
+    """A stored `match_results` row, decomposed. Never a bare number (I4).
+
+    **Served only at the current `ruleset_version`.** A row from an earlier
+    version is reported as not-yet-computed — this whole object is null — rather
+    than shown with a staleness badge, because a number produced by arithmetic
+    that no longer exists is not a worse score (§4.2).
+
+    **`fraction` is the ranking key and it is nullable.** `overall_score` is out
+    of `assessed_out_of`, which is not always 100 (§5.1.1), so the raw total
+    cannot be compared across postings. `null` means nothing could be assessed at
+    all — five pairs in the committed corpus reach it — and it is deliberately not
+    `0.0`, which would sort those last as though they had been measured and found
+    wanting.
+
+    **`eligibility_status` sits beside the number and is never inside it** (§5.2).
+    A posting can be an 82 and `uncertain`, and this object states both without
+    reconciling them. It is the same verdict `JobDetailOut.eligibility` carries in
+    full; this is the copy the ranked list's bands are built from, and a test
+    asserts the two agree.
+    """
+
+    overall_score: int
+    assessed_out_of: int
+    fraction: float | None
+    eligibility_status: EligibilityState
+    #: All six, in enum order, assessable or not. A response with five is a score
+    #: that has lost a part, and the database refuses to store one.
+    components: list[MatchComponentOut]
+    #: The two §5.1 penalties, summed — `match_results` stores one column and
+    #: §4.2 records why. Zero or negative.
+    penalty_score: int
+    #: Named, not scored. §5.1's two deferrals.
+    deferred_components: list[DeferredComponentOut] = Field(default_factory=list)
+    ruleset_version: str
+    #: The embedding behind this row's proposals, or null for a rules-only score,
+    #: which is every row until Task 11 exists.
+    model_version: str | None
+    computed_at: datetime
+
+
 class JobDetailOut(JobSummaryOut):
     description_text: str | None
     description_html: str | None
@@ -234,6 +357,13 @@ class JobDetailOut(JobSummaryOut):
     #: the posting has no extracted requirements at all — a verdict about a
     #: person derived from an unread posting would be a claim based on nothing.
     eligibility: EligibilityOut | None = None
+    #: The stored score for the current user, at the current ruleset version.
+    #: **Null means not yet computed**, and covers three situations the page has
+    #: one honest sentence for: the sweep has not reached this pair yet, the
+    #: posting has no description to read, or a stored row exists under a ruleset
+    #: version that is no longer current. All three are "no score", which is true
+    #: of each; none of them is a number.
+    match: MatchOut | None = None
 
 
 class DeferredFilterOut(BaseModel):
