@@ -3,14 +3,17 @@
 # `rating` is one of: good / acceptable / poor. Replace every TO_RATE.
 # `profile` is who the ratings were made by; without it a rating means nothing.
 # Regenerate with `make worksheets` — it preserves everything already filled in.
-rated_on: TO_RATE
+rated_on: 2026-08-10
 profile:
-  graduation: TO_RATE
-  degree: TO_RATE
-  years_experience: TO_RATE
-  skills: TO_RATE
-  preferred_roles: TO_RATE
-  preferred_locations: TO_RATE
+  graduation: 2027-05
+  degree: bachelors
+  years_experience: 0
+  skills: [Python, TypeScript, PHP, SQL, HTML, CSS, Java, JavaScript, React, Next.js,
+    Vue, FastAPI, Tailwind CSS, Redis, Docker, Linux, Git, GitHub Actions, CI/CD,
+    pandas, NumPy, PyTorch, TensorFlow, scikit-learn, REST APIs, Playwright, pytest,
+    MATLAB, Excel, Data Structures, Machine Learning, Distributed Systems]
+  preferred_roles: [backend engineer, data engineer, software engineer]
+  preferred_locations: [New York, remote]
 
 ratings:
 - n: 1
@@ -23,13 +26,13 @@ ratings:
   board: akunacapital_eligibility
   id: '7496423'
   title: Broker Trader
-  rating: good
+  rating: poor
   note: ''
 - n: 3
   board: anthropic_eligibility
   id: '5208218008'
   title: AI Compliance Officer
-  rating: good
+  rating: acceptable
   note: ''
 - n: 4
   board: anthropic_eligibility
@@ -41,31 +44,31 @@ ratings:
   board: anthropic_eligibility
   id: '5183044008'
   title: Anthropic Fellows Program, AI Safety
-  rating: good
+  rating: acceptable
   note: ''
 - n: 6
   board: anthropic_eligibility
   id: '5076109008'
   title: Applied AI Architect
-  rating: good
+  rating: acceptable
   note: ''
 - n: 7
   board: databricks_eligibility
   id: '6918763002'
   title: 'Account Executive '
-  rating: good
+  rating: acceptable
   note: ''
 - n: 8
   board: databricks_eligibility
   id: '8431935002'
   title: Customer Enablement Specialist
-  rating: good
+  rating: acceptable
   note: ''
 - n: 9
   board: databricks_eligibility
   id: '7586263002'
   title: Associate Product Manager, New Grad (2027 Start)
-  rating: good
+  rating: acceptable
   note: ''
 - n: 10
   board: databricks_eligibility
@@ -77,34 +80,31 @@ ratings:
   board: imc_eligibility
   id: '4895334101'
   title: AML/KYC Officer (Crypto)
-  rating: TO_RATE
-  note: >-
-    held: rater's first pass placed this between poor and acceptable on the grounds of being underqualified, which is the odds and not the fit the worksheet asks for. Awaiting a re-rating on fit.
+  rating: poor
+  note: ''
 - n: 12
   board: imc_eligibility
   id: '4805270101'
   title: Corporate Development Manager
-  rating: TO_RATE
-  note: >-
-    held: rater's first pass placed this between poor and acceptable on the grounds of being underqualified, which is the odds and not the fit the worksheet asks for. Awaiting a re-rating on fit.
+  rating: poor
+  note: ''
 - n: 13
   board: imc_eligibility
   id: '4914883101'
   title: ' Graduate Machine Learning Researcher - London'
-  rating: TO_RATE
-  note: >-
-    held: rater's first pass placed this between poor and acceptable on the grounds of being underqualified, which is the odds and not the fit the worksheet asks for. Awaiting a re-rating on fit.
+  rating: acceptable
+  note: ''
 - n: 14
   board: imc_eligibility
   id: '4658374101'
   title: 'Commodities Broker Trader '
-  rating: good
+  rating: poor
   note: ''
 - n: 15
   board: janestreet_eligibility
   id: '8469230002'
   title: Campus Recruiter
-  rating: good
+  rating: poor
   note: ''
 - n: 16
   board: jumptrading_eligibility
@@ -116,13 +116,13 @@ ratings:
   board: janestreet_eligibility
   id: '8213653002'
   title: ASIC Engineer
-  rating: good
+  rating: acceptable
   note: ''
 - n: 18
   board: jumptrading_eligibility
   id: '8071050'
   title: 'Accounting Manager | Finance '
-  rating: good
+  rating: acceptable
   note: ''
 - n: 19
   board: oldmissioncapital_eligibility
@@ -140,13 +140,13 @@ ratings:
   board: oldmissioncapital_eligibility
   id: '7790670003'
   title: Employee Experience Specialist (Receptionist)
-  rating: good
+  rating: poor
   note: ''
 - n: 22
   board: point72_eligibility
   id: '8492784002'
   title: 'Fundamental Research Fellow, Canvas '
-  rating: good
+  rating: acceptable
   note: ''
 - n: 23
   board: oldmissioncapital_eligibility
@@ -170,7 +170,7 @@ ratings:
   board: databricks_eligibility
   id: '7011263002'
   title: PhD GenAI Research Scientist Intern
-  rating: good
+  rating: acceptable
   note: ''
 - n: 27
   board: point72_eligibility
@@ -182,7 +182,7 @@ ratings:
   board: imc_eligibility
   id: '4823805101'
   title: Graduate Hardware Engineer
-  rating: good
+  rating: poor
   note: ''
 - n: 29
   board: jumptrading_eligibility

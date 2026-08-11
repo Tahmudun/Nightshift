@@ -18,7 +18,8 @@
 **M3a: COMPLETE, reviewed, CI-green at `3fbffd6`, merged to `main` as PR #9 (`452ec90`).**
 **M3a.1: COMPLETE. Recall 0.459 → 0.861, precision 0.659 → 0.847, necessity 0.668 → 0.915.**
 **M3b: COMPLETE, reviewed, CI-green at `7bfbf2d`, merged to `main` as PR #11 (`d2273e7`). `main` green after the merge.**
-**M3c: COMPLETE — all twelve tasks. `make check` green and `make acceptance` exit 0, both measured at `f0f57f6`. Review: `docs/reviews/milestone-3c-review.md`. Not yet merged to `main`; CI has not run this branch.**
+**M3c: COMPLETE, reviewed, CI-green at `42b989e`, merged to `main` as PR #12 (`03fa035`). All five CI jobs passed with no findings — the first slice in this project where CI found nothing. Review: `docs/reviews/milestone-3c-review.md`.**
+**Q5 (relevance ratings): ANSWERED 2026-08-10. Thirty rated, profile filled — 12 good / 11 acceptable / 7 poor. M3d has a held-out set.**
 **Current milestone: M3 — explainable matching. Next: M3d, the evaluation suite.**
 **Task 11 measured the embedding proposal path and declined to ship it — ADR 0018.**
 **Task 12 gave the seed a reader to be about, and found three false claims on the page — ADR 0019.**
@@ -30,14 +31,17 @@
 
 ### M3c is closed. Next: M3d — the evaluation suite, in CI.
 
-M3c's twelve tasks are done and `make acceptance` exits 0. What M3d inherits,
-in the order it should be picked up:
+M3c's twelve tasks are done, `make acceptance` exits 0, and PR #12 merged CI-green
+with no findings. What M3d inherits, in the order it should be picked up:
 
-1. **The relevance ratings, which need the human.** 27 of 30 rated, all with the
-   same word, three held for a reason recorded in their notes, and the profile
-   block still empty. See "the relevance ratings" below — this is the only thing
-   that can measure whether the ranking is *good* rather than merely stable, and
-   it is roughly twenty minutes of somebody's attention.
+1. ~~**The relevance ratings, which need the human.**~~ **Done 2026-08-10.**
+   Thirty rated with a filled profile — 12 `good`, 11 `acceptable`, 7 `poor` —
+   and the non-technical control group separates from the early-career technical
+   one (0/3/3 against 6/5/1). QUESTIONS Q5 carries the full account, including
+   the three profile fields that had to be translated rather than transcribed and
+   why the first pass at 27-of-30-`good` could not have been used. **What M3d
+   still owes this file is the metric itself**: nothing yet reads `ratings.yaml`
+   to grade an ordering.
 2. **The ordering problem Task 12 saw and did not fix.** On the seeded corpus a
    Partner Development Representative at 19 of 40 (48%) outranks a Software
    Engineer Internship at 30 of 100 (30%) for a CS student who asked for software
@@ -310,8 +314,22 @@ taken in the plan rather than inside the work:
   version bump. At this scale that is invisible and it is still an unbounded
   growth path with no owner.
 
-- **The relevance ratings are 27/30 filled, all with the same word, and the
-  profile block is still empty.** The human's first pass on 2026-08-09 rated
+- ~~**The relevance ratings are 27/30 filled, all with the same word, and the
+  profile block is still empty.**~~ **Answered 2026-08-10 — QUESTIONS Q5.** Thirty
+  rated, profile filled, 12 `good` / 11 `acceptable` / 7 `poor`, and the six
+  non-technical control postings now separate from the twelve early-career
+  technical ones. The account of the first pass is kept below because the failure
+  mode is the reusable part: a near-constant label is a metric that discriminates
+  nothing, and it looked like a completed worksheet.
+
+  **What replaces it as the open item is that nothing reads the file.** The
+  ratings are committed and graded by no test — M3d's ranking metric is the
+  consumer and it does not exist yet, so today this is a fixture with a passing
+  schema check and no measurement behind it.
+
+  The original entry, kept for the reasoning:
+
+  The human's first pass on 2026-08-09 rated
   everything `good` except 11, 12 and 13. Two problems, and the second is worse
   than the first.
 
@@ -344,8 +362,17 @@ taken in the plan rather than inside the work:
   person would actually be shown. M3d then reports ranking quality as
   unmeasured and says why, rather than reporting a flattering number.
 
-  The tests read the file as it stands and pass; the profile-dependent one
-  skips while `profile` is `TO_RATE`, and starts checking when it is filled.
+  **It did not survive, so the corpus was not the problem.** The second pass came
+  back 12 / 11 / 7 over the same thirty postings. That is worth recording as a
+  prediction that was tested and wrong rather than quietly dropped: the
+  hypothesis above would have had M3d declare ranking quality unmeasurable on
+  this corpus, and acting on it a day earlier would have discarded a usable
+  measurement. The corpus limit in the next entry is real and is a different
+  claim — it bounds what the number *generalises to*, not whether there is one.
+
+  The tests read the file as it stands and pass. The profile-dependent one,
+  `test_a_filled_profile_uses_skill_names_the_matcher_can_resolve`, skipped while
+  `profile` was `TO_RATE` and now runs: 9 passed, 0 skipped.
 - **The thirty come from nine employers, all of them quant trading firms or AI
   labs.** That is the corpus M3a recorded, chosen for eligibility-rule coverage
   rather than for being a fair sample of New York tech — no agency, no startup,
