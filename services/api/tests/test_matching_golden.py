@@ -57,7 +57,7 @@ from typing import Any
 
 import pytest
 
-from nightshift.db.base import MatchComponent
+from nightshift.db.base import EvidenceSource, MatchComponent
 from nightshift.domain.matching_weights import load_weights, ruleset_version
 from nightshift.domain.scoring import MatchScore, ScoringProfile, score_match
 from nightshift.domain.skill_vocabulary import load_vocabulary
@@ -438,3 +438,77 @@ def test_every_job_span_quotes_the_posting_at_the_offsets_it_claims(
 
     assert checked > 100, f"only {checked} spans checked; the corpus stopped producing them"
     assert wrong == []
+
+
+def test_every_user_span_quotes_something_the_person_confirmed(scored: dict[str, Any]) -> None:
+    """§7.2's *second* equality, which until M3d Task 4 ran nowhere in CI.
+
+    The first equality — a job span quoting the posting at its offsets — has a
+    database trigger behind it and a test above. This one had neither. It lived
+    in `verify.py`'s `check_match_results`, which runs only under `make
+    acceptance` against a live stack, and which by its own docstring reads only
+    rows it rescored itself. Nothing in a CI run asserted it at all.
+
+    The rule: a user-side span must quote a **confirmed** record — a skill the
+    person named or a bullet they wrote — and never `resume_extractions`, which
+    holds proposals. The fixture profiles carry no proposals, so what is
+    checkable here is the positive half: every span traces to one of the
+    person's own strings. A span quoting nothing is a sentence the panel would
+    print in quotation marks beside somebody's name, with no source.
+    """
+    profiles = dict(scored["profiles"])
+    scores: dict[tuple[str, str], MatchScore] = scored["scores"]
+
+    unquotable: list[str] = []
+    checked = 0
+    for (key, profile_name), score in scores.items():
+        profile = profiles[profile_name]
+        # Three sources, and the third was missing from the first draft of
+        # this test: role relevance quotes the person's own `preferred_roles`
+        # string, which is confirmed profile data and not a skill or a bullet.
+        # The test went red naming 53 of them, which is the check working —
+        # it did not know what the user-side spans actually were, and now it does.
+        confirmed = {skill.name for skill in profile.skills} | set(profile.preferred_roles)
+        bullets = [p.evidence for p in profile.projects if p.evidence]
+        for row in score.evidence:
+            if row.user_span_text is None:
+                continue
+            checked += 1
+            named = row.user_span_text in confirmed
+            quoted = any(row.user_span_text in bullet for bullet in bullets)
+            if not (named or quoted):
+                unquotable.append(f"{key}/{profile_name} {row.component}: {row.user_span_text!r}")
+
+    assert checked > 100, f"only {checked} user spans checked; the corpus stopped producing them"
+    assert unquotable == []
+
+
+def test_the_embedding_proposed_share_of_awarded_points_is_zero(
+    scored: dict[str, Any], capsys: Any
+) -> None:
+    """§7.1's last row, as the number it asks for rather than a set membership.
+
+    `test_the_scorer_emits_no_evidence_row_an_embedding_proposed` asserts the
+    *set* of sources is `{rule}`, which is the stronger claim and the tripwire
+    ADR 0018 wants. §7.1 asks for something different and worth having beside it:
+    **what fraction of awarded points came from a proposal**. A share is what
+    makes the semantic layer auditable if one ever ships — a set assertion has to
+    be deleted the day a proposal path lands, and a share keeps reporting.
+
+    Zero today, and printed rather than only asserted, so the day it stops being
+    zero somebody reads by how much.
+    """
+    scores: dict[tuple[str, str], MatchScore] = scored["scores"]
+    by_source: dict[str, int] = {}
+    for score in scores.values():
+        for row in score.evidence:
+            by_source[str(row.proposed_by)] = by_source.get(str(row.proposed_by), 0) + row.points
+
+    awarded = sum(by_source.values())
+    proposed = by_source.get(str(EvidenceSource.EMBEDDING), 0)
+    with capsys.disabled():
+        share = proposed / awarded if awarded else 0.0
+        print(f"\n  embedding-proposed share of awarded points: {proposed}/{awarded} = {share:.3f}")
+
+    assert awarded > 0, "no points awarded anywhere; the share below would be vacuous"
+    assert proposed == 0

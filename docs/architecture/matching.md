@@ -1013,6 +1013,31 @@ same teeth and it matters which:
 | A user span quoting something unconfirmed | `check_match_results` in `verify.py`, and the unit suite. Nothing in DDL |
 | `proposed_by = 'embedding'` (ADR 0018) | `check_match_results`, three unit tests. **The database accepts such a row** |
 
+**M3d Task 4 closed the CI half of the middle row.** The table above was written
+at M3c Task 12 and was accurate: the user-span assertion ran only in `verify.py`,
+which needs a live stack under `make acceptance` and which reads only rows it
+rescored itself. A CI run asserted it nowhere.
+`test_every_user_span_quotes_something_the_person_confirmed` now checks it over
+the whole golden corpus — 153 postings × 4 profiles — with no database, so it
+runs on every push. The DDL column of that row is still empty and still correct:
+no trigger can see it, because `user_span_text` points into several different
+tables.
+
+The check found nothing wrong with the scorer and did find something wrong with
+its own author's model of it. The first draft allowed a user span to quote a
+confirmed skill or a project bullet, and went red naming 53 rows — all of them
+role relevance, whose user-side span is the person's `preferred_roles` string.
+That is confirmed profile data and belongs in the set; the point worth keeping is
+that a corpus-wide equality is also a test of whether the person writing it knows
+what the system stores.
+
+**The embedding-proposed share is published rather than only asserted.** §7.1's
+last row asks for a fraction, and `test_the_scorer_emits_no_evidence_row_an_
+embedding_proposed` answers a different question — whether the *set* of sources
+is `{rule}`. That set assertion is the stronger tripwire and has to be deleted
+the day a proposal path ships; a share keeps reporting after that day. Measured
+over the golden corpus: **0 of 9,417 awarded points.**
+
 `check_match_results` runs last in `verify.py`, after every check that edits a
 profile column or a confirmed skill — each of which deletes every score — so it
 reads only rows it rescored itself. It therefore asserts *the scorer produces no
