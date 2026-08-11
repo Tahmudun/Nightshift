@@ -7,6 +7,55 @@ the date, because the reasoning is usually worth more than the decision.
 
 ---
 
+## Q7 — No ATS posting names a street. How many company addresses will you type?
+
+**Raised:** 2026-08-11 (M4a Task 1) · **Type:** product + your time · **Blocking:** no,
+until the city needs a building
+
+M4's first task was a census, and the answer was a clean zero.
+`services/api/scripts/census_location_text.py` walked 247 recorded postings across
+139 distinct location strings, 10 location-bearing fields and all three providers.
+**Nothing names a street.** All 58 NYC postings top out at a city name. Ashby's
+structured `postalAddress` — the field this project had been saving for exactly this
+moment — carries `addressLocality`/`addressRegion`/`addressCountry` and never
+`streetAddress`, on any posting, from any employer.
+
+Under I1 that settles something: **a job can never place itself on a building.** The
+best a posting can honestly say about itself is `city_only`.
+
+So a building has to come from the *company*, and `docs/architecture/city.md` §4.4
+works through the four candidate sources. Scraping is out on policy (`CLAUDE.md` §8:
+first-party public APIs only). OSM and Wikidata are free and open but of uneven
+quality and unknown currency — good enough to propose, not to confirm. Which leaves
+a curated file, `data/company-locations.yaml`, in the same shape as
+`board-registry.yaml`: an address a human confirmed, geocoded through NYC GeoSearch,
+where rung 1 of A4's ladder finally works because an office address is exactly what
+GeoSearch resolves.
+
+**The question is how far you want to take it, because the ceiling on lit buildings
+is a number of addresses somebody types.**
+
+- **The 23 registry boards** — perhaps 40 minutes, and it makes the demo real. The
+  NYC subset is smaller still.
+- **NYC employers only, as they appear** — curate on demand, when a company shows up
+  in your queue. Slower to look impressive, closer to how you would actually use it.
+- **Let OSM propose and you approve in bulk** — I build the proposal path, you click
+  through a review screen. More engineering, less typing, ADR 0005's batch-approval
+  shape which already exists for boards.
+- **None, and ship the unresolved layer alone** — a city of floating signals over an
+  unlit skyline. Honest, buildable, and genuinely striking, but the 3D city stops
+  being about New York and becomes about a list that hovers.
+
+My recommendation is the third with the first as its seed: type the handful of NYC
+registry companies by hand so M4c has real buildings from day one, and build the OSM
+proposal path so it scales without either of us guessing an address.
+
+**Not blocking.** M4a builds the geocoder, the tables and the promotion path
+regardless; those are the same code whether the file has 4 rows or 400. The answer
+decides what the city looks like at M4c, not what gets written before it.
+
+---
+
 ## Q6 — 43% of postings require no technology. What should a score out of 100 do about it?
 
 **Raised:** 2026-08-09 (M3c Task 3) · **Type:** product · **Blocking:** no

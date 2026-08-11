@@ -32,7 +32,23 @@
 
 ## Next exact action
 
-### M4a Task 1 — geocoding, starting with the measurement that decides the renderer.
+### M4a Task 2 — the geocoder, the tables, and the promotion path §4.4 forced.
+
+**Task 1 is done, and its answer changed the milestone.** See "M4a Task 1" below
+for the census and what it cost. Short version: no ATS posting in the recorded
+corpus names a street, so no job can ever place itself on a building, so buildings
+have to come from curated company addresses. `city.md` §4.4 is the new design and
+Q7 asks the human how far to take the curation.
+
+Task 2 builds what is the same code either way: `domain/geocoding.py` behind a
+Protocol with the §4.3 ladder; the permanent geocode cache table; the
+`company_locations` migration; `data/company-locations.yaml` and its promotion
+path; the NYC GeoSearch adapter with committed fixtures. Nominatim after that,
+rate-limited and never reached in `make demo`.
+
+---
+
+### M4a Task 1 — the census, and the zero it found.
 
 M3 is closed and merged. M4 is open on `m4a-geo-spine`, and the design is written:
 **`docs/architecture/city.md`. Read it before any MapLibre, any Three.js, and any
@@ -46,15 +62,48 @@ all reading "New York, NY" and, under I1, nothing it is allowed to place on a
 building. So the milestone runs geo spine → basemap → signal layer → ship, and the
 slice plan is `city.md` §7.
 
-**The next exact action is `city.md` §4.1 — count the corpus before geocoding it.**
-Take the location strings already in `job_locations` and `source_job_records` and
-report how many carry a street address, how many are a bare place name, how many
-are remote, and how many are nothing. Nobody has ever run this. It decides whether
-the city is mostly buildings with a small unresolved layer, or mostly an unresolved
-layer with a few buildings — and those are two different products, one of which
-§4.7 has to be designed properly rather than treated as an edge case.
+**The count ran and the answer is zero.** `scripts/census_location_text.py`, over
+every committed fixture payload — 247 postings, 139 distinct location strings, 10
+location-bearing fields, three providers:
 
-Do the count first. Write the number down. Then build the geocoder.
+```
+  street_address        0    0.0%
+  place_name          207   83.8%
+  remote_only          25   10.1%
+  nothing              15    6.1%
+
+NYC postings: 58 of 247 (23.5%) — street_address 0, place_name 58 (100%)
+```
+
+**Nothing names a street.** Not in Greenhouse's `location.name`, not in its
+`offices[].location`, not in Lever's `categories`, and not in Ashby's structured
+`address.postalAddress` — the field this project had deliberately left unread since
+M1 *because it was the good one*. Its key set across every Ashby fixture is only
+ever some subset of `{addressCountry, addressLocality, addressRegion}`. Ashby's
+schema has `streetAddress`. No employer in the corpus fills it.
+
+Three consequences, in order of how much they cost:
+
+1. **Rung 1 of A4's ladder is unreachable from a posting.** GeoSearch resolves
+   addresses. There are none. A job's honest ceiling is `city_only`.
+2. **Under I1, a job can never place itself on a building.** Never — not rarely.
+3. **So buildings come from companies, and company addresses are not in ATS data
+   either.** `city.md` §4.4 works the four candidate sources and lands on a curated
+   `data/company-locations.yaml` with OSM proposing and a human confirming — the
+   third instance of a pattern this project already runs twice. **Q7** asks the
+   human how far to take the curation.
+
+The zero is a measurement, not an artifact. **The detector's first draft reported
+four street addresses and all four were false** — `ct\.?` matching Connecticut in
+"Stamford, CT" and `fl\.?` matching Florida in "Miami, FL", which would have fired
+on every posting in two states. The script now refuses to print a count until it
+has proved on that run that it fires on "620 Eighth Avenue, New York, NY 10018" and
+stays silent on "Miami, FL".
+
+**What this validates about the ordering.** M4's design says the geo spine comes
+before the renderer. Had it gone the other way, this would have been found in M4c,
+after the beacons, the instancing and the selection wiring were built around an
+assumption that jobs sit on buildings. It cost one script and one afternoon.
 
 **Working-practice change M3d earned, in force from this task: open the PR as a
 draft at task 1 of a slice, not at the end.** It costs nothing, gates nothing, and
@@ -5402,7 +5451,8 @@ wrong: ML frameworks (JAX, LangChain, HuggingFace, DSPy), accelerators (CUDA, RO
 | Eligibility answer key (`tests/fixtures/eligibility/labels.yaml`) | **Filled in, and model-labeled rather than human-verified.** All 60 postings × 9 fields were labeled 2026-08-04 by a browser-side Claude reading the recorded excerpts, with the web explicitly off — the grader compares against text the extractor also sees, so a label sourced from outside that text marks a correct extractor wrong. Audited on install: 0 of 199 named technologies absent from the posting text, and no sponsorship, graduation-window, internship or years claim unsupported by the text. Two `+equivalent` calls read an escape hatch worded without the word "equivalent" (`akunacapital/8035515`, `openai/8fb1615c…`) and are the entries most likely to be wrong. Not spot-checked by a human | Human spot-check of ~10 entries, unscheduled |
 | `FixtureGreenhouseAdapter` (`cli.py`) | Subclasses the real adapter, overrides only `fetch_board` to read a committed JSON file. Constructed with no HTTP client, so it cannot make a request. Attributed to source `greenhouse_fixture` with `source_type='fixture'`, badged **"committed fixture"** in the Operate UI. ADR 0004 | Permanent — this is the offline demo path, not a stopgap |
 | Geocoding | **Does not exist.** No coordinate has ever been written. Every location is `city_only`, `remote`, or `unknown`; `mappable_locations` reads 0 and the UI says "nothing geocoded yet". **This row said "Real at M1" for four milestones and was wrong every time** — M1 closed, M2 closed, M3 closed, and no geocoder was built. It is the first slice of M4 because the city cannot open without it (`city.md` §4) | **M4a**, NYC GeoSearch per A4 |
-| `company_locations` table | **Does not exist**, though §6.6 specifies it. Only `job_locations` is in the schema, and it is fed from ATS location strings, which are usually a bare place name. A company's office address is the better geocoding input and the natural anchor for a building — `city.md` §4.3 | **M4a** |
+| `company_locations` table and `data/company-locations.yaml` | **Neither exists**, though §6.6 specifies the table. M4a Task 1 measured why this matters: no ATS posting in 247 names a street, so a job can never place itself on a building and **every building in the city has to come from a curated, human-confirmed company address**. The design is `city.md` §4.4; **Q7** asks how many addresses the human wants to enter. Until the file has rows, the honest render is 247 floating signals over an unlit skyline | **M4a** for the table, the geocoder and the promotion path; the row count is Q7's answer |
+| Street-level placement of any job | **Impossible from this data, and now measured rather than assumed.** 0 of 247 postings, 139 distinct location strings, 10 fields, 3 providers. Reproduce with `./.venv/bin/python scripts/census_location_text.py`, which refuses to print a count until it has proved on that run that it can see a real address | Not a gap — a property of ATS data. Named on `/analyze/coverage` at **M4a** |
 | Dedupe similarity threshold | **Real, thinly calibrated, and now with one real-world data point.** `SIMILARITY_THRESHOLD = 0.85` was derived from three labelled pairs. M1d's live Datadog poll merged two genuine postings on `similar_description` at **0.864** — the first evidence from outside the labelled set, and it landed close to the line. One observation is not a calibration and nothing was changed on the strength of it, but it is the first sign the number is doing real work at a real boundary. Re-derive as the fixture set grows | Unscheduled; revisit when more live boards are polled |
 | ~~Merge concurrency~~ | **Fixed in M1d** (`408c768`). The defect was reproduced before being fixed — Postgres reported a real `DeadlockDetectedError` between two workers merging the same pair in opposite directions. Both rows are now locked in primary-key order, as two statements rather than one `IN` clause, because a single statement's lock acquisition follows the query plan rather than the sort. Mutation-checked: the caller's order deadlocks on 3 of 3 runs; the fix passed 8 consecutive | Done |
 | Later-arising duplicates | Dedupe runs only on creation, deliberately: re-running the matcher every poll is how a settled merge starts oscillating. The consequence is that two jobs which become duplicates *later* — a title corrected on one board to match the other — never merge, and nothing reconciles them | No milestone. Revisit if visible duplicates are reported |
