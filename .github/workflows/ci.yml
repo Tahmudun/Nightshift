@@ -135,6 +135,22 @@ jobs:
       - name: Fetch the embedding model
         run: make model
 
+      - name: Cache the basemap
+        # ~91 MB of NYC vector tiles (ADR 0022), cached for the same reason as
+        # the model above: without it,
+        # test_the_downloaded_artifact_matches_the_manifest *skips*, and the one
+        # end-to-end claim this pipeline makes — that the pinned digest matches
+        # what the release actually serves — never gets checked anywhere.
+        # The key carries the digest, so re-baking invalidates the cache rather
+        # than serving the previous map forever.
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/nightshift/basemap
+          key: basemap-${{ hashFiles('data/basemap.manifest.json') }}
+
+      - name: Fetch the basemap
+        run: make basemap
+
       - name: Unit tests
         # Coverage is measured and reported from M0 but does not gate until M3.
         # The database-backed tests truncate-and-rollback their own tables (see

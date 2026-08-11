@@ -1,0 +1,20 @@
+{
+  "filename": "nyc-basemap-20260810.pmtiles",
+  "url": "https://github.com/Tahmudun/Nightshift/releases/download/basemap-20260810/nyc-basemap-20260810.pmtiles",
+  "sha256": "0f7a21f408d4bd994bbe919f2ecc155e43dcfc0888ebec4d68ba656201f68ec8",
+  "size_bytes": 95348122,
+  "protomaps_build": "20260810",
+  "protomaps_version": "4.15.1",
+  "osm_replication_time": "2026-08-10T04:00:00Z",
+  "bbox": [
+    -74.2591,
+    40.4774,
+    -73.7002,
+    40.9176
+  ],
+  "minzoom": 0,
+  "maxzoom": 15,
+  "attribution": "<a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">&copy; OpenStreetMap contributors</a>",
+  "licence": "ODbL-1.0 (OpenStreetMap), via the Protomaps Basemap (BSD-3-Clause tooling)",
+  "baked_on": "2026-08-11"
+}
