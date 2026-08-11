@@ -1,0 +1,17 @@
+{
+  "provenance": {
+    "endpoint": "https://geosearch.planninglabs.nyc/v2/search?text=620%20Eighth%20Avenue%2C%20New%20York%2C%20NY&size=3",
+    "recorded_at": "2026-08-11T11:24:00+00:00",
+    "provider": "NYC GeoSearch (Pelias over the NYC Property Address Directory)",
+    "note": "Byte-identical to the live response. Nothing edited, redacted, or synthesised. Free, no key, no quota — AMENDMENTS A4."
+  },
+  "why_this_query": {
+    "text": "A real Manhattan street address, the rung-1 happy path. 620 Eighth Avenue is the New York Times building — chosen because it is unambiguous, well known, and not any employer in the registry, so no fixture implies an office nobody confirmed."
+  },
+  "what_it_establishes": {
+    "a_verified_point_is_reachable": "coordinates [-73.989658, 40.755913] with accuracy=point.",
+    "the_BIN_comes_for_free": "addendum.pad.bin = '1087186' and bbl = '1010127501'. AMENDMENTS A4 says to join company locations to the containing footprint by BIN, and assumed that join would have to be computed in PostGIS. GeoSearch returns it in the geocode response, so a confirmed address yields the *building*, not merely a point near one. This is the field M4b's extrusion layer joins on.",
+    "confidence_is_not_a_quality_signal": "This correct result scores confidence=0.8, match_type=fallback. The garbage in bare_city_name_search.json scores confidence=1, match_type=exact. Ranking by the provider's own confidence would prefer the wrong answer.",
+    "one_address_is_three_results": "620 Eighth Avenue exists in Manhattan and Brooklyn, and 620 East Eighth Street is a third near-match — all three at 0.8. A street address without its locality parts is ambiguous across boroughs, which is why OfficeEntry.geocoder_query appends city, state and postal code."
+  }
+}

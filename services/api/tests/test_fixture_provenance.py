@@ -13,7 +13,19 @@ from pathlib import Path
 import pytest
 
 FIXTURE_ROOT = Path(__file__).parent / "fixtures"
-REQUIRED_PROVENANCE_KEYS = {"endpoint", "recorded_at", "board_token"}
+
+#: True of every recording, whatever served it.
+REQUIRED_PROVENANCE_KEYS = {"endpoint", "recorded_at"}
+
+#: And it must name *which* thing served it. Until M4a that was always a board
+#: token, because every recording was an ATS board. NYC GeoSearch has no board:
+#: it is one public service with one corpus, and the honest identifier is the
+#: provider. Widened rather than exempted, for the reason the derived category
+#: below already gives — an exemption is how a fixture with no history gets in.
+#:
+#: One of these, not both. A board fixture that also named a provider would be
+#: fine; a fixture that names neither cannot say what it is a recording *of*.
+SOURCE_IDENTITY_KEYS = {"board_token", "provider"}
 
 #: Every extension a recorded response can arrive in. Extended at M1c: board
 #: discovery records a crawl index as `.jsonl` and an Ashby board page as
@@ -51,6 +63,10 @@ def test_every_fixture_has_provenance(fixture: Path) -> None:
     provenance = data["provenance"]
     missing = REQUIRED_PROVENANCE_KEYS - provenance.keys()
     assert not missing, f"{meta.name} provenance missing {sorted(missing)}"
+    assert SOURCE_IDENTITY_KEYS & provenance.keys(), (
+        f"{meta.name} provenance names no source — it needs one of "
+        f"{sorted(SOURCE_IDENTITY_KEYS)} to say what this is a recording of"
+    )
     assert provenance["endpoint"].startswith("https://"), meta.name
 
 

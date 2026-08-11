@@ -102,6 +102,16 @@ class Resolved:
     # can be argued with: "you asked for X and it matched Y" is a different
     # conversation from "the map is wrong".
     matched_text: str
+    # NYC's Building Identification Number, when the provider returned one.
+    #
+    # A4 assumed this join would be computed in PostGIS — take the point, find
+    # the footprint polygon it falls inside. NYC GeoSearch returns the BIN in
+    # the same response as the point, so a confirmed address yields the
+    # *building* rather than somewhere near one. A key beats a geometric guess
+    # in exactly the case that matters: a tower whose footprint abuts three
+    # others. `None` for any rung that cannot supply one, which is all of them
+    # except rung 1.
+    building_id: str | None = None
 
     def __post_init__(self) -> None:
         if self.confidence in (

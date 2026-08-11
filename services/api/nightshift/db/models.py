@@ -524,6 +524,20 @@ class CompanyLocation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     resolved_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     is_primary: Mapped[bool] = mapped_column(nullable=False, server_default=text("false"))
 
+    # NYC's Building Identification Number, when the geocoder returned one.
+    #
+    # A4 assumed the footprint join would be computed in PostGIS — take the
+    # point, find the polygon containing it. NYC GeoSearch returns the BIN in
+    # the same response as the coordinates, so M4b's extrusion layer joins on a
+    # key rather than guessing which of four abutting footprints a point fell
+    # inside. Point-in-polygon stays available as the fallback for rows that
+    # somehow have coordinates and no BIN.
+    #
+    # Nullable, and deliberately not part of the `verified` constraint: a real
+    # address outside NYC would be `verified` with no BIN, and the day this
+    # product covers a second city that has to still be true.
+    building_id: Mapped[str | None] = mapped_column(String(20))
+
     # Who vouched for the address, and when. Not nullable: see the class
     # docstring. `confirmed_by` is free text rather than a user FK because the
     # curated file predates auth (A3) and "the file, at commit abc1234" is a

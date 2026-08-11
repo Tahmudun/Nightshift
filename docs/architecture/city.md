@@ -265,6 +265,57 @@ a placement is questioned.
 `resolution_method` on the row records which rung answered, so "why is this here?"
 is answerable from the data rather than from the logs.
 
+#### 4.3.1 What rung 1 actually does with a city name — measured, and worse than this doc first claimed
+
+This section originally said that sending `"New York, NY"` to Pelias would return
+the city centroid at a good score. That was reasoning, not measurement, and the
+measurement is worse. Both responses are recorded in
+`tests/fixtures/geosearch/` with their provenance.
+
+`GET /v2/search?text=New York, NY` returns **`NEW YORK HOSPITAL`** — a specific
+building at First Avenue and 68th Street — at `confidence=1`, `match_type=exact`,
+`accuracy=point`. Pelias is not malfunctioning: it matched the words "New York"
+against venue names, exactly. It is answering a different question from the one
+the caller meant, and reporting perfect certainty about it.
+
+A centroid would at least sit in the middle of the city and read as an
+approximation. **This reads as an answer**, and it would put a company's beacon on
+a hospital.
+
+It is also the *higher-scoring* result. The correct match for a real street
+address — `620 Eighth Avenue` — comes back at `confidence=0.8`,
+`match_type=fallback`. **Ranking by the provider's own confidence would prefer the
+garbage.** Any acceptance rule built on `confidence` is built on sand.
+
+Three signals do expose it, and the adapter checks all three:
+
+| Signal | Real address | Bare city name |
+|---|---|---|
+| `geocoding.query.parsed_text.housenumber` | `"620"` | **absent** — Pelias reports it saw no address |
+| `features[].properties.housenumber` | `"620"` | `null`, and `street` is really a venue name |
+| `addendum.pad.bin` | `"1087186"` — a real building | `"1000000"` — the Manhattan **placeholder** BIN |
+
+**The gate stays anyway.** All three checks are worth having, but the cheapest and
+most durable protection is still never sending the query: a request not made cannot
+be misinterpreted, cannot spend a rate-limit slot, and cannot be defeated by a
+provider changing how it scores next year.
+
+#### 4.3.2 The BIN arrives free, which A4 did not expect
+
+`addendum.pad.bin` on a resolved address is the **Building Identification
+Number** — `"1087186"` for the address above, with `bbl` alongside it.
+
+A4 says to join company locations to the containing footprint by BIN and assumes
+that join is work for PostGIS: take the point, find the polygon it falls inside.
+It does not need to be. **A confirmed address yields the building directly**, from
+the same response that yields the point, and a BIN is an exact key rather than a
+geometric guess about which footprint a point landed in — which matters most in
+exactly the hard case, a tower whose footprint abuts three others.
+
+So `company_locations` stores the BIN, and M4b's extrusion layer joins on it. A
+point-in-polygon fallback stays available for rows that somehow have coordinates
+and no BIN, and it is the fallback rather than the path.
+
 ### 4.4 Where a building can honestly come from
 
 §4.2 rules out jobs placing themselves. Something has to place the buildings, or the
