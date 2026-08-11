@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { QueuePanel } from './QueuePanel';
@@ -22,6 +22,29 @@ function bare(
 const QUEUE: DailyQueue = {
   generated_at: '2026-08-04T12:00:00+00:00',
   sections: [
+    {
+      // M3d Task 7. Deliberately the same row as `follow_up`'s below: this
+      // section repeats one rather than composing one.
+      key: 'todays_one_thing',
+      title: 'If you do one thing today',
+      rows: [
+        {
+          application_id: '00000000-0000-4000-8000-000000000001',
+          job_id: '00000000-0000-4000-8000-000000000002',
+          job_title: 'Backend Engineer',
+          company_name: 'Example Inc.',
+          current_stage: 'applied',
+          at: '2026-07-26T12:00:00+00:00',
+          because: 'no activity from you in 9 days',
+          eligibility: null,
+        },
+      ],
+      total: 1,
+      blind_spots: [
+        { name: 'not_considered', count: 4, because: 'roles the lists below could not consider.' },
+      ],
+      note: 'One row, repeated from a list below. It is picked in this order: an interview coming up, then a follow-up that is due.',
+    },
     {
       key: 'follow_up',
       title: 'Follow up',
@@ -100,9 +123,7 @@ const QUEUE: DailyQueue = {
   ],
   total_rows: 25,
   deferred_rows: [
-    { name: 'High-match roles closing soon', blocked_on: 'milestone 3', reason: 'needs a score' },
-    { name: 'Resume mismatch warnings', blocked_on: 'milestone 3', reason: 'needs extraction' },
-    { name: 'The one thing to do today', blocked_on: 'milestone 3', reason: 'needs ranking' },
+    { name: 'High-match roles closing soon', blocked_on: 'the sources', reason: 'no deadline' },
   ],
   thresholds: {
     follow_up_silent_days: 7,
@@ -111,6 +132,12 @@ const QUEUE: DailyQueue = {
     row_cap: 20,
   },
 };
+
+/** Render, then wait for one section — every assertion below is scoped to one. */
+async function findSection(key: string, queue: DailyQueue = QUEUE) {
+  renderPanel(queue);
+  return screen.findByTestId(`queue-section-${key}`);
+}
 
 function renderPanel(queue: DailyQueue) {
   vi.mocked(fetchQueue).mockResolvedValue(queue);
@@ -130,14 +157,17 @@ describe('QueuePanel', () => {
   });
 
   it('shows each row with the reason it is there', async () => {
-    renderPanel(QUEUE);
-    expect(await screen.findByText('Backend Engineer')).toBeInTheDocument();
-    expect(screen.getByText(/no activity from you in 9 days/i)).toBeInTheDocument();
+    // Scoped to the section. The same role legitimately appears twice now —
+    // once in Follow up and once repeated at the top — and a page-wide query
+    // is a weaker claim than the one this test intends to make.
+    const section = await findSection('follow_up');
+    expect(within(section).getByText('Backend Engineer')).toBeInTheDocument();
+    expect(within(section).getByText(/no activity from you in 9 days/i)).toBeInTheDocument();
   });
 
   it('links each row to its application', async () => {
-    renderPanel(QUEUE);
-    const link = await screen.findByRole('link', { name: /Backend Engineer/i });
+    const section = await findSection('follow_up');
+    const link = within(section).getByRole('link', { name: /Backend Engineer/i });
     expect(link).toHaveAttribute(
       'href',
       '/operate/applications/00000000-0000-4000-8000-000000000001',
@@ -160,9 +190,8 @@ describe('QueuePanel', () => {
   it('names every deferred row without anything being expanded', async () => {
     renderPanel(QUEUE);
     const deferred = await screen.findByTestId('deferred-queue-rows');
-    expect(deferred).toHaveTextContent(/resume mismatch/i);
-    expect(deferred).toHaveTextContent(/one thing to do today/i);
-    expect(deferred).toHaveTextContent(/milestone 3/i);
+    expect(deferred).toHaveTextContent(/high-match roles closing soon/i);
+    expect(deferred).toHaveTextContent(/the sources/i);
   });
 
   it('shows no number beside a deferred row', async () => {
@@ -185,8 +214,7 @@ describe('QueuePanel', () => {
   it('does not claim an empty queue when a section has rows', async () => {
     // The inverse of the test above. Without it, a component that always
     // rendered the empty block would pass.
-    renderPanel(QUEUE);
-    await screen.findByText('Backend Engineer');
+    await findSection('follow_up');
     expect(screen.queryByTestId('queue-empty')).toBeNull();
   });
 
@@ -253,6 +281,21 @@ describe('QueuePanel', () => {
     expect(section).toHaveTextContent(/confirmed skills/i);
   });
 
+  it('puts the one thing above the lists it came from', async () => {
+    await findSection('todays_one_thing');
+    const headings = screen.getAllByRole('heading', { level: 2 }).map((node) => node.textContent);
+    expect(headings[0]).toBe('If you do one thing today');
+  });
+
+  it('says which order the one thing was picked by', async () => {
+    // Otherwise it is a recommendation with no account of itself, which is what
+    // I4 forbids one level up from a score.
+    renderPanel(QUEUE);
+    const section = await screen.findByTestId('queue-section-todays_one_thing');
+    expect(section).toHaveTextContent(/repeated from a list below/i);
+    expect(section).toHaveTextContent(/picked in this order/i);
+  });
+
   it('explains a section whose rows cannot explain themselves', async () => {
     renderPanel(QUEUE);
     const section = await screen.findByTestId('queue-section-best_new_internships');
@@ -262,8 +305,7 @@ describe('QueuePanel', () => {
   it('renders no control that changes anything', async () => {
     // §7.3: the queue suggests and never acts. If a button appears here, it
     // is a decision to be made deliberately rather than by accident.
-    renderPanel(QUEUE);
-    await screen.findByText('Backend Engineer');
+    await findSection('follow_up');
     expect(screen.queryAllByRole('button')).toHaveLength(0);
   });
 });

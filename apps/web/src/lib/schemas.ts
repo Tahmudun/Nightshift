@@ -829,6 +829,7 @@ export type ApplicationList = z.infer<typeof applicationListSchema>;
  * ---------------------------------------------------------------------- */
 
 export const queueSectionKeySchema = z.enum([
+  'todays_one_thing',
   'follow_up',
   'interviews_approaching',
   'stale_saved',

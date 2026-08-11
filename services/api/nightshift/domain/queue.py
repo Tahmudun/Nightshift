@@ -102,12 +102,38 @@ class QueueSectionKey(enum.StrEnum):
     the reader, and the M3d rows are suggestions, so the suggestions come last.
     """
 
+    TODAYS_ONE_THING = "todays_one_thing"
     FOLLOW_UP = "follow_up"
     INTERVIEWS_APPROACHING = "interviews_approaching"
     STALE_SAVED = "stale_saved"
     CLOSED_WHILE_SAVED = "closed_while_saved"
     REQUIREMENT_GAPS = "requirement_gaps"
     BEST_NEW_INTERNSHIPS = "best_new_internships"
+
+
+#: Sections built from other sections rather than from their own query. Named
+#: rather than left implicit, because the query-plan test walks `queue_selects`
+#: and a key missing from it would otherwise slip out of that check unnoticed.
+DERIVED_SECTIONS: frozenset[QueueSectionKey] = frozenset({QueueSectionKey.TODAYS_ONE_THING})
+
+#: Which list `todays_one_thing` reads first. **Deliberately not the render
+#: order** — that is `QueueSectionKey`'s declaration order, and the two answer
+#: different questions: where a section belongs on the page, and which single
+#: row deserves the top of it.
+#:
+#: The order is a product decision and the page prints it. An interview leads
+#: because it is the only row here that cannot be done tomorrow instead. A
+#: closed listing beats a quiet one because it has stopped being true rather
+#: than merely gone stale. A suggestion comes last, because a posting nobody
+#: asked about should never displace work somebody is already carrying.
+ONE_THING_ORDER: tuple[QueueSectionKey, ...] = (
+    QueueSectionKey.INTERVIEWS_APPROACHING,
+    QueueSectionKey.FOLLOW_UP,
+    QueueSectionKey.CLOSED_WHILE_SAVED,
+    QueueSectionKey.STALE_SAVED,
+    QueueSectionKey.REQUIREMENT_GAPS,
+    QueueSectionKey.BEST_NEW_INTERNSHIPS,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -703,6 +729,51 @@ async def _build_requirement_gaps(
     )
 
 
+_ONE_THING_NOTE = (
+    "One row, repeated from a list below. It is picked in this order: an interview coming "
+    "up, then a follow-up that is due, then a role whose listing closed, then a saved role "
+    "going quiet, then a gap on something you are tracking, and only then a suggestion. "
+    "Nothing has been done for you and nothing will be."
+)
+
+_ONE_THING_BLIND_SPOT = (
+    "postings and roles the lists below could not consider — each says why under its own "
+    "heading. An empty page here means nothing was found, not that nothing exists."
+)
+
+
+def _todays_one_thing(built: dict[QueueSectionKey, QueueSection]) -> QueueSection:
+    """The first row of the first non-empty list, in `ONE_THING_ORDER`.
+
+    **It repeats a row; it never composes one.** Every word travels from the
+    section it came from, so this cannot disagree with the list it points at —
+    a sentence assembled here would be a second derivation of a claim already
+    made ten lines down, and it would look right.
+
+    The row is deliberately a duplicate and the page says so. Hiding it from the
+    list below would leave a reader unable to find it again once they have
+    scrolled, and moving it would make the lists below wrong.
+    """
+    rows = next(
+        (built[key].rows[:1] for key in ONE_THING_ORDER if built[key].rows),
+        (),
+    )
+    # Summed across the lists it read, so "nothing to do today" is a claim it
+    # can only make about what those lists could see. Kinds differ — unscored
+    # pairs, unreadable levels — and the sentence says to read them below rather
+    # than pretending one number describes them.
+    unseen = sum(spot.count for key in ONE_THING_ORDER for spot in built[key].blind_spots)
+    return QueueSection(
+        key=QueueSectionKey.TODAYS_ONE_THING,
+        rows=rows,
+        total=len(rows),
+        blind_spots=(
+            BlindSpot(name="not_considered", count=unseen, because=_ONE_THING_BLIND_SPOT),
+        ),
+        note=_ONE_THING_NOTE,
+    )
+
+
 async def build_queue(session: AsyncSession, *, user_id: UUID, now: datetime) -> DailyQueue:
     """Every section, in the order the page renders them.
 
@@ -712,6 +783,10 @@ async def build_queue(session: AsyncSession, *, user_id: UUID, now: datetime) ->
 
     The order comes from ``QueueSectionKey`` rather than from the order things
     are built in, so adding a section cannot silently reorder the page.
+
+    ``total_rows`` counts the queried sections only. `todays_one_thing` repeats
+    a row from one of them, and counting it twice would make a day with one
+    follow-up on it read as a day with two.
     """
     selects = queue_selects(user_id=user_id, now=now)
     built: dict[QueueSectionKey, QueueSection] = {}
@@ -730,5 +805,7 @@ async def build_queue(session: AsyncSession, *, user_id: UUID, now: datetime) ->
             )
         else:
             built[key] = await _build_section(session, key=key, stmt=stmt, now=now)
+    total_rows = sum(section.total for section in built.values())
+    built[QueueSectionKey.TODAYS_ONE_THING] = _todays_one_thing(built)
     sections = tuple(built[key] for key in QueueSectionKey)
-    return DailyQueue(sections=sections, total_rows=sum(section.total for section in sections))
+    return DailyQueue(sections=sections, total_rows=total_rows)

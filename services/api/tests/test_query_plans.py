@@ -41,7 +41,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from nightshift.db.base import EmploymentType, JobStatus, RemotePolicy
 from nightshift.db.models import Job
-from nightshift.domain.queue import QueueSectionKey, queue_selects
+from nightshift.domain.queue import DERIVED_SECTIONS, QueueSectionKey, queue_selects
 from nightshift.domain.search import JobSearchQuery, build_filters
 from tests.conftest import requires_db
 
@@ -157,12 +157,29 @@ QUEUE_TABLES: dict[QueueSectionKey, str] = {
 }
 
 
-@pytest.mark.parametrize("key", [pytest.param(key, id=key.value) for key in QueueSectionKey])
+async def test_every_section_is_either_planned_or_named_as_derived() -> None:
+    """Non-vacuity for the parametrisation below.
+
+    The plan test walks `queue_selects`, so a section absent from it is a
+    section nobody checks. That is legitimate for `todays_one_thing`, which runs
+    no query of its own — and it must be *declared* legitimate rather than
+    merely missing, or the next section to be added drops out of this file's
+    coverage without anything going red.
+    """
+    planned = set(queue_selects(user_id=uuid.uuid4(), now=datetime(2026, 8, 4, tzinfo=UTC)))
+    assert set(QueueSectionKey) - planned == set(DERIVED_SECTIONS)
+    assert planned == set(QUEUE_TABLES)
+
+
+@pytest.mark.parametrize(
+    "key",
+    [pytest.param(key, id=key.value) for key in QueueSectionKey if key not in DERIVED_SECTIONS],
+)
 async def test_no_queue_section_scans_its_table(
     db_session: AsyncSession, key: QueueSectionKey
 ) -> None:
     """M2d. The queue runs on every page load and grows with the pipeline, so
-    none of its four queries may fall back to reading a whole table.
+    none of its queries may fall back to reading a whole table.
 
     **This asserts a capability, not a plan.** Two weaker or stricter forms were
     tried first and both were wrong, which is why the shape is spelled out here:

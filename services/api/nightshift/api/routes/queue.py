@@ -38,6 +38,7 @@ router = APIRouter(prefix="/queue", tags=["queue"])
 #: Rendered as headings. Kept beside the keys rather than in TypeScript so the
 #: API is self-describing and the page cannot invent a fifth section.
 SECTION_TITLES: dict[QueueSectionKey, str] = {
+    QueueSectionKey.TODAYS_ONE_THING: "If you do one thing today",
     QueueSectionKey.FOLLOW_UP: "Follow up",
     QueueSectionKey.INTERVIEWS_APPROACHING: "Interviews approaching",
     QueueSectionKey.STALE_SAVED: "Saved and going quiet",
@@ -51,12 +52,13 @@ SECTION_TITLES: dict[QueueSectionKey, str] = {
 #: claims "you have none of these" and that is a different, false statement.
 #: `command-center.md` §7.
 #:
-#: **Two rows left this tuple at M3d Task 7** and are real sections now: best
-#: new internships, and resume mismatch warnings — the second under a different
-#: name, `command-center.md` §7.4. Their old reasons were true when written and
-#: stopped being true, which is the failure mode the remaining entries are
-#: checked against: a deferral is a claim with a date on it, and one that
-#: outlives its cause is a false statement the page keeps making.
+#: **Three rows left this tuple at M3d Task 7** and are real sections now: best
+#: new internships, resume mismatch warnings — the second under a different
+#: name, `command-center.md` §7.4 — and the one thing to do today. Their old
+#: reasons were true when written and stopped being true, which is the failure
+#: mode the one remaining entry is checked against: a deferral is a claim with a
+#: date on it, and one that outlives its cause is a false statement the page
+#: keeps making.
 #:
 #: The one below survives M3 and its `blocked_on` **changed**. It said
 #: *"milestone 3"* and blamed the absent score; the score now exists and the row
@@ -73,14 +75,6 @@ DEFERRED_ROWS: tuple[DeferredQueueRowOut, ...] = (
             "no application deadline at all, and one of the sources in this registry "
             "publishes none ever, so this row would be a ranking over the small, "
             "unrepresentative slice that happens to state one."
-        ),
-    ),
-    DeferredQueueRowOut(
-        name="The one thing to do today",
-        blocked_on="milestone 3",
-        reason=(
-            "ranking across every row above. It is the most useful line on this page "
-            "and the least honest to fake, so it waits."
         ),
     ),
 )

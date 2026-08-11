@@ -105,8 +105,26 @@ def send_delete(path: str, timeout: float = 10.0) -> int:
         return int(exc.code)
 
 
-def check_daily_queue() -> None:
-    """M2d over HTTP: the queue shows what is true and names what it cannot do.
+async def rescore_corpus() -> int:
+    """Recompute every (person, posting) pair with no current score.
+
+    Lifted to module level at M3d Task 7, when a second check came to depend on
+    a scored corpus. `check_profile_confirmation` runs before the queue and
+    edits a profile column, and **every score is deleted when a scoring input
+    moves** — so without this the queue's three score-backed rows were asserted
+    against an empty table and every one of them passed vacuously.
+    """
+    from nightshift.db.session import session_scope  # noqa: PLC0415
+    from nightshift.domain.matching import recompute_pending  # noqa: PLC0415
+
+    async with session_scope() as session:
+        report = await recompute_pending(session)
+        return report.scored
+
+
+async def check_daily_queue() -> None:
+    """M2d and M3d Task 7 over HTTP: the queue shows what is true and names what
+    it cannot do.
 
     Written to compare **before and after** rather than to assert an absolute
     state, for the reason `check_profile_confirmation` records: asserting "the
@@ -119,6 +137,17 @@ def check_daily_queue() -> None:
     does not need to.
     """
     print("\nthe daily queue")
+    # Three of the rows below are computed from match scores, and the checks
+    # before this one have invalidated every score on their way past. Asserting
+    # against that is asserting against nothing.
+    scored = await rescore_corpus()
+    # Disposed here, not at the end: everything below this line is HTTP, and an
+    # engine left open across the `asyncio.run` boundary is bound to a loop that
+    # has closed by the time the next check asks for it.
+    from nightshift.db.session import dispose_engine  # noqa: PLC0415
+
+    await dispose_engine()
+    check(scored >= 0, "the corpus is scored before the score-backed rows are read", str(scored))
     status_code, queue = get_json("/queue")
     if not (status_code == 200 and isinstance(queue, dict)):
         check(False, "the queue answers", f"HTTP {status_code}")
@@ -129,6 +158,7 @@ def check_daily_queue() -> None:
     check(
         keys
         == [
+            "todays_one_thing",
             "follow_up",
             "interviews_approaching",
             "stale_saved",
@@ -189,7 +219,8 @@ def check_daily_queue() -> None:
     # ADR 0019, and the reason PRODUCT-SPEC's "resume mismatch warnings" ships
     # under another name: the list is differenced against confirmed skills, and
     # calling it a resume problem is a true statement about a database rendered
-    # as a false one about a document.
+    # as a false one about a document. The *rows* of this section are checked
+    # further down, once this script has a tracked role for them to be about.
     gaps = next(s for s in queue["sections"] if s["key"] == "requirement_gaps")
     check(
         "confirmed" in (gaps["note"] or "").lower()
@@ -197,10 +228,27 @@ def check_daily_queue() -> None:
         "the gap row says it reads confirmed skills, and never says resume",
         (gaps["note"] or "")[:60],
     )
+
+    # M3d Task 7. The row PRODUCT-SPEC called the least honest to fake. It is
+    # honest exactly when it invents nothing, so the check is that the row it
+    # shows is a row that exists below it, character for character.
+    one_thing = next(s for s in queue["sections"] if s["key"] == "todays_one_thing")
+    below = [
+        (row["job_id"], row["because"])
+        for s in queue["sections"]
+        if s["key"] != "todays_one_thing"
+        for row in s["rows"]
+    ]
     check(
-        all("nothing you have confirmed" in row["because"] for row in gaps["rows"]),
-        "every gap row names what went unanswered",
-        f"{len(gaps['rows'])} rows, {internships['total']} internships beside them",
+        len(one_thing["rows"]) <= 1
+        and all((row["job_id"], row["because"]) in below for row in one_thing["rows"]),
+        "the one thing repeats a row from a list below, and never composes one",
+        one_thing["rows"][0]["because"] if one_thing["rows"] else "nothing waiting",
+    )
+    check(
+        "picked in this order" in (one_thing["note"] or ""),
+        "it says which order it picked by",
+        (one_thing["note"] or "")[:60],
     )
 
     thresholds = queue["thresholds"]
@@ -263,6 +311,25 @@ def check_daily_queue() -> None:
         any("next action" in row["because"] for row in mine),
         "the row names the reason it was added",
         mine[0]["because"] if mine else "row not found",
+    )
+
+    # The gap row, now that a role is tracked for it to be about. Before this
+    # point in the script there is no live application at all, so asserting on
+    # its rows earlier was asserting on an empty list — the vacuous-check
+    # failure this file keeps having to relearn.
+    gaps_now = next(s for s in body["sections"] if s["key"] == "requirement_gaps")
+    check(
+        all("nothing you have confirmed" in row["because"] for row in gaps_now["rows"]),
+        "every gap row names what went unanswered",
+        f"{len(gaps_now['rows'])} of {len(rows)} rows are gaps",
+    )
+    check(
+        all(
+            spot["because"].strip() and spot["name"] == "not_yet_scored"
+            for spot in gaps_now["blind_spots"]
+        ),
+        "the gap row says how many tracked roles it could not read",
+        ", ".join(f"{s['name']}={s['count']}" for s in gaps_now["blind_spots"]),
     )
 
     send_json(f"/applications/{application_id}", "PATCH", {"next_action_at": None})
@@ -1073,14 +1140,8 @@ async def check_match_results() -> None:
         get_engine,
         session_scope,
     )
-    from nightshift.domain.matching import recompute_pending  # noqa: PLC0415
 
     engine = get_engine()
-
-    async def rescore() -> int:
-        async with session_scope() as session:
-            report = await recompute_pending(session)
-            return report.scored
 
     def ranked_now() -> dict[str, tuple[int, int, str]]:
         """Every scored posting's number, keyed by posting. One request."""
@@ -1120,7 +1181,7 @@ async def check_match_results() -> None:
         # Everything before this point in `main` has changed a profile column or
         # a confirmed skill at least once, so the table is empty by now. Putting
         # it back is this check's first act rather than an assumption.
-        restored = await rescore()
+        restored = await rescore_corpus()
         if not check(restored > 0, "the corpus scores", f"{restored} pair(s) scored"):
             return
 
@@ -1138,19 +1199,64 @@ async def check_match_results() -> None:
             f"{ranking['not_yet_scored']} not yet scored",
         )
 
+        # **The key is read off the response, never assumed.** This check asserted
+        # a plain descending `fraction` until M3d Task 7 found it red: Task 6 had
+        # changed the ordering to the coverage-weighted one and moved on, and
+        # `make acceptance` was failing on a correct list. Reading `ordering`
+        # first means the next change to the sort turns this into a loud refusal
+        # rather than a wrong assertion about a right answer.
+        check(
+            ranking["ordering"] == "coverage_weighted_fraction",
+            "the list says what it is sorted by",
+            ranking["ordering"],
+        )
+
+        def rank_key(row: dict[str, Any]) -> float | None:
+            """`fraction * sqrt(assessed_out_of / 100)`, as `matching.md` §5.3.
+
+            Recomputed here from the two numbers on the wire rather than trusted,
+            which is the point: the displayed `fraction` and the ordering key are
+            deliberately different, so a 17% can sit above a 30% and only this
+            arithmetic can tell that apart from a broken list.
+            """
+            out_of = row["match"]["assessed_out_of"]
+            if not out_of:
+                return None
+            return float(row["match"]["overall_score"]) / (out_of**0.5 * 10)
+
         misordered: list[str] = []
         for band in bands:
-            fractions = [row["match"]["fraction"] for row in band["items"]]
+            keys = [rank_key(row) for row in band["items"]]
             # `None` sorts last and is never compared as a number — a pair
             # nothing could be assessed on is not a pair that scored zero.
-            ranked = [f for f in fractions if f is not None]
+            ranked = [key for key in keys if key is not None]
             if ranked != sorted(ranked, reverse=True):
                 misordered.append(band["state"])
-            if any(f is None for f in fractions) and ranked != [
-                f for f in fractions[: len(ranked)] if f is not None
+            if any(key is None for key in keys) and ranked != [
+                key for key in keys[: len(ranked)] if key is not None
             ]:
                 misordered.append(f"{band['state']}: an unassessed row sorts above a scored one")
-        check(not misordered, "each band is ordered on the fraction", "; ".join(misordered[:3]))
+        check(
+            not misordered,
+            "each band is ordered on the key the list says it uses",
+            "; ".join(misordered[:3]),
+        )
+
+        # Non-vacuity for the check above: on a corpus where every denominator
+        # was 100 the coverage weighting is the identity, and the assertion would
+        # pass for the ordering it was written to replace.
+        printed = [
+            row["match"]["fraction"]
+            for band in bands
+            for row in band["items"]
+            if row["match"]["fraction"] is not None
+        ]
+        check(
+            printed != sorted(printed, reverse=True),
+            "the printed share really is not the sort key (M3d Task 6)",
+            f"{len({row['match']['assessed_out_of'] for b in bands for row in b['items']})}"
+            " distinct denominators across the bands",
+        )
 
         # The claim above is only worth making if this corpus can distinguish
         # the two orderings. `assessed_out_of` varies here — 20, 30, 40, 50, 90,
@@ -1318,7 +1424,7 @@ async def check_match_results() -> None:
             f"{empty_ranking['not_yet_scored']} awaiting the sweep",
         )
 
-        again = await rescore()
+        again = await rescore_corpus()
         code, rescored = get_json(f"/jobs/{subject['job']['id']}")
         check(
             again == restored and rescored.get("match") is not None,
@@ -1348,7 +1454,7 @@ async def check_match_results() -> None:
     finally:
         code, _ = send_json("/profile", "PATCH", snapshot)
         _, final = get_json("/profile")
-        put_back = await rescore()
+        put_back = await rescore_corpus()
         check(
             code == 200
             and all(final.get(f) == snapshot[f] for f in GATE_FIELDS)
@@ -1472,7 +1578,7 @@ def main() -> int:
         verify_http()
         check_application_tracking()
         check_profile_confirmation()
-        check_daily_queue()
+        asyncio.run(check_daily_queue())
         check_eligibility_gate()
         asyncio.run(check_job_requirements())
         asyncio.run(verify_constraints())

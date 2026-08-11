@@ -49,6 +49,7 @@ from nightshift.domain.queue import (
     ROW_CAP,
     STALE_SAVED_DAYS,
     DailyQueue,
+    QueueRow,
     QueueSection,
     QueueSectionKey,
     build_queue,
@@ -936,6 +937,149 @@ async def test_the_worst_shortfall_comes_first(db_session: AsyncSession) -> None
         await build_queue(db_session, user_id=user.id, now=NOW), QueueSectionKey.REQUIREMENT_GAPS
     )
     assert ordered.index(two_gaps.id) < ordered.index(one_gap.id)
+
+
+# --- The one thing to do today ---------------------------------------------
+#
+# M3d Task 7, and the row PRODUCT-SPEC §10.4 called *"the most useful line on
+# this page and the least honest to fake"*. It invents nothing: it repeats a row
+# from a list below, chosen by a written-down order, and the page says which
+# order. I5 — the queue suggests and the person acts.
+
+
+async def _an_interview(session: AsyncSession, *, user: User, days_ahead: int) -> Application:
+    application = await _an_application(
+        session, user=user, job=await _a_job(session, title="Has an interview")
+    )
+    await _an_event(
+        session,
+        application=application,
+        event_type=ApplicationEventType.INTERVIEW_SCHEDULED,
+        actor=EventActor.USER,
+        occurred_at=NOW + timedelta(days=days_ahead),
+    )
+    return application
+
+
+async def _an_overdue_follow_up(session: AsyncSession, *, user: User) -> Application:
+    return await _an_application(
+        session,
+        user=user,
+        job=await _a_job(session, title="Owes a follow-up"),
+        stage=ApplicationStage.APPLIED,
+        next_action_at=NOW - timedelta(days=3),
+    )
+
+
+def _one_thing(queue: DailyQueue) -> tuple[QueueRow, ...]:
+    return _section(queue, QueueSectionKey.TODAYS_ONE_THING).rows
+
+
+async def test_an_interview_is_the_one_thing(db_session: AsyncSession) -> None:
+    """A fixed appointment leads, because it is the only row on this page that
+    cannot be done tomorrow instead."""
+    user = await _a_user(db_session)
+    interview = await _an_interview(db_session, user=user, days_ahead=2)
+    await _an_overdue_follow_up(db_session, user=user)
+    queue = await build_queue(db_session, user_id=user.id, now=NOW)
+    assert [row.application_id for row in _one_thing(queue)] == [interview.id]
+
+
+async def test_a_follow_up_leads_when_no_interview_is_booked(db_session: AsyncSession) -> None:
+    user = await _a_user(db_session)
+    follow_up = await _an_overdue_follow_up(db_session, user=user)
+    await _an_application(
+        db_session,
+        user=user,
+        job=await _a_job(db_session, title="Going quiet"),
+        saved_at=NOW - timedelta(days=STALE_SAVED_DAYS + 1),
+    )
+    queue = await build_queue(db_session, user_id=user.id, now=NOW)
+    assert [row.application_id for row in _one_thing(queue)] == [follow_up.id]
+
+
+async def test_a_suggestion_leads_only_when_nothing_is_waiting(db_session: AsyncSession) -> None:
+    """An internship nobody asked about is the weakest thing this page can put
+    first, and it does — but only once every list of real work is empty."""
+    user = await _a_user(db_session)
+    internship = await _an_internship(db_session, user=user)
+    queue = await build_queue(db_session, user_id=user.id, now=NOW)
+    assert [row.job_id for row in _one_thing(queue)] == [internship.id]
+
+    await _an_overdue_follow_up(db_session, user=user)
+    after = await build_queue(db_session, user_id=user.id, now=NOW)
+    assert [row.job_id for row in _one_thing(after)] != [internship.id]
+
+
+async def test_it_repeats_a_row_rather_than_composing_one(db_session: AsyncSession) -> None:
+    """Every word in this row was written by the section it came from. A
+    sentence assembled here would be a second derivation of a claim, and it
+    would look right."""
+    user = await _a_user(db_session)
+    await _an_overdue_follow_up(db_session, user=user)
+    queue = await build_queue(db_session, user_id=user.id, now=NOW)
+    assert _one_thing(queue)[0] == _section(queue, QueueSectionKey.FOLLOW_UP).rows[0]
+
+
+async def test_it_holds_at_most_one_row(db_session: AsyncSession) -> None:
+    user = await _a_user(db_session)
+    for _ in range(3):
+        await _an_overdue_follow_up(db_session, user=user)
+    section = _section(
+        await build_queue(db_session, user_id=user.id, now=NOW), QueueSectionKey.TODAYS_ONE_THING
+    )
+    assert len(section.rows) == 1
+    assert section.total == 1
+
+
+async def test_it_is_empty_rather_than_absent_when_there_is_nothing(
+    db_session: AsyncSession,
+) -> None:
+    user = await _a_user(db_session)
+    queue = await build_queue(db_session, user_id=user.id, now=NOW)
+    assert _one_thing(queue) == ()
+
+
+async def test_the_repeated_row_is_not_counted_twice(db_session: AsyncSession) -> None:
+    """`total_rows` is how much work is waiting. Counting the same follow-up
+    once in its own list and again at the top makes an empty-ish day read as a
+    busy one."""
+    user = await _a_user(db_session)
+    await _an_overdue_follow_up(db_session, user=user)
+    queue = await build_queue(db_session, user_id=user.id, now=NOW)
+    assert _one_thing(queue) != ()
+    assert queue.total_rows == 1
+
+
+async def test_it_names_the_order_it_picked_by(db_session: AsyncSession) -> None:
+    """Otherwise the row is a recommendation with no account of itself, which is
+    what I4 forbids one level up from a score."""
+    user = await _a_user(db_session)
+    note = _section(
+        await build_queue(db_session, user_id=user.id, now=NOW), QueueSectionKey.TODAYS_ONE_THING
+    ).note
+    assert note is not None
+    assert "interview" in note.lower()
+
+
+async def test_it_carries_what_the_lists_below_could_not_see(
+    db_session: AsyncSession,
+) -> None:
+    """ "Nothing to do today" is only true if the lists it read could see
+    everything, and on this corpus they cannot."""
+    user = await _a_user(db_session)
+    await _a_job(db_session, title="Unreadable level", seniority=Seniority.UNCLEAR)
+    queue = await build_queue(db_session, user_id=user.id, now=NOW)
+    assert _blind_spot(queue, QueueSectionKey.TODAYS_ONE_THING, "not_considered") == 1
+
+
+async def test_it_renders_above_the_lists_it_reads(db_session: AsyncSession) -> None:
+    user = await _a_user(db_session)
+    keys = [
+        section.key
+        for section in (await build_queue(db_session, user_id=user.id, now=NOW)).sections
+    ]
+    assert keys[0] is QueueSectionKey.TODAYS_ONE_THING
 
 
 # --- Rules that hold across every section ----------------------------------

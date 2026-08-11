@@ -106,6 +106,7 @@ test('the queue page names every section and every absence', async ({ page }) =>
 
   // Every section renders, including the empty ones. An unasked question and
   // an answered one are different, and the page makes both statements.
+  await expect(section(page, /^If you do one thing today$/)).toBeVisible();
   await expect(section(page, /^Follow up$/)).toBeVisible();
   await expect(section(page, /^Interviews approaching$/)).toBeVisible();
   await expect(section(page, /^Saved and going quiet$/)).toBeVisible();
@@ -133,10 +134,13 @@ test('the queue page names every section and every absence', async ({ page }) =>
   const deferred = page.getByTestId('deferred-queue-rows');
   await expect(deferred).toBeVisible();
   await expect(deferred).not.toContainText(/best new internships/i);
+  await expect(deferred).not.toContainText(/resume mismatch warnings/i);
+  await expect(deferred).not.toContainText(/one thing to do today/i);
+  // The one row M3 does not unblock, and its reason changed with the milestone:
+  // the score exists now and the deadlines still do not.
   await expect(deferred).toContainText(/high-match roles closing soon/i);
-  await expect(deferred).toContainText(/resume mismatch warnings/i);
-  await expect(deferred).toContainText(/one thing to do today/i);
-  await expect(deferred).toContainText(/milestone 3/i);
+  await expect(deferred).toContainText(/the sources/i);
+  await expect(deferred).not.toContainText(/milestone 3/i);
 
   // The thresholds are the API's, rendered rather than restated.
   await expect(page.getByTestId('queue-thresholds')).toContainText(/7 days/);
@@ -215,6 +219,7 @@ test('an interview inside the horizon appears, and archiving removes it', async 
     'stale_saved',
     'closed_while_saved',
     'requirement_gaps',
+    'todays_one_thing',
     // Archiving keeps a role out of the suggestion row too, and for a
     // different reason: archiving is how somebody says *not this one*, so
     // re-offering it would be the page arguing with them.
