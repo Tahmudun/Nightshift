@@ -32,18 +32,80 @@
 
 ## Next exact action
 
-### M4a Task 3 — the geocoder itself, behind a Protocol.
+### M4a Task 4 — the geocode cache, and the loader that makes a building.
 
-Tasks 1 and 2 are done. **Task 1** ran the census and the answer changed the
-milestone (below). **Task 2** built the table that answer forced:
-`company_locations`, migration `0020`, with `confirmed_by`/`confirmed_at` as
-`NOT NULL` so a row cannot exist without saying who vouched for the address.
+Tasks 1–3 are done. The remaining M4a work is the part that connects them:
 
-Task 3: `domain/geocoding.py` behind a Protocol so nothing else imports an HTTP
-client; the permanent geocode cache table; the NYC GeoSearch adapter with
-committed fixtures. Then `data/company-locations.yaml` and the loader that is
-the promotion path, then Nominatim — rate-limited, fixture-tested, and never
-reached in `make demo`.
+1. **The permanent geocode cache table.** An address is never geocoded twice.
+   A table rather than a dict, because it has to survive a restart and be
+   inspectable when a placement is questioned.
+2. **The loader.** `read_worksheet` → the §4.3 ladder → a `company_locations`
+   row, and jobs at that employer inheriting it as `company_office`.
+3. **The coverage readout** on `/analyze/coverage`: the census, the fill rate,
+   and what could not be placed.
+
+Then Nominatim — rate-limited, fixture-tested, never reached in `make demo`.
+
+**`data/company-locations.yaml` is ready for the human and blocks none of the
+above.** Nine NYC registry companies, `street_address` blank. Blank is a correct
+answer: those companies' jobs stay in the unresolved layer, fully usable.
+
+---
+
+### M4a Task 3 — the ladder, the worksheet, and the hospital.
+
+**`domain/geocoding.py`,** behind a Protocol so nothing outside `adapters/`
+imports an HTTP client and the offline path goes *through* the interface rather
+than around it. Coordinates cannot be constructed with a confidence that has
+none, or a method that never produces one — the same claims the DDL makes, one
+layer up, so a violation reads instead of arriving as an `IntegrityError`. A
+refusal is a value carrying *why*, which is I3's distinction one subsystem over.
+
+**`data/company-locations.yaml`** is the promotion path (Q7 answered: "as many
+as you'd like"). `read_worksheet` refuses four kinds of entry, each of which
+would otherwise become a lit building nobody vouched for. The sharpest is an
+address that names no street: ordinary input would be stored as `city_only` and
+moved past, but somebody typing here is asserting *an office is at this address*,
+and the honest answer to an assertion that cannot support itself is to say so.
+
+**The NYC GeoSearch adapter, and the correction the recording forced.**
+
+`city.md` §4.3 claimed Pelias would answer `"New York, NY"` with the city
+centroid at a good score. That was reasoning. The measurement is worse:
+
+```
+"New York, NY"                     -> NEW YORK HOSPITAL   confidence 1.0  exact
+"620 Eighth Avenue, New York, NY"  -> 620 EIGHTH AVENUE   confidence 0.8  fallback
+```
+
+A real building at First Avenue and 68th Street, at maximum confidence, because
+Pelias matched the words against venue names — exactly. A centroid at least
+reads as an approximation; **this reads as an answer**, and it outscores the
+truth. So nothing in the adapter reads `confidence`. Acceptance is three facts
+about what the response *is*: did the provider parse a house number, does the
+feature carry that house number, is the BIN a real building rather than one of
+the five per-borough placeholders. Each has a mutation test that breaks it
+alone, and `test_the_garbage_outscores_the_truth_in_the_recorded_data` pins the
+premise rather than the code — if a future release makes `confidence`
+trustworthy, it fails and somebody reconsiders §4.3.1 deliberately.
+
+**Migration `0021` — the BIN, which arrives free and was not planned for.** A4
+reads as though the footprint join is PostGIS work: store the point, find the
+containing polygon. GeoSearch returns `addendum.pad.bin` in the same response.
+Better rather than merely cheaper — a BIN is an exact key, and point-in-polygon
+is least reliable in exactly the case this product cares about, a tower whose
+footprint abuts three others. Nullable and outside the `verified` constraint,
+because a real address outside NYC is `verified` with no BIN and tying the two
+would quietly redefine the invariant as "in New York".
+
+**`test_fixture_provenance` widened, not exempted.** It required `board_token`
+on every recording — true since M1, because every recording was an ATS board.
+GeoSearch has no board. Now one of `board_token` **or** `provider`, for the
+reason that file's own M2c comment gives: *an exemption is how a fixture with no
+history gets in*.
+
+Evidence: `make check` exit 0, **1815 Python** and 225 web; `0021` up/down/up
+clean; `make drift` clean; mypy clean across 71 files.
 
 ---
 
