@@ -22,12 +22,26 @@ from nightshift.db.base import (
     ApplicationStage,
     EligibilityState,
     EventActor,
+    EvidenceSource,
     InternshipSeason,
     JobStatus,
+    JobTextField,
+    MatchComponent,
+    RequirementKind,
+    RequirementNecessity,
     Seniority,
     TransitionClass,
 )
-from nightshift.db.models import Application, ApplicationEvent, Company, Job, User
+from nightshift.db.models import (
+    Application,
+    ApplicationEvent,
+    Company,
+    Job,
+    JobRequirement,
+    MatchEvidence,
+    MatchResult,
+    User,
+)
 from nightshift.domain.queue import (
     FOLLOW_UP_SILENT_DAYS,
     INTERVIEW_HORIZON_DAYS,
@@ -701,6 +715,227 @@ async def test_an_internship_row_has_no_application_behind_it(
     )
     assert section.rows[0].application_id is None
     assert section.rows[0].current_stage is None
+
+
+# --- Requirement gaps ------------------------------------------------------
+#
+# M3d Task 7, and PRODUCT-SPEC's *"resume mismatch warnings"* under a different
+# name on purpose. The list is computed from `user_skills` — what this person
+# confirmed — and never from `resume_extractions`, which are proposals a file
+# appears to make. Shipping it under the old name would be ADR 0019's defect
+# arriving by the front door: a true statement about a database rendered as a
+# false one about a document.
+
+
+async def _a_requirement(
+    session: AsyncSession,
+    *,
+    job: Job,
+    value: str,
+    necessity: RequirementNecessity = RequirementNecessity.REQUIRED,
+) -> JobRequirement:
+    """One ask, quoting the posting at real offsets — the span trigger checks
+    the characters rather than trusting the row."""
+    start = DESCRIPTION.index(value)
+    requirement = JobRequirement(
+        job_id=job.id,
+        kind=RequirementKind.TECHNOLOGY,
+        value=value,
+        raw_text=value,
+        char_start=start,
+        char_end=start + len(value),
+        necessity=necessity,
+        extractor_version="test",
+    )
+    session.add(requirement)
+    await session.flush()
+    return requirement
+
+
+async def _answered_by(
+    session: AsyncSession, *, result: MatchResult, requirement: JobRequirement
+) -> None:
+    """An evidence row naming the requirement it answers.
+
+    `unmet_requirements` differences against exactly this, on
+    `job_requirement_id` rather than on the value, because two requirements can
+    normalise to the same skill from different sentences.
+    """
+    session.add(
+        MatchEvidence(
+            match_result_id=result.id,
+            job_requirement_id=requirement.id,
+            component=MatchComponent.SKILL,
+            points=0,
+            job_span_text=requirement.raw_text,
+            job_span_field=JobTextField.DESCRIPTION_TEXT,
+            job_char_start=requirement.char_start,
+            job_char_end=requirement.char_end,
+            user_span_text=requirement.value,
+            proposed_by=EvidenceSource.RULE,
+        )
+    )
+    await session.flush()
+
+
+async def _tracked_and_scored(
+    session: AsyncSession,
+    *,
+    user: User,
+    title: str = "Backend Engineer",
+    asks: tuple[tuple[str, RequirementNecessity], ...] = (),
+) -> tuple[Job, list[JobRequirement], MatchResult]:
+    """A role this person is tracking, with a current-version score on it.
+
+    **The asks are written before the score, and that order is not cosmetic.** A
+    trigger deletes every `match_results` row for a job whose `job_requirements`
+    move, because a score computed against a different set of asks is not a
+    stale number to caveat — `MatchResult`'s docstring says it is never served.
+    Adding a requirement afterwards leaves the role unscored, which is right and
+    is not what these tests are about.
+    """
+    job = await _a_job(session, title=title)
+    requirements = [
+        await _a_requirement(session, job=job, value=value, necessity=necessity)
+        for value, necessity in asks
+    ]
+    await _an_application(session, user=user, job=job)
+    result = await store_score(
+        session, user=user, job=job, overall=40, out_of=100, state=EligibilityState.ELIGIBLE
+    )
+    return job, requirements, result
+
+
+async def test_a_tracked_role_with_an_unanswered_ask_is_a_gap_row(
+    db_session: AsyncSession,
+) -> None:
+    user = await _a_user(db_session)
+    job, _, _ = await _tracked_and_scored(
+        db_session, user=user, asks=(("PostgreSQL", RequirementNecessity.REQUIRED),)
+    )
+    queue = await build_queue(db_session, user_id=user.id, now=NOW)
+    assert job.id in _job_ids(queue, QueueSectionKey.REQUIREMENT_GAPS)
+
+
+async def test_an_ask_an_evidence_row_answers_is_not_a_gap(db_session: AsyncSession) -> None:
+    """Differenced against the stored graph, never re-scored. A gap the number
+    beside it does not agree with is the second-derivation failure."""
+    user = await _a_user(db_session)
+    job, requirements, result = await _tracked_and_scored(
+        db_session, user=user, asks=(("PostgreSQL", RequirementNecessity.REQUIRED),)
+    )
+    await _answered_by(db_session, result=result, requirement=requirements[0])
+    queue = await build_queue(db_session, user_id=user.id, now=NOW)
+    assert job.id not in _job_ids(queue, QueueSectionKey.REQUIREMENT_GAPS)
+
+
+@pytest.mark.parametrize(
+    "necessity", [RequirementNecessity.PREFERRED, RequirementNecessity.MENTIONED]
+)
+async def test_only_a_required_ask_is_a_warning(
+    db_session: AsyncSession, necessity: RequirementNecessity
+) -> None:
+    """`RequirementNecessity`'s own rule: only ``required`` may appear as a gap.
+    Ramp's Android internship lists nine technologies under "nice to haves", and
+    warning about those reports nine false gaps against somebody qualified."""
+    user = await _a_user(db_session)
+    job, _, _ = await _tracked_and_scored(db_session, user=user, asks=(("PostgreSQL", necessity),))
+    queue = await build_queue(db_session, user_id=user.id, now=NOW)
+    assert job.id not in _job_ids(queue, QueueSectionKey.REQUIREMENT_GAPS)
+
+
+async def test_a_posting_you_are_not_tracking_is_not_warned_about(
+    db_session: AsyncSession,
+) -> None:
+    """A warning is about a role somebody is pursuing. Over the whole corpus it
+    is a list of every technology in New York they have not confirmed."""
+    user = await _a_user(db_session)
+    job = await _a_job(db_session, title="Untracked")
+    await _a_requirement(db_session, job=job, value="PostgreSQL")
+    await store_score(
+        db_session, user=user, job=job, overall=40, out_of=100, state=EligibilityState.ELIGIBLE
+    )
+    queue = await build_queue(db_session, user_id=user.id, now=NOW)
+    assert job.id not in _job_ids(queue, QueueSectionKey.REQUIREMENT_GAPS)
+
+
+async def test_a_tracked_role_with_no_score_is_counted_rather_than_dropped(
+    db_session: AsyncSession,
+) -> None:
+    """There is no evidence graph to difference against, so there is no gap
+    list — which is not the same as having no gaps."""
+    user = await _a_user(db_session)
+    job = await _a_job(db_session, title="Unscored and tracked")
+    await _an_application(db_session, user=user, job=job)
+    await _a_requirement(db_session, job=job, value="PostgreSQL")
+    queue = await build_queue(db_session, user_id=user.id, now=NOW)
+    assert _section(queue, QueueSectionKey.REQUIREMENT_GAPS).rows == ()
+    assert _blind_spot(queue, QueueSectionKey.REQUIREMENT_GAPS, "not_yet_scored") == 1
+
+
+async def test_a_role_that_asks_for_nothing_unanswered_has_no_row(
+    db_session: AsyncSession,
+) -> None:
+    """An empty warning row would say "you fall short here" about a posting
+    that asked for nothing this score could read."""
+    user = await _a_user(db_session)
+    job, _, _ = await _tracked_and_scored(db_session, user=user)
+    queue = await build_queue(db_session, user_id=user.id, now=NOW)
+    assert job.id not in _job_ids(queue, QueueSectionKey.REQUIREMENT_GAPS)
+
+
+async def test_the_row_names_the_asks_it_found_no_answer_for(
+    db_session: AsyncSession,
+) -> None:
+    """A count with no names is the unexplained number I4 is about."""
+    user = await _a_user(db_session)
+    await _tracked_and_scored(
+        db_session, user=user, asks=(("PostgreSQL", RequirementNecessity.REQUIRED),)
+    )
+    section = _section(
+        await build_queue(db_session, user_id=user.id, now=NOW),
+        QueueSectionKey.REQUIREMENT_GAPS,
+    )
+    assert "PostgreSQL" in section.rows[0].because
+
+
+async def test_the_gap_section_says_it_reads_confirmed_skills_not_a_resume(
+    db_session: AsyncSession,
+) -> None:
+    """ADR 0019, and the reason this row is not called a resume warning. The
+    list comes from what somebody confirmed; a resume proposal is not a fact
+    about them until they say it is (I2)."""
+    user = await _a_user(db_session)
+    note = _section(
+        await build_queue(db_session, user_id=user.id, now=NOW),
+        QueueSectionKey.REQUIREMENT_GAPS,
+    ).note
+    assert note is not None
+    assert "confirmed" in note.lower()
+    assert "resume" not in note.lower()
+
+
+async def test_the_worst_shortfall_comes_first(db_session: AsyncSession) -> None:
+    user = await _a_user(db_session)
+    one_gap, _, _ = await _tracked_and_scored(
+        db_session,
+        user=user,
+        title="One gap",
+        asks=(("PostgreSQL", RequirementNecessity.REQUIRED),),
+    )
+    two_gaps, _, _ = await _tracked_and_scored(
+        db_session,
+        user=user,
+        title="Two gaps",
+        asks=(
+            ("PostgreSQL", RequirementNecessity.REQUIRED),
+            ("Python", RequirementNecessity.REQUIRED),
+        ),
+    )
+    ordered = _job_ids(
+        await build_queue(db_session, user_id=user.id, now=NOW), QueueSectionKey.REQUIREMENT_GAPS
+    )
+    assert ordered.index(two_gaps.id) < ordered.index(one_gap.id)
 
 
 # --- Rules that hold across every section ----------------------------------

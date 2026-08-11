@@ -110,7 +110,15 @@ test('the queue page names every section and every absence', async ({ page }) =>
   await expect(section(page, /^Interviews approaching$/)).toBeVisible();
   await expect(section(page, /^Saved and going quiet$/)).toBeVisible();
   await expect(section(page, /^Closed while you were tracking it$/)).toBeVisible();
+  await expect(section(page, /^Gaps on roles you are tracking$/)).toBeVisible();
   await expect(section(page, /^New internships worth a look$/)).toBeVisible();
+
+  // ADR 0019: this row is PRODUCT-SPEC's "resume mismatch warnings" under
+  // another name, because it is differenced against confirmed skills and never
+  // against an unconfirmed extraction. The word must not appear on it.
+  const gaps = rowsOf(page, 'requirement_gaps');
+  await expect(gaps).toContainText(/confirmed skills/i);
+  await expect(gaps).not.toContainText(/resume/i);
 
   // M3d Task 7. The section built from a match score says what it is a list of
   // — a row whose ordering a reader cannot see the reason for is a row they
@@ -206,6 +214,7 @@ test('an interview inside the horizon appears, and archiving removes it', async 
     'interviews_approaching',
     'stale_saved',
     'closed_while_saved',
+    'requirement_gaps',
     // Archiving keeps a role out of the suggestion row too, and for a
     // different reason: archiving is how somebody says *not this one*, so
     // re-offering it would be the page arguing with them.

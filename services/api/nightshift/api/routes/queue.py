@@ -42,6 +42,7 @@ SECTION_TITLES: dict[QueueSectionKey, str] = {
     QueueSectionKey.INTERVIEWS_APPROACHING: "Interviews approaching",
     QueueSectionKey.STALE_SAVED: "Saved and going quiet",
     QueueSectionKey.CLOSED_WHILE_SAVED: "Closed while you were tracking it",
+    QueueSectionKey.REQUIREMENT_GAPS: "Gaps on roles you are tracking",
     QueueSectionKey.BEST_NEW_INTERNSHIPS: "New internships worth a look",
 }
 
@@ -50,27 +51,28 @@ SECTION_TITLES: dict[QueueSectionKey, str] = {
 #: claims "you have none of these" and that is a different, false statement.
 #: `command-center.md` §7.
 #:
-#: **Best new internships left this tuple at M3d Task 7** and is a real section
-#: now. Its old reason — *"'best' is a ranking, and there is no match score
-#: behind it yet"* — was true when written and stopped being true, which is the
-#: failure mode the remaining entries are checked against: a deferral is a claim
-#: with a date on it, and one that outlives its cause is a false statement the
-#: page keeps making.
+#: **Two rows left this tuple at M3d Task 7** and are real sections now: best
+#: new internships, and resume mismatch warnings — the second under a different
+#: name, `command-center.md` §7.4. Their old reasons were true when written and
+#: stopped being true, which is the failure mode the remaining entries are
+#: checked against: a deferral is a claim with a date on it, and one that
+#: outlives its cause is a false statement the page keeps making.
+#:
+#: The one below survives M3 and its `blocked_on` **changed**. It said
+#: *"milestone 3"* and blamed the absent score; the score now exists and the row
+#: is still impossible, because most sources publish no deadline at all (A10)
+#: and Datadog's registry note says that board publishes none. Leaving it
+#: reading "milestone 3" after M3 closes would be a false statement with a date
+#: on it — the exact thing this tuple exists to avoid.
 DEFERRED_ROWS: tuple[DeferredQueueRowOut, ...] = (
     DeferredQueueRowOut(
         name="High-match roles closing soon",
-        blocked_on="milestone 3",
+        blocked_on="the sources",
         reason=(
-            "needs both a match score and a closing date. Most sources publish no "
-            "deadline at all, so even the second half is often unknowable."
-        ),
-    ),
-    DeferredQueueRowOut(
-        name="Resume mismatch warnings",
-        blocked_on="milestone 3",
-        reason=(
-            "needs requirement extraction and the evidence graph, so that a warning "
-            "can point at the specific gap rather than assert one."
+            "the match score exists now; the closing date does not. Most boards publish "
+            "no application deadline at all, and one of the sources in this registry "
+            "publishes none ever, so this row would be a ranking over the small, "
+            "unrepresentative slice that happens to state one."
         ),
     ),
     DeferredQueueRowOut(

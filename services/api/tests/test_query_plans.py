@@ -147,6 +147,9 @@ QUEUE_TABLES: dict[QueueSectionKey, str] = {
     QueueSectionKey.INTERVIEWS_APPROACHING: "application_events",
     QueueSectionKey.STALE_SAVED: "application_events",
     QueueSectionKey.CLOSED_WHILE_SAVED: "jobs",
+    # M3d Task 7. Driven from `applications` like the four above, so the table
+    # whose filter has to be servable is the one it joins for the score.
+    QueueSectionKey.REQUIREMENT_GAPS: "match_results",
     # M3d Task 7. The filter is `jobs.seniority` and `jobs.first_seen_at`; the
     # driving table is `match_results`, which is this person's rows and is the
     # analogue of `applications` above.

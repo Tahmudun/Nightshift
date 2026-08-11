@@ -36,6 +36,7 @@ from uuid import UUID
 
 from sqlalchemy import Select, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from nightshift.db.base import (
     ApplicationEventType,
@@ -43,10 +44,11 @@ from nightshift.db.base import (
     EligibilityState,
     EventActor,
     JobStatus,
+    RequirementNecessity,
     Seniority,
 )
 from nightshift.db.models import Application, ApplicationEvent, Company, Job, MatchResult
-from nightshift.domain.matching import band_rank, coverage_weighted_rank
+from nightshift.domain.matching import band_rank, coverage_weighted_rank, unmet_requirements
 from nightshift.domain.matching_weights import load_weights
 
 #: Decided by the human on 2026-08-04 (`command-center.md` §7). A week is when
@@ -104,6 +106,7 @@ class QueueSectionKey(enum.StrEnum):
     INTERVIEWS_APPROACHING = "interviews_approaching"
     STALE_SAVED = "stale_saved"
     CLOSED_WHILE_SAVED = "closed_while_saved"
+    REQUIREMENT_GAPS = "requirement_gaps"
     BEST_NEW_INTERNSHIPS = "best_new_internships"
 
 
@@ -389,6 +392,34 @@ def _internships_select(*, user_id: UUID, now: datetime) -> Select[Any]:
     )
 
 
+def _gaps_select(*, user_id: UUID, now: datetime) -> Select[Any]:
+    """Live applications with a current score, and everything a gap needs.
+
+    Entities rather than columns, because the difference is taken in Python by
+    `matching.unmet_requirements` against the *stored* evidence graph. Doing it
+    in SQL would be a second derivation of a list the job page already computes
+    one way, and the two would agree almost always — which is the failure that
+    is impossible to notice.
+
+    Bounded by one person's live applications, so loading them all and counting
+    in Python is honest arithmetic rather than a scale problem. `command-center`
+    §7's cap still applies to what is *rendered*.
+
+    ``now`` is unused; the signature matches its siblings so ``queue_selects``
+    can hold them in one dict.
+    """
+    del now
+    return (
+        select(Application, Job, Company.canonical_name, MatchResult)
+        .join(Job, Job.id == Application.job_id)
+        .join(Company, Company.id == Job.company_id)
+        .join(MatchResult, _current_score(user_id))
+        .where(*_live(user_id))
+        .options(selectinload(MatchResult.evidence), selectinload(Job.requirements))
+        .order_by(Application.id)
+    )
+
+
 def queue_selects(*, user_id: UUID, now: datetime) -> dict[QueueSectionKey, Select[Any]]:
     """Exactly what ``build_queue`` runs, exposed for the query-plan test.
 
@@ -400,6 +431,7 @@ def queue_selects(*, user_id: UUID, now: datetime) -> dict[QueueSectionKey, Sele
         QueueSectionKey.INTERVIEWS_APPROACHING: _interviews_select(user_id=user_id, now=now),
         QueueSectionKey.STALE_SAVED: _stale_saved_select(user_id=user_id, now=now),
         QueueSectionKey.CLOSED_WHILE_SAVED: _closed_while_saved_select(user_id=user_id, now=now),
+        QueueSectionKey.REQUIREMENT_GAPS: _gaps_select(user_id=user_id, now=now),
         QueueSectionKey.BEST_NEW_INTERNSHIPS: _internships_select(user_id=user_id, now=now),
     }
 
@@ -580,6 +612,97 @@ async def _internship_blind_spots(
     )
 
 
+#: PRODUCT-SPEC §10.4 calls this row *"resume mismatch warnings"* and it is not
+#: called that here, on purpose. The list is differenced against `user_skills` —
+#: what this person confirmed — and never against `resume_extractions`, which
+#: are proposals a file appears to make. Shipping it under the old name would be
+#: ADR 0019's defect arriving by the front door: a true statement about a
+#: database rendered as a false one about a document.
+#:
+#: The word *resume* is therefore absent from this sentence and a test asserts
+#: it stays absent.
+_GAPS_NOTE = (
+    "What these postings state they require that nothing in your confirmed skills answers. "
+    "Read from your profile, never from a file you uploaded — an extracted line is a "
+    "proposal until you confirm it. Only hard requirements are here: a nice-to-have you "
+    "lack is not a warning, and treating it as one reports shortfalls against somebody "
+    "who is qualified."
+)
+
+_GAPS_BLIND_SPOT = (
+    "roles you are tracking that have no score yet, so there is no evidence graph to "
+    "difference against. That is not the same as having nothing missing."
+)
+
+
+def _gap_sentence(values: list[str]) -> str:
+    """The asks, named. A count with no names is the unexplained number I4 is
+    about, one level up from a score."""
+    shown = ", ".join(values[:3])
+    rest = len(values) - 3
+    tail = f", and {rest} more" if rest > 0 else ""
+    answers = "it" if len(values) == 1 else "them"
+    return f"asks for {shown}{tail} — nothing you have confirmed answers {answers}"
+
+
+async def _build_requirement_gaps(
+    session: AsyncSession, *, user_id: UUID, stmt: Select[Any], now: datetime
+) -> QueueSection:
+    """Tracked roles with an unanswered hard requirement, worst shortfall first.
+
+    ``at`` is None on every row and that is the honest value: a gap is not an
+    event and has no date. I1's habit applied to time.
+    """
+    del now
+    gapped: list[tuple[int, QueueRow]] = []
+    for application, job, company_name, result in (await session.execute(stmt)).all():
+        values = [
+            requirement.value
+            for requirement in unmet_requirements(result, job.requirements)
+            if requirement.necessity is RequirementNecessity.REQUIRED
+        ]
+        if not values:
+            continue
+        gapped.append(
+            (
+                len(values),
+                QueueRow(
+                    application_id=application.id,
+                    job_id=job.id,
+                    job_title=job.title,
+                    company_name=company_name,
+                    current_stage=application.current_stage,
+                    at=None,
+                    because=_gap_sentence(values),
+                    eligibility=result.eligibility_status,
+                ),
+            )
+        )
+    # Worst shortfall first, then by id so a reload cannot reorder two equal rows.
+    gapped.sort(key=lambda pair: (-pair[0], str(pair[1].application_id)))
+
+    unscored = (
+        select(func.count())
+        .select_from(Application)
+        .join(Job, Job.id == Application.job_id)
+        .outerjoin(MatchResult, _current_score(user_id))
+        .where(*_live(user_id), MatchResult.id.is_(None))
+    )
+    return QueueSection(
+        key=QueueSectionKey.REQUIREMENT_GAPS,
+        rows=tuple(row for _, row in gapped[:ROW_CAP]),
+        total=len(gapped),
+        blind_spots=(
+            BlindSpot(
+                name="not_yet_scored",
+                count=int((await session.execute(unscored)).scalar_one()),
+                because=_GAPS_BLIND_SPOT,
+            ),
+        ),
+        note=_GAPS_NOTE,
+    )
+
+
 async def build_queue(session: AsyncSession, *, user_id: UUID, now: datetime) -> DailyQueue:
     """Every section, in the order the page renders them.
 
@@ -593,7 +716,9 @@ async def build_queue(session: AsyncSession, *, user_id: UUID, now: datetime) ->
     selects = queue_selects(user_id=user_id, now=now)
     built: dict[QueueSectionKey, QueueSection] = {}
     for key, stmt in selects.items():
-        if key is QueueSectionKey.BEST_NEW_INTERNSHIPS:
+        if key is QueueSectionKey.REQUIREMENT_GAPS:
+            built[key] = await _build_requirement_gaps(session, user_id=user_id, stmt=stmt, now=now)
+        elif key is QueueSectionKey.BEST_NEW_INTERNSHIPS:
             built[key] = await _build_section(
                 session,
                 key=key,

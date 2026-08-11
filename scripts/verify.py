@@ -133,6 +133,7 @@ def check_daily_queue() -> None:
             "interviews_approaching",
             "stale_saved",
             "closed_while_saved",
+            "requirement_gaps",
             "best_new_internships",
         ],
         "every section, always",
@@ -183,6 +184,23 @@ def check_daily_queue() -> None:
         ),
         "each suggestion carries a state and no application",
         f"{len(internships['rows'])} rows, {internships['total']} before the cap",
+    )
+
+    # ADR 0019, and the reason PRODUCT-SPEC's "resume mismatch warnings" ships
+    # under another name: the list is differenced against confirmed skills, and
+    # calling it a resume problem is a true statement about a database rendered
+    # as a false one about a document.
+    gaps = next(s for s in queue["sections"] if s["key"] == "requirement_gaps")
+    check(
+        "confirmed" in (gaps["note"] or "").lower()
+        and "resume" not in (gaps["note"] or "").lower(),
+        "the gap row says it reads confirmed skills, and never says resume",
+        (gaps["note"] or "")[:60],
+    )
+    check(
+        all("nothing you have confirmed" in row["because"] for row in gaps["rows"]),
+        "every gap row names what went unanswered",
+        f"{len(gaps['rows'])} rows, {internships['total']} internships beside them",
     )
 
     thresholds = queue["thresholds"]

@@ -45,6 +45,31 @@ const QUEUE: DailyQueue = {
     bare('stale_saved', 'Saved and going quiet'),
     bare('closed_while_saved', 'Closed while you were tracking it'),
     {
+      key: 'requirement_gaps',
+      title: 'Gaps on roles you are tracking',
+      rows: [
+        {
+          application_id: '00000000-0000-4000-8000-000000000004',
+          job_id: '00000000-0000-4000-8000-000000000005',
+          job_title: 'Platform Engineer',
+          company_name: 'Datadog',
+          current_stage: 'saved',
+          // A gap is not an event and has no date.
+          at: null,
+          because:
+            'asks for Kubernetes, Go and Terraform — nothing you have confirmed answers them',
+          eligibility: 'eligible',
+        },
+      ],
+      total: 1,
+      blind_spots: [
+        { name: 'not_yet_scored', count: 0, because: 'tracked roles with no score yet.' },
+      ],
+      note:
+        'What these postings state they require that nothing in your confirmed skills ' +
+        'answers. Read from your profile, never from a file you uploaded.',
+    },
+    {
       key: 'best_new_internships',
       title: 'New internships worth a look',
       rows: [
@@ -209,6 +234,23 @@ describe('QueuePanel', () => {
     renderPanel(QUEUE);
     const spots = await screen.findByTestId('queue-blind-spots-best_new_internships');
     expect(spots).not.toHaveTextContent(/unreadable/i);
+  });
+
+  it('names the gaps on a tracked role rather than counting them', async () => {
+    renderPanel(QUEUE);
+    const section = await screen.findByTestId('queue-section-requirement_gaps');
+    expect(section).toHaveTextContent(/asks for Kubernetes, Go and Terraform/i);
+  });
+
+  it('never calls a requirement gap a resume problem', async () => {
+    // ADR 0019. The list comes from confirmed skills; a resume proposal is not
+    // a fact about anybody until they say it is (I2). The old spec name for
+    // this row would make a true statement about a database read as a false
+    // one about a document.
+    renderPanel(QUEUE);
+    const section = await screen.findByTestId('queue-section-requirement_gaps');
+    expect(section.textContent ?? '').not.toMatch(/resume/i);
+    expect(section).toHaveTextContent(/confirmed skills/i);
   });
 
   it('explains a section whose rows cannot explain themselves', async () => {

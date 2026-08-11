@@ -833,6 +833,7 @@ export const queueSectionKeySchema = z.enum([
   'interviews_approaching',
   'stale_saved',
   'closed_while_saved',
+  'requirement_gaps',
   'best_new_internships',
 ]);
 export type QueueSectionKey = z.infer<typeof queueSectionKeySchema>;
