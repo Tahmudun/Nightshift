@@ -15,7 +15,7 @@
 #
 # Two aliases were deliberately left out and are worth naming so they are not
 # "fixed" later: bare `node` (a tree has nodes) and bare `rest` (the word).
-version: "2026-08-05.1"
+version: "2026-08-10.1"
 skills:
   - name: Python
     aliases: [python3, cpython]
@@ -134,11 +134,31 @@ skills:
   - name: Excel
     case_sensitive: true
     aliases: [Microsoft Excel, MS Excel]
+  # `demonstrated_by` is ADR 0018's ontology edge, added for M3d Task 1. Three
+  # of the corpus's required terms are *concepts* rather than tools — 33
+  # occurrences the rules-only scorer missed entirely — and somebody can
+  # genuinely demonstrate a concept through a concrete tool.
+  #
+  # The edge is one-directional, one-hop and narrow: PyTorch demonstrates
+  # machine learning, and never that PyTorch demonstrates TensorFlow. Each list
+  # is a claim a human wrote down and can be argued with in review, which is
+  # everything the cosine similarity Task 11 measured was not — that ranked
+  # `Java` from Python at 0.797 above `Machine Learning` from PyTorch at 0.624.
+  #
+  # Conservative on purpose. A tool belongs here only if building something with
+  # it is *itself* evidence of the concept. Kafka is a distributed system you
+  # operate; Excel is not evidence of data structures because everything is.
   - name: Data Structures
     aliases: [data structures and algorithms, dsa]
+    # Deliberately empty. Every language implements data structures, so any list
+    # here reads "you have written code" — true of everybody and evidence of
+    # nothing. The three corpus occurrences stay unmatched, and that is the
+    # honest answer rather than a low bar dressed as a match.
   - name: Machine Learning
     aliases: [ml]
+    demonstrated_by: [PyTorch, TensorFlow, JAX, scikit-learn, HuggingFace]
   - name: Distributed Systems
+    demonstrated_by: [Kafka, Spark, Kubernetes]
 
   # ---------------------------------------------------------------------------
   # Added 2026-08-05 for M3a.1, to raise required-technology recall. Every term

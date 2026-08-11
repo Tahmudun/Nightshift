@@ -60,6 +60,7 @@ import pytest
 from nightshift.db.base import MatchComponent
 from nightshift.domain.matching_weights import load_weights, ruleset_version
 from nightshift.domain.scoring import MatchScore, ScoringProfile, score_match
+from nightshift.domain.skill_vocabulary import load_vocabulary
 from tests.matching_corpus import AS_OF, CorpusPosting, load_corpus, load_profiles
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -234,7 +235,13 @@ def _score_everything(corpus: tuple[CorpusPosting, ...] | None = None) -> dict[s
     profiles = load_profiles()
     weights = load_weights()
     scores = {
-        (entry.key, name): score_match(entry.posting, profile, weights=weights, as_of=AS_OF)
+        (entry.key, name): score_match(
+            entry.posting,
+            profile,
+            weights=weights,
+            as_of=AS_OF,
+            demonstrates=load_vocabulary().edges,
+        )
         for entry in corpus
         for name, profile in profiles
     }

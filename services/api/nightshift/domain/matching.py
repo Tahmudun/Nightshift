@@ -114,6 +114,7 @@ from nightshift.domain.scoring import (
     ScoringProfile,
     score_match,
 )
+from nightshift.domain.skill_vocabulary import load_vocabulary
 
 log = structlog.get_logger(__name__)
 
@@ -489,7 +490,17 @@ async def score_pair(
         .all()
     )
     posting, requirement_ids = posting_for(job, requirements, locations)
-    score = score_match(posting, profile_for(user), weights=weights, as_of=as_of)
+    # ADR 0018's ontology edges, read from the committed vocabulary rather than
+    # defaulted. `score_match` defaults to none, so a call site that forgets
+    # them scores exactly as this system did before M3d and nothing goes red —
+    # which is why `test_the_production_scorer_reads_the_committed_edges` exists.
+    score = score_match(
+        posting,
+        profile_for(user),
+        weights=weights,
+        as_of=as_of,
+        demonstrates=load_vocabulary().edges,
+    )
     row = _score_row(
         user=user,
         job=job,
