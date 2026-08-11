@@ -43,6 +43,24 @@ test('the coverage page names what it does not cover', async ({ page }) => {
   await expect(gaps).toContainText(/workday/i);
 });
 
+test('the page says why nothing is on a building', async ({ page }) => {
+  /**
+   * M4a. The gap above is named generically by the test below, which reads the
+   * API's list at run time. This one names it specifically, because it is the
+   * disclosure that explains the shape of the entire map: no ATS posting states
+   * a street, so a job can never place itself, so a building comes only from an
+   * address a human confirmed.
+   *
+   * Somebody removing that explanation should get a red test rather than a
+   * quieter page.
+   */
+  await page.goto('/analyze/coverage');
+
+  const gaps = page.getByRole('region', { name: /what is not covered/i });
+  await expect(gaps).toContainText(/no job posting says which building it is in/i);
+  await expect(gaps).toContainText(/unresolved signal layer/i);
+});
+
 test('every gap the API names actually reaches the page', async ({ page }) => {
   const spots = await blindSpots();
   await page.goto('/analyze/coverage');

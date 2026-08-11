@@ -1,0 +1,142 @@
+# Company office addresses — the only thing in this product that can be a building.
+#
+# WHY THIS FILE EXISTS
+#
+# M4a Task 1 counted the location text in every recorded ATS payload: 247
+# postings, 139 distinct location strings, 10 location-bearing fields, three
+# providers. Not one names a street. Every posting tops out at a city name, and
+# a city name places nothing — under invariant I1 a job can never put itself on
+# a building.
+#
+# So a beacon reaches a building only by inheriting the office of the company
+# that posted it, and this file is the set of offices that exist.
+# `docs/architecture/city.md` §4.4 has the full argument, including why the
+# alternatives were rejected: scraping is out on policy (CLAUDE.md §8), and
+# OpenStreetMap is good enough to propose an address and never to confirm one.
+#
+# HOW TO FILL IT IN
+#
+# One entry per office. Fill `street_address` with the real street address of
+# the office — the thing you would type into a map to get directions. Then set
+# `confirmed_on` to the date you checked it.
+#
+# Leave `street_address` blank if you do not know it or the company has no NYC
+# office. A blank entry is loaded as nothing at all: it is not a guess, it is
+# not a city centroid, and the company's jobs stay in the unresolved signal
+# layer where they are perfectly usable. **Blank is a correct answer.** The
+# coverage page reports how many are filled and does not pretend otherwise.
+#
+# WHAT THE ADDRESS BUYS
+#
+# A street address geocodes through NYC GeoSearch to `verified` and puts that
+# company's building on the map, lit, with its open roles as beacons on it.
+# Anything less than a street cannot reach `verified` — the database refuses it
+# (`ck_company_locations_verified_requires_a_street_address`), which is what
+# makes "a lit building is a verified fact" a property of the schema rather
+# than a promise.
+#
+# WHAT NOT TO DO
+#
+# Do not put an approximate address in to make a row look complete. A wrong
+# building is worse than no building: it looks exactly as confident as a right
+# one, and nothing downstream can tell them apart. If you are unsure, leave it
+# blank and the job still shows up — just not on a building.
+
+# Who is vouching for these addresses. Stamped onto every row this file loads,
+# so `company_locations.confirmed_by` says something true.
+confirmed_by: Tahmudun
+
+# The nine companies in data/board-registry.yaml whose postings parse to NYC.
+# `nyc_presence` is derived from posting text, so some of these may turn out to
+# have no NYC office at all — that is a real finding and a blank entry records
+# it correctly.
+offices:
+  - company: Datadog
+    label: New York HQ
+    street_address:
+    city: New York
+    state: NY
+    postal_code:
+    country: USA
+    is_primary: true
+    confirmed_on:
+
+  - company: Stripe
+    label: New York office
+    street_address:
+    city: New York
+    state: NY
+    postal_code:
+    country: USA
+    is_primary: true
+    confirmed_on:
+
+  - company: Ramp
+    label: New York HQ
+    street_address:
+    city: New York
+    state: NY
+    postal_code:
+    country: USA
+    is_primary: true
+    confirmed_on:
+
+  - company: a16z New Media
+    label: New York office
+    street_address:
+    city: New York
+    state: NY
+    postal_code:
+    country: USA
+    is_primary: true
+    confirmed_on:
+
+  - company: 9fin
+    label: New York office
+    street_address:
+    city: New York
+    state: NY
+    postal_code:
+    country: USA
+    is_primary: true
+    confirmed_on:
+
+  - company: 3i Members
+    label: New York office
+    street_address:
+    city: New York
+    state: NY
+    postal_code:
+    country: USA
+    is_primary: true
+    confirmed_on:
+
+  - company: Abacum
+    label: New York office
+    street_address:
+    city: New York
+    state: NY
+    postal_code:
+    country: USA
+    is_primary: true
+    confirmed_on:
+
+  - company: Aaron School
+    label: New York office
+    street_address:
+    city: New York
+    state: NY
+    postal_code:
+    country: USA
+    is_primary: true
+    confirmed_on:
+
+  - company: 1Password
+    label: New York office
+    street_address:
+    city: New York
+    state: NY
+    postal_code:
+    country: USA
+    is_primary: true
+    confirmed_on:

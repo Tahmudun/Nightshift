@@ -408,6 +408,218 @@ class Company(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     website: Mapped[str | None] = mapped_column(String(500))
 
     jobs: Mapped[list[Job]] = relationship(back_populates="company")
+    locations: Mapped[list[CompanyLocation]] = relationship(back_populates="company")
+
+
+class CompanyLocation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """An office address a human confirmed. The only thing that can be a building.
+
+    PRODUCT-SPEC §6.6 specified this table and nothing built it until M4a, when
+    a census gave it a reason nobody had measured before: **no ATS posting names
+    a street.** 0 of 247, across 139 distinct location strings, 10
+    location-bearing fields and three providers — including Ashby's structured
+    `address.postalAddress`, whose key set is only ever some subset of
+    `{addressCountry, addressLocality, addressRegion}`.
+
+    Under invariant I1 that settles the question of where a building comes from.
+    A job can never place itself, because its own text tops out at a city name.
+    So a beacon sits on a building only by inheriting the office of the company
+    that posted it, and this table is the set of offices that exist.
+
+    **Which is why the confirmation columns are not optional metadata.**
+    `city.md` §4.4 rules out the alternatives: scraping is out on policy
+    (`CLAUDE.md` §8), and OSM and Wikidata are of uneven quality and unknown
+    currency — good enough to propose, never to confirm. A row here means a
+    human wrote an address down. `confirmed_at` and `confirmed_by` are
+    `NOT NULL` so that a row cannot exist without saying who vouched for it,
+    which makes "a lit building is a verified fact" a property of the schema
+    rather than a habit.
+
+    This is the third instance of a pattern this project already runs twice:
+    `source_job_records → jobs`, and `resume_extractions → ` confirmed user
+    facts (ADR 0013). Proposal and confirmation live in different places, so no
+    bug in a proposer can produce a confirmed address.
+    """
+
+    __tablename__ = "company_locations"
+    __table_args__ = (
+        Index("ix_company_locations_company_id", "company_id"),
+        Index("ix_company_locations_geom", "geom", postgresql_using="gist"),
+        Index("ix_company_locations_location_confidence", "location_confidence"),
+        # One primary office per company. A second would make "the building" a
+        # question the renderer has to answer arbitrarily.
+        Index(
+            "uq_company_locations_one_primary",
+            "company_id",
+            unique=True,
+            postgresql_where=text("is_primary"),
+        ),
+        # I1, identical to `job_locations`. Not shared via a mixin on purpose:
+        # a constraint is worth reading at the table it protects, and the two
+        # tables are free to diverge without one quietly loosening the other.
+        CheckConstraint(
+            "(latitude IS NULL) = (longitude IS NULL)",
+            name="coordinates_are_paired",
+        ),
+        CheckConstraint(
+            "latitude IS NULL OR (latitude BETWEEN -90 AND 90)",
+            name="latitude_in_range",
+        ),
+        CheckConstraint(
+            "longitude IS NULL OR (longitude BETWEEN -180 AND 180)",
+            name="longitude_in_range",
+        ),
+        CheckConstraint(
+            """
+            CASE
+                WHEN location_confidence IN ('verified', 'approximate')
+                    THEN latitude IS NOT NULL
+                WHEN location_confidence IN ('city_only', 'remote', 'unknown')
+                    THEN latitude IS NULL
+            END
+            """,
+            name="confidence_matches_coordinates",
+        ),
+        # The claim this table exists to make. `verified` is what puts a beacon
+        # on a specific building, and the only input that earns it is a street
+        # address — §4.1 measured that a city name never can. Without this, a
+        # row geocoded from "New York, NY" could be stored as `verified` and the
+        # renderer would place it on whichever building the centroid landed in.
+        CheckConstraint(
+            "location_confidence <> 'verified' OR street_address IS NOT NULL",
+            name="verified_requires_a_street_address",
+        ),
+    )
+
+    company_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False
+    )
+
+    # "New York HQ", "Brooklyn Navy Yard". Shown in the detail panel so a person
+    # can tell two offices apart without reading two addresses.
+    label: Mapped[str] = mapped_column(String(200), nullable=False)
+
+    street_address: Mapped[str | None] = mapped_column(String(300))
+    city: Mapped[str | None] = mapped_column(String(200))
+    state: Mapped[str | None] = mapped_column(String(100))
+    postal_code: Mapped[str | None] = mapped_column(String(20))
+    country: Mapped[str | None] = mapped_column(String(100))
+
+    latitude: Mapped[float | None] = mapped_column(NUMERIC(9, 6))
+    longitude: Mapped[float | None] = mapped_column(NUMERIC(9, 6))
+    geom: Mapped[Any | None] = mapped_column(
+        Geometry(geometry_type="POINT", srid=4326, spatial_index=False)
+    )
+
+    location_confidence: Mapped[LocationConfidence] = mapped_column(
+        _enum(LocationConfidence, "location_confidence"),
+        nullable=False,
+        server_default=LocationConfidence.UNKNOWN.value,
+    )
+    resolution_method: Mapped[ResolutionMethod] = mapped_column(
+        _enum(ResolutionMethod, "resolution_method"),
+        nullable=False,
+        server_default=ResolutionMethod.NOT_ATTEMPTED.value,
+    )
+    resolved_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    is_primary: Mapped[bool] = mapped_column(nullable=False, server_default=text("false"))
+
+    # NYC's Building Identification Number, when the geocoder returned one.
+    #
+    # A4 assumed the footprint join would be computed in PostGIS — take the
+    # point, find the polygon containing it. NYC GeoSearch returns the BIN in
+    # the same response as the coordinates, so M4b's extrusion layer joins on a
+    # key rather than guessing which of four abutting footprints a point fell
+    # inside. Point-in-polygon stays available as the fallback for rows that
+    # somehow have coordinates and no BIN.
+    #
+    # Nullable, and deliberately not part of the `verified` constraint: a real
+    # address outside NYC would be `verified` with no BIN, and the day this
+    # product covers a second city that has to still be true.
+    building_id: Mapped[str | None] = mapped_column(String(20))
+
+    # Who vouched for the address, and when. Not nullable: see the class
+    # docstring. `confirmed_by` is free text rather than a user FK because the
+    # curated file predates auth (A3) and "the file, at commit abc1234" is a
+    # more useful provenance string than a single seeded dev_user id.
+    confirmed_by: Mapped[str] = mapped_column(String(200), nullable=False)
+    confirmed_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+
+    company: Mapped[Company] = relationship(back_populates="locations")
+
+
+class GeocodeCache(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Every address ever geocoded, and what came back. Permanent.
+
+    A4: *"Cache every geocode by normalized address string, permanently. Never
+    re-geocode an address you have already resolved."* A table rather than an
+    in-process dict, for two reasons that are not about speed. It has to survive
+    a restart, and it has to be **inspectable** — when somebody says a beacon is
+    on the wrong building, the question is what the provider actually returned
+    for that string on that day, and a cache nobody can query cannot answer it.
+
+    **A miss is cached. An outage is not.** This is invariant I3's reasoning
+    applied one subsystem over. *"We asked and NYC has no such address"* is an
+    answer, it will not change tomorrow, and re-asking it every poll is a
+    request spent to learn nothing. *"The provider was unreachable"* is not an
+    answer about the address at all — caching it would turn one bad afternoon
+    into a permanent refusal to place a building that was always placeable.
+    `refusal` is therefore nullable and never holds `provider_unavailable`,
+    enforced by a check constraint rather than by remembering.
+    """
+
+    __tablename__ = "geocode_cache"
+    __table_args__ = (
+        # The lookup key. Unique per (address, rung): the same string may be
+        # asked of GeoSearch and of Nominatim, and those are two different
+        # answers worth keeping apart.
+        Index(
+            "uq_geocode_cache_query",
+            "normalized_query",
+            "resolution_method",
+            unique=True,
+        ),
+        CheckConstraint(
+            "(latitude IS NULL) = (longitude IS NULL)",
+            name="coordinates_are_paired",
+        ),
+        # A row is either a hit or a miss, never both and never neither. Without
+        # this, a bug that wrote a refusal alongside coordinates would produce a
+        # row whose meaning depends on which column the reader looked at first.
+        CheckConstraint(
+            "(latitude IS NULL) <> (refusal IS NULL)",
+            name="a_row_is_a_hit_or_a_miss",
+        ),
+        # The rule the class docstring argues for, made structural.
+        CheckConstraint(
+            "refusal IS NULL OR refusal <> 'provider_unavailable'",
+            name="an_outage_is_never_cached",
+        ),
+    )
+
+    #: Exactly what was asked, kept so the normalisation is auditable.
+    query: Mapped[str] = mapped_column(String(500), nullable=False)
+    #: Casefolded, whitespace-collapsed. The key.
+    normalized_query: Mapped[str] = mapped_column(String(500), nullable=False)
+
+    resolution_method: Mapped[ResolutionMethod] = mapped_column(
+        _enum(ResolutionMethod, "resolution_method"), nullable=False
+    )
+
+    latitude: Mapped[float | None] = mapped_column(NUMERIC(9, 6))
+    longitude: Mapped[float | None] = mapped_column(NUMERIC(9, 6))
+    location_confidence: Mapped[LocationConfidence | None] = mapped_column(
+        _enum(LocationConfidence, "location_confidence")
+    )
+    building_id: Mapped[str | None] = mapped_column(String(20))
+    #: What the provider said it matched. The first thing to look at when a
+    #: placement is disputed.
+    matched_text: Mapped[str | None] = mapped_column(String(500))
+
+    #: Why nothing was found, for a miss. Null on a hit.
+    refusal: Mapped[str | None] = mapped_column(String(50))
+
+    resolved_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
 
 
 class Source(UUIDPrimaryKeyMixin, TimestampMixin, Base):

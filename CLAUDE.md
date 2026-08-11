@@ -29,6 +29,7 @@ detail lives in `docs/spec/` and you read those files on demand.
 | `docs/architecture/board-discovery.md` | **Required before any M1 registry, discovery or polling work.** Supersedes the shape of A1's registry; A1's rules still hold except where ADR 0005 says otherwise |
 | `docs/architecture/command-center.md` | **Required before any M2 work.** Decides the M2 table shapes, the slice order, and which spec'd filters are deferred and why |
 | `docs/architecture/matching.md` | **Required before any M3 work.** Decides the M3 slice order and tables, where a semantic model may and may not touch a score, and which spec'd score components are deferred and why |
+| `docs/architecture/city.md` | **Required before any M4 work** — any geocoder, any MapLibre, any Three.js. Decides why the geo spine comes before the renderer, the rendering architecture, the palette, and which spec'd city features are deferred to M5. `docs/design/references/` is its visual reference |
 | `docs/adr/*.md` | Revisiting or contradicting a past decision |
 
 **Precedence when documents disagree:**

@@ -20,9 +20,11 @@
 **M3b: COMPLETE, reviewed, CI-green at `7bfbf2d`, merged to `main` as PR #11 (`d2273e7`). `main` green after the merge.**
 **M3c: COMPLETE, reviewed, CI-green at `42b989e`, merged to `main` as PR #12 (`03fa035`). All five CI jobs passed with no findings — the first slice in this project where CI found nothing. Review: `docs/reviews/milestone-3c-review.md`.**
 **Q5 (relevance ratings): ANSWERED 2026-08-10. Thirty rated, profile filled — 12 good / 11 acceptable / 7 poor. M3d has a held-out set.**
-**M3d: COMPLETE — all eight tasks done on `m3d-evaluation`. ADR 0020, ADR 0021, `docs/reviews/milestone-3d-review.md`, and M3's acceptance walk below.**
-**M3: all six acceptance criteria walked with evidence — see "M3 acceptance" below. Two of the six carry a stated limit rather than a clean pass.**
-**Current milestone: M3 — explainable matching, closing. Next: push, open the PR, CI green, merge. Then M4.**
+**M3d: COMPLETE, reviewed, CI-green at `ade217b`, merged to `main` as PR #14 (`7b480e9`). `main` green after the merge.**
+**M3: CLOSED. All six acceptance criteria walked with evidence — see "M3 acceptance" below. Two of the six carry a stated limit rather than a clean pass.**
+**M4a: COMPLETE — five tasks, seven commits on `m4a-geo-spine`. `make acceptance` exit 0 (160 verify checks, 56 seeded browser tests). Opened as draft PR #15 at task 1, per the practice change M3d earned.**
+**Current milestone: M4 — the living city, and the shippable checkpoint (A15). M4a done; M4b next.**
+**The finding that shaped the milestone: no ATS posting names a street. 0 of 247, 139 distinct location strings, 10 fields, three providers. A job can never place itself on a building, so every building comes from an address a human confirmed.**
 **Task 11 measured the embedding proposal path and declined to ship it — ADR 0018.**
 **Task 12 gave the seed a reader to be about, and found three false claims on the page — ADR 0019.**
 **Last updated: 2026-08-11**
@@ -32,27 +34,238 @@
 
 ## Next exact action
 
-### M3d is done. Next: open the PR, get CI green, merge, then start M4.
+### M4a is COMPLETE. Next: M4b — the basemap, and the first thing you can see.
 
-Everything M3d owed is committed on `m3d-evaluation`. What remains is not
-engineering:
+Five tasks, seven commits, on `m4a-geo-spine`. **`make acceptance` exit 0: 160
+verify checks and 56 seeded browser tests.**
 
-1. **Push and open the PR.** The branch is at the remote and has **no PR**, which
-   is why it has had **no CI run at all across eight tasks** — `ci.yml` triggers
-   on `push: [main]` and on `pull_request`, and neither has happened. This is
-   review finding §2.3 and it is the reason two of this milestone's four
-   drift findings survived as long as they did.
-2. **CI green**, then merge. M3's *"eval suite runs in CI"* criterion is walked
-   below against the workflow's contents; a green run is the evidence that the
-   walk is describing something real rather than something configured.
-3. **Then M4** — `docs/architecture/` has no city document yet, and `CLAUDE.md`
-   §6 says M4 is the shippable checkpoint. Write the plan before any MapLibre.
+M4b, per `city.md` §7: the pmtiles pipeline and its `make setup` cache; NYC
+building footprints into PostGIS and out to vector tiles; MapLibre with a
+hand-written dark style; extrusion at real heights; the camera controller and
+its full gesture surface; the `dusk-*` atmosphere tokens. **No job data on
+screen** — that is M4c.
 
-**Working-practice change this milestone earned: open the PR as a draft at task
-1 of a slice, not at the end.** It costs nothing, gates nothing, and it is the
-difference between a wrong sort key being caught in four minutes and being caught
-in seven days. `make check` was run before every commit and it was not enough,
-because `make check` does not run the browser suite.
+Two things carry into it from M4a:
+
+- **The BIN join is a key, not a computation.** `company_locations.building_id`
+  holds NYC's Building Identification Number, returned free by GeoSearch. M4b's
+  extrusion layer joins on it; point-in-polygon is the fallback, not the path.
+- **Nominatim is still unbuilt** and stays deferred. Rung 1 is the only rung
+  that can produce a building, and rungs 2–3 produce `approximate` points the
+  office loader refuses by design. Nothing needs them until something wants an
+  approximate placement, and nothing does yet.
+
+**`data/company-locations.yaml` is with the human and blocks nothing.** Nine NYC
+registry companies, `street_address` blank, and blank is a correct answer.
+Until a row is filled the honest render is every job in the unresolved layer,
+which §4.8 designs as the default view rather than the sad one.
+
+**Q2 (deployment target) is the only open question that blocks anything**, and
+only M4d.
+
+---
+
+### M4a Task 5 — the coverage readout, and three descriptions that had gone stale.
+
+The census belongs on `/analyze/coverage`, and `discovery/coverage.py` from M1
+was already the right home — it exists to name what this system cannot see, its
+`BlindSpot` carries `count: int | None`, and its docstring already forbids
+denominators and zeros-as-stand-ins.
+
+**No web work was needed.** The page renders `blind_spots` generically and
+`coverage.spec.ts` reads the list from the API *at run time* rather than from a
+snapshot, so the new disclosure was covered the moment it existed. One named
+test was added on top, because this is the disclosure that explains the shape of
+the whole map and removing it should go red rather than go quiet.
+
+**One judgement inside it.** The first draft set `count=0`. `count` means "how
+many things sit in this gap", and for the live database that is every posting at
+an employer with no confirmed office — a number that moves as the worksheet is
+filled. The 247 is the *recorded corpus*, so it is stated in the explanation
+where it can be attributed rather than in a field the page renders as though it
+described Postgres.
+
+**Then acceptance surfaced three descriptions that had stopped being true while
+still passing**, which is the dangerous kind:
+
+| Where | Said | Now |
+|---|---|---|
+| `verify.py` | "0 mappable locations **in M0** — nothing is geocoded yet" | "no `job_locations` row carries coordinates — the loader writes offices, not job locations (§4.4)" |
+| `verify.py` | "no location is verified or approximate **in M0**" | "no job location claims verified or approximate precision" |
+| The Analyze page, **on screen** | "nothing geocoded yet" | "no posting states a street" |
+
+The first got *stronger* rather than reworded: it used to assert "we have not
+built geocoding" and now asserts the §4.4 decision holds. The third is the one
+that matters, because it is the only one a person reads — "nothing geocoded yet"
+describes a missing feature, and the number is zero because of a property of the
+data instead.
+
+**Sixth time in this project a description has outlived the thing it described,
+and the first caught inside the slice that caused it** rather than a milestone
+later.
+
+---
+
+### M4a Task 3 — the ladder, the worksheet, and the hospital.
+
+**`domain/geocoding.py`,** behind a Protocol so nothing outside `adapters/`
+imports an HTTP client and the offline path goes *through* the interface rather
+than around it. Coordinates cannot be constructed with a confidence that has
+none, or a method that never produces one — the same claims the DDL makes, one
+layer up, so a violation reads instead of arriving as an `IntegrityError`. A
+refusal is a value carrying *why*, which is I3's distinction one subsystem over.
+
+**`data/company-locations.yaml`** is the promotion path (Q7 answered: "as many
+as you'd like"). `read_worksheet` refuses four kinds of entry, each of which
+would otherwise become a lit building nobody vouched for. The sharpest is an
+address that names no street: ordinary input would be stored as `city_only` and
+moved past, but somebody typing here is asserting *an office is at this address*,
+and the honest answer to an assertion that cannot support itself is to say so.
+
+**The NYC GeoSearch adapter, and the correction the recording forced.**
+
+`city.md` §4.3 claimed Pelias would answer `"New York, NY"` with the city
+centroid at a good score. That was reasoning. The measurement is worse:
+
+```
+"New York, NY"                     -> NEW YORK HOSPITAL   confidence 1.0  exact
+"620 Eighth Avenue, New York, NY"  -> 620 EIGHTH AVENUE   confidence 0.8  fallback
+```
+
+A real building at First Avenue and 68th Street, at maximum confidence, because
+Pelias matched the words against venue names — exactly. A centroid at least
+reads as an approximation; **this reads as an answer**, and it outscores the
+truth. So nothing in the adapter reads `confidence`. Acceptance is three facts
+about what the response *is*: did the provider parse a house number, does the
+feature carry that house number, is the BIN a real building rather than one of
+the five per-borough placeholders. Each has a mutation test that breaks it
+alone, and `test_the_garbage_outscores_the_truth_in_the_recorded_data` pins the
+premise rather than the code — if a future release makes `confidence`
+trustworthy, it fails and somebody reconsiders §4.3.1 deliberately.
+
+**Migration `0021` — the BIN, which arrives free and was not planned for.** A4
+reads as though the footprint join is PostGIS work: store the point, find the
+containing polygon. GeoSearch returns `addendum.pad.bin` in the same response.
+Better rather than merely cheaper — a BIN is an exact key, and point-in-polygon
+is least reliable in exactly the case this product cares about, a tower whose
+footprint abuts three others. Nullable and outside the `verified` constraint,
+because a real address outside NYC is `verified` with no BIN and tying the two
+would quietly redefine the invariant as "in New York".
+
+**`test_fixture_provenance` widened, not exempted.** It required `board_token`
+on every recording — true since M1, because every recording was an ATS board.
+GeoSearch has no board. Now one of `board_token` **or** `provider`, for the
+reason that file's own M2c comment gives: *an exemption is how a fixture with no
+history gets in*.
+
+Evidence: `make check` exit 0, **1815 Python** and 225 web; `0021` up/down/up
+clean; `make drift` clean; mypy clean across 71 files.
+
+---
+
+### M4a Task 2 — the office table, and the first enum value this project has added.
+
+`company_locations` exists (PRODUCT-SPEC §6.6, unbuilt for four milestones
+because nothing needed it until Task 1 gave it a measured reason).
+
+**Two constraints carry the design.**
+`ck_company_locations_verified_requires_a_street_address` is new and has no
+counterpart on `job_locations`: `verified` is the confidence that puts a beacon
+on one specific building, and Task 1 measured that a city name can never earn
+it. Without it, an office geocoded from "New York, NY" stores as `verified` and
+the renderer places it on whichever building the centroid landed in — I1's exact
+failure, arriving through the door `confidence_matches_coordinates` leaves open,
+since that check only asks whether coordinates are *present*. And `confirmed_by`
+/ `confirmed_at` are `NOT NULL`, which is what turns *"a lit building is a
+verified fact"* from a habit into a property of the schema.
+
+**The first enum value this project has ever added to an existing PG type**, so
+there was no migration to copy. PostgreSQL has `ALTER TYPE ... ADD VALUE` and no
+`DROP VALUE`, so the downgrade rebuilds the type and converts `job_locations`
+across rather than leaving the value behind — the short version would have made
+up/down/up pass while quietly not reversing, and the next person to add a value
+would have copied it. The downgrade fails loudly if a surviving row uses
+`company_office`, which is correct: you cannot downgrade past data that needs
+the value.
+
+`conftest._TRUNCATED` gained `company_locations` before `companies` — **the
+fifth milestone running that this list has been kept correct by the database
+rather than by somebody remembering**, and the fifth time the no-CASCADE choice
+paid for itself.
+
+Evidence: `alembic upgrade` → `downgrade -1` → `upgrade` all clean; `make drift`
+reports no model/migration drift; `tests/test_company_location_models.py`, 11
+tests, including two that attack the constraints with raw SQL because a
+constraint only the ORM respects is one a raw INSERT gets past.
+
+---
+
+### M4a Task 1 — the census, and the zero it found.
+
+M3 is closed and merged. M4 is open on `m4a-geo-spine`, and the design is written:
+**`docs/architecture/city.md`. Read it before any MapLibre, any Three.js, and any
+geocoding.** It is the required-read for M4 the way `matching.md` was for M3.
+
+**M4 does not begin with the map, because it cannot.** No coordinate has ever been
+written to this database. `job_locations.geom` is a column with an index and no
+values; `mappable_locations` reads 0. Geocoding was labelled M1 in the table below
+for four milestones and never built. A renderer on top of that would have 31 jobs
+all reading "New York, NY" and, under I1, nothing it is allowed to place on a
+building. So the milestone runs geo spine → basemap → signal layer → ship, and the
+slice plan is `city.md` §7.
+
+**The count ran and the answer is zero.** `scripts/census_location_text.py`, over
+every committed fixture payload — 247 postings, 139 distinct location strings, 10
+location-bearing fields, three providers:
+
+```
+  street_address        0    0.0%
+  place_name          207   83.8%
+  remote_only          25   10.1%
+  nothing              15    6.1%
+
+NYC postings: 58 of 247 (23.5%) — street_address 0, place_name 58 (100%)
+```
+
+**Nothing names a street.** Not in Greenhouse's `location.name`, not in its
+`offices[].location`, not in Lever's `categories`, and not in Ashby's structured
+`address.postalAddress` — the field this project had deliberately left unread since
+M1 *because it was the good one*. Its key set across every Ashby fixture is only
+ever some subset of `{addressCountry, addressLocality, addressRegion}`. Ashby's
+schema has `streetAddress`. No employer in the corpus fills it.
+
+Three consequences, in order of how much they cost:
+
+1. **Rung 1 of A4's ladder is unreachable from a posting.** GeoSearch resolves
+   addresses. There are none. A job's honest ceiling is `city_only`.
+2. **Under I1, a job can never place itself on a building.** Never — not rarely.
+3. **So buildings come from companies, and company addresses are not in ATS data
+   either.** `city.md` §4.4 works the four candidate sources and lands on a curated
+   `data/company-locations.yaml` with OSM proposing and a human confirming — the
+   third instance of a pattern this project already runs twice. **Q7** asks the
+   human how far to take the curation.
+
+The zero is a measurement, not an artifact. **The detector's first draft reported
+four street addresses and all four were false** — `ct\.?` matching Connecticut in
+"Stamford, CT" and `fl\.?` matching Florida in "Miami, FL", which would have fired
+on every posting in two states. The script now refuses to print a count until it
+has proved on that run that it fires on "620 Eighth Avenue, New York, NY 10018" and
+stays silent on "Miami, FL".
+
+**What this validates about the ordering.** M4's design says the geo spine comes
+before the renderer. Had it gone the other way, this would have been found in M4c,
+after the beacons, the instancing and the selection wiring were built around an
+assumption that jobs sit on buildings. It cost one script and one afternoon.
+
+**Working-practice change M3d earned, in force from this task: open the PR as a
+draft at task 1 of a slice, not at the end.** It costs nothing, gates nothing, and
+it is the difference between a wrong sort key being caught in four minutes and
+being caught in seven days. `make check` was run before every M3d commit and it was
+not enough, because `make check` does not run the browser suite.
+
+**Open question that does not block the first three slices but does block the
+fourth:** Q2, the deployment target. A15 calls M4 a real ship. `city.md` §8 names
+what changes under each answer.
 
 ---
 
@@ -203,7 +416,9 @@ added postings, which is what would otherwise make people disable it.
 
 ## M3d — the evaluation suite. All eight tasks done.
 
-Branch `m3d-evaluation`, not yet a PR.
+Branch `m3d-evaluation`, merged as PR #14 (`7b480e9`) on 2026-08-11. The PR run
+at `ade217b` and the post-merge run on `main` both passed — which is the evidence
+criterion 5 below was arguing for from the workflow file rather than from a run.
 
 ### Task 8 — the ADRs, the review, and a metric that had been grading the wrong thing
 
@@ -5387,11 +5602,13 @@ rather than from memory, because the commit message for this work says 36 and is
 wrong: ML frameworks (JAX, LangChain, HuggingFace, DSPy), accelerators (CUDA, ROCm, Triton, SYCL), HDLs (Verilog, VHDL, SystemVerilog), Windows/network/security administration (Active Directory, SIEM, EDR, SSO, MFA, VPN, DNS, TCP/IP, PowerShell, Windows, macOS, firewalls), and business systems (Salesforce, Google Sheets, Microsoft 365). Recall moved 0.459 → 0.861. **What is deliberately still absent**: structural engineering codes (ACI 318, ASCE 7, IBC, IFC, AISC, FM Global), treasury systems (Kyriba, GTreasury, Trovata, TMS), accounting standards (US GAAP, IFRS), and words too ordinary to match safely (`Word`, `MS Office`). Those are real requirements of real postings in the corpus and are not software skills — adding them would raise recall by teaching the product a domain it does not serve | Closed as vocabulary work. The residual absences are a scope decision, revisited only if the product's scope changes |
 | Eligibility answer key (`tests/fixtures/eligibility/labels.yaml`) | **Filled in, and model-labeled rather than human-verified.** All 60 postings × 9 fields were labeled 2026-08-04 by a browser-side Claude reading the recorded excerpts, with the web explicitly off — the grader compares against text the extractor also sees, so a label sourced from outside that text marks a correct extractor wrong. Audited on install: 0 of 199 named technologies absent from the posting text, and no sponsorship, graduation-window, internship or years claim unsupported by the text. Two `+equivalent` calls read an escape hatch worded without the word "equivalent" (`akunacapital/8035515`, `openai/8fb1615c…`) and are the entries most likely to be wrong. Not spot-checked by a human | Human spot-check of ~10 entries, unscheduled |
 | `FixtureGreenhouseAdapter` (`cli.py`) | Subclasses the real adapter, overrides only `fetch_board` to read a committed JSON file. Constructed with no HTTP client, so it cannot make a request. Attributed to source `greenhouse_fixture` with `source_type='fixture'`, badged **"committed fixture"** in the Operate UI. ADR 0004 | Permanent — this is the offline demo path, not a stopgap |
-| Geocoding | **Does not exist.** No coordinate has ever been written. Every location is `city_only`, `remote`, or `unknown`; `mappable_locations` reads 0 and the UI says "nothing geocoded yet" | M1 (NYC GeoSearch, A4) |
+| Geocoding | **Does not exist.** No coordinate has ever been written. Every location is `city_only`, `remote`, or `unknown`; `mappable_locations` reads 0 and the UI says "nothing geocoded yet". **This row said "Real at M1" for four milestones and was wrong every time** — M1 closed, M2 closed, M3 closed, and no geocoder was built. It is the first slice of M4 because the city cannot open without it (`city.md` §4) | **M4a**, NYC GeoSearch per A4 |
+| `company_locations` table and `data/company-locations.yaml` | **Neither exists**, though §6.6 specifies the table. M4a Task 1 measured why this matters: no ATS posting in 247 names a street, so a job can never place itself on a building and **every building in the city has to come from a curated, human-confirmed company address**. The design is `city.md` §4.4; **Q7** asks how many addresses the human wants to enter. Until the file has rows, the honest render is 247 floating signals over an unlit skyline | **M4a** for the table, the geocoder and the promotion path; the row count is Q7's answer |
+| Street-level placement of any job | **Impossible from this data, and now measured rather than assumed.** 0 of 247 postings, 139 distinct location strings, 10 fields, 3 providers. Reproduce with `./.venv/bin/python scripts/census_location_text.py`, which refuses to print a count until it has proved on that run that it can see a real address | Not a gap — a property of ATS data. Named on `/analyze/coverage` at **M4a** |
 | Dedupe similarity threshold | **Real, thinly calibrated, and now with one real-world data point.** `SIMILARITY_THRESHOLD = 0.85` was derived from three labelled pairs. M1d's live Datadog poll merged two genuine postings on `similar_description` at **0.864** — the first evidence from outside the labelled set, and it landed close to the line. One observation is not a calibration and nothing was changed on the strength of it, but it is the first sign the number is doing real work at a real boundary. Re-derive as the fixture set grows | Unscheduled; revisit when more live boards are polled |
 | ~~Merge concurrency~~ | **Fixed in M1d** (`408c768`). The defect was reproduced before being fixed — Postgres reported a real `DeadlockDetectedError` between two workers merging the same pair in opposite directions. Both rows are now locked in primary-key order, as two statements rather than one `IN` clause, because a single statement's lock acquisition follows the query plan rather than the sort. Mutation-checked: the caller's order deadlocks on 3 of 3 runs; the fix passed 8 consecutive | Done |
 | Later-arising duplicates | Dedupe runs only on creation, deliberately: re-running the matcher every poll is how a settled merge starts oscillating. The consequence is that two jobs which become duplicates *later* — a title corrected on one board to match the other — never merge, and nothing reconciles them | No milestone. Revisit if visible duplicates are reported |
-| `job_locations.geom` | Column and GiST index exist; always NULL | M1 |
+| `job_locations.geom` | Column and GiST index exist; always NULL | **M4a** |
 | `normalize_title` | Whitespace and dash folding only. Deliberately does **not** attempt role-family normalization — asserted by `test_does_not_attempt_role_family_normalisation` | M3 |
 | ~~`jobs.role_family`, `jobs.seniority`~~ | **Filled in as of M3b (`cbcd5dc`), and this row said otherwise for a day.** `sync_classification` runs on every poll, ungated, and a freshly seeded database reads 16 `unclear`, 5 `director`, 4 `senior`, 3 `mid`, 2 `staff`, 1 `internship` — checked against Postgres rather than inferred. NULL still means "never classified" and stays distinct from `unclear`. **This is the fifth time a list in this project has quietly stopped describing the thing it names, and the fifth in the same direction**: the code moved and the row did not | Done |
 | `jobs.internship_season`, `jobs.internship_year` | **Real, and null on all 31 seeded jobs — which is the correct answer, not a gap.** The seed holds one internship, "Software Engineer Internship, Android", whose title states no season and no year. Across the wider recorded corpus 8 of 19 internships state a season and 10 of 19 a year. The filter reports what it hid rather than returning an empty list | Done |
@@ -5402,8 +5619,9 @@ wrong: ML frameworks (JAX, LangChain, HuggingFace, DSPy), accelerators (CUDA, RO
 | Discovery beyond Ashby | `PROVIDER_PATTERNS` includes both Greenhouse board domains and the code paths work, but **no Greenhouse crawl fixture is recorded**, so `make discover --provider greenhouse` has never run against real data. Greenhouse *validation* is tested, on the recorded `6sense` board | M1d |
 | The 2,605-token figure | Not re-measured by M1c and never claimed by it. The committed slice is **400 rows → 23 tokens**, the alphabetical head of one provider (`0g`…`abridge`). Common Crawl's index 504s at `limit=6000`, so a full harvest needs paging that does not exist | M1d |
 | ~~Discovered boards in the registry~~ | **19 promoted in M1d** (`d3738b6`), on the human's decision. 4 boards → 23, 171 insertions and 0 deletions, nothing lost or modified. Two `Abridge` candidates and two `empty` boards remain withheld for individual review under ADR 0005 | Done |
-| Ashby's `address.postalAddress` | Structured (`addressLocality`/`addressRegion`/`addressCountry`), recorded verbatim in every raw payload, and better geocoding input than the free-text `location`/`secondaryLocations` strings — but deliberately unread by `AshbyAdapter.normalize`. Feeding a second location source into `job_locations` before geocoding has its own fixtures would mean two code paths writing the same table | M1, at the geocoding stage |
-| 3D city, map, MapLibre, Three.js | Not started, not scaffolded, no dependency added. Explore is a list and says so | M4 |
+| Ashby's `address.postalAddress` | Structured (`addressLocality`/`addressRegion`/`addressCountry`), recorded verbatim in every raw payload, and better geocoding input than the free-text `location`/`secondaryLocations` strings — but deliberately unread by `AshbyAdapter.normalize`. Feeding a second location source into `job_locations` before geocoding has its own fixtures would mean two code paths writing the same table. The condition it was waiting on is what M4a builds | **M4a**, at the geocoding stage |
+| 3D city, map, MapLibre, Three.js | Not started, not scaffolded, no dependency added. Explore is a list and says so. Designed in `city.md`; deliberately **not** the first slice of M4, because a renderer over zero coordinates has nothing it is permitted to draw | Basemap and camera **M4b**, signal layer **M4c** |
+| NYC building footprints | Not downloaded, not in PostGIS, no tile pipeline. A4 names the dataset and the approach (load once, filter to rendered boroughs, bake tiles, never query per frame) and nothing has acted on it | **M4b** |
 | Auth | None. Single seeded `dev_user`, id in config (A3). Every user-owned table will still carry a real `user_id` FK from its first migration | M5 |
 | Live polling of Lever/Ashby | **Fixed in M1d.** `ADAPTERS` in `domain/polling.py` covers all three providers, `sync_board_poll_state` gives every pollable registry board a schedule, and `nightshift poll --ats lever --token alloy` works. `active` in the registry now means what an operator would assume. **Caveat:** only `greenhouse:datadog` has actually been polled live end to end. Lever and Ashby were measured serving `304` during design, but their conditional path has been exercised only against fixtures | Polled path proven on one provider; the other two are wired and fixture-tested |
 
