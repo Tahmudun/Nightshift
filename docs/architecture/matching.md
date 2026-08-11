@@ -918,6 +918,17 @@ Three decisions the section above did not settle, taken when it was built:
   (Receptionist) rated `poor` ranked **fifth** under the plain fraction, above
   four postings rated `good`. It now ranks sixth. That single swap is the whole
   of the measured improvement, and it is the swap §2.10 predicted.
+
+  **The table above was measured by a harness that then did not exist in the
+  repository**, and M3d Task 8 found the consequence: the committed grader kept
+  sorting on the plain fraction, so CI reported the first row of this table as
+  the ranking's quality for two tasks after the bottom-but-one row shipped. It
+  reports 0.817 / 0.931 / 0.800 now, reproducing this table's chosen row from the
+  committed fixtures, which is also the first independent confirmation those
+  figures ever had. The arithmetic has one Python definition —
+  `scoring.coverage_weighted_fraction` — and `coverage_weighted_rank`'s SQL is
+  held against it by `test_the_sql_ordering_is_the_documented_key` rather than by
+  the two clauses looking alike.
 - **A null fraction sorts last inside its band, and the response says so.** Such
   a pair keeps its band, because the eligibility verdict on it is real; what it
   has nothing to say about is the ordering. Last rather than first is a decision
@@ -1031,14 +1042,31 @@ rewrites a resume, nothing tailors one, nothing submits anything.
 
 ### 7.1 What M3d measures, in CI
 
-| Metric | Against |
-|---|---|
-| Eligibility precision **and recall** | The answer key, per state |
-| Skill-extraction precision and recall | `required_tech` vs `mentioned_not_required` |
-| `required` vs `preferred` classification accuracy | The answer key |
-| Hallucination rate | Must be exactly zero — see below |
-| Ranking stability | Identical inputs + identical `ruleset_version` → byte-identical output, twice |
-| Embedding-proposed share | What fraction of awarded points came from `proposed_by = embedding` |
+The table below was the plan. **Brought level with what exists at M3d Task 8**,
+because the milestone's own acceptance criterion is *"the eval suite runs in
+CI"* and the distinction that criterion hides is which of these can turn a merge
+red.
+
+| Metric | Against | Where | Gate |
+|---|---|---|---|
+| Eligibility precision **and recall**, per state | `gate(labeled)` vs `gate(extracted)`, 60 postings × 4 profiles | `test_eligibility_verdicts_against_the_answer_key.py` | **Reported.** One hard gate beside it: zero blocks the labels do not support |
+| Skill-extraction precision and recall | `required_tech` vs `mentioned_not_required` | `test_requirement_extraction_against_the_answer_key.py` | **Gated** — 0.84 / 0.86 |
+| `required` vs `preferred` classification accuracy | The answer key | Same file | **Gated** — 0.91 |
+| Hallucination rate | Must be exactly zero — see §7.2 | A trigger for the job span; `test_matching_golden.py` for the user span | **Gated**, as an equality |
+| Ranking stability | Identical inputs + identical `ruleset_version` → byte-identical output, twice | `test_matching_golden.py` | **Gated** |
+| Embedding-proposed share | Fraction of awarded points from `proposed_by = embedding` | `test_embedding_proposals.py` | **Published** — 0 of 9,417. A separate set assertion is gated |
+| Five reading accuracies | The answer key, field by field | `test_eligibility_reading_against_the_answer_key.py` | **Four gated** — 0.86 / 0.98 / 0.88 / 0.91. `enrollment_required` reported, named in `REPORTED_NOT_GATED` |
+| Ranking **quality** — NDCG@10/@30, precision@5/@10 | Thirty human ratings, one profile | `test_ranking_quality_against_the_ratings.py` | **Reported.** §7.3, and the corpus is nine employers |
+
+**Three of these are reported and not gated, on purpose**, and the order is
+§2.5's: report first, baseline second, gate third. A floor chosen before a
+number is measured is either unreachable or vacuous and there is no way to tell
+which from outside. What that costs is stated rather than absorbed: a reported
+number reads exactly like a gated one in a green run, and M3d Task 2 exists
+because five of them sat that way for a milestone after the condition they were
+waiting on had been met. Every ungated number in this table now carries its
+reason in code — `REPORTED_NOT_GATED`, or a module docstring — and
+`test_every_label_field_is_graded_or_named` fails if one appears without one.
 
 ### 7.2 The hallucination check is an equality, not a rate
 
@@ -1105,6 +1133,24 @@ human's availability. If it does not happen, M3 ships with ranking *stability*
 measured and ranking *quality* unmeasured, and PROGRESS says so under "Not real
 yet" rather than reporting a metric computed against labels the system wrote for
 itself.
+
+**It happened on 2026-08-10** — QUESTIONS Q5, thirty postings rated
+12 `good` / 11 `acceptable` / 7 `poor`, and M3d Task 5 grades the ranking against
+them. So the paragraph above is history and the numbers are in §7.1. What has
+*not* changed is the reason this section exists: the corpus is nine employers,
+all quant trading firms or AI labs, recorded for eligibility-rule coverage rather
+than as a sample of New York tech, and one rater. NDCG@10 of 0.817 is a statement
+about that slice for that person, and reading it as *"the ranking is 82% good"*
+is exactly the over-broad claim §7.1's discipline is meant to prevent.
+
+**And the metric is only as current as the ordering it sorts on**, which M3d
+Task 8 found out the expensive way: this grader sorted on the plain fraction for
+the two tasks after §5.3's key changed, so what CI reported was the quality of an
+ordering the product had stopped serving. Both now call
+`scoring.coverage_weighted_fraction`, and
+`test_this_corpus_can_tell_the_two_orderings_apart` asserts the corpus can
+distinguish them — because a grader whose corpus cannot see the difference is a
+grader that cannot report the drift either.
 
 **The worksheet exists as of M3c Task 1** — `docs/labeling/relevance-worksheet.md`,
 generated from the same corpus §3.1's answer key uses, filled in at

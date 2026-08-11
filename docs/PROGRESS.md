@@ -20,8 +20,9 @@
 **M3b: COMPLETE, reviewed, CI-green at `7bfbf2d`, merged to `main` as PR #11 (`d2273e7`). `main` green after the merge.**
 **M3c: COMPLETE, reviewed, CI-green at `42b989e`, merged to `main` as PR #12 (`03fa035`). All five CI jobs passed with no findings — the first slice in this project where CI found nothing. Review: `docs/reviews/milestone-3c-review.md`.**
 **Q5 (relevance ratings): ANSWERED 2026-08-10. Thirty rated, profile filled — 12 good / 11 acceptable / 7 poor. M3d has a held-out set.**
-**M3d: Tasks 1–7 of 8 done on `m3d-evaluation`. `make check` green, `make acceptance` exits 0 from a clean `make reset-db`. Not yet a PR.**
-**Current milestone: M3 — explainable matching. Next: M3d Task 8 — ADRs, the review, the M3 acceptance walk.**
+**M3d: COMPLETE — all eight tasks done on `m3d-evaluation`. ADR 0020, ADR 0021, `docs/reviews/milestone-3d-review.md`, and M3's acceptance walk below.**
+**M3: all six acceptance criteria walked with evidence — see "M3 acceptance" below. Two of the six carry a stated limit rather than a clean pass.**
+**Current milestone: M3 — explainable matching, closing. Next: push, open the PR, CI green, merge. Then M4.**
 **Task 11 measured the embedding proposal path and declined to ship it — ADR 0018.**
 **Task 12 gave the seed a reader to be about, and found three false claims on the page — ADR 0019.**
 **Last updated: 2026-08-11**
@@ -31,39 +32,245 @@
 
 ## Next exact action
 
-### M3d is seven tasks in. Next: Task 8 — ADRs, the review, and the M3 acceptance walk.
+### M3d is done. Next: open the PR, get CI green, merge, then start M4.
 
-**The plan is `docs/plans/2026-08-10-m3d-evaluation.md`.** Tasks 1–7 are done and
-committed on `m3d-evaluation`; each is recorded below. `make check` is green and
-`make acceptance` exits 0 from a `make reset-db`.
+Everything M3d owed is committed on `m3d-evaluation`. What remains is not
+engineering:
 
-**Task 8 owes, in this order:**
+1. **Push and open the PR.** The branch is at the remote and has **no PR**, which
+   is why it has had **no CI run at all across eight tasks** — `ci.yml` triggers
+   on `push: [main]` and on `pull_request`, and neither has happened. This is
+   review finding §2.3 and it is the reason two of this milestone's four
+   drift findings survived as long as they did.
+2. **CI green**, then merge. M3's *"eval suite runs in CI"* criterion is walked
+   below against the workflow's contents; a green run is the evidence that the
+   walk is describing something real rather than something configured.
+3. **Then M4** — `docs/architecture/` has no city document yet, and `CLAUDE.md`
+   §6 says M4 is the shippable checkpoint. Write the plan before any MapLibre.
 
-1. **ADRs for what Tasks 1–7 decided.** At least two: the `demonstrated_by:`
-   ontology edge and its `RULESET_LOGIC_VERSION` bump (Task 1), and the
-   coverage-weighted ordering that closed review §2.10 (Task 6). Task 7's
-   deferral-of-one-row and the rename of *resume mismatch warnings* are recorded
-   in `command-center.md` §7.4 and may not need their own.
-2. **`docs/reviews/milestone-3d-review.md`**, looking for the things `CLAUDE.md`
-   §5 lists. Two candidates are already known and are written down under Task 7
-   below: `make acceptance` was red for a week without anybody noticing, and
-   three brand-new checks were vacuous the moment they were written.
-3. **The M3 acceptance walk** — the milestone's six criteria, each with concrete
-   evidence, in this file.
-4. **PROGRESS and any doc M3d invalidated**, then the PR.
-
-**Two things Task 8 must not skip.** M3's criterion is *"eval suite runs in CI"*,
-and Task 5's ranking metric and Task 3's per-state precision/recall are both
-**reported and ungated** by deliberate decision (§2.5 of the plan: report first,
-baseline second, gate third). The walk has to say that plainly rather than let
-"runs in CI" stand in for "gates in CI". And §7.1's table in `matching.md` should
-be brought level with what now exists, since M3d added rows to it.
+**Working-practice change this milestone earned: open the PR as a draft at task
+1 of a slice, not at the end.** It costs nothing, gates nothing, and it is the
+difference between a wrong sort key being caught in four minutes and being caught
+in seven days. `make check` was run before every commit and it was not enough,
+because `make check` does not run the browser suite.
 
 ---
 
-## M3d — the evaluation suite. Tasks 1–7 done, Task 8 open.
+## M3 acceptance — the six criteria, walked
+
+`CLAUDE.md` §6: *"every score decomposes; every positive skill claim resolves to
+an evidence row; hard blockers surface before soft gaps; `uncertain` never
+collapses to a number; eval suite runs in CI; identical inputs + identical
+`ruleset_version` → identical output."*
+
+Walked on 2026-08-11 at the tip of `m3d-evaluation`. **Two of the six pass with a
+stated limit rather than cleanly**, and those are §5 and §2 below.
+
+### 1. Every score decomposes — PASS
+
+A `match_results` row cannot exist without its parts. `MatchScore.__post_init__`
+refuses a score that is not exactly six components, once each — five components
+sum to a smaller total *and* a smaller denominator, so the fraction still looks
+reasonable and nothing downstream notices. Beneath it, migration
+`20260809_1607`'s `ck_match_results_the_total_is_its_parts` refuses the row at
+the database.
+
+The decomposition is stored, not derived on read (ADR 0019 §1): six component
+scores, `match_component_assessments` with a sentence each,
+`match_penalties` with its own `why`, `match_evidence`, `assessed_out_of`, and
+`ruleset_version`.
+
+Evidence: `test_the_response_carries_all_six_components_with_their_weights`,
+`test_every_ranked_row_carries_its_whole_breakdown`,
+`test_the_two_deferred_components_are_named_rather_than_scored` (the ten points
+nobody scored are named on the list, not silently absent), and
+`test_every_score_number_is_load_bearing.py` — every weight, ceiling and
+threshold mutated, each one measured moving the golden corpus.
+
+Read by eye at M3c Task 12, which is where three false sentences were found that
+no unit test could see.
+
+### 2. Every positive skill claim resolves to an evidence row — PASS, with the DDL asymmetry named
+
+§7.2 is an equality, not a rate, and it has two halves with **different teeth**:
+
+| | Enforced by | Runs in CI |
+|---|---|---|
+| A job span quotes the posting at the offsets it claims | A trigger, on INSERT **and** UPDATE — both probed by attacking the database | Yes, and `test_every_job_span_quotes_the_posting_at_the_offsets_it_claims` over 153 postings × 4 profiles |
+| A user span quotes a **confirmed** record, never `resume_extractions` | `test_every_user_span_quotes_something_the_person_confirmed`, plus `verify.py` | Yes, since M3d Task 4. **No trigger** — `user_span_text` points into several tables and no single FK can see it |
+
+Zero violations over the corpus. The embedding-proposed share of awarded points
+is **0 of 9,417** (ADR 0018), published rather than only asserted.
+
+**The limit, stated:** the second row has no DDL behind it. A row inserted by
+hand that quotes an unconfirmed extraction would be accepted by the database and
+caught only by a test. That is written into the docstring rather than implied,
+and it is why M3d Task 4 mattered: before it, that half ran only under
+`make acceptance`, against rows the script had rescored itself.
+
+### 3. Hard blockers surface before soft gaps — PASS
+
+Two mechanisms, at two altitudes.
+
+**In the gate:** a hard blocker outranks a soft one and outranks an unknown, and
+each carries a quoted span from the posting —
+`test_a_hard_blocker_outranks_a_soft_one`,
+`test_a_blocker_outranks_an_unknown`,
+`test_a_blocker_quotes_the_posting_and_carries_its_span`.
+
+**In the list:** `BAND_ORDER` groups by eligibility state before any score is
+consulted, and the grouping is a visible section header rather than a number
+(§5.3). A senior title is a *penalty* and can never become a blocker —
+`test_a_senior_title_is_a_penalty_and_can_never_be_a_blocker` — which is the
+direction A13 cares about.
+
+Measured, not just asserted: `ineligible` precision is **1.000** over 240 pairs
+(Task 3). The extractor never produced a hard block the labels do not support,
+and `test_a_false_block_would_be_caught` proves the detector can see one, against
+a constructed disagreement.
+
+### 4. `uncertain` never collapses to a number — PASS
+
+Three separate refusals:
+
+- **Eligibility is never part of the score** (§5.2). The verdict sits beside the
+  number, never inside it.
+- **`uncertain` is its own band**, always rendered, above `likely_ineligible` —
+  an open question is not a soft no, and
+  `test_all_five_bands_are_present_even_when_empty` keeps the heading there when
+  there is nothing under it.
+- **A pair nothing could be assessed on has a `None` fraction, never `0.0`.**
+  Zero sorts a posting last and one sorts it first, and both are claims about a
+  pair nobody could score. `score_fraction` is the single rule, and
+  `test_a_pair_nothing_could_be_assessed_on_sorts_last_in_its_band` holds the
+  ordering: such a row keeps its band and leaves the ordering, marked
+  `unassessed_sort_last` on the wire.
+
+`A13`'s direction is measured too: the errors run safe. `eligible` precision
+0.711 (shows somebody a posting they may not get) against `ineligible` precision
+1.000 (never removes one from their world silently).
+
+### 5. Eval suite runs in CI — PASS on the wording, and the wording is doing work
+
+`matching.md` §7.1's table is the full inventory, brought level with what exists
+at Task 8 and split by whether a metric can turn a merge red. Summarised:
+
+| Metric | State |
+|---|---|
+| Skill-extraction precision / recall | **Gated** 0.84 / 0.86 |
+| `required` vs `preferred` accuracy | **Gated** 0.91 |
+| Four reading accuracies | **Gated** 0.86 / 0.98 / 0.88 / 0.91 |
+| Hallucination equality, both halves | **Gated** — a violation is a failing test |
+| Ranking stability | **Gated** — two full runs, byte-identical |
+| Eligibility precision / recall per state | **Reported**, plus one hard gate: zero blocks the labels do not support |
+| `enrollment_required` three-way accuracy | **Reported**, named in `REPORTED_NOT_GATED` with its reason |
+| Ranking quality (NDCG, precision@k) | **Reported** |
+| Embedding-proposed share | **Published**; a separate set assertion is gated |
+
+**The distinction is the point and the criterion hides it.** *"Runs in CI"* is
+satisfied by all nine. *"Gates in CI"* is satisfied by five. The three reported
+ones are deliberate — §2.5 of the plan: report first, baseline second, gate third,
+because a floor chosen before a number is measured is either unreachable or
+vacuous and there is no way to tell which from outside.
+
+**What that costs is not hypothetical.** A reported number reads exactly like a
+gated one in a green run, and this milestone produced two findings of precisely
+that shape: five accuracies sat ungated for a milestone after the condition they
+were waiting on was met (Task 2), and the ranking-quality metric graded an
+ordering the product had stopped serving for two tasks (review §2.1). Every
+ungated number now carries its reason in code, and
+`test_every_label_field_is_graded_or_named` fails if one appears without one.
+
+### 6. Identical inputs + identical `ruleset_version` → identical output — PASS
+
+`test_two_full_runs_are_byte_identical` rebuilds the corpus and **re-extracts**
+rather than comparing a cached string to itself — 153 postings × 4 profiles,
+twice, byte-identical.
+
+The regeneration guard is the stronger half:
+`test_a_score_that_moved_without_a_version_bump_is_refused` refuses a golden
+regeneration while `ruleset_version` stays put, and
+`test_the_refusal_names_what_moved` makes the refusal legible. It has fired
+twice unprompted and been right both times — at M3c Task 12 (`RULESET_LOGIC_VERSION`
+→ 2, for nice-to-have evidence rows that moved no total but changed the evidence
+graph) and at M3d Task 1 (→ 3, for the ontology edges). **Nobody remembered to
+bump it either time; the guard made it impossible not to.**
+
+`test_growing_the_corpus_is_not_a_rule_change` keeps the guard from firing on
+added postings, which is what would otherwise make people disable it.
+
+---
+
+## M3d — the evaluation suite. All eight tasks done.
 
 Branch `m3d-evaluation`, not yet a PR.
+
+### Task 8 — the ADRs, the review, and a metric that had been grading the wrong thing
+
+**Shipped:** ADR 0020 (the ontology edge), ADR 0021 (the ordering key),
+`docs/reviews/milestone-3d-review.md`, the M3 acceptance walk above,
+`scoring.coverage_weighted_fraction`, two new tests, one repaired sort key, one
+repaired `verify.py` check, and `matching.md` §5.3 / §7.1 / §7.3.
+
+**The finding the task existed to find, and it was in Task 5's own file.**
+
+`test_ranking_quality_against_the_ratings.py` sorts the rated corpus the way the
+product sorts it, under a docstring reading *"the product's own ordering (§5.3),
+not a second opinion about it."* Task 6 replaced that ordering one commit later
+and did not touch the grader. So CI reported:
+
+    NDCG@10      0.811   <- the ordering M3c shipped
+    precision@5  0.600
+
+for a product serving 0.817 / 0.800. Run the committed grader before the repair
+and **the receptionist that Task 6 exists to demote is still printed at rank
+five** — the milestone's own metric showing the defect the milestone had fixed.
+
+Task 7 found the same drift in `verify.py` and `matching.spec.ts` and repaired
+both, because both went red. This one did not go red **because it gates nothing**.
+A reported metric cannot fail; it can only be wrong, and only to somebody who
+runs it with `-s` and compares the number to a document.
+
+Fixed by giving the arithmetic one Python definition that the grader and
+`verify.py` both call, with `coverage_weighted_rank`'s SQL held against it by
+`test_the_sql_ordering_is_the_documented_key` over rows chosen so the plain
+fraction and the raw total each give a *different* permutation. The grader now
+reproduces §5.3's chosen row from committed fixtures — **the first independent
+confirmation Task 6's table ever had**, since it was measured by a harness that
+never entered the repository.
+
+**A second finding, one line long.** Task 7's repair of three vacuous checks
+shipped a fourth: `check(scored >= 0, ...)` is true of every value
+`recompute_pending` can return, including the zero that means the rescore did
+nothing. Now `> 0`.
+
+**A third, and it explains the other two.** `ci.yml` triggers on `push: [main]`
+and `pull_request`. `m3d-evaluation` is pushed and has no PR, so
+`gh run list --branch m3d-evaluation` returns `[]` — **no CI run at all across
+eight tasks.** `matching.spec.ts` does run in CI and was red from Task 6 onward;
+CI would have caught the drift in minutes. CI never ran. The practice change is
+in "Next exact action": open the PR as a draft at task 1.
+
+**One more, recorded because of when it happened.** The third assertion of
+`test_the_sql_ordering_is_the_documented_key` — the non-vacuity one — passed
+while proving nothing on its first draft: two rows tied at a raw total of 20 and
+Python's stable sort reproduced the right permutation. Caught by making it fail
+on purpose, which is the habit the whole review is about, in the test written to
+close the class it is about.
+
+### What ran, on this machine, at Task 8
+
+| Check | Result |
+|---|---|
+| `make check` | **exit 0** — 1734 Python passed (445s), **225 web** passed (22 files); ruff, mypy, prettier, eslint clean |
+| `make acceptance` | **exit 0** — up, migrate, drift, seed, **104 verify checks**, **55 seeded browser tests** passed, 1 skipped |
+| The grader, before and after | 0.811 / 0.926 / 0.600 → **0.817 / 0.931 / 0.800**, reproducing `matching.md` §5.3's chosen row from committed fixtures |
+| `check(scored > 0, ...)` | 31 pairs, under `make acceptance` |
+| Mutation: `coverage_weighted_rank` reverted to the plain fraction | Killed by two tests, both named in the review |
+
+**Not run:** the ARQ worker cron, unchanged from M3c — `recompute_pending` is
+exercised four ways and the cron that calls it by nothing that asserts anything.
+And CI, which is the next action rather than an omission.
 
 ### Task 1 — the ontology edge ADR 0018 asked for (`ff4feeb`)
 
