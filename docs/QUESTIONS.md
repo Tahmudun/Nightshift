@@ -11,6 +11,28 @@ the date, because the reasoning is usually worth more than the decision.
 
 **Raised:** 2026-08-11 (M4a Task 1) · **Type:** product + your time · **Blocking:** no,
 until the city needs a building
+**ANSWERED 2026-08-11: "as many as you'd like — it makes no difference, I can do
+them relatively fast."**
+
+Which answers the scope question by removing it, so the shape was mine to pick.
+`data/company-locations.yaml` ships as a **worksheet**, pre-filled with the nine
+registry companies whose postings parse to NYC, with `street_address` blank. Same
+pattern that answered Q5, which worked.
+
+Two things written into the file rather than assumed:
+
+- **Blank is a correct answer.** A company with no NYC office, or one whose
+  address is not to hand, loads as nothing — not a guess and not a city centroid.
+  Its jobs stay in the unresolved layer, fully usable. The coverage page reports
+  the fill rate rather than hiding it.
+- **A wrong building is worse than no building**, because it looks exactly as
+  confident as a right one and nothing downstream can tell them apart.
+
+**I am deliberately not looking these up myself.** §4.4's argument is that the
+address is the one fact in this system a human vouches for; me finding it on a
+website and typing it in would make `confirmed_by` a fiction on the first row.
+The OSM proposal path stays worth building later, because it proposes and a human
+still promotes — but it is not what fills this file today.
 
 M4's first task was a census, and the answer was a clean zero.
 `services/api/scripts/census_location_text.py` walked 247 recorded postings across
