@@ -26,8 +26,24 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from nightshift.config import Settings, get_settings
-from nightshift.db.base import JobStatus
-from nightshift.db.models import Company, Job
+from nightshift.db.base import (
+    EligibilityState,
+    EvidenceSource,
+    JobStatus,
+    JobTextField,
+    MatchComponent,
+    PenaltyName,
+)
+from nightshift.db.models import (
+    Company,
+    Job,
+    MatchComponentAssessment,
+    MatchEvidence,
+    MatchPenalty,
+    MatchResult,
+    User,
+)
+from nightshift.domain.matching_weights import load_weights
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
 
@@ -115,6 +131,125 @@ async def make_job_with_text(session: AsyncSession, text_: str | None) -> Job:
     session.add(job)
     await session.flush()
     return job
+
+
+#: Which components are left unassessable to reach a given denominator, and so
+#: which totals a stored row can legally carry. Written out rather than computed
+#: so the arithmetic a test depends on is visible to the person reading it — the
+#: weights are 20, 30, 20, 10, 10, 10, and migration `0018`'s trigger ties
+#: `assessed_out_of` to exactly the assessable subset.
+#:
+#: Moved here from `test_match_ranking_routes.py` at M3d Task 7, when the daily
+#: queue became the second surface that ranks stored scores. Two copies of this
+#: map would drift, and the failure would be a test asserting an ordering that
+#: the trigger would have refused in production.
+UNASSESSABLE_FOR: dict[int, tuple[MatchComponent, ...]] = {
+    100: (),
+    80: (MatchComponent.PROJECT,),
+    50: (MatchComponent.SKILL, MatchComponent.PROJECT),
+    20: (
+        MatchComponent.SKILL,
+        MatchComponent.PROJECT,
+        MatchComponent.LOCATION,
+        MatchComponent.FRESHNESS,
+        MatchComponent.PRIORITY,
+    ),
+    0: tuple(MatchComponent),
+}
+
+
+def quoted_evidence(
+    result: MatchResult, *, component: MatchComponent, points: int, quote: str, text_: str
+) -> MatchEvidence:
+    """A person-claim evidence row quoting ``text_`` at real offsets.
+
+    The quoting trigger reads the field and checks the characters, so the span
+    has to be *true of the text* rather than merely plausible. That is the point
+    of the trigger and the reason this helper exists instead of a literal.
+    """
+    start = text_.index(quote)
+    return MatchEvidence(
+        match_result_id=result.id,
+        component=component,
+        points=points,
+        job_span_text=quote,
+        job_span_field=JobTextField.DESCRIPTION_TEXT,
+        job_char_start=start,
+        job_char_end=start + len(quote),
+        user_span_text=quote,
+        proposed_by=EvidenceSource.RULE,
+    )
+
+
+async def store_score(
+    session: AsyncSession,
+    *,
+    user: User,
+    job: Job,
+    overall: int,
+    out_of: int,
+    state: EligibilityState,
+    quote: str = "Python",
+    ruleset: str | None = None,
+) -> MatchResult:
+    """One stored score with the total and denominator a test needs.
+
+    Built by hand rather than scored, because the surfaces that consume these
+    rows are about *ordering* and a real scorer cannot be asked for a 40/50 and a
+    45/100 on demand. `test_match_routes.py` is where the serialisation of a
+    genuinely computed score is checked.
+
+    Points go to `role` and `skill` because those are the two the evidence guard
+    has something to check; the split is arbitrary and the fraction is not.
+    ``quote`` must appear in the job's description — see `quoted_evidence`.
+    """
+    unassessable = UNASSESSABLE_FOR[out_of]
+    role = min(overall, 20)
+    skill = overall - role
+    result = MatchResult(
+        user_id=user.id,
+        job_id=job.id,
+        overall_score=overall,
+        assessed_out_of=out_of,
+        eligibility_status=state,
+        role_score=role,
+        skill_score=skill,
+        project_evidence_score=0,
+        location_score=0,
+        freshness_score=0,
+        priority_score=0,
+        penalty_score=0,
+        ruleset_version=ruleset or load_weights().ruleset_version,
+    )
+    result.assessments = [
+        MatchComponentAssessment(
+            component=component,
+            assessable=component not in unassessable,
+            why="a reason this test does not depend on",
+        )
+        for component in MatchComponent
+    ]
+    result.penalties = [
+        MatchPenalty(
+            name=name,
+            points=0,
+            applicable=False,
+            why="a reason this test does not depend on",
+        )
+        for name in PenaltyName
+    ]
+    session.add(result)
+    await session.flush()
+    text_ = job.description_text or ""
+    for component, points in ((MatchComponent.ROLE, role), (MatchComponent.SKILL, skill)):
+        if points:
+            session.add(
+                quoted_evidence(
+                    result, component=component, points=points, quote=quote, text_=text_
+                )
+            )
+    await session.flush()
+    return result
 
 
 @pytest_asyncio.fixture(scope="session", loop_scope="session")

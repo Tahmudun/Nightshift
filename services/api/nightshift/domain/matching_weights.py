@@ -41,7 +41,7 @@ DEFAULT_WEIGHTS_PATH = Path(__file__).resolve().parents[4] / "data" / "matching.
 #: a row appearing is a change to what a person is told. The golden test refused
 #: to regenerate until this line moved, which is the paragraph above working
 #: rather than a developer remembering.
-RULESET_LOGIC_VERSION = "2"
+RULESET_LOGIC_VERSION = "3"
 
 #: The six components, in the order §5.1 lists them. Named here rather than read
 #: from the file: a component the code has never heard of must be a load error,

@@ -49,11 +49,13 @@ and freshness worth 50 points between them, which nobody chose.
 
 from __future__ import annotations
 
+import math
 import re
 import uuid
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import date
+from types import MappingProxyType
 from typing import Any
 
 from nightshift.db.base import (
@@ -68,10 +70,14 @@ from nightshift.domain.matching_weights import MatchingWeights
 from nightshift.domain.requirement_extraction import RequirementProposal
 from nightshift.domain.role_classification import TextSpan
 
-#: Bumped when any rule below changes shape. Composed onto every stored score by
-#: `matching_weights.ruleset_version()`, and what keeps it honest is Task 6's
-#: golden test rather than anyone remembering.
-SCORING_VERSION = "m3c.1"
+#: Deleted at M3d Task 1: `SCORING_VERSION = "m3c.1"` lived here claiming to be
+#: "composed onto every stored score by `matching_weights.ruleset_version()`".
+#: It was not. Nothing imported it, nothing read it, and no stored row has ever
+#: carried it — `matching_weights.RULESET_LOGIC_VERSION` is the constant that
+#: actually composes into `ruleset_version()`. A dead constant is cheap; a dead
+#: constant whose comment describes a mechanism that does not exist is the
+#: defect ADR 0019 is about, and it survived twelve tasks of M3c because nobody
+#: greps for a name they are not already looking for.
 
 
 @dataclass(frozen=True)
@@ -129,6 +135,31 @@ def score_fraction(overall: int, assessed_out_of: int) -> float | None:
     if not assessed_out_of:
         return None
     return overall / assessed_out_of
+
+
+def coverage_weighted_fraction(overall: int, assessed_out_of: int) -> float | None:
+    """What the ranked list is ordered by — `fraction * sqrt(assessed_out_of/100)`.
+
+    `matching.md` §5.3 carries the measurement that chose it. **This is the
+    ordering key and not the displayed number**: every row still prints
+    `score_fraction`, the honest "of what could be assessed" figure, so a reader
+    can see 17% ranked above 30% and `MatchRankingOut.ordering` says why.
+
+    One definition, because M3d Task 8 found there had been three. Task 6
+    changed the SQL clause and left `verify.py`, `matching.spec.ts` and the
+    ranking-quality grader each asserting the key they were written against; two
+    of those went red and were repaired at Task 7, and **the third reported a
+    number for an ordering this system had stopped serving.** `None` propagates
+    from `score_fraction` for exactly the same reason it does there.
+
+    `coverage_weighted_rank` in `domain/matching.py` is the same arithmetic as a
+    SQL clause, because Postgres cannot call this. They are held together by
+    `test_the_sql_ordering_is_the_documented_key`, over stored rows.
+    """
+    fraction = score_fraction(overall, assessed_out_of)
+    if fraction is None:
+        return None
+    return fraction * math.sqrt(assessed_out_of / 100)
 
 
 @dataclass(frozen=True)
@@ -356,8 +387,40 @@ def _skill_index(profile: ScoringProfile) -> dict[str, ConfirmedSkill]:
     return index
 
 
+#: No ontology edges. The explicit name exists so a call site that means "this
+#: score reads no edges" says so, rather than reaching a default nobody chose.
+NO_DEMONSTRATION_EDGES: Mapping[str, tuple[str, ...]] = MappingProxyType({})
+
+
+def _demonstrating_skill(
+    requirement_value: str,
+    index: dict[str, ConfirmedSkill],
+    demonstrates: Mapping[str, tuple[str, ...]],
+) -> ConfirmedSkill | None:
+    """The confirmed tool that stands as evidence of ``requirement_value``.
+
+    ADR 0018's edge, applied in the one direction it was written for. **One hop,
+    never a chain**: the tools are looked up in the index of confirmed skills and
+    are never themselves expanded, so two independently defensible edges cannot
+    compose into a claim nobody made.
+
+    File order decides which tool wins when somebody has confirmed several, and
+    that is a determinism requirement rather than a preference — the golden file
+    pins this row and a set's iteration order would move it between runs.
+    """
+    for tool in demonstrates.get(requirement_value, ()):
+        skill = index.get(_normalize(tool))
+        if skill is not None:
+            return skill
+    return None
+
+
 def score_skill_overlap(
-    posting: PostingForScoring, profile: ScoringProfile, *, weight: int
+    posting: PostingForScoring,
+    profile: ScoringProfile,
+    *,
+    weight: int,
+    demonstrates: Mapping[str, tuple[str, ...]] = NO_DEMONSTRATION_EDGES,
 ) -> ComponentScore:
     """What fraction of what the posting *requires* this person has confirmed.
 
@@ -385,12 +448,24 @@ def score_skill_overlap(
     required = _required_technologies(posting)
     index = _skill_index(profile)
 
+    demonstrated_count = 0
+
     def confirmed_rows(requirements: list[RequirementProposal]) -> tuple[list[Evidence], int]:
+        nonlocal demonstrated_count
         rows: list[Evidence] = []
         for requirement in requirements:
             skill = index.get(_normalize(requirement.value))
+            # Only when the concept is not confirmed directly. Somebody who
+            # typed "Machine Learning" said it themselves, and reporting that as
+            # demonstrated-by-PyTorch would describe the weaker of two true
+            # claims.
+            via_tool = skill is None
+            if skill is None:
+                skill = _demonstrating_skill(requirement.value, index, demonstrates)
             if skill is None:
                 continue
+            if via_tool:
+                demonstrated_count += 1
             rows.append(
                 Evidence(
                     component=MatchComponent.SKILL,
@@ -409,6 +484,11 @@ def score_skill_overlap(
                         "requirement": requirement.value,
                         "confirmed_as": skill.name,
                         "necessity": requirement.necessity,
+                        # Present only when the concept was reached through a
+                        # tool, so the panel can say "PyTorch, which
+                        # demonstrates this" rather than claiming the person
+                        # confirmed the concept itself.
+                        **({"demonstrated_via": skill.name} if via_tool else {}),
                     },
                     requirement=requirement,
                 )
@@ -454,7 +534,14 @@ def score_skill_overlap(
         component=MatchComponent.SKILL,
         points=points,
         assessable=True,
-        why=f"{matched} of {len(required)} required technologies confirmed",
+        why=(
+            f"{matched} of {len(required)} required technologies confirmed"
+            + (
+                f", {demonstrated_count} of them demonstrated by a confirmed tool rather than named"
+                if demonstrated_count
+                else ""
+            )
+        ),
         evidence=tuple(rows + nice_to_haves),
     )
 
@@ -590,7 +677,11 @@ def score_role_relevance(
 
 
 def score_project_evidence(
-    posting: PostingForScoring, profile: ScoringProfile, *, weight: int
+    posting: PostingForScoring,
+    profile: ScoringProfile,
+    *,
+    weight: int,
+    demonstrates: Mapping[str, tuple[str, ...]] = NO_DEMONSTRATION_EDGES,
 ) -> ComponentScore:
     """Required technologies a project demonstrates, quoted from its own bullets.
 
@@ -621,9 +712,26 @@ def score_project_evidence(
         for requirement in requirements:
             wanted = _normalize(requirement.value)
             for project in profile.projects:
-                if wanted not in {_normalize(t) for t in project.technologies}:
-                    continue
-                quoted = _quote_from(project.evidence, requirement.value)
+                built_with = {_normalize(t) for t in project.technologies}
+                # The term whose words the bullet must actually contain. When
+                # the concept itself is not one of the project's technologies,
+                # an edge may nominate a tool that is — and then the span quotes
+                # the tool, because the tool is what the bullet says.
+                term = requirement.value
+                via_tool = False
+                if wanted not in built_with:
+                    term = next(
+                        (
+                            tool
+                            for tool in demonstrates.get(requirement.value, ())
+                            if _normalize(tool) in built_with
+                        ),
+                        "",
+                    )
+                    if not term:
+                        continue
+                    via_tool = True
+                quoted = _quote_from(project.evidence, term)
                 if quoted is None:
                     continue
                 demonstrated.add(wanted)
@@ -641,6 +749,7 @@ def score_project_evidence(
                             "requirement": requirement.value,
                             "project": project.name,
                             "necessity": requirement.necessity,
+                            **({"demonstrated_via": term} if via_tool else {}),
                         },
                         requirement=requirement,
                     )
@@ -1223,6 +1332,7 @@ def score_match(
     *,
     weights: MatchingWeights,
     as_of: date,
+    demonstrates: Mapping[str, tuple[str, ...]],
 ) -> MatchScore:
     """The whole score for one (person, posting) pair. Pure, and no database.
 
@@ -1237,8 +1347,12 @@ def score_match(
     """
     components = (
         score_role_relevance(posting, profile, weight=weights.weight("role_relevance")),
-        score_skill_overlap(posting, profile, weight=weights.weight("skill_overlap")),
-        score_project_evidence(posting, profile, weight=weights.weight("project_evidence")),
+        score_skill_overlap(
+            posting, profile, weight=weights.weight("skill_overlap"), demonstrates=demonstrates
+        ),
+        score_project_evidence(
+            posting, profile, weight=weights.weight("project_evidence"), demonstrates=demonstrates
+        ),
         score_location_and_work_mode(
             posting, profile, weight=weights.weight("location_and_work_mode")
         ),

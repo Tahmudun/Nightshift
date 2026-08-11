@@ -19,9 +19,11 @@ this string does a known skill appear?
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 import yaml
@@ -53,10 +55,16 @@ class _Term:
 
 class SkillVocabulary:
     def __init__(
-        self, *, version: str, terms: list[_Term], canonical_names: tuple[str, ...]
+        self,
+        *,
+        version: str,
+        terms: list[_Term],
+        canonical_names: tuple[str, ...],
+        demonstrates: dict[str, tuple[str, ...]] | None = None,
     ) -> None:
         self.version = version
         self.canonical_names = canonical_names
+        self._demonstrates = demonstrates or {}
         # Longest first: "Machine Learning" must win over any term inside it,
         # and "PostgreSQL" over its own alias "postgres".
         self._terms = sorted(terms, key=lambda term: term.length, reverse=True)
@@ -83,6 +91,38 @@ class SkillVocabulary:
                         canonical_name=term.canonical_name, char_start=start, char_end=end
                     )
         return sorted(found.values(), key=lambda match: (match.char_start, match.canonical_name))
+
+    @property
+    def edges(self) -> Mapping[str, tuple[str, ...]]:
+        """Every ontology edge at once, for a scorer that reads them all.
+
+        Read-only: the scorer receives the vocabulary's own dictionary, and a
+        caller that could mutate it would be editing the taxonomy for every
+        other caller in the process, `load_vocabulary` being cached.
+        """
+        return MappingProxyType(self._demonstrates)
+
+    def demonstrated_by(self, canonical_name: str) -> tuple[str, ...]:
+        """The tools whose confirmed presence demonstrates ``canonical_name``.
+
+        ADR 0018's ontology edge, and the alternative it was chosen over is the
+        reason for its shape: a cosine score between two technology names
+        measures topical relatedness, and ranks `Java` beside Python above
+        `Machine Learning` beside PyTorch. This is a claim a human wrote into a
+        versioned file and can be argued with in a pull request.
+
+        **One hop, never a chain.** If A is demonstrated by B and B by C, C does
+        not demonstrate A. Nothing here recurses, and
+        `test_the_edge_is_one_hop_and_does_not_chain` is why it must not start:
+        two edges written independently, each defensible, compose into a claim
+        nobody made.
+
+        Empty for a name the vocabulary carries no edge for, and for a name it
+        has never heard of — those are the same answer on purpose, because a
+        concept with no tools listed and a typo are indistinguishable *here* and
+        `parse_vocabulary` is where the typo is caught.
+        """
+        return self._demonstrates.get(canonical_name, ())
 
     def canonical(self, term: str) -> str:
         """This vocabulary's name for ``term``, or ``term`` when it has none.
@@ -151,9 +191,15 @@ def parse_vocabulary(raw: dict[str, Any]) -> SkillVocabulary:
     version = str(raw["version"])
     terms: list[_Term] = []
     canonical: list[str] = []
+    demonstrates: dict[str, tuple[str, ...]] = {}
     for entry in raw["skills"]:
         name = str(entry["name"])
         canonical.append(name)
+        tools = tuple(str(tool) for tool in entry.get("demonstrated_by", []))
+        if tools:
+            if name in tools:
+                raise ValueError(f"{name!r} cannot demonstrate itself")
+            demonstrates[name] = tools
         case_sensitive = bool(entry.get("case_sensitive", False))
         allow_short = bool(entry.get("minimum_length_override", False))
         for term in [name, *(str(alias) for alias in entry.get("aliases", []))]:
@@ -172,7 +218,24 @@ def parse_vocabulary(raw: dict[str, Any]) -> SkillVocabulary:
                     length=len(term),
                 )
             )
-    return SkillVocabulary(version=version, terms=terms, canonical_names=tuple(canonical))
+    # After the loop, because an edge may name a tool declared further down the
+    # file and reading order is not a constraint anybody should have to know.
+    known = set(canonical)
+    for concept, tools in demonstrates.items():
+        unknown = [tool for tool in tools if tool not in known]
+        if unknown:
+            raise ValueError(
+                f"{concept!r} is demonstrated_by {unknown!r}, which "
+                "this vocabulary does not carry — a name that resolves to "
+                "nothing is an edge that silently never fires"
+            )
+
+    return SkillVocabulary(
+        version=version,
+        terms=terms,
+        canonical_names=tuple(canonical),
+        demonstrates=demonstrates,
+    )
 
 
 @lru_cache(maxsize=4)

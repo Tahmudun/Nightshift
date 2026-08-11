@@ -6,6 +6,7 @@ import {
   companyDetailSchema,
   dailyQueueSchema,
   queueRowSchema,
+  queueSectionBlindSpotSchema,
   queueSectionKeySchema,
   jobDetailSchema,
   jobListSchema,
@@ -495,15 +496,25 @@ describe('dailyQueueSchema', () => {
     current_stage: 'applied',
     at: '2026-08-04T12:00:00+00:00',
     because: 'no activity from you in 9 days',
+    eligibility: null,
   };
 
   it('accepts a well-formed queue', () => {
     const parsed = dailyQueueSchema.parse({
       generated_at: '2026-08-04T12:00:00+00:00',
-      sections: [{ key: 'follow_up', title: 'Follow up', rows: [row], total: 1 }],
+      sections: [
+        {
+          key: 'follow_up',
+          title: 'Follow up',
+          rows: [row],
+          total: 1,
+          blind_spots: [],
+          note: null,
+        },
+      ],
       total_rows: 1,
       deferred_rows: [
-        { name: 'Best new internships', blocked_on: 'milestone 3', reason: 'no score yet' },
+        { name: 'High-match roles closing soon', blocked_on: 'the sources', reason: 'no deadline' },
       ],
       thresholds: {
         follow_up_silent_days: 7,
@@ -528,6 +539,19 @@ describe('dailyQueueSchema', () => {
 
   it('refuses a section key the API does not serve', () => {
     expect(queueSectionKeySchema.safeParse('recommended_action').success).toBe(false);
+  });
+
+  it('allows a row with no application, because a suggestion has none yet', () => {
+    // M3d Task 7. The page links such a row to the posting instead.
+    const offered = { ...row, application_id: null, current_stage: null, eligibility: 'uncertain' };
+    expect(queueRowSchema.safeParse(offered).success).toBe(true);
+  });
+
+  it('refuses a blind spot with a count and no sentence', () => {
+    // A bare "4" beside a section is exactly the unexplained number I4 is
+    // about, one level up from a score.
+    const spot = { name: 'not_yet_scored', count: 4, because: '' };
+    expect(queueSectionBlindSpotSchema.safeParse(spot).success).toBe(false);
   });
 });
 

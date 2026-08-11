@@ -31,6 +31,7 @@ from nightshift.domain.matching_weights import (
 from nightshift.domain.requirement_extraction import RequirementProposal
 from nightshift.domain.role_classification import TextSpan, classify_role
 from nightshift.domain.scoring import (
+    NO_DEMONSTRATION_EDGES,
     PENALIZED_REQUIREMENT_KINDS,
     WEIGHT_NAME,
     ComponentScore,
@@ -53,6 +54,7 @@ from nightshift.domain.scoring import (
     score_role_relevance,
     score_skill_overlap,
 )
+from nightshift.domain.skill_vocabulary import load_vocabulary
 
 DESCRIPTION = (
     "What you'll need: strong Python and production experience with PostgreSQL. "
@@ -1099,7 +1101,13 @@ def test_score_match_runs_every_component_and_both_penalties() -> None:
         source_published_at=date(2026, 8, 1),
     )
 
-    score = score_match(posting, profile, weights=load_weights(), as_of=date(2026, 8, 9))
+    score = score_match(
+        posting,
+        profile,
+        weights=load_weights(),
+        as_of=date(2026, 8, 9),
+        demonstrates=NO_DEMONSTRATION_EDGES,
+    )
 
     assert {c.component for c in score.components} == set(MatchComponent)
     assert {p.name for p in score.penalties} == set(PENALTY_NAMES)
@@ -1116,7 +1124,11 @@ def test_the_same_inputs_score_identically_twice() -> None:
         skills=(ConfirmedSkill(name="Python"),), preferred_roles=("backend engineer",)
     )
     args = (_posting(source_published_at=date(2026, 7, 1)), profile)
-    kwargs = {"weights": load_weights(), "as_of": date(2026, 8, 9)}
+    kwargs = {
+        "weights": load_weights(),
+        "as_of": date(2026, 8, 9),
+        "demonstrates": NO_DEMONSTRATION_EDGES,
+    }
 
     assert score_match(*args, **kwargs) == score_match(*args, **kwargs)  # type: ignore[arg-type]
 
@@ -1140,3 +1152,187 @@ def test_a_component_counted_twice_is_refused() -> None:
 
     with pytest.raises(ValueError, match="role"):
         compose_score(duplicated, (), weights=_weights())
+
+
+# ---------------------------------------------------------------------------
+# demonstrated_by — ADR 0018's ontology edge, reaching the score
+# ---------------------------------------------------------------------------
+
+ML_DESCRIPTION = "What you'll need: production experience with Machine Learning."
+
+
+def _ml_posting() -> PostingForScoring:
+    start = ML_DESCRIPTION.index("Machine Learning")
+    return PostingForScoring(
+        title="Research Engineer",
+        description_text=ML_DESCRIPTION,
+        role_family=RoleFamily.SOFTWARE_ENGINEERING,
+        role_family_span=TextSpan(
+            field="title", text="Research Engineer", char_start=0, char_end=17
+        ),
+        requirements=(
+            RequirementProposal(
+                kind="technology",
+                value="Machine Learning",
+                raw_text="Machine Learning",
+                char_start=start,
+                char_end=start + len("Machine Learning"),
+                necessity="required",
+            ),
+        ),
+    )
+
+
+_ML_EDGES = {"Machine Learning": ("PyTorch", "TensorFlow")}
+
+
+def test_a_confirmed_tool_demonstrates_the_concept_it_is_evidence_of() -> None:
+    """ADR 0018: PyTorch really is evidence of machine learning.
+
+    The 33 occurrences across the corpus the rules-only scorer missed entirely.
+    """
+    profile = ScoringProfile(skills=(ConfirmedSkill(name="PyTorch", taxonomy_id="PyTorch"),))
+
+    result = score_skill_overlap(_ml_posting(), profile, weight=30, demonstrates=_ML_EDGES)
+
+    assert result.points == 30
+    row = result.evidence[0]
+    assert row.job_span_text == "Machine Learning"
+    assert row.user_span_text == "PyTorch"
+
+
+def test_the_row_says_the_concept_was_demonstrated_rather_than_named() -> None:
+    """A person reading this must not be told they confirmed "Machine Learning".
+
+    They confirmed PyTorch. The claim is that one is evidence of the other, and
+    the row has to carry which of the two happened — this is the same distinction
+    ADR 0019 found the page getting wrong three times in one screen.
+    """
+    profile = ScoringProfile(skills=(ConfirmedSkill(name="PyTorch", taxonomy_id="PyTorch"),))
+
+    result = score_skill_overlap(_ml_posting(), profile, weight=30, demonstrates=_ML_EDGES)
+
+    assert result.evidence[0].compared["confirmed_as"] == "PyTorch"
+    assert result.evidence[0].compared["demonstrated_via"] == "PyTorch"
+    assert "demonstrat" in result.why
+
+
+def test_a_directly_confirmed_concept_is_not_reported_as_demonstrated() -> None:
+    """Somebody who confirmed "Machine Learning" itself said so directly."""
+    profile = ScoringProfile(
+        skills=(ConfirmedSkill(name="Machine Learning", taxonomy_id="Machine Learning"),)
+    )
+
+    result = score_skill_overlap(_ml_posting(), profile, weight=30, demonstrates=_ML_EDGES)
+
+    assert result.points == 30
+    assert "demonstrated_via" not in result.evidence[0].compared
+
+
+def test_the_edge_is_one_hop_and_does_not_chain() -> None:
+    """ADR 0018: PyTorch demonstrates machine learning, never TensorFlow.
+
+    Two edges written independently, each defensible, must not compose into a
+    claim nobody made.
+    """
+    profile = ScoringProfile(
+        skills=(ConfirmedSkill(name="scikit-learn", taxonomy_id="scikit-learn"),)
+    )
+    chained = {"Machine Learning": ("PyTorch",), "PyTorch": ("scikit-learn",)}
+
+    result = score_skill_overlap(_ml_posting(), profile, weight=30, demonstrates=chained)
+
+    assert result.points == 0
+    assert result.evidence == ()
+
+
+def test_no_edges_leaves_the_concept_unmatched() -> None:
+    """The behaviour before this task, kept reachable so the edge is shown to be
+    what moved the score rather than something else."""
+    profile = ScoringProfile(skills=(ConfirmedSkill(name="PyTorch", taxonomy_id="PyTorch"),))
+
+    result = score_skill_overlap(_ml_posting(), profile, weight=30, demonstrates={})
+
+    assert result.points == 0
+
+
+def test_a_project_built_with_a_tool_demonstrates_the_concept() -> None:
+    """The same edge, one component over.
+
+    A project whose bullet names PyTorch is evidence of machine learning for the
+    reason a confirmed PyTorch skill is — and the span quotes the tool, because
+    the tool is what the bullet actually says.
+    """
+    project = ConfirmedProject(
+        name="Sharded trainer",
+        technologies=("PyTorch",),
+        evidence="Trained a ranking model in PyTorch across four GPUs.",
+    )
+
+    result = score_project_evidence(
+        _ml_posting(), ScoringProfile(projects=(project,)), weight=20, demonstrates=_ML_EDGES
+    )
+
+    assert result.points == 20
+    row = result.evidence[0]
+    assert row.job_span_text == "Machine Learning"
+    # The sentence, per `_quote_from` — and it has to be the one naming the
+    # tool, because the tool is the only thing on the person's side that is
+    # quotable here. The posting says "Machine Learning" and this bullet never
+    # does.
+    assert "PyTorch" in row.user_span_text
+    assert row.compared["demonstrated_via"] == "PyTorch"
+
+
+def test_a_project_naming_the_tool_with_no_bullet_for_it_produces_no_row() -> None:
+    """§2.1 does not let the project's name stand in for a quotable span, and an
+    edge does not change that — there is still nothing of the person's to quote."""
+    project = ConfirmedProject(
+        name="Sharded trainer",
+        technologies=("PyTorch",),
+        evidence="Trained a ranking model across four GPUs.",
+    )
+
+    result = score_project_evidence(
+        _ml_posting(), ScoringProfile(projects=(project,)), weight=20, demonstrates=_ML_EDGES
+    )
+
+    assert result.points == 0
+    assert result.evidence == ()
+
+
+def test_score_match_passes_the_edges_to_both_components() -> None:
+    """The wiring, asserted rather than assumed.
+
+    `score_skill_overlap` and `score_project_evidence` both default to no edges,
+    so a `score_match` that forgot to pass them down would score the corpus
+    exactly as it did before this task and every other test would stay green.
+    """
+    profile = ScoringProfile(
+        skills=(ConfirmedSkill(name="PyTorch", taxonomy_id="PyTorch"),),
+        preferred_roles=("software engineer",),
+    )
+
+    result = score_match(
+        _ml_posting(),
+        profile,
+        weights=load_weights(),
+        as_of=date(2026, 1, 1),
+        demonstrates=_ML_EDGES,
+    )
+
+    skill = next(c for c in result.components if c.component is MatchComponent.SKILL)
+    assert skill.points > 0
+
+
+def test_the_committed_vocabulary_carries_the_edges_the_adr_named() -> None:
+    """The file, not a fixture. ADR 0018 named the three concept terms and this
+    is the assertion that the two that can be demonstrated actually are —
+    without it, `demonstrates` is plumbing with nothing flowing through it."""
+    vocab = load_vocabulary()
+
+    assert "PyTorch" in vocab.demonstrated_by("Machine Learning")
+    assert "Kafka" in vocab.demonstrated_by("Distributed Systems")
+    # Deliberately none: every language implements data structures, so any list
+    # would read "you have written code". See the file's own comment.
+    assert vocab.demonstrated_by("Data Structures") == ()

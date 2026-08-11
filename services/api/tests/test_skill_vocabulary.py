@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from nightshift.domain.skill_vocabulary import load_vocabulary
+from nightshift.domain.skill_vocabulary import load_vocabulary, parse_vocabulary
 
 VOCABULARY = load_vocabulary()
 
@@ -126,3 +126,54 @@ def test_every_match_all_span_quotes_the_text() -> None:
     text = "REQUIREMENTS Python, Kotlin, and Rust. NICE TO HAVES Python."
     for m in vocab.match_all(text):
         assert text[m.char_start : m.char_end].casefold() != ""
+
+
+# -- demonstrated_by: the ontology edge ADR 0018 recommends ------------------
+
+
+def test_a_concept_carries_the_tools_that_demonstrate_it() -> None:
+    """ADR 0018's edge: PyTorch really is evidence of machine learning.
+
+    One-directional and narrow on purpose. It says a tool demonstrates a
+    concept, never that one tool demonstrates another.
+    """
+    vocab = parse_vocabulary(
+        {
+            "version": "test",
+            "skills": [
+                {"name": "PyTorch"},
+                {"name": "TensorFlow"},
+                {"name": "Machine Learning", "demonstrated_by": ["PyTorch", "TensorFlow"]},
+            ],
+        }
+    )
+    assert vocab.demonstrated_by("Machine Learning") == ("PyTorch", "TensorFlow")
+    assert vocab.demonstrated_by("PyTorch") == ()
+
+
+def test_a_tool_that_is_not_in_the_vocabulary_is_refused() -> None:
+    """A typo'd tool name demonstrates nothing and says nothing while doing it.
+
+    Without this the edge is silently dead: the concept keeps its list, no
+    confirmed skill ever resolves through it, and every test stays green.
+    """
+    with pytest.raises(ValueError, match="Pytorch"):
+        parse_vocabulary(
+            {
+                "version": "test",
+                "skills": [
+                    {"name": "PyTorch"},
+                    {"name": "Machine Learning", "demonstrated_by": ["Pytorch"]},
+                ],
+            }
+        )
+
+
+def test_a_concept_cannot_demonstrate_itself() -> None:
+    with pytest.raises(ValueError, match="itself"):
+        parse_vocabulary(
+            {
+                "version": "test",
+                "skills": [{"name": "Machine Learning", "demonstrated_by": ["Machine Learning"]}],
+            }
+        )

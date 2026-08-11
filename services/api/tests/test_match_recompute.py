@@ -51,6 +51,7 @@ from nightshift.domain.ingestion import sync_requirements
 from nightshift.domain.matching_weights import load_weights
 from nightshift.domain.profile import ProfilePatch, update_profile
 from nightshift.domain.scoring import WEIGHT_NAME, score_match
+from nightshift.domain.skill_vocabulary import load_vocabulary
 from tests.conftest import make_job_with_text, requires_db
 
 pytestmark = [requires_db, pytest.mark.asyncio(loop_scope="session")]
@@ -122,7 +123,13 @@ async def test_a_scored_pair_stores_the_number_the_scorer_produced(
 
     requirements, locations = await _requirements_and_locations(db_session, job)
     posting, _ = matching.posting_for(job, requirements, locations)
-    expected = score_match(posting, matching.profile_for(user), weights=weights, as_of=TODAY)
+    expected = score_match(
+        posting,
+        matching.profile_for(user),
+        weights=weights,
+        as_of=TODAY,
+        demonstrates=load_vocabulary().edges,
+    )
 
     assert stored.overall_score == expected.overall
     assert stored.assessed_out_of == expected.assessed_out_of
@@ -301,7 +308,13 @@ async def test_a_terse_posting_is_scored_out_of_less_than_a_hundred(
     weights = load_weights()
     requirements, locations = await _requirements_and_locations(db_session, job)
     posting, _ = matching.posting_for(job, requirements, locations)
-    expected = score_match(posting, matching.profile_for(user), weights=weights, as_of=TODAY)
+    expected = score_match(
+        posting,
+        matching.profile_for(user),
+        weights=weights,
+        as_of=TODAY,
+        demonstrates=load_vocabulary().edges,
+    )
 
     unassessable = {component.component for component in expected.unassessable}
     assert MatchComponent.SKILL in unassessable

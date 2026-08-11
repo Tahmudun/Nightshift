@@ -870,6 +870,65 @@ Three decisions the section above did not settle, taken when it was built:
   puts them the other way round while both numbers on the page stay true. In
   SQL that is `NULLIF(assessed_out_of, 0)`, which also hands the unassessable
   pairs the null they are entitled to instead of raising.
+
+  **Amended at M3d Task 6: the sort is the fraction *weighted by coverage*.**
+  The paragraph above is right that raw totals are not comparable and wrong to
+  stop there — a fraction of 20 assessable points is not comparable to a fraction
+  of 80 either, which is what the M3c review named at §2.10 and declined to fix
+  for want of a way to choose. The rated corpus is that way. Measured over
+  30 postings against the profile in `ratings.yaml`:
+
+  | Ordering | NDCG@10 | NDCG@30 | P@5 |
+  |---|---|---|---|
+  | fraction (as shipped in M3c) | 0.811 | 0.926 | 0.600 |
+  | raw `overall_score` | 0.777 | 0.902 | 0.800 |
+  | fraction × shrink to corpus mean | 0.811 | 0.924 | 0.600 |
+  | **fraction × √(assessed/100)** | **0.817** | **0.931** | **0.800** |
+  | fraction, ≥50 assessed first | 0.822 | 0.934 | 0.800 |
+
+  Three things decided it, and the size of the win was not one of them — +0.006
+  NDCG@10 over 30 items is well inside what one swap moves.
+
+  1. **It is never worse.** Leave-one-out across all 30 folds: better in 28,
+     tied in 2, worse in none.
+  2. **Both endpoints are worse than the middle.** Sweeping the exponent,
+     `p=0` (the plain fraction) gives 0.811 and `p=1` (which is algebraically
+     raw score) gives 0.777, while `p=0.5` and `p=0.75` both give 0.817. No
+     weighting under-corrects and full weighting over-corrects.
+  3. **The mechanism is the one §2.10 describes**, so the fix is not fitted to
+     the corpus: a posting assessed on a fifth of the score has a fifth of the
+     evidence, and discounting by coverage is what "these denominators are not
+     comparable" means arithmetically.
+
+  The bucketed variant scores marginally higher and was **not** taken: its
+  threshold of 50 is a magic number with no support in this data, and it would
+  need its own entry in `matching.yaml` and its own mutation test to be
+  defensible. √ has no free parameter. **The exponent is not pinned harder than
+  the data supports** — 0.5 and 0.75 are indistinguishable here, and 0.5 is the
+  one with an ordinary name.
+
+  What this cost is legibility, and it is disclosed rather than absorbed. Every
+  row still prints its `fraction` — the honest *of what could be assessed*
+  figure, unchanged on the wire — so a reader can see 17% ranked above 30%. The
+  response therefore carries `ordering: "coverage_weighted_fraction"`, in the
+  shape `unassessed_sort_last` already uses, because without it a reader's only
+  available conclusion is that the list is broken.
+
+  Concretely, on the rated corpus: an Employee Experience Specialist
+  (Receptionist) rated `poor` ranked **fifth** under the plain fraction, above
+  four postings rated `good`. It now ranks sixth. That single swap is the whole
+  of the measured improvement, and it is the swap §2.10 predicted.
+
+  **The table above was measured by a harness that then did not exist in the
+  repository**, and M3d Task 8 found the consequence: the committed grader kept
+  sorting on the plain fraction, so CI reported the first row of this table as
+  the ranking's quality for two tasks after the bottom-but-one row shipped. It
+  reports 0.817 / 0.931 / 0.800 now, reproducing this table's chosen row from the
+  committed fixtures, which is also the first independent confirmation those
+  figures ever had. The arithmetic has one Python definition —
+  `scoring.coverage_weighted_fraction` — and `coverage_weighted_rank`'s SQL is
+  held against it by `test_the_sql_ordering_is_the_documented_key` rather than by
+  the two clauses looking alike.
 - **A null fraction sorts last inside its band, and the response says so.** Such
   a pair keeps its band, because the eligibility verdict on it is real; what it
   has nothing to say about is the ordering. Last rather than first is a decision
@@ -983,14 +1042,31 @@ rewrites a resume, nothing tailors one, nothing submits anything.
 
 ### 7.1 What M3d measures, in CI
 
-| Metric | Against |
-|---|---|
-| Eligibility precision **and recall** | The answer key, per state |
-| Skill-extraction precision and recall | `required_tech` vs `mentioned_not_required` |
-| `required` vs `preferred` classification accuracy | The answer key |
-| Hallucination rate | Must be exactly zero — see below |
-| Ranking stability | Identical inputs + identical `ruleset_version` → byte-identical output, twice |
-| Embedding-proposed share | What fraction of awarded points came from `proposed_by = embedding` |
+The table below was the plan. **Brought level with what exists at M3d Task 8**,
+because the milestone's own acceptance criterion is *"the eval suite runs in
+CI"* and the distinction that criterion hides is which of these can turn a merge
+red.
+
+| Metric | Against | Where | Gate |
+|---|---|---|---|
+| Eligibility precision **and recall**, per state | `gate(labeled)` vs `gate(extracted)`, 60 postings × 4 profiles | `test_eligibility_verdicts_against_the_answer_key.py` | **Reported.** One hard gate beside it: zero blocks the labels do not support |
+| Skill-extraction precision and recall | `required_tech` vs `mentioned_not_required` | `test_requirement_extraction_against_the_answer_key.py` | **Gated** — 0.84 / 0.86 |
+| `required` vs `preferred` classification accuracy | The answer key | Same file | **Gated** — 0.91 |
+| Hallucination rate | Must be exactly zero — see §7.2 | A trigger for the job span; `test_matching_golden.py` for the user span | **Gated**, as an equality |
+| Ranking stability | Identical inputs + identical `ruleset_version` → byte-identical output, twice | `test_matching_golden.py` | **Gated** |
+| Embedding-proposed share | Fraction of awarded points from `proposed_by = embedding` | `test_embedding_proposals.py` | **Published** — 0 of 9,417. A separate set assertion is gated |
+| Five reading accuracies | The answer key, field by field | `test_eligibility_reading_against_the_answer_key.py` | **Four gated** — 0.86 / 0.98 / 0.88 / 0.91. `enrollment_required` reported, named in `REPORTED_NOT_GATED` |
+| Ranking **quality** — NDCG@10/@30, precision@5/@10 | Thirty human ratings, one profile | `test_ranking_quality_against_the_ratings.py` | **Reported.** §7.3, and the corpus is nine employers |
+
+**Three of these are reported and not gated, on purpose**, and the order is
+§2.5's: report first, baseline second, gate third. A floor chosen before a
+number is measured is either unreachable or vacuous and there is no way to tell
+which from outside. What that costs is stated rather than absorbed: a reported
+number reads exactly like a gated one in a green run, and M3d Task 2 exists
+because five of them sat that way for a milestone after the condition they were
+waiting on had been met. Every ungated number in this table now carries its
+reason in code — `REPORTED_NOT_GATED`, or a module docstring — and
+`test_every_label_field_is_graded_or_named` fails if one appears without one.
 
 ### 7.2 The hallucination check is an equality, not a rate
 
@@ -1013,6 +1089,31 @@ same teeth and it matters which:
 | A user span quoting something unconfirmed | `check_match_results` in `verify.py`, and the unit suite. Nothing in DDL |
 | `proposed_by = 'embedding'` (ADR 0018) | `check_match_results`, three unit tests. **The database accepts such a row** |
 
+**M3d Task 4 closed the CI half of the middle row.** The table above was written
+at M3c Task 12 and was accurate: the user-span assertion ran only in `verify.py`,
+which needs a live stack under `make acceptance` and which reads only rows it
+rescored itself. A CI run asserted it nowhere.
+`test_every_user_span_quotes_something_the_person_confirmed` now checks it over
+the whole golden corpus — 153 postings × 4 profiles — with no database, so it
+runs on every push. The DDL column of that row is still empty and still correct:
+no trigger can see it, because `user_span_text` points into several different
+tables.
+
+The check found nothing wrong with the scorer and did find something wrong with
+its own author's model of it. The first draft allowed a user span to quote a
+confirmed skill or a project bullet, and went red naming 53 rows — all of them
+role relevance, whose user-side span is the person's `preferred_roles` string.
+That is confirmed profile data and belongs in the set; the point worth keeping is
+that a corpus-wide equality is also a test of whether the person writing it knows
+what the system stores.
+
+**The embedding-proposed share is published rather than only asserted.** §7.1's
+last row asks for a fraction, and `test_the_scorer_emits_no_evidence_row_an_
+embedding_proposed` answers a different question — whether the *set* of sources
+is `{rule}`. That set assertion is the stronger tripwire and has to be deleted
+the day a proposal path ships; a share keeps reporting after that day. Measured
+over the golden corpus: **0 of 9,417 awarded points.**
+
 `check_match_results` runs last in `verify.py`, after every check that edits a
 profile column or a confirmed skill — each of which deletes every score — so it
 reads only rows it rescored itself. It therefore asserts *the scorer produces no
@@ -1032,6 +1133,24 @@ human's availability. If it does not happen, M3 ships with ranking *stability*
 measured and ranking *quality* unmeasured, and PROGRESS says so under "Not real
 yet" rather than reporting a metric computed against labels the system wrote for
 itself.
+
+**It happened on 2026-08-10** — QUESTIONS Q5, thirty postings rated
+12 `good` / 11 `acceptable` / 7 `poor`, and M3d Task 5 grades the ranking against
+them. So the paragraph above is history and the numbers are in §7.1. What has
+*not* changed is the reason this section exists: the corpus is nine employers,
+all quant trading firms or AI labs, recorded for eligibility-rule coverage rather
+than as a sample of New York tech, and one rater. NDCG@10 of 0.817 is a statement
+about that slice for that person, and reading it as *"the ranking is 82% good"*
+is exactly the over-broad claim §7.1's discipline is meant to prevent.
+
+**And the metric is only as current as the ordering it sorts on**, which M3d
+Task 8 found out the expensive way: this grader sorted on the plain fraction for
+the two tasks after §5.3's key changed, so what CI reported was the quality of an
+ordering the product had stopped serving. Both now call
+`scoring.coverage_weighted_fraction`, and
+`test_this_corpus_can_tell_the_two_orderings_apart` asserts the corpus can
+distinguish them — because a grader whose corpus cannot see the difference is a
+grader that cannot report the drift either.
 
 **The worksheet exists as of M3c Task 1** — `docs/labeling/relevance-worksheet.md`,
 generated from the same corpus §3.1's answer key uses, filled in at

@@ -84,10 +84,17 @@ interface JobDetail {
   match: Match | null;
 }
 
+interface RankedJob {
+  job: { id: string; title: string };
+  match: Match;
+}
+
 interface Ranking {
-  bands: { state: string; items: { job: { id: string; title: string }; match: Match }[] }[];
+  bands: { state: string; items: RankedJob[] }[];
   total: number;
   not_yet_scored: number;
+  /** What the list is sorted by, in the API's own words (M3d Task 6). */
+  ordering: string;
 }
 
 /** Whitespace-collapsed on both sides, so a quote spanning a line break matches. */
@@ -304,19 +311,36 @@ test.describe('how a posting scores for you', () => {
   });
 });
 
+/**
+ * `fraction * sqrt(assessed_out_of / 100)` — `matching.md` §5.3, the key M3d
+ * Task 6 chose by measurement.
+ *
+ * Recomputed from the two numbers on the wire rather than read off the page,
+ * because the printed share and the sort key are deliberately different things:
+ * a row reading 17% can sit above one reading 30%, and only this arithmetic
+ * tells that apart from a broken list.
+ */
+function rankKey(row: RankedJob): number | null {
+  const outOf = row.match.assessed_out_of;
+  return outOf === 0 ? null : row.match.overall_score / (Math.sqrt(outOf) * 10);
+}
+
 test.describe('the ranked list', () => {
-  test('is ordered on the fraction, not on the total', async ({ page }) => {
-    // The reason `assessed_out_of` is a stored column and not a render-time
-    // detail. A component test renders whatever order it is given; this checks
-    // the order that reached the browser, and it is only worth checking because
-    // this corpus distinguishes the two.
+  test('is ordered on the key it says it uses, not on the printed share', async ({ page }) => {
+    // Until M3d Task 7 this test asserted the printed percentages descend, and
+    // it was red: Task 6 had replaced the sort key and moved on. Reading
+    // `ordering` off the response first turns the next such change into a loud
+    // refusal instead of a wrong assertion about a right answer.
+    expect(scored.ordering).toBe('coverage_weighted_fraction');
+
+    // Only worth checking because this corpus distinguishes the two orderings.
     const rows = scored.bands.flatMap((band) => band.items).filter((row) => row.match.fraction);
-    const byFraction = rows.map((row) => row.job.id);
+    const byKey = rows.map((row) => row.job.id);
     const byTotal = [...rows]
       .sort((a, b) => b.match.overall_score - a.match.overall_score)
       .map((row) => row.job.id);
     expect(
-      byFraction,
+      byKey,
       'this corpus cannot tell the two orderings apart, so this test proves nothing',
     ).not.toEqual(byTotal);
 
@@ -331,11 +355,16 @@ test.describe('the ranked list', () => {
         .getByTestId('row-fraction')
         .allInnerTexts();
       const percentages = rendered.map((text) => Number.parseInt(text, 10));
-      expect(percentages, `${band.state} is out of order on screen`).toEqual(
-        [...percentages].sort((a, b) => b - a),
+
+      // The page shows the API's rows in the API's order, unaltered.
+      expect(percentages, `${band.state} does not render the order it was sent`).toEqual(
+        items.map((row) => Math.round(row.match.fraction! * 100)),
       );
-      // And it is the API's order, not a coincidence of equal numbers.
-      expect(percentages).toEqual(items.map((row) => Math.round(row.match.fraction! * 100)));
+      // And that order is the documented key, descending.
+      const keys = items.map((row) => rankKey(row)!);
+      expect(keys, `${band.state} is out of order on screen`).toEqual(
+        [...keys].sort((a, b) => b - a),
+      );
     }
   });
 

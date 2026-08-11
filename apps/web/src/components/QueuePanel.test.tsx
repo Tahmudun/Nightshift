@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { QueuePanel } from './QueuePanel';
@@ -11,9 +11,40 @@ vi.mock('@/lib/api', () => ({
 
 const { fetchQueue } = await import('@/lib/api');
 
+/** An empty section, so a fixture states only what it is about. */
+function bare(
+  key: DailyQueue['sections'][number]['key'],
+  title: string,
+): DailyQueue['sections'][number] {
+  return { key, title, rows: [], total: 0, blind_spots: [], note: null };
+}
+
 const QUEUE: DailyQueue = {
   generated_at: '2026-08-04T12:00:00+00:00',
   sections: [
+    {
+      // M3d Task 7. Deliberately the same row as `follow_up`'s below: this
+      // section repeats one rather than composing one.
+      key: 'todays_one_thing',
+      title: 'If you do one thing today',
+      rows: [
+        {
+          application_id: '00000000-0000-4000-8000-000000000001',
+          job_id: '00000000-0000-4000-8000-000000000002',
+          job_title: 'Backend Engineer',
+          company_name: 'Example Inc.',
+          current_stage: 'applied',
+          at: '2026-07-26T12:00:00+00:00',
+          because: 'no activity from you in 9 days',
+          eligibility: null,
+        },
+      ],
+      total: 1,
+      blind_spots: [
+        { name: 'not_considered', count: 4, because: 'roles the lists below could not consider.' },
+      ],
+      note: 'One row, repeated from a list below. It is picked in this order: an interview coming up, then a follow-up that is due.',
+    },
     {
       key: 'follow_up',
       title: 'Follow up',
@@ -26,24 +57,73 @@ const QUEUE: DailyQueue = {
           current_stage: 'applied',
           at: '2026-07-26T12:00:00+00:00',
           because: 'no activity from you in 9 days',
+          eligibility: null,
         },
       ],
       total: 24,
+      blind_spots: [],
+      note: null,
     },
-    { key: 'interviews_approaching', title: 'Interviews approaching', rows: [], total: 0 },
-    { key: 'stale_saved', title: 'Saved and going quiet', rows: [], total: 0 },
-    { key: 'closed_while_saved', title: 'Closed while you were tracking it', rows: [], total: 0 },
-  ],
-  total_rows: 24,
-  deferred_rows: [
+    bare('interviews_approaching', 'Interviews approaching'),
+    bare('stale_saved', 'Saved and going quiet'),
+    bare('closed_while_saved', 'Closed while you were tracking it'),
     {
-      name: 'Best new internships',
-      blocked_on: 'milestone 3',
-      reason: 'there is no match score yet',
+      key: 'requirement_gaps',
+      title: 'Gaps on roles you are tracking',
+      rows: [
+        {
+          application_id: '00000000-0000-4000-8000-000000000004',
+          job_id: '00000000-0000-4000-8000-000000000005',
+          job_title: 'Platform Engineer',
+          company_name: 'Datadog',
+          current_stage: 'saved',
+          // A gap is not an event and has no date.
+          at: null,
+          because:
+            'asks for Kubernetes, Go and Terraform — nothing you have confirmed answers them',
+          eligibility: 'eligible',
+        },
+      ],
+      total: 1,
+      blind_spots: [
+        { name: 'not_yet_scored', count: 0, because: 'tracked roles with no score yet.' },
+      ],
+      note:
+        'What these postings state they require that nothing in your confirmed skills ' +
+        'answers. Read from your profile, never from a file you uploaded.',
     },
-    { name: 'High-match roles closing soon', blocked_on: 'milestone 3', reason: 'needs a score' },
-    { name: 'Resume mismatch warnings', blocked_on: 'milestone 3', reason: 'needs extraction' },
-    { name: 'The one thing to do today', blocked_on: 'milestone 3', reason: 'needs ranking' },
+    {
+      key: 'best_new_internships',
+      title: 'New internships worth a look',
+      rows: [
+        {
+          // M3d Task 7: a posting the reader is not tracking, so there is no
+          // application behind it.
+          application_id: null,
+          job_id: '00000000-0000-4000-8000-000000000003',
+          job_title: 'Software Engineer Internship',
+          company_name: 'Ramp',
+          current_stage: null,
+          at: '2026-08-01T12:00:00+00:00',
+          because: 'internship for summer 2027, first listed 3 days ago',
+          eligibility: 'uncertain',
+        },
+      ],
+      total: 1,
+      blind_spots: [
+        { name: 'not_yet_scored', count: 4, because: 'recent internships with no score yet.' },
+        {
+          name: 'level_not_read',
+          count: 0,
+          because: 'recent postings whose level was unreadable.',
+        },
+      ],
+      note: 'Internships first listed in the last 14 days that you are not already tracking.',
+    },
+  ],
+  total_rows: 25,
+  deferred_rows: [
+    { name: 'High-match roles closing soon', blocked_on: 'the sources', reason: 'no deadline' },
   ],
   thresholds: {
     follow_up_silent_days: 7,
@@ -52,6 +132,12 @@ const QUEUE: DailyQueue = {
     row_cap: 20,
   },
 };
+
+/** Render, then wait for one section — every assertion below is scoped to one. */
+async function findSection(key: string, queue: DailyQueue = QUEUE) {
+  renderPanel(queue);
+  return screen.findByTestId(`queue-section-${key}`);
+}
 
 function renderPanel(queue: DailyQueue) {
   vi.mocked(fetchQueue).mockResolvedValue(queue);
@@ -71,14 +157,17 @@ describe('QueuePanel', () => {
   });
 
   it('shows each row with the reason it is there', async () => {
-    renderPanel(QUEUE);
-    expect(await screen.findByText('Backend Engineer')).toBeInTheDocument();
-    expect(screen.getByText(/no activity from you in 9 days/i)).toBeInTheDocument();
+    // Scoped to the section. The same role legitimately appears twice now —
+    // once in Follow up and once repeated at the top — and a page-wide query
+    // is a weaker claim than the one this test intends to make.
+    const section = await findSection('follow_up');
+    expect(within(section).getByText('Backend Engineer')).toBeInTheDocument();
+    expect(within(section).getByText(/no activity from you in 9 days/i)).toBeInTheDocument();
   });
 
   it('links each row to its application', async () => {
-    renderPanel(QUEUE);
-    const link = await screen.findByRole('link', { name: /Backend Engineer/i });
+    const section = await findSection('follow_up');
+    const link = within(section).getByRole('link', { name: /Backend Engineer/i });
     expect(link).toHaveAttribute(
       'href',
       '/operate/applications/00000000-0000-4000-8000-000000000001',
@@ -98,13 +187,11 @@ describe('QueuePanel', () => {
     expect(await screen.findByText(/23 more/i)).toBeInTheDocument();
   });
 
-  it('names all four deferred rows without anything being expanded', async () => {
+  it('names every deferred row without anything being expanded', async () => {
     renderPanel(QUEUE);
     const deferred = await screen.findByTestId('deferred-queue-rows');
-    expect(deferred).toHaveTextContent(/best new internships/i);
-    expect(deferred).toHaveTextContent(/resume mismatch/i);
-    expect(deferred).toHaveTextContent(/one thing to do today/i);
-    expect(deferred).toHaveTextContent(/milestone 3/i);
+    expect(deferred).toHaveTextContent(/high-match roles closing soon/i);
+    expect(deferred).toHaveTextContent(/the sources/i);
   });
 
   it('shows no number beside a deferred row', async () => {
@@ -127,8 +214,7 @@ describe('QueuePanel', () => {
   it('does not claim an empty queue when a section has rows', async () => {
     // The inverse of the test above. Without it, a component that always
     // rendered the empty block would pass.
-    renderPanel(QUEUE);
-    await screen.findByText('Backend Engineer');
+    await findSection('follow_up');
     expect(screen.queryByTestId('queue-empty')).toBeNull();
   });
 
@@ -142,11 +228,84 @@ describe('QueuePanel', () => {
     expect(explainer).toHaveTextContent(/14 days/);
   });
 
+  // --- M3d Task 7: rows about postings nobody is tracking yet ---------------
+
+  it('links a row with no application to the posting instead', async () => {
+    // There is no application to open. Linking to the job is also where the
+    // sentence behind the eligibility state lives.
+    renderPanel(QUEUE);
+    const link = await screen.findByRole('link', { name: /Software Engineer Internship/i });
+    expect(link).toHaveAttribute('href', '/explore/jobs/00000000-0000-4000-8000-000000000003');
+  });
+
+  it('shows a suggested row as a state and never as a number', async () => {
+    // I4: a bare score with no breakdown behind it is a bug. The band the row
+    // came out of is a verdict, and the posting page carries its reason.
+    renderPanel(QUEUE);
+    const section = await screen.findByTestId('queue-section-best_new_internships');
+    expect(section).toHaveTextContent(/not enough stated to tell/i);
+    expect(section.textContent ?? '').not.toMatch(/\d+\s*%/);
+  });
+
+  it('states what a section could not see', async () => {
+    // A row computed from scores shows fewer items when the sweep is behind,
+    // and that looks exactly like having less to do.
+    renderPanel(QUEUE);
+    const spots = await screen.findByTestId('queue-blind-spots-best_new_internships');
+    expect(spots).toHaveTextContent(/4/);
+    expect(spots).toHaveTextContent(/recent internships with no score yet/i);
+  });
+
+  it('does not print a blind spot nobody has', async () => {
+    // The API sends every spot so the shape is stable. A permanent "0 hidden"
+    // line is noise, and noise is what stops the non-zero one being read.
+    renderPanel(QUEUE);
+    const spots = await screen.findByTestId('queue-blind-spots-best_new_internships');
+    expect(spots).not.toHaveTextContent(/unreadable/i);
+  });
+
+  it('names the gaps on a tracked role rather than counting them', async () => {
+    renderPanel(QUEUE);
+    const section = await screen.findByTestId('queue-section-requirement_gaps');
+    expect(section).toHaveTextContent(/asks for Kubernetes, Go and Terraform/i);
+  });
+
+  it('never calls a requirement gap a resume problem', async () => {
+    // ADR 0019. The list comes from confirmed skills; a resume proposal is not
+    // a fact about anybody until they say it is (I2). The old spec name for
+    // this row would make a true statement about a database read as a false
+    // one about a document.
+    renderPanel(QUEUE);
+    const section = await screen.findByTestId('queue-section-requirement_gaps');
+    expect(section.textContent ?? '').not.toMatch(/resume/i);
+    expect(section).toHaveTextContent(/confirmed skills/i);
+  });
+
+  it('puts the one thing above the lists it came from', async () => {
+    await findSection('todays_one_thing');
+    const headings = screen.getAllByRole('heading', { level: 2 }).map((node) => node.textContent);
+    expect(headings[0]).toBe('If you do one thing today');
+  });
+
+  it('says which order the one thing was picked by', async () => {
+    // Otherwise it is a recommendation with no account of itself, which is what
+    // I4 forbids one level up from a score.
+    renderPanel(QUEUE);
+    const section = await screen.findByTestId('queue-section-todays_one_thing');
+    expect(section).toHaveTextContent(/repeated from a list below/i);
+    expect(section).toHaveTextContent(/picked in this order/i);
+  });
+
+  it('explains a section whose rows cannot explain themselves', async () => {
+    renderPanel(QUEUE);
+    const section = await screen.findByTestId('queue-section-best_new_internships');
+    expect(section).toHaveTextContent(/first listed in the last 14 days/i);
+  });
+
   it('renders no control that changes anything', async () => {
     // §7.3: the queue suggests and never acts. If a button appears here, it
     // is a decision to be made deliberately rather than by accident.
-    renderPanel(QUEUE);
-    await screen.findByText('Backend Engineer');
+    await findSection('follow_up');
     expect(screen.queryAllByRole('button')).toHaveLength(0);
   });
 });

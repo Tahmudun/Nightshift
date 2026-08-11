@@ -18,6 +18,7 @@ from nightshift.api.schemas import (
     DailyQueueOut,
     DeferredQueueRowOut,
     QueueRowOut,
+    QueueSectionBlindSpotOut,
     QueueSectionOut,
     QueueThresholdsOut,
 )
@@ -37,47 +38,43 @@ router = APIRouter(prefix="/queue", tags=["queue"])
 #: Rendered as headings. Kept beside the keys rather than in TypeScript so the
 #: API is self-describing and the page cannot invent a fifth section.
 SECTION_TITLES: dict[QueueSectionKey, str] = {
+    QueueSectionKey.TODAYS_ONE_THING: "If you do one thing today",
     QueueSectionKey.FOLLOW_UP: "Follow up",
     QueueSectionKey.INTERVIEWS_APPROACHING: "Interviews approaching",
     QueueSectionKey.STALE_SAVED: "Saved and going quiet",
     QueueSectionKey.CLOSED_WHILE_SAVED: "Closed while you were tracking it",
+    QueueSectionKey.REQUIREMENT_GAPS: "Gaps on roles you are tracking",
+    QueueSectionKey.BEST_NEW_INTERNSHIPS: "New internships worth a look",
 }
 
-#: I7: the four rows PRODUCT-SPEC §10.4 asks for that this system cannot
-#: compute honestly yet. Named on the page with the reason, because an empty
-#: section claims "you have none of these" and that is a different, false
-#: statement. `command-center.md` §7.
+#: I7: the rows PRODUCT-SPEC §10.4 asks for that this system cannot compute
+#: honestly yet. Named on the page with the reason, because an empty section
+#: claims "you have none of these" and that is a different, false statement.
+#: `command-center.md` §7.
+#:
+#: **Three rows left this tuple at M3d Task 7** and are real sections now: best
+#: new internships, resume mismatch warnings — the second under a different
+#: name, `command-center.md` §7.4 — and the one thing to do today. Their old
+#: reasons were true when written and stopped being true, which is the failure
+#: mode the one remaining entry is checked against: a deferral is a claim with a
+#: date on it, and one that outlives its cause is a false statement the page
+#: keeps making.
+#:
+#: The one below survives M3 and its `blocked_on` **changed**. It said
+#: *"milestone 3"* and blamed the absent score; the score now exists and the row
+#: is still impossible, because most sources publish no deadline at all (A10)
+#: and Datadog's registry note says that board publishes none. Leaving it
+#: reading "milestone 3" after M3 closes would be a false statement with a date
+#: on it — the exact thing this tuple exists to avoid.
 DEFERRED_ROWS: tuple[DeferredQueueRowOut, ...] = (
     DeferredQueueRowOut(
-        name="Best new internships",
-        blocked_on="milestone 3",
-        reason=(
-            "'best' is a ranking, and there is no match score behind it yet. A list "
-            "ordered by anything else would be a guess wearing a recommendation's clothes."
-        ),
-    ),
-    DeferredQueueRowOut(
         name="High-match roles closing soon",
-        blocked_on="milestone 3",
+        blocked_on="the sources",
         reason=(
-            "needs both a match score and a closing date. Most sources publish no "
-            "deadline at all, so even the second half is often unknowable."
-        ),
-    ),
-    DeferredQueueRowOut(
-        name="Resume mismatch warnings",
-        blocked_on="milestone 3",
-        reason=(
-            "needs requirement extraction and the evidence graph, so that a warning "
-            "can point at the specific gap rather than assert one."
-        ),
-    ),
-    DeferredQueueRowOut(
-        name="The one thing to do today",
-        blocked_on="milestone 3",
-        reason=(
-            "ranking across every row above. It is the most useful line on this page "
-            "and the least honest to fake, so it waits."
+            "needs a closing date, and almost nothing publishes one. Most boards state "
+            "no application deadline at all and one of the sources in this registry "
+            "states none ever, so this row would rank the small, unrepresentative "
+            "slice that happens to give a date and silently omit everything else."
         ),
     ),
 )
@@ -106,10 +103,16 @@ async def get_queue(
                         current_stage=row.current_stage,
                         at=row.at,
                         because=row.because,
+                        eligibility=row.eligibility,
                     )
                     for row in section.rows
                 ],
                 total=section.total,
+                blind_spots=[
+                    QueueSectionBlindSpotOut(name=spot.name, count=spot.count, because=spot.because)
+                    for spot in section.blind_spots
+                ],
+                note=section.note,
             )
             for section in queue.sections
         ],

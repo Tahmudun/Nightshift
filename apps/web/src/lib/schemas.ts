@@ -515,6 +515,10 @@ export const matchRankingSchema = z.object({
   not_yet_scored: z.number().int(),
   ruleset_version: z.string(),
   unassessed_sort_last: z.literal(true).default(true),
+  // What the list is sorted by. The printed fraction and the ordering key are
+  // deliberately different: rows show "of what could be assessed", and the sort
+  // weights that by how much was assessed, so 17% can sit above 30%.
+  ordering: z.literal('coverage_weighted_fraction').default('coverage_weighted_fraction'),
   deferred_components: z.array(deferredComponentSchema).default([]),
 });
 export type MatchRanking = z.infer<typeof matchRankingSchema>;
@@ -825,30 +829,54 @@ export type ApplicationList = z.infer<typeof applicationListSchema>;
  * ---------------------------------------------------------------------- */
 
 export const queueSectionKeySchema = z.enum([
+  'todays_one_thing',
   'follow_up',
   'interviews_approaching',
   'stale_saved',
   'closed_while_saved',
+  'requirement_gaps',
+  'best_new_internships',
 ]);
 export type QueueSectionKey = z.infer<typeof queueSectionKeySchema>;
 
 export const queueRowSchema = z.object({
-  application_id: z.string().uuid(),
+  // Null together, on the sections that offer a posting you are not tracking
+  // (M3d Task 7). The page links to the job then; there is no application yet
+  // and creating one is the reader's action to take, never the list's (I5).
+  application_id: z.string().uuid().nullable(),
   job_id: z.string().uuid(),
   job_title: z.string(),
   company_name: z.string(),
-  current_stage: applicationStageSchema,
+  current_stage: applicationStageSchema.nullable(),
   at: z.string().datetime({ offset: true }).nullable(),
   // A row with no reason is a bare signal, which is what I4 exists to prevent.
   because: z.string().min(1),
+  // A state, never a number. I4 forbids a bare score, and a queue row has no
+  // room for the breakdown that would make one legitimate.
+  eligibility: eligibilityStateSchema.nullable(),
 });
 export type QueueRow = z.infer<typeof queueRowSchema>;
+
+export const queueSectionBlindSpotSchema = z.object({
+  name: z.string().min(1),
+  count: z.number().int().nonnegative(),
+  // A count with no sentence beside it is the failure this field exists to
+  // stop: a reader cannot act on "3" without knowing what the 3 is.
+  because: z.string().min(1),
+});
+export type QueueSectionBlindSpot = z.infer<typeof queueSectionBlindSpotSchema>;
 
 export const queueSectionSchema = z.object({
   key: queueSectionKeySchema,
   title: z.string().min(1),
   rows: queueRowSchema.array(),
   total: z.number().int().nonnegative(),
+  // Required rather than defaulted, both of them. The API and this file ship
+  // together and `test_enum_parity` holds them to the same vocabulary, so a
+  // response missing either field is a bug worth refusing rather than filling
+  // in — a silently defaulted `[]` is a section claiming it hid nothing.
+  blind_spots: queueSectionBlindSpotSchema.array(),
+  note: z.string().min(1).nullable(),
 });
 export type QueueSection = z.infer<typeof queueSectionSchema>;
 

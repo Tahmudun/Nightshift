@@ -14,11 +14,25 @@ after the thing it evaluates reports a number that measures nothing.
     Task 1 baseline    0.567 / 0.917 / 0.883 / 0.317 / 0.917
     after Task 5       0.850 / 0.917 / 0.883 / 0.483 / 0.917
 
-Exactly one floor is set, and it is on the binary enrollment question rather
-than on any of the five accuracies above — see
-`test_enrollment_is_graded_on_the_question_the_gate_asks`. The other five stay
-reported and ungated until Task 5's remaining repairs are done, because a floor
-set mid-repair is a floor that has to be edited again next week.
+**M3d Task 2 closed the condition this file used to state here.** Until
+2026-08-10 the paragraph below said exactly one floor was set — the binary
+enrollment question — and that *"the other five stay reported and ungated until
+Task 5's remaining repairs are done, because a floor set mid-repair is a floor
+that has to be edited again next week."*
+
+That was right when written and stopped being right on 2026-08-05, when M3b Task
+5 shipped and merged. Nobody came back, and five accuracies sat measured and
+enforced by nothing for a milestone. The lesson is not that the deferral was
+wrong — it was correct and well-argued — but that **a condition written into a
+docstring has no owner and no expiry**, and a number reported under one reads,
+in a green test run, exactly like a number under a floor.
+
+Four of the five are now gated by `READING_FLOORS`, measured and set just under
+per M3a's rule. The fifth is `enrollment_required`, deliberately not gated on its
+three-way accuracy, and it is named in `REPORTED_NOT_GATED` with the reason
+rather than left to a reader to infer from its absence —
+`test_every_graded_field_is_gated_or_named_as_ungated` is what makes that a
+decision instead of an omission.
 """
 
 from __future__ import annotations
@@ -34,12 +48,46 @@ from nightshift.domain.requirement_extraction import extract_requirements
 from nightshift.domain.skill_vocabulary import load_vocabulary
 from tests.test_requirement_extraction_against_the_answer_key import _corpus_postings
 
-#: The only floor in this file, and it is on the binary question rather than on
-#: any of the five three-way accuracies below. Those are reported and not gated
-#: until Task 5's repair pass is finished — see
-#: `test_enrollment_is_graded_on_the_question_the_gate_asks` for why this one
+#: The floor on the binary question, and the first one this file ever carried.
+#: See `test_enrollment_is_graded_on_the_question_the_gate_asks` for why that one
 #: field is graded differently from how it is labeled.
 ENROLLMENT_IS_REQUIRED_FLOOR = 0.90
+
+#: **Added at M3d Task 2**, and the reason it took a milestone is worth keeping.
+#: This file's own docstring gated these on a condition — *"reported and ungated
+#: until Task 5's remaining repairs are done, because a floor set mid-repair is a
+#: floor that has to be edited again next week"* — which was right when written.
+#: M3b Task 5 shipped and merged on 2026-08-05 and nobody came back. A number
+#: reported and held to nothing is indistinguishable, in a passing test run, from
+#: a number under a floor.
+#:
+#: Measured on 2026-08-10 against the committed 60-posting key and set just
+#: under, per M3a's rule. A floor chosen before measuring is either unreachable
+#: or vacuous and there is no way to tell which from outside; a floor set far
+#: below what the reader achieves is the second of those wearing a gate's
+#: clothes, which is what `test_no_reading_floor_is_vacuous` exists to catch.
+#:
+#:     degree                0.867    graduation_window    1.000
+#:     min_years_experience  0.883    sponsorship          0.917
+READING_FLOORS: dict[str, float] = {
+    "degree": 0.86,
+    "graduation_window": 0.98,
+    "min_years_experience": 0.88,
+    "sponsorship": 0.91,
+}
+
+#: Graded, reported, and deliberately not gated — with the reason, because an
+#: ungated number with no entry here is the thing Task 2 was cleaning up.
+REPORTED_NOT_GATED: dict[str, str] = {
+    "enrollment_required": (
+        "the three-way accuracy is 0.483 and gating it would gate a distinction "
+        "no decision in this system reads: 30 of its 31 errors are `not_stated` "
+        "read where the key says `no`, and both mean *you need not be a student* "
+        "to the gate. The question that changes a verdict is gated instead, at "
+        "ENROLLMENT_IS_REQUIRED_FLOOR — see "
+        "test_enrollment_is_graded_on_the_question_the_gate_asks"
+    ),
+}
 
 #: Every field compared, and how the label spells it. Kept as data rather than
 #: as five near-identical loops so a field cannot be silently dropped from the
@@ -256,3 +304,46 @@ def test_enrollment_is_graded_on_the_question_the_gate_asks(
             f"   <- reported, not gated: see this test's docstring\n"
         )
     assert binary.accuracy >= ENROLLMENT_IS_REQUIRED_FLOOR
+
+
+# -- M3d Task 2: the four floors this file has reported and not gated --------
+
+
+def test_every_graded_field_is_gated_or_named_as_ungated(graded: dict[str, Any]) -> None:
+    """The partition, one level down from `test_every_label_field_is_graded_or_named`.
+
+    That test asks whether a label field is graded. This one asks whether a
+    graded field is *gated* — which is the distinction that let five accuracies
+    sit measured and unenforced for a whole milestone on a condition ("until
+    Task 5's repairs are done") that was met and never revisited. A number
+    nobody is holding to anything reads exactly like a number somebody is.
+    """
+    decided = set(READING_FLOORS) | set(REPORTED_NOT_GATED)
+    assert set(GRADED_FIELDS) == decided, (
+        f"graded but with no decision about gating: {sorted(set(GRADED_FIELDS) - decided)}"
+    )
+    assert not (set(READING_FLOORS) & set(REPORTED_NOT_GATED)), "a field cannot be both"
+
+
+def test_no_reading_floor_is_vacuous(graded: dict[str, Any]) -> None:
+    """A floor far below what the reader achieves is a floor that cannot fail.
+
+    M3a's rule is that a floor is measured and set just under. The rule's failure
+    mode is the opposite of a floor set too high: 0.10 on `degree` would pass
+    every run forever, would look like a gate in the diff, and would let the
+    field regress to a coin flip without a red test. The tolerance here is what
+    makes "just under" checkable rather than a habit.
+    """
+    for field, floor in READING_FLOORS.items():
+        measured = graded["tallies"][field].accuracy
+        assert floor <= measured, f"{field}: floor {floor} is above the measured {measured:.3f}"
+        assert measured - floor <= 0.05, (
+            f"{field}: floor {floor} is {measured - floor:.3f} below the measured "
+            f"{measured:.3f} — set it just under, or it gates nothing"
+        )
+
+
+@pytest.mark.parametrize("field", sorted(READING_FLOORS))
+def test_the_reading_accuracy_holds(graded: dict[str, Any], field: str) -> None:
+    """One test per field, so a red suite names which reading regressed."""
+    assert graded["tallies"][field].accuracy >= READING_FLOORS[field]

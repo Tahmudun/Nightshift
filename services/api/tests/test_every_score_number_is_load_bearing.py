@@ -48,6 +48,7 @@ from nightshift.domain.matching_weights import (
     load_weights,
 )
 from nightshift.domain.scoring import ScoringProfile, score_match
+from nightshift.domain.skill_vocabulary import load_vocabulary
 from tests.matching_corpus import AS_OF, CorpusPosting, load_profiles
 from tests.test_matching_golden import _blocks, render_golden
 
@@ -101,7 +102,13 @@ def _render(
     weights: MatchingWeights,
 ) -> str:
     scores = {
-        (entry.key, name): score_match(entry.posting, profile, weights=weights, as_of=AS_OF)
+        (entry.key, name): score_match(
+            entry.posting,
+            profile,
+            weights=weights,
+            as_of=AS_OF,
+            demonstrates=load_vocabulary().edges,
+        )
         for entry in corpus
         for name, profile in profiles
     }

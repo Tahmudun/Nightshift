@@ -69,6 +69,7 @@ from typing import Any, cast
 import structlog
 from sqlalchemy import (
     CursorResult,
+    Float,
     Text,
     and_,
     case,
@@ -114,6 +115,7 @@ from nightshift.domain.scoring import (
     ScoringProfile,
     score_match,
 )
+from nightshift.domain.skill_vocabulary import load_vocabulary
 
 log = structlog.get_logger(__name__)
 
@@ -489,7 +491,17 @@ async def score_pair(
         .all()
     )
     posting, requirement_ids = posting_for(job, requirements, locations)
-    score = score_match(posting, profile_for(user), weights=weights, as_of=as_of)
+    # ADR 0018's ontology edges, read from the committed vocabulary rather than
+    # defaulted. `score_match` defaults to none, so a call site that forgets
+    # them scores exactly as this system did before M3d and nothing goes red —
+    # which is why `test_the_production_scorer_reads_the_committed_edges` exists.
+    score = score_match(
+        posting,
+        profile_for(user),
+        weights=weights,
+        as_of=as_of,
+        demonstrates=load_vocabulary().edges,
+    )
     row = _score_row(
         user=user,
         job=job,
@@ -617,13 +629,17 @@ class Ranking:
     ruleset: str
 
 
-def _band_rank() -> Any:
+def band_rank() -> Any:
     """`BAND_ORDER` as a SQL sort key, so the grouping and the ordering agree.
 
     Built from the same tuple the response groups by rather than written out a
     second time in SQL: two orderings that agree today are the shape of thing this
     project keeps finding out of date, and the failure is a band whose rows arrive
     ahead of the band above it with nothing looking wrong.
+
+    Public since M3d Task 7, when the daily queue's internship row became the
+    second surface that orders stored scores. Two surfaces ranking the same rows
+    by two clauses is the same drift one file down.
     """
     # Cast to text rather than binding the enum members: a `CASE ... WHEN` over a
     # PG enum column binds its whens as `varchar`, and Postgres has no
@@ -635,15 +651,42 @@ def _band_rank() -> Any:
     )
 
 
+def coverage_weighted_rank() -> Any:
+    """The ordering key inside a band (§5.3, M3d Task 6), as a SQL clause.
+
+    `fraction * sqrt(assessed_out_of / 100)`, algebraically simplified so the
+    division happens once. `sqrt(0)` is 0 and `NULLIF` turns that into the null an
+    unassessable pair is entitled to, exactly as the plain fraction did.
+
+    **`scoring.coverage_weighted_fraction` is the definition and this is its
+    translation**, because Postgres cannot call a Python function. The two are
+    held together by `test_the_sql_ordering_is_the_documented_key` rather than by
+    the resemblance of these two lines, which is what M3d Task 8 found had let a
+    third copy of this arithmetic drift a whole task behind.
+
+    **This is the ordering key, not the displayed number.** `MatchResult`'s
+    `fraction` on the wire is still `overall / assessed_out_of` — "of what could
+    be assessed" — because that is the honest statement about the pair. The
+    consequence is that a reader can see 17% ranked above 30%, which is why
+    `MatchRankingOut.ordering` says out loud what the list is sorted by.
+
+    Sorted `.desc().nulls_last()` by both callers: a null fraction keeps its band,
+    because the eligibility verdict on such a pair is real, and leaves the
+    ordering at the end rather than at whichever end Postgres defaults to.
+    """
+    return MatchResult.overall_score / func.nullif(
+        func.sqrt(sql_cast(MatchResult.assessed_out_of, Float)) * 10, 0
+    )
+
+
 async def ranked_for(session: AsyncSession, *, user_id: uuid.UUID, limit: int) -> Ranking:
     """This person's scored postings, banded and best-first inside each band.
 
-    **The sort is on the fraction, not on `overall_score`** (§5.1.1). Raw totals
-    are not comparable across postings because `assessed_out_of` is not always
-    100: a 40/50 beats a 45/100 and sorting on the totals puts them the other way
-    round. `NULLIF` is what keeps the division from raising on the pairs where
-    nothing could be assessed — five in the committed corpus — and it also gives
-    them the null they are entitled to rather than a zero.
+    **The sort is on the fraction, not on `overall_score`** (§5.1.1) — see
+    `coverage_weighted_rank`, which is the clause and carries the argument. Raw
+    totals are not comparable across postings because `assessed_out_of` is not
+    always 100: a 40/50 beats a 45/100 and sorting on the totals puts them the
+    other way round.
 
     **A null fraction sorts last within its band, not out of the list.** The
     eligibility verdict on such a pair is real, so the band is right; the ordering
@@ -661,7 +704,7 @@ async def ranked_for(session: AsyncSession, *, user_id: uuid.UUID, limit: int) -
         MatchResult.user_id == user_id,
         MatchResult.ruleset_version == ruleset,
     )
-    fraction = MatchResult.overall_score / func.nullif(MatchResult.assessed_out_of, 0)
+    rank_key = coverage_weighted_rank()
 
     rows = (
         await session.execute(
@@ -676,8 +719,8 @@ async def ranked_for(session: AsyncSession, *, user_id: uuid.UUID, limit: int) -
                 selectinload(MatchResult.penalties),
             )
             .order_by(
-                _band_rank(),
-                fraction.desc().nulls_last(),
+                band_rank(),
+                rank_key.desc().nulls_last(),
                 # Deterministic all the way down, as `list_jobs` is: a whole board
                 # shares one `first_seen_at`, so without the id a reload can
                 # reorder two equal rows and the list appears to shuffle itself.

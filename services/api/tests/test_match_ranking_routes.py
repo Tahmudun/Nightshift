@@ -53,6 +53,7 @@ from nightshift.db.models import (
 from nightshift.db.session import get_db_session
 from nightshift.domain.matching import BAND_ORDER
 from nightshift.domain.matching_weights import load_weights
+from nightshift.domain.scoring import coverage_weighted_fraction, score_fraction
 from tests.conftest import make_job_with_text, requires_db
 
 pytestmark = [requires_db, pytest.mark.asyncio(loop_scope="session")]
@@ -65,7 +66,18 @@ DESCRIPTION = "We need strong Python and PostgreSQL for a team in New York."
 #: 20, 10, 10, 10, and `0018`'s trigger ties the denominator to exactly this.
 _UNASSESSABLE_FOR = {
     100: (),
+    # Added at M3d Task 6, and both are real denominators from the rated corpus
+    # rather than convenient ones: 80 and 20 are what a posting naming no
+    # projects and a posting naming almost nothing actually produce.
+    80: (MatchComponent.PROJECT,),
     50: (MatchComponent.SKILL, MatchComponent.PROJECT),
+    20: (
+        MatchComponent.SKILL,
+        MatchComponent.PROJECT,
+        MatchComponent.LOCATION,
+        MatchComponent.FRESHNESS,
+        MatchComponent.PRIORITY,
+    ),
     0: tuple(MatchComponent),
 }
 
@@ -440,3 +452,103 @@ async def test_the_ten_deferred_points_are_named_on_the_list_too(
         "company_preference",
         "application_urgency",
     }
+
+
+async def test_a_barely_assessed_posting_does_not_outrank_a_thoroughly_assessed_one(
+    client: AsyncClient, db_session: AsyncSession, user: User
+) -> None:
+    """M3d Task 6, and review §2.10 measured rather than argued.
+
+    6 out of 20 is 30% and 14 out of 80 is 17.5%, so the plain fraction puts the
+    first one higher — on a posting where four fifths of the score could not be
+    assessed at all. Both numbers are true and neither is comparable to the
+    other, which is the whole of §2.10: a ratio of incomparable denominators is
+    not a total order.
+
+    These are the real figures from the rated corpus. Under the plain fraction an
+    Employee Experience Specialist (Receptionist) rated `poor` ranked **fifth**,
+    above four postings rated `good`; weighting by coverage moves it below them.
+
+    The weight is `sqrt(assessed_out_of / 100)`, chosen by measurement and not by
+    taste — see `matching.md` §5.3 for the leave-one-out figures and for why the
+    exponent is not pinned harder than the data supports.
+    """
+    thorough = await _job(db_session)
+    barely = await _job(db_session)
+    await _store(
+        db_session, user=user, job=thorough, overall=14, out_of=80, state=EligibilityState.ELIGIBLE
+    )
+    await _store(
+        db_session, user=user, job=barely, overall=6, out_of=20, state=EligibilityState.ELIGIBLE
+    )
+
+    items = _band(await _ranking(client), EligibilityState.ELIGIBLE)["items"]
+
+    assert [row["job"]["id"] for row in items] == [str(thorough.id), str(barely.id)]
+    # The displayed fraction is unchanged and still reads "of what could be
+    # assessed" — the ordering is weighted, the printed number is not. A reader
+    # therefore sees 17% above 30%, which is why the response names its ordering.
+    assert items[0]["match"]["fraction"] < items[1]["match"]["fraction"]
+
+
+async def test_the_sql_ordering_is_the_documented_key(
+    client: AsyncClient, db_session: AsyncSession, user: User
+) -> None:
+    """The SQL clause and `scoring.coverage_weighted_fraction` are one key.
+
+    M3d Task 8's finding. The arithmetic in §5.3 had four implementations by the
+    end of Task 6 — `coverage_weighted_rank`'s SQL, `verify.py`'s recomputation
+    from the wire, `matching.spec.ts`, and the ranking-quality grader — and Task
+    6 updated exactly one of them. Two of the other three went red and were
+    repaired at Task 7. The fourth reported a number for an ordering this system
+    had stopped serving, in the direction that flatters, and no test could see it
+    because the two keys agree on most pairs.
+
+    So this asserts what none of the four asserted: that the order Postgres
+    returns is the order the Python definition gives, over rows chosen to make
+    the plausible wrong keys visibly wrong.
+
+    The four denominators are the ones `UNASSESSABLE_FOR` can build, and the
+    totals are chosen so that the coverage-weighted order, the plain-fraction
+    order and the raw-total order are three *different* permutations of the same
+    four rows. The first draft of this test used rounder numbers on which the raw
+    order happened to coincide with the right one, and its third assertion
+    therefore passed while proving nothing — which is the failure this whole file
+    of findings is about, committed once more on the way to writing it down.
+
+    No total exceeds what `store_score` can place on components the denominator
+    leaves assessable: it fills `role` to 20 and puts the rest on `skill`, so a
+    50 has to stay at or under 20 and a 100 may go to 50.
+    """
+    stored = {}
+    for name, overall, out_of in (("a", 45, 100), ("c", 31, 80), ("b", 20, 50), ("d", 18, 20)):
+        job = await _job(db_session)
+        await _store(
+            db_session,
+            user=user,
+            job=job,
+            overall=overall,
+            out_of=out_of,
+            state=EligibilityState.ELIGIBLE,
+        )
+        stored[name] = (job, overall, out_of)
+
+    served = [
+        row["job"]["id"]
+        for row in _band(await _ranking(client), EligibilityState.ELIGIBLE)["items"]
+    ]
+
+    def order_by(key: Any) -> list[str]:
+        return [
+            str(job.id)
+            for job, overall, out_of in sorted(
+                stored.values(), key=lambda row: -(key(row[1], row[2]) or -1.0)
+            )
+        ]
+
+    assert served == order_by(coverage_weighted_fraction)
+    # Non-vacuity, and it is the whole reason these four rows have these numbers:
+    # a corpus on which the wrong keys agree with the right one would make the
+    # assertion above pass under the ordering this test exists to forbid.
+    assert served != order_by(score_fraction)
+    assert served != order_by(lambda overall, _out_of: float(overall))

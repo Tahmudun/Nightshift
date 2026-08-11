@@ -1,8 +1,8 @@
 # nightshift — the match score, pinned
 #
-# ruleset_version: 2+2026-08-09.1
+# ruleset_version: 3+2026-08-09.1
 # as_of: 2026-08-09
-# corpus: 153 postings x 4 profiles = 612 scores, 1659 evidence rows
+# corpus: 153 postings x 4 profiles = 612 scores, 1727 evidence rows
 #
 # Generated. Regenerate with:
 #   NIGHTSHIFT_UPDATE_GOLDEN=1 pytest tests/test_matching_golden.py
@@ -31,11 +31,12 @@ akunacapital/7496397 · new_grad_backend
   penalty seniority_mismatch —  this profile states no years of experience
 
 akunacapital/7496397 · experienced_ml
-  1/100  role 0 · skill 12 · project 4 · location 0 · freshness 0 · priority 0 · penalty -15
+  12/100  role 0 · skill 18 · project 4 · location 0 · freshness 0 · priority 0 · penalty -10
   role        0  this is a software_engineering role and none of the stated preferences names it
-  skill      12  2 of 5 required technologies confirmed
+  skill      18  3 of 5 required technologies confirmed, 1 of them demonstrated by a confirmed tool rather than named
          6  job "C++" @1797-1800 [description_text] · user "C++" · {"confirmed_as": "C++", "necessity": "required", "requirement": "C++"}
          6  job "Python" @1904-1910 [description_text] · user "Python" · {"confirmed_as": "Python", "necessity": "required", "requirement": "Python"}
+         6  job "distributed systems" @1969-1988 [description_text] · user "Kubernetes" · {"confirmed_as": "Kubernetes", "demonstrated_via": "Kubernetes", "necessity": "required", "requirement": "Distributed Systems"}
   project     4  projects demonstrate 1 of 5 required technologies
          4  job "Python" @1904-1910 [description_text] · user "Wrote the evaluation harness in Python and ran it nightly." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Python"}
   location    0  0 of 2 stated location preferences met
@@ -43,7 +44,7 @@ akunacapital/7496397 · experienced_ml
          0  {"dimension": "work_mode", "job_remote_policy": "on_site", "preference": "remote"}
   freshness   0  published 219 days ago, past the 90-day window
   priority    0  this is a mid posting, not an early-career one
-  penalty missing_requirement -15  3 of 5 required technologies have no evidence
+  penalty missing_requirement -10  2 of 5 required technologies have no evidence
   penalty seniority_mismatch 0  this is a mid posting and the profile states 6 years
 
 akunacapital/7496397 · early_career_no_experience
@@ -455,10 +456,12 @@ akunacapital/8016687 · new_grad_backend
 akunacapital/8016687 · experienced_ml
   58/100  role 0 · skill 30 · project 20 · location 0 · freshness 8 · priority 0 · penalty 0
   role        0  this is a quant_trading role and none of the stated preferences names it
-  skill      30  1 of 1 required technologies confirmed
+  skill      30  1 of 1 required technologies confirmed, 1 of them demonstrated by a confirmed tool rather than named
         30  job "Python" @2091-2097 [description_text] · user "Python" · {"confirmed_as": "Python", "necessity": "required", "requirement": "Python"}
+         0  job "Machine Learning" @2749-2765 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "preferred", "requirement": "Machine Learning"}
   project    20  projects demonstrate 1 of 1 required technologies
         20  job "Python" @2091-2097 [description_text] · user "Wrote the evaluation harness in Python and ran it nightly." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Python"}
+         0  job "Machine Learning" @2749-2765 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "preferred", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
   location    0  0 of 2 stated location preferences met
          0  {"dimension": "place", "job_cities": ["Chicago"], "preferred": ["Remote"]}
          0  {"dimension": "work_mode", "job_remote_policy": "on_site", "preference": "remote"}
@@ -682,10 +685,12 @@ akunacapital/8021481 · new_grad_backend
 akunacapital/8021481 · experienced_ml
   68/100  role 0 · skill 30 · project 20 · location 0 · freshness 8 · priority 10 · penalty 0
   role        0  this is a quant_trading role and none of the stated preferences names it
-  skill      30  1 of 1 required technologies confirmed
+  skill      30  1 of 1 required technologies confirmed, 1 of them demonstrated by a confirmed tool rather than named
         30  job "Python" @1971-1977 [description_text] · user "Python" · {"confirmed_as": "Python", "necessity": "required", "requirement": "Python"}
+         0  job "Machine Learning" @2612-2628 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "preferred", "requirement": "Machine Learning"}
   project    20  projects demonstrate 1 of 1 required technologies
         20  job "Python" @1971-1977 [description_text] · user "Wrote the evaluation harness in Python and ran it nightly." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Python"}
+         0  job "Machine Learning" @2612-2628 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "preferred", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
   location    0  0 of 2 stated location preferences met
          0  {"dimension": "place", "job_cities": ["Chicago"], "preferred": ["Remote"]}
          0  {"dimension": "work_mode", "job_remote_policy": "on_site", "preference": "remote"}
@@ -801,11 +806,13 @@ akunacapital/8036541 · new_grad_backend
   penalty seniority_mismatch —  this profile states no years of experience
 
 akunacapital/8036541 · experienced_ml
-  28/100  role 0 · skill 15 · project 10 · location 0 · freshness 8 · priority 0 · penalty -5
+  58/100  role 0 · skill 30 · project 20 · location 0 · freshness 8 · priority 0 · penalty 0
   role        0  this is a quant_trading role and none of the stated preferences names it
-  skill      15  1 of 2 required technologies confirmed
+  skill      30  2 of 2 required technologies confirmed, 1 of them demonstrated by a confirmed tool rather than named
+        15  job "machine learning" @1822-1838 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "required", "requirement": "Machine Learning"}
         15  job "Python" @1952-1958 [description_text] · user "Python" · {"confirmed_as": "Python", "necessity": "required", "requirement": "Python"}
-  project    10  projects demonstrate 1 of 2 required technologies
+  project    20  projects demonstrate 2 of 2 required technologies
+        10  job "machine learning" @1822-1838 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
         10  job "Python" @1952-1958 [description_text] · user "Wrote the evaluation harness in Python and ran it nightly." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Python"}
   location    0  0 of 2 stated location preferences met
          0  {"dimension": "place", "job_cities": ["Chicago"], "preferred": ["Remote"]}
@@ -813,7 +820,7 @@ akunacapital/8036541 · experienced_ml
   freshness   8  published 27 days ago
          8  {"age_days": 27, "full_within_days": 7, "published_on": "2026-07-13", "zero_after_days": 90}
   priority    0  this is a junior posting, not an early-career one
-  penalty missing_requirement -5  1 of 2 required technologies have no evidence
+  penalty missing_requirement 0  all 2 required technologies have evidence behind them
   penalty seniority_mismatch 0  this is a junior posting and the profile states 6 years
 
 akunacapital/8036541 · early_career_no_experience
@@ -916,18 +923,21 @@ anthropic/5023394008 · new_grad_backend
   penalty seniority_mismatch —  no rule could tell what level this posting is
 
 anthropic/5023394008 · experienced_ml
-  0/70  role — · skill 8 · project 5 · location 0 · freshness 0 · priority — · penalty -15
+  27/70  role — · skill 22 · project 10 · location 0 · freshness 0 · priority — · penalty -5
   role        —  no rule could tell what kind of role this posting is
-  skill       8  1 of 4 required technologies confirmed
+  skill      22  3 of 4 required technologies confirmed, 2 of them demonstrated by a confirmed tool rather than named
          8  job "Python" @4096-4102 [description_text] · user "Python" · {"confirmed_as": "Python", "necessity": "required", "requirement": "Python"}
-  project     5  projects demonstrate 1 of 4 required technologies
+         7  job "ML" @6286-6288 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "required", "requirement": "Machine Learning"}
+         7  job "distributed systems" @8840-8859 [description_text] · user "Kubernetes" · {"confirmed_as": "Kubernetes", "demonstrated_via": "Kubernetes", "necessity": "required", "requirement": "Distributed Systems"}
+  project    10  projects demonstrate 2 of 4 required technologies
          5  job "Python" @4096-4102 [description_text] · user "Wrote the evaluation harness in Python and ran it nightly." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Python"}
+         5  job "ML" @6286-6288 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
   location    0  0 of 2 stated location preferences met
          0  {"dimension": "place", "job_cities": ["London", "CAN", "Friendly", "San Francisco"], "preferred": ["Remote"]}
          0  {"dimension": "work_mode", "job_remote_policy": "hybrid", "preference": "remote"}
   freshness   0  published 241 days ago, past the 90-day window
   priority    —  no rule could tell what level this posting is
-  penalty missing_requirement -15  3 of 4 required technologies have no evidence
+  penalty missing_requirement -5  1 of 4 required technologies have no evidence
   penalty seniority_mismatch —  no rule could tell what level this posting is
 
 anthropic/5023394008 · early_career_no_experience
@@ -972,18 +982,20 @@ anthropic/5076109008 · new_grad_backend
   penalty seniority_mismatch —  this profile states no years of experience
 
 anthropic/5076109008 · experienced_ml
-  20/100  role 0 · skill 15 · project 10 · location 0 · freshness 0 · priority 0 · penalty -5
+  50/100  role 0 · skill 30 · project 20 · location 0 · freshness 0 · priority 0 · penalty 0
   role        0  this is a not_tech role and none of the stated preferences names it
-  skill      15  1 of 2 required technologies confirmed
+  skill      30  2 of 2 required technologies confirmed, 1 of them demonstrated by a confirmed tool rather than named
         15  job "python" @3379-3385 [description_text] · user "Python" · {"confirmed_as": "Python", "necessity": "required", "requirement": "Python"}
-  project    10  projects demonstrate 1 of 2 required technologies
+        15  job "machine learning" @3457-3473 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "required", "requirement": "Machine Learning"}
+  project    20  projects demonstrate 2 of 2 required technologies
         10  job "python" @3379-3385 [description_text] · user "Wrote the evaluation harness in Python and ran it nightly." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Python"}
+        10  job "machine learning" @3457-3473 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
   location    0  0 of 2 stated location preferences met
          0  {"dimension": "place", "job_cities": ["Tokyo"], "preferred": ["Remote"]}
          0  {"dimension": "work_mode", "job_remote_policy": "on_site", "preference": "remote"}
   freshness   0  published 198 days ago, past the 90-day window
   priority    0  this is a mid posting, not an early-career one
-  penalty missing_requirement -5  1 of 2 required technologies have no evidence
+  penalty missing_requirement 0  all 2 required technologies have evidence behind them
   penalty seniority_mismatch 0  this is a mid posting and the profile states 6 years
 
 anthropic/5076109008 · early_career_no_experience
@@ -1132,19 +1144,21 @@ anthropic/5183044008 · new_grad_backend
   penalty seniority_mismatch —  no rule could tell what level this posting is
 
 anthropic/5183044008 · experienced_ml
-  40/90  role 20 · skill 15 · project 10 · location 0 · freshness 0 · priority — · penalty -5
+  70/90  role 20 · skill 30 · project 20 · location 0 · freshness 0 · priority — · penalty 0
   role       20  this is a ml_ai role and the profile asks for one
         20  job "AI" @27-29 [title] · user "machine learning engineer" · {"preferred_role": "machine learning engineer", "role_family": "ml_ai"}
-  skill      15  1 of 2 required technologies confirmed
+  skill      30  2 of 2 required technologies confirmed, 1 of them demonstrated by a confirmed tool rather than named
         15  job "Python" @4306-4312 [description_text] · user "Python" · {"confirmed_as": "Python", "necessity": "required", "requirement": "Python"}
-  project    10  projects demonstrate 1 of 2 required technologies
+        15  job "ML" @6394-6396 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "required", "requirement": "Machine Learning"}
+  project    20  projects demonstrate 2 of 2 required technologies
         10  job "Python" @4306-4312 [description_text] · user "Wrote the evaluation harness in Python and ran it nightly." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Python"}
+        10  job "ML" @6394-6396 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
   location    0  0 of 2 stated location preferences met
          0  {"dimension": "place", "job_cities": ["London", "CAN", "Friendly", "San Francisco"], "preferred": ["Remote"]}
          0  {"dimension": "work_mode", "job_remote_policy": "hybrid", "preference": "remote"}
   freshness   0  published 121 days ago, past the 90-day window
   priority    —  no rule could tell what level this posting is
-  penalty missing_requirement -5  1 of 2 required technologies have no evidence
+  penalty missing_requirement 0  all 2 required technologies have evidence behind them
   penalty seniority_mismatch —  no rule could tell what level this posting is
 
 anthropic/5183044008 · early_career_no_experience
@@ -1190,18 +1204,20 @@ anthropic/5192805008 · new_grad_backend
   penalty seniority_mismatch —  this profile states no years of experience
 
 anthropic/5192805008 · experienced_ml
-  20/100  role 0 · skill 15 · project 10 · location 0 · freshness 0 · priority 0 · penalty -5
+  50/100  role 0 · skill 30 · project 20 · location 0 · freshness 0 · priority 0 · penalty 0
   role        0  this is a not_tech role and none of the stated preferences names it
-  skill      15  1 of 2 required technologies confirmed
+  skill      30  2 of 2 required technologies confirmed, 1 of them demonstrated by a confirmed tool rather than named
         15  job "Python" @3483-3489 [description_text] · user "Python" · {"confirmed_as": "Python", "necessity": "required", "requirement": "Python"}
-  project    10  projects demonstrate 1 of 2 required technologies
+        15  job "machine learning" @3913-3929 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "required", "requirement": "Machine Learning"}
+  project    20  projects demonstrate 2 of 2 required technologies
         10  job "Python" @3483-3489 [description_text] · user "Wrote the evaluation harness in Python and ran it nightly." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Python"}
+        10  job "machine learning" @3913-3929 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
   location    0  0 of 2 stated location preferences met
          0  {"dimension": "place", "job_cities": ["San Francisco", "New York City"], "preferred": ["Remote"]}
          0  {"dimension": "work_mode", "job_remote_policy": "on_site", "preference": "remote"}
   freshness   0  published 114 days ago, past the 90-day window
   priority    0  this is a mid posting, not an early-career one
-  penalty missing_requirement -5  1 of 2 required technologies have no evidence
+  penalty missing_requirement 0  all 2 required technologies have evidence behind them
   penalty seniority_mismatch 0  this is a mid posting and the profile states 6 years
 
 anthropic/5192805008 · early_career_no_experience
@@ -1296,9 +1312,11 @@ anthropic/5215052008 · new_grad_backend
 anthropic/5215052008 · experienced_ml
   0/40  role 0 · skill — · project — · location 0 · freshness 0 · priority — · penalty 0
   role        0  this is a not_tech role and none of the stated preferences names it
-  skill       —  this posting names no required technologies, and 1 of its nice-to-haves is confirmed here — worth nothing, by design
+  skill       —  this posting names no required technologies, and 2 of its nice-to-haves are confirmed here — worth nothing, by design
          0  job "AWS" @2618-2621 [description_text] · user "AWS" · {"confirmed_as": "AWS", "necessity": "preferred", "requirement": "AWS"}
+         0  job "ML" @2663-2665 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "preferred", "requirement": "Machine Learning"}
   project     —  this posting names no required technologies
+         0  job "ML" @2663-2665 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "preferred", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
   location    0  0 of 2 stated location preferences met
          0  {"dimension": "place", "job_cities": ["San Francisco", "New York City", "Seattle"], "preferred": ["Remote"]}
          0  {"dimension": "work_mode", "job_remote_policy": "on_site", "preference": "remote"}
@@ -1348,19 +1366,21 @@ anthropic/5226862008 · new_grad_backend
   penalty seniority_mismatch —  this profile states no years of experience
 
 anthropic/5226862008 · experienced_ml
-  21/100  role 0 · skill 15 · project 10 · location 0 · freshness 1 · priority 0 · penalty -5
+  51/100  role 0 · skill 30 · project 20 · location 0 · freshness 1 · priority 0 · penalty 0
   role        0  this is a not_tech role and none of the stated preferences names it
-  skill      15  1 of 2 required technologies confirmed
+  skill      30  2 of 2 required technologies confirmed, 1 of them demonstrated by a confirmed tool rather than named
         15  job "python" @3315-3321 [description_text] · user "Python" · {"confirmed_as": "Python", "necessity": "required", "requirement": "Python"}
-  project    10  projects demonstrate 1 of 2 required technologies
+        15  job "machine learning" @3393-3409 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "required", "requirement": "Machine Learning"}
+  project    20  projects demonstrate 2 of 2 required technologies
         10  job "python" @3315-3321 [description_text] · user "Wrote the evaluation harness in Python and ran it nightly." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Python"}
+        10  job "machine learning" @3393-3409 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
   location    0  0 of 2 stated location preferences met
          0  {"dimension": "place", "job_cities": ["Munich"], "preferred": ["Remote"]}
          0  {"dimension": "work_mode", "job_remote_policy": "on_site", "preference": "remote"}
   freshness   1  published 80 days ago
          1  {"age_days": 80, "full_within_days": 7, "published_on": "2026-05-21", "zero_after_days": 90}
   priority    0  this is a mid posting, not an early-career one
-  penalty missing_requirement -5  1 of 2 required technologies have no evidence
+  penalty missing_requirement 0  all 2 required technologies have evidence behind them
   penalty seniority_mismatch 0  this is a mid posting and the profile states 6 years
 
 anthropic/5226862008 · early_career_no_experience
@@ -1626,19 +1646,21 @@ anthropic/5362838008 · new_grad_backend
   penalty seniority_mismatch —  no rule could tell what level this posting is
 
 anthropic/5362838008 · experienced_ml
-  7/90  role 0 · skill 8 · project 5 · location 0 · freshness 9 · priority — · penalty -15
+  24/90  role 0 · skill 15 · project 10 · location 0 · freshness 9 · priority — · penalty -10
   role        0  this is a not_tech role and none of the stated preferences names it
-  skill       8  1 of 4 required technologies confirmed
+  skill      15  2 of 4 required technologies confirmed, 1 of them demonstrated by a confirmed tool rather than named
          8  job "Python" @3345-3351 [description_text] · user "Python" · {"confirmed_as": "Python", "necessity": "required", "requirement": "Python"}
-  project     5  projects demonstrate 1 of 4 required technologies
+         7  job "machine learning" @3399-3415 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "required", "requirement": "Machine Learning"}
+  project    10  projects demonstrate 2 of 4 required technologies
          5  job "Python" @3345-3351 [description_text] · user "Wrote the evaluation harness in Python and ran it nightly." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Python"}
+         5  job "machine learning" @3399-3415 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
   location    0  0 of 2 stated location preferences met
          0  {"dimension": "place", "job_cities": ["San Francisco", "New York City", "Seattle"], "preferred": ["Remote"]}
          0  {"dimension": "work_mode", "job_remote_policy": "on_site", "preference": "remote"}
   freshness   9  published 18 days ago
          9  {"age_days": 18, "full_within_days": 7, "published_on": "2026-07-22", "zero_after_days": 90}
   priority    —  no rule could tell what level this posting is
-  penalty missing_requirement -15  3 of 4 required technologies have no evidence
+  penalty missing_requirement -10  2 of 4 required technologies have no evidence
   penalty seniority_mismatch —  no rule could tell what level this posting is
 
 anthropic/5362838008 · early_career_no_experience
@@ -2075,16 +2097,17 @@ databricks/7896551002 · new_grad_backend
   penalty seniority_mismatch —  this profile states no years of experience
 
 databricks/7896551002 · experienced_ml
-  0/100  role 0 · skill 0 · project 0 · location 0 · freshness 0 · priority 0 · penalty -29
+  6/100  role 0 · skill 30 · project 0 · location 0 · freshness 0 · priority 0 · penalty -24
   role        0  this is a software_engineering role and none of the stated preferences names it
-  skill       0  none of the 1 required technologies is confirmed on this profile
+  skill      30  1 of 1 required technologies confirmed, 1 of them demonstrated by a confirmed tool rather than named
+        30  job "distributed systems" @2083-2102 [description_text] · user "Kubernetes" · {"confirmed_as": "Kubernetes", "demonstrated_via": "Kubernetes", "necessity": "required", "requirement": "Distributed Systems"}
   project     0  no project demonstrates any of the 1 required technologies
   location    0  0 of 2 stated location preferences met
          0  {"dimension": "place", "job_cities": ["Bengaluru"], "preferred": ["Remote"]}
          0  {"dimension": "work_mode", "job_remote_policy": "on_site", "preference": "remote"}
   freshness   0  published 360 days ago, past the 90-day window
   priority    0  this is a director posting, not an early-career one
-  penalty missing_requirement -5  1 of 1 required technologies have no evidence
+  penalty missing_requirement 0  all 1 required technologies have evidence behind them
   penalty seniority_mismatch -24  this is a director posting, which implies about 10 years, and the profile states 6
 
 databricks/7896551002 · early_career_no_experience
@@ -2125,20 +2148,22 @@ databricks/8099751002 · new_grad_backend
   penalty seniority_mismatch —  no rule could tell what level this posting is
 
 databricks/8099751002 · experienced_ml
-  13/90  role 20 · skill 6 · project 2 · location 10 · freshness 0 · priority — · penalty -25
+  18/90  role 20 · skill 9 · project 4 · location 10 · freshness 0 · priority — · penalty -25
   role       20  this is a ml_ai role and the profile asks for one
         20  job "AI" @0-2 [title] · user "machine learning engineer" · {"preferred_role": "machine learning engineer", "role_family": "ml_ai"}
-  skill       6  2 of 10 required technologies confirmed
+  skill       9  3 of 10 required technologies confirmed, 1 of them demonstrated by a confirmed tool rather than named
+         3  job "machine learning" @1763-1779 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "required", "requirement": "Machine Learning"}
          3  job "PyTorch" @1831-1838 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "necessity": "required", "requirement": "PyTorch"}
          3  job "AWS" @1917-1920 [description_text] · user "AWS" · {"confirmed_as": "AWS", "necessity": "required", "requirement": "AWS"}
-  project     2  projects demonstrate 1 of 10 required technologies
+  project     4  projects demonstrate 2 of 10 required technologies
+         2  job "machine learning" @1763-1779 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
          2  job "PyTorch" @1831-1838 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "PyTorch"}
   location   10  2 of 2 stated location preferences met
          5  {"dimension": "place", "job_cities": [], "preferred": ["Remote"]}
          5  {"dimension": "work_mode", "job_remote_policy": "remote", "preference": "remote"}
   freshness   0  published 374 days ago, past the 90-day window
   priority    —  no rule could tell what level this posting is
-  penalty missing_requirement -25  8 of 10 required technologies have no evidence
+  penalty missing_requirement -25  7 of 10 required technologies have no evidence
   penalty seniority_mismatch —  no rule could tell what level this posting is
 
 databricks/8099751002 · early_career_no_experience
@@ -2180,16 +2205,17 @@ databricks/8290810002 · new_grad_backend
   penalty seniority_mismatch —  this profile states no years of experience
 
 databricks/8290810002 · experienced_ml
-  0/100  role 0 · skill 0 · project 0 · location 0 · freshness 0 · priority 0 · penalty -34
+  0/100  role 0 · skill 15 · project 0 · location 0 · freshness 0 · priority 0 · penalty -29
   role        0  this is a data_engineering role and none of the stated preferences names it
-  skill       0  none of the 2 required technologies is confirmed on this profile
+  skill      15  1 of 2 required technologies confirmed, 1 of them demonstrated by a confirmed tool rather than named
+        15  job "distributed systems" @3301-3320 [description_text] · user "Kubernetes" · {"confirmed_as": "Kubernetes", "demonstrated_via": "Kubernetes", "necessity": "required", "requirement": "Distributed Systems"}
   project     0  no project demonstrates any of the 2 required technologies
   location    0  0 of 2 stated location preferences met
          0  {"dimension": "place", "job_cities": ["Bengaluru"], "preferred": ["Remote"]}
          0  {"dimension": "work_mode", "job_remote_policy": "on_site", "preference": "remote"}
   freshness   0  published 269 days ago, past the 90-day window
   priority    0  this is a director posting, not an early-career one
-  penalty missing_requirement -10  2 of 2 required technologies have no evidence
+  penalty missing_requirement -5  1 of 2 required technologies have no evidence
   penalty seniority_mismatch -24  this is a director posting, which implies about 10 years, and the profile states 6
 
 databricks/8290810002 · early_career_no_experience
@@ -2386,13 +2412,15 @@ databricks/8569392002 · new_grad_backend
   penalty seniority_mismatch —  no rule could tell what level this posting is
 
 databricks/8569392002 · experienced_ml
-  13/90  role 20 · skill 6 · project 2 · location 0 · freshness 10 · priority — · penalty -25
+  18/90  role 20 · skill 9 · project 4 · location 0 · freshness 10 · priority — · penalty -25
   role       20  this is a ml_ai role and the profile asks for one
         20  job "AI" @0-2 [title] · user "machine learning engineer" · {"preferred_role": "machine learning engineer", "role_family": "ml_ai"}
-  skill       6  2 of 10 required technologies confirmed
+  skill       9  3 of 10 required technologies confirmed, 1 of them demonstrated by a confirmed tool rather than named
+         3  job "machine learning" @1719-1735 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "required", "requirement": "Machine Learning"}
          3  job "PyTorch" @1787-1794 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "necessity": "required", "requirement": "PyTorch"}
          3  job "AWS" @1873-1876 [description_text] · user "AWS" · {"confirmed_as": "AWS", "necessity": "required", "requirement": "AWS"}
-  project     2  projects demonstrate 1 of 10 required technologies
+  project     4  projects demonstrate 2 of 10 required technologies
+         2  job "machine learning" @1719-1735 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
          2  job "PyTorch" @1787-1794 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "PyTorch"}
   location    0  0 of 2 stated location preferences met
          0  {"dimension": "place", "job_cities": ["Tokyo"], "preferred": ["Remote"]}
@@ -2400,7 +2428,7 @@ databricks/8569392002 · experienced_ml
   freshness  10  published 6 days ago
         10  {"age_days": 6, "full_within_days": 7, "published_on": "2026-08-03", "zero_after_days": 90}
   priority    —  no rule could tell what level this posting is
-  penalty missing_requirement -25  8 of 10 required technologies have no evidence
+  penalty missing_requirement -25  7 of 10 required technologies have no evidence
   penalty seniority_mismatch —  no rule could tell what level this posting is
 
 databricks/8569392002 · early_career_no_experience
@@ -2449,19 +2477,21 @@ databricks/8604598002 · new_grad_backend
   penalty seniority_mismatch —  this profile states no years of experience
 
 databricks/8604598002 · experienced_ml
-  0/100  role 0 · skill 8 · project 5 · location 0 · freshness 6 · priority 0 · penalty -27
+  9/100  role 0 · skill 15 · project 10 · location 0 · freshness 6 · priority 0 · penalty -22
   role        0  this is a not_tech role and none of the stated preferences names it
-  skill       8  1 of 4 required technologies confirmed
+  skill      15  2 of 4 required technologies confirmed, 1 of them demonstrated by a confirmed tool rather than named
          8  job "Python" @3070-3076 [description_text] · user "Python" · {"confirmed_as": "Python", "necessity": "required", "requirement": "Python"}
-  project     5  projects demonstrate 1 of 4 required technologies
+         7  job "ML" @3849-3851 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "required", "requirement": "Machine Learning"}
+  project    10  projects demonstrate 2 of 4 required technologies
          5  job "Python" @3070-3076 [description_text] · user "Wrote the evaluation harness in Python and ran it nightly." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Python"}
+         5  job "ML" @3849-3851 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
   location    0  0 of 2 stated location preferences met
          0  {"dimension": "place", "job_cities": ["Bengaluru"], "preferred": ["Remote"]}
          0  {"dimension": "work_mode", "job_remote_policy": "on_site", "preference": "remote"}
   freshness   6  published 39 days ago
          6  {"age_days": 39, "full_within_days": 7, "published_on": "2026-07-01", "zero_after_days": 90}
   priority    0  this is a staff posting, not an early-career one
-  penalty missing_requirement -15  3 of 4 required technologies have no evidence
+  penalty missing_requirement -10  2 of 4 required technologies have no evidence
   penalty seniority_mismatch -12  this is a staff posting, which implies about 8 years, and the profile states 6
 
 databricks/8604598002 · early_career_no_experience
@@ -2776,17 +2806,19 @@ imc/4637267101 · new_grad_backend
   penalty seniority_mismatch —  no rule could tell what level this posting is
 
 imc/4637267101 · experienced_ml
-  0/70  role — · skill 10 · project 0 · location 0 · freshness 0 · priority — · penalty -10
+  22/70  role — · skill 20 · project 7 · location 0 · freshness 0 · priority — · penalty -5
   role        —  no rule could tell what kind of role this posting is
-  skill      10  1 of 3 required technologies confirmed
+  skill      20  2 of 3 required technologies confirmed, 1 of them demonstrated by a confirmed tool rather than named
         10  job "C++" @1386-1389 [description_text] · user "C++" · {"confirmed_as": "C++", "necessity": "required", "requirement": "C++"}
-  project     0  no project demonstrates any of the 3 required technologies
+        10  job "machine learning" @1910-1926 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "required", "requirement": "Machine Learning"}
+  project     7  projects demonstrate 1 of 3 required technologies
+         7  job "machine learning" @1910-1926 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
   location    0  0 of 2 stated location preferences met
          0  {"dimension": "place", "job_cities": ["Zug"], "preferred": ["Remote"]}
          0  {"dimension": "work_mode", "job_remote_policy": "on_site", "preference": "remote"}
   freshness   0  published 376 days ago, past the 90-day window
   priority    —  no rule could tell what level this posting is
-  penalty missing_requirement -10  2 of 3 required technologies have no evidence
+  penalty missing_requirement -5  1 of 3 required technologies have no evidence
   penalty seniority_mismatch —  no rule could tell what level this posting is
 
 imc/4637267101 · early_career_no_experience
@@ -2942,13 +2974,15 @@ imc/4713602101 · new_grad_backend
   penalty seniority_mismatch —  no rule could tell what level this posting is
 
 imc/4713602101 · experienced_ml
-  0/90  role 0 · skill 13 · project 6 · location 0 · freshness 0 · priority — · penalty -20
+  11/90  role 0 · skill 17 · project 9 · location 0 · freshness 0 · priority — · penalty -15
   role        0  this is a hardware role and none of the stated preferences names it
-  skill      13  3 of 7 required technologies confirmed
-         5  job "PyTorch" @2017-2024 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "necessity": "required", "requirement": "PyTorch"}
+  skill      17  4 of 7 required technologies confirmed, 1 of them demonstrated by a confirmed tool rather than named
+         5  job "ML" @1640-1642 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "required", "requirement": "Machine Learning"}
+         4  job "PyTorch" @2017-2024 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "necessity": "required", "requirement": "PyTorch"}
          4  job "Python" @2054-2060 [description_text] · user "Python" · {"confirmed_as": "Python", "necessity": "required", "requirement": "Python"}
          4  job "C++" @2062-2065 [description_text] · user "C++" · {"confirmed_as": "C++", "necessity": "required", "requirement": "C++"}
-  project     6  projects demonstrate 2 of 7 required technologies
+  project     9  projects demonstrate 3 of 7 required technologies
+         3  job "ML" @1640-1642 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
          3  job "PyTorch" @2017-2024 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "PyTorch"}
          3  job "Python" @2054-2060 [description_text] · user "Wrote the evaluation harness in Python and ran it nightly." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Python"}
   location    0  0 of 2 stated location preferences met
@@ -2956,7 +2990,7 @@ imc/4713602101 · experienced_ml
          0  {"dimension": "work_mode", "job_remote_policy": "on_site", "preference": "remote"}
   freshness   0  published 177 days ago, past the 90-day window
   priority    —  no rule could tell what level this posting is
-  penalty missing_requirement -20  4 of 7 required technologies have no evidence
+  penalty missing_requirement -15  3 of 7 required technologies have no evidence
   penalty seniority_mismatch —  no rule could tell what level this posting is
 
 imc/4713602101 · early_career_no_experience
@@ -3289,13 +3323,15 @@ imc/4829785101 · new_grad_backend
   penalty seniority_mismatch —  this profile states no years of experience
 
 imc/4829785101 · experienced_ml
-  7/100  role 0 · skill 10 · project 7 · location 0 · freshness 0 · priority 10 · penalty -20
+  20/100  role 0 · skill 15 · project 10 · location 0 · freshness 0 · priority 10 · penalty -15
   role        0  this is a hardware role and none of the stated preferences names it
-  skill      10  2 of 6 required technologies confirmed
+  skill      15  3 of 6 required technologies confirmed, 1 of them demonstrated by a confirmed tool rather than named
+         5  job "ML" @1640-1642 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "required", "requirement": "Machine Learning"}
          5  job "PyTorch" @2017-2024 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "necessity": "required", "requirement": "PyTorch"}
          5  job "Python" @2054-2060 [description_text] · user "Python" · {"confirmed_as": "Python", "necessity": "required", "requirement": "Python"}
-  project     7  projects demonstrate 2 of 6 required technologies
-         4  job "PyTorch" @2017-2024 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "PyTorch"}
+  project    10  projects demonstrate 3 of 6 required technologies
+         4  job "ML" @1640-1642 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
+         3  job "PyTorch" @2017-2024 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "PyTorch"}
          3  job "Python" @2054-2060 [description_text] · user "Wrote the evaluation harness in Python and ran it nightly." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Python"}
   location    0  0 of 2 stated location preferences met
          0  {"dimension": "place", "job_cities": ["Chicago"], "preferred": ["Remote"]}
@@ -3303,7 +3339,7 @@ imc/4829785101 · experienced_ml
   freshness   0  published 115 days ago, past the 90-day window
   priority   10  this is a internship posting
         10  {"seniority": "internship"}
-  penalty missing_requirement -20  4 of 6 required technologies have no evidence
+  penalty missing_requirement -15  3 of 6 required technologies have no evidence
   penalty seniority_mismatch 0  this is a internship posting and the profile states 6 years
 
 imc/4829785101 · early_career_no_experience
@@ -3625,13 +3661,15 @@ imc/4907416101 · new_grad_backend
   penalty seniority_mismatch —  this profile states no years of experience
 
 imc/4907416101 · experienced_ml
-  41/100  role 20 · skill 12 · project 8 · location 0 · freshness 6 · priority 10 · penalty -15
+  56/100  role 20 · skill 18 · project 12 · location 0 · freshness 6 · priority 10 · penalty -10
   role       20  this is a ml_ai role and the profile asks for one
         20  job "Machine Learning" @9-25 [title] · user "machine learning engineer" · {"preferred_role": "machine learning engineer", "role_family": "ml_ai"}
-  skill      12  2 of 5 required technologies confirmed
+  skill      18  3 of 5 required technologies confirmed, 1 of them demonstrated by a confirmed tool rather than named
+         6  job "Machine Learning" @1200-1216 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "required", "requirement": "Machine Learning"}
          6  job "Python" @1683-1689 [description_text] · user "Python" · {"confirmed_as": "Python", "necessity": "required", "requirement": "Python"}
          6  job "PyTorch" @1737-1744 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "necessity": "required", "requirement": "PyTorch"}
-  project     8  projects demonstrate 2 of 5 required technologies
+  project    12  projects demonstrate 3 of 5 required technologies
+         4  job "Machine Learning" @1200-1216 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
          4  job "Python" @1683-1689 [description_text] · user "Wrote the evaluation harness in Python and ran it nightly." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Python"}
          4  job "PyTorch" @1737-1744 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "PyTorch"}
   location    0  0 of 2 stated location preferences met
@@ -3641,7 +3679,7 @@ imc/4907416101 · experienced_ml
          6  {"age_days": 39, "full_within_days": 7, "published_on": "2026-07-01", "zero_after_days": 90}
   priority   10  this is a new_grad posting
         10  {"seniority": "new_grad"}
-  penalty missing_requirement -15  3 of 5 required technologies have no evidence
+  penalty missing_requirement -10  2 of 5 required technologies have no evidence
   penalty seniority_mismatch 0  this is a new_grad posting and the profile states 6 years
 
 imc/4907416101 · early_career_no_experience
@@ -3801,13 +3839,15 @@ imc/4914883101 · new_grad_backend
   penalty seniority_mismatch —  this profile states no years of experience
 
 imc/4914883101 · experienced_ml
-  65/100  role 20 · skill 20 · project 13 · location 0 · freshness 7 · priority 10 · penalty -5
+  87/100  role 20 · skill 30 · project 20 · location 0 · freshness 7 · priority 10 · penalty 0
   role       20  this is a ml_ai role and the profile asks for one
         20  job "Machine Learning" @9-25 [title] · user "machine learning engineer" · {"preferred_role": "machine learning engineer", "role_family": "ml_ai"}
-  skill      20  2 of 3 required technologies confirmed
+  skill      30  3 of 3 required technologies confirmed, 1 of them demonstrated by a confirmed tool rather than named
+        10  job "Machine Learning" @1293-1309 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "required", "requirement": "Machine Learning"}
         10  job "Pytorch" @1598-1605 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "necessity": "required", "requirement": "PyTorch"}
         10  job "Python" @1624-1630 [description_text] · user "Python" · {"confirmed_as": "Python", "necessity": "required", "requirement": "Python"}
-  project    13  projects demonstrate 2 of 3 required technologies
+  project    20  projects demonstrate 3 of 3 required technologies
+         7  job "Machine Learning" @1293-1309 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
          7  job "Pytorch" @1598-1605 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "PyTorch"}
          6  job "Python" @1624-1630 [description_text] · user "Wrote the evaluation harness in Python and ran it nightly." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Python"}
   location    0  0 of 2 stated location preferences met
@@ -3817,7 +3857,7 @@ imc/4914883101 · experienced_ml
          7  {"age_days": 34, "full_within_days": 7, "published_on": "2026-07-06", "zero_after_days": 90}
   priority   10  this is a new_grad posting
         10  {"seniority": "new_grad"}
-  penalty missing_requirement -5  1 of 3 required technologies have no evidence
+  penalty missing_requirement 0  all 3 required technologies have evidence behind them
   penalty seniority_mismatch 0  this is a new_grad posting and the profile states 6 years
 
 imc/4914883101 · early_career_no_experience
@@ -4767,11 +4807,13 @@ janestreet/8594416002 · new_grad_backend
   penalty seniority_mismatch —  no rule could tell what level this posting is
 
 janestreet/8594416002 · experienced_ml
-  25/70  role — · skill 15 · project 10 · location 0 · freshness 5 · priority — · penalty -5
+  55/70  role — · skill 30 · project 20 · location 0 · freshness 5 · priority — · penalty 0
   role        —  no rule could tell what kind of role this posting is
-  skill      15  1 of 2 required technologies confirmed
+  skill      30  2 of 2 required technologies confirmed, 1 of them demonstrated by a confirmed tool rather than named
+        15  job "ML" @2296-2298 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "required", "requirement": "Machine Learning"}
         15  job "Python" @2632-2638 [description_text] · user "Python" · {"confirmed_as": "Python", "necessity": "required", "requirement": "Python"}
-  project    10  projects demonstrate 1 of 2 required technologies
+  project    20  projects demonstrate 2 of 2 required technologies
+        10  job "ML" @2296-2298 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
         10  job "Python" @2632-2638 [description_text] · user "Wrote the evaluation harness in Python and ran it nightly." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Python"}
   location    0  0 of 2 stated location preferences met
          0  {"dimension": "place", "job_cities": ["England"], "preferred": ["Remote"]}
@@ -4779,7 +4821,7 @@ janestreet/8594416002 · experienced_ml
   freshness   5  published 48 days ago
          5  {"age_days": 48, "full_within_days": 7, "published_on": "2026-06-22", "zero_after_days": 90}
   priority    —  no rule could tell what level this posting is
-  penalty missing_requirement -5  1 of 2 required technologies have no evidence
+  penalty missing_requirement 0  all 2 required technologies have evidence behind them
   penalty seniority_mismatch —  no rule could tell what level this posting is
 
 janestreet/8594416002 · early_career_no_experience
@@ -4827,11 +4869,13 @@ janestreet/8596771002 · new_grad_backend
   penalty seniority_mismatch —  no rule could tell what level this posting is
 
 janestreet/8596771002 · experienced_ml
-  25/70  role — · skill 15 · project 10 · location 0 · freshness 5 · priority — · penalty -5
+  55/70  role — · skill 30 · project 20 · location 0 · freshness 5 · priority — · penalty 0
   role        —  no rule could tell what kind of role this posting is
-  skill      15  1 of 2 required technologies confirmed
+  skill      30  2 of 2 required technologies confirmed, 1 of them demonstrated by a confirmed tool rather than named
+        15  job "ML" @2295-2297 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "required", "requirement": "Machine Learning"}
         15  job "Python" @2631-2637 [description_text] · user "Python" · {"confirmed_as": "Python", "necessity": "required", "requirement": "Python"}
-  project    10  projects demonstrate 1 of 2 required technologies
+  project    20  projects demonstrate 2 of 2 required technologies
+        10  job "ML" @2295-2297 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
         10  job "Python" @2631-2637 [description_text] · user "Wrote the evaluation harness in Python and ran it nightly." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Python"}
   location    0  0 of 2 stated location preferences met
          0  {"dimension": "place", "job_cities": ["Hong Kong"], "preferred": ["Remote"]}
@@ -4839,7 +4883,7 @@ janestreet/8596771002 · experienced_ml
   freshness   5  published 48 days ago
          5  {"age_days": 48, "full_within_days": 7, "published_on": "2026-06-22", "zero_after_days": 90}
   priority    —  no rule could tell what level this posting is
-  penalty missing_requirement -5  1 of 2 required technologies have no evidence
+  penalty missing_requirement 0  all 2 required technologies have evidence behind them
   penalty seniority_mismatch —  no rule could tell what level this posting is
 
 janestreet/8596771002 · early_career_no_experience
@@ -4995,8 +5039,10 @@ jumptrading/4982814 · experienced_ml
   20/40  role 20 · skill — · project — · location 0 · freshness 0 · priority — · penalty 0
   role       20  this is a ml_ai role and the profile asks for one
         20  job "AI" @0-2 [title] · user "machine learning engineer" · {"preferred_role": "machine learning engineer", "role_family": "ml_ai"}
-  skill       —  this posting names no required technologies
+  skill       —  this posting names no required technologies, and 1 of its nice-to-haves is confirmed here — worth nothing, by design
+         0  job "ML" @3465-3467 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "preferred", "requirement": "Machine Learning"}
   project     —  this posting names no required technologies
+         0  job "ML" @3465-3467 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "preferred", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
   location    0  0 of 2 stated location preferences met
          0  {"dimension": "place", "job_cities": ["London"], "preferred": ["Remote"]}
          0  {"dimension": "work_mode", "job_remote_policy": "on_site", "preference": "remote"}
@@ -5046,21 +5092,23 @@ jumptrading/7282220 · new_grad_backend
   penalty seniority_mismatch —  this profile states no years of experience
 
 jumptrading/7282220 · experienced_ml
-  37/90  role 20 · skill 15 · project 7 · location — · freshness 0 · priority 10 · penalty -15
+  50/90  role 20 · skill 20 · project 10 · location — · freshness 0 · priority 10 · penalty -10
   role       20  this is a ml_ai role and the profile asks for one
         20  job "AI" @7-9 [title] · user "machine learning engineer" · {"preferred_role": "machine learning engineer", "role_family": "ml_ai"}
-  skill      15  3 of 6 required technologies confirmed
+  skill      20  4 of 6 required technologies confirmed, 1 of them demonstrated by a confirmed tool rather than named
+         5  job "machine learning" @1484-1500 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "required", "requirement": "Machine Learning"}
          5  job "PyTorch" @2487-2494 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "necessity": "required", "requirement": "PyTorch"}
          5  job "Python" @2537-2543 [description_text] · user "Python" · {"confirmed_as": "Python", "necessity": "required", "requirement": "Python"}
          5  job "C++" @2551-2554 [description_text] · user "C++" · {"confirmed_as": "C++", "necessity": "required", "requirement": "C++"}
-  project     7  projects demonstrate 2 of 6 required technologies
-         4  job "PyTorch" @2487-2494 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "PyTorch"}
+  project    10  projects demonstrate 3 of 6 required technologies
+         4  job "machine learning" @1484-1500 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
+         3  job "PyTorch" @2487-2494 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "PyTorch"}
          3  job "Python" @2537-2543 [description_text] · user "Wrote the evaluation harness in Python and ran it nightly." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Python"}
   location    —  this posting states no location and no work-mode this profile asked about
   freshness   0  published 313 days ago, past the 90-day window
   priority   10  this is a new_grad posting
         10  {"seniority": "new_grad"}
-  penalty missing_requirement -15  3 of 6 required technologies have no evidence
+  penalty missing_requirement -10  2 of 6 required technologies have no evidence
   penalty seniority_mismatch 0  this is a new_grad posting and the profile states 6 years
 
 jumptrading/7282220 · early_career_no_experience
@@ -5416,8 +5464,10 @@ jumptrading/7976923 · experienced_ml
   38/40  role 20 · skill — · project — · location — · freshness 8 · priority 10 · penalty 0
   role       20  this is a ml_ai role and the profile asks for one
         20  job "AI" @7-9 [title] · user "machine learning engineer" · {"preferred_role": "machine learning engineer", "role_family": "ml_ai"}
-  skill       —  this posting names no required technologies
+  skill       —  this posting names no required technologies, and 1 of its nice-to-haves is confirmed here — worth nothing, by design
+         0  job "ML" @2817-2819 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "preferred", "requirement": "Machine Learning"}
   project     —  this posting names no required technologies
+         0  job "ML" @2817-2819 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "preferred", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
   location    —  this posting states no location and no work-mode this profile asked about
   freshness   8  published 27 days ago
          8  {"age_days": 27, "full_within_days": 7, "published_on": "2026-07-13", "zero_after_days": 90}
@@ -5470,8 +5520,10 @@ jumptrading/7976964 · experienced_ml
   38/40  role 20 · skill — · project — · location — · freshness 8 · priority 10 · penalty 0
   role       20  this is a ml_ai role and the profile asks for one
         20  job "AI" @7-9 [title] · user "machine learning engineer" · {"preferred_role": "machine learning engineer", "role_family": "ml_ai"}
-  skill       —  this posting names no required technologies
+  skill       —  this posting names no required technologies, and 1 of its nice-to-haves is confirmed here — worth nothing, by design
+         0  job "ML" @2817-2819 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "preferred", "requirement": "Machine Learning"}
   project     —  this posting names no required technologies
+         0  job "ML" @2817-2819 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "preferred", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
   location    —  this posting states no location and no work-mode this profile asked about
   freshness   8  published 27 days ago
          8  {"age_days": 27, "full_within_days": 7, "published_on": "2026-07-13", "zero_after_days": 90}
@@ -5756,16 +5808,18 @@ jumptrading/8052281 · new_grad_backend
   penalty seniority_mismatch —  this profile states no years of experience
 
 jumptrading/8052281 · experienced_ml
-  25/100  role 20 · skill 9 · project 4 · location 0 · freshness 7 · priority 10 · penalty -25
+  30/100  role 20 · skill 12 · project 6 · location 0 · freshness 7 · priority 10 · penalty -25
   role       20  this is a ml_ai role and the profile asks for one
         20  job "AI" @7-9 [title] · user "machine learning engineer" · {"preferred_role": "machine learning engineer", "role_family": "ml_ai"}
-  skill       9  3 of 10 required technologies confirmed
+  skill      12  4 of 10 required technologies confirmed, 1 of them demonstrated by a confirmed tool rather than named
          3  job "Python" @2806-2812 [description_text] · user "Python" · {"confirmed_as": "Python", "necessity": "required", "requirement": "Python"}
          3  job "C++" @2820-2823 [description_text] · user "C++" · {"confirmed_as": "C++", "necessity": "required", "requirement": "C++"}
          3  job "PyTorch" @2842-2849 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "necessity": "required", "requirement": "PyTorch"}
-  project     4  projects demonstrate 2 of 10 required technologies
+         3  job "ML" @3076-3078 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "required", "requirement": "Machine Learning"}
+  project     6  projects demonstrate 3 of 10 required technologies
          2  job "Python" @2806-2812 [description_text] · user "Wrote the evaluation harness in Python and ran it nightly." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Python"}
          2  job "PyTorch" @2842-2849 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "PyTorch"}
+         2  job "ML" @3076-3078 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
   location    0  0 of 2 stated location preferences met
          0  {"dimension": "place", "job_cities": ["New York"], "preferred": ["Remote"]}
          0  {"dimension": "work_mode", "job_remote_policy": "on_site", "preference": "remote"}
@@ -5773,7 +5827,7 @@ jumptrading/8052281 · experienced_ml
          7  {"age_days": 32, "full_within_days": 7, "published_on": "2026-07-08", "zero_after_days": 90}
   priority   10  this is a internship posting
         10  {"seniority": "internship"}
-  penalty missing_requirement -25  7 of 10 required technologies have no evidence
+  penalty missing_requirement -25  6 of 10 required technologies have no evidence
   penalty seniority_mismatch 0  this is a internship posting and the profile states 6 years
 
 jumptrading/8052281 · early_career_no_experience
@@ -5826,16 +5880,18 @@ jumptrading/8052313 · new_grad_backend
   penalty seniority_mismatch —  this profile states no years of experience
 
 jumptrading/8052313 · experienced_ml
-  25/100  role 20 · skill 9 · project 4 · location 0 · freshness 7 · priority 10 · penalty -25
+  30/100  role 20 · skill 12 · project 6 · location 0 · freshness 7 · priority 10 · penalty -25
   role       20  this is a ml_ai role and the profile asks for one
         20  job "AI" @7-9 [title] · user "machine learning engineer" · {"preferred_role": "machine learning engineer", "role_family": "ml_ai"}
-  skill       9  3 of 10 required technologies confirmed
+  skill      12  4 of 10 required technologies confirmed, 1 of them demonstrated by a confirmed tool rather than named
          3  job "Python" @2806-2812 [description_text] · user "Python" · {"confirmed_as": "Python", "necessity": "required", "requirement": "Python"}
          3  job "C++" @2820-2823 [description_text] · user "C++" · {"confirmed_as": "C++", "necessity": "required", "requirement": "C++"}
          3  job "PyTorch" @2842-2849 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "necessity": "required", "requirement": "PyTorch"}
-  project     4  projects demonstrate 2 of 10 required technologies
+         3  job "ML" @3076-3078 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "required", "requirement": "Machine Learning"}
+  project     6  projects demonstrate 3 of 10 required technologies
          2  job "Python" @2806-2812 [description_text] · user "Wrote the evaluation harness in Python and ran it nightly." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Python"}
          2  job "PyTorch" @2842-2849 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "PyTorch"}
+         2  job "ML" @3076-3078 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
   location    0  0 of 2 stated location preferences met
          0  {"dimension": "place", "job_cities": ["New York"], "preferred": ["Remote"]}
          0  {"dimension": "work_mode", "job_remote_policy": "on_site", "preference": "remote"}
@@ -5843,7 +5899,7 @@ jumptrading/8052313 · experienced_ml
          7  {"age_days": 32, "full_within_days": 7, "published_on": "2026-07-08", "zero_after_days": 90}
   priority   10  this is a new_grad posting
         10  {"seniority": "new_grad"}
-  penalty missing_requirement -25  7 of 10 required technologies have no evidence
+  penalty missing_requirement -25  6 of 10 required technologies have no evidence
   penalty seniority_mismatch 0  this is a new_grad posting and the profile states 6 years
 
 jumptrading/8052313 · early_career_no_experience
@@ -5896,15 +5952,17 @@ jumptrading/8052338 · new_grad_backend
   penalty seniority_mismatch —  this profile states no years of experience
 
 jumptrading/8052338 · experienced_ml
-  44/100  role 20 · skill 15 · project 7 · location 0 · freshness 7 · priority 10 · penalty -15
+  57/100  role 20 · skill 20 · project 10 · location 0 · freshness 7 · priority 10 · penalty -10
   role       20  this is a ml_ai role and the profile asks for one
         20  job "AI" @7-9 [title] · user "machine learning engineer" · {"preferred_role": "machine learning engineer", "role_family": "ml_ai"}
-  skill      15  3 of 6 required technologies confirmed
+  skill      20  4 of 6 required technologies confirmed, 1 of them demonstrated by a confirmed tool rather than named
+         5  job "ML" @2602-2604 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "required", "requirement": "Machine Learning"}
          5  job "Python" @2761-2767 [description_text] · user "Python" · {"confirmed_as": "Python", "necessity": "required", "requirement": "Python"}
          5  job "C++" @2775-2778 [description_text] · user "C++" · {"confirmed_as": "C++", "necessity": "required", "requirement": "C++"}
          5  job "PyTorch" @2831-2838 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "necessity": "required", "requirement": "PyTorch"}
-  project     7  projects demonstrate 2 of 6 required technologies
-         4  job "Python" @2761-2767 [description_text] · user "Wrote the evaluation harness in Python and ran it nightly." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Python"}
+  project    10  projects demonstrate 3 of 6 required technologies
+         4  job "ML" @2602-2604 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
+         3  job "Python" @2761-2767 [description_text] · user "Wrote the evaluation harness in Python and ran it nightly." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Python"}
          3  job "PyTorch" @2831-2838 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "PyTorch"}
   location    0  0 of 2 stated location preferences met
          0  {"dimension": "place", "job_cities": ["New York"], "preferred": ["Remote"]}
@@ -5913,7 +5971,7 @@ jumptrading/8052338 · experienced_ml
          7  {"age_days": 32, "full_within_days": 7, "published_on": "2026-07-08", "zero_after_days": 90}
   priority   10  this is a internship posting
         10  {"seniority": "internship"}
-  penalty missing_requirement -15  3 of 6 required technologies have no evidence
+  penalty missing_requirement -10  2 of 6 required technologies have no evidence
   penalty seniority_mismatch 0  this is a internship posting and the profile states 6 years
 
 jumptrading/8052338 · early_career_no_experience
@@ -5966,15 +6024,17 @@ jumptrading/8052343 · new_grad_backend
   penalty seniority_mismatch —  this profile states no years of experience
 
 jumptrading/8052343 · experienced_ml
-  44/100  role 20 · skill 15 · project 7 · location 0 · freshness 7 · priority 10 · penalty -15
+  57/100  role 20 · skill 20 · project 10 · location 0 · freshness 7 · priority 10 · penalty -10
   role       20  this is a ml_ai role and the profile asks for one
         20  job "AI" @7-9 [title] · user "machine learning engineer" · {"preferred_role": "machine learning engineer", "role_family": "ml_ai"}
-  skill      15  3 of 6 required technologies confirmed
+  skill      20  4 of 6 required technologies confirmed, 1 of them demonstrated by a confirmed tool rather than named
+         5  job "ML" @2602-2604 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "required", "requirement": "Machine Learning"}
          5  job "Python" @2761-2767 [description_text] · user "Python" · {"confirmed_as": "Python", "necessity": "required", "requirement": "Python"}
          5  job "C++" @2775-2778 [description_text] · user "C++" · {"confirmed_as": "C++", "necessity": "required", "requirement": "C++"}
          5  job "PyTorch" @2831-2838 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "necessity": "required", "requirement": "PyTorch"}
-  project     7  projects demonstrate 2 of 6 required technologies
-         4  job "Python" @2761-2767 [description_text] · user "Wrote the evaluation harness in Python and ran it nightly." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Python"}
+  project    10  projects demonstrate 3 of 6 required technologies
+         4  job "ML" @2602-2604 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
+         3  job "Python" @2761-2767 [description_text] · user "Wrote the evaluation harness in Python and ran it nightly." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Python"}
          3  job "PyTorch" @2831-2838 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "PyTorch"}
   location    0  0 of 2 stated location preferences met
          0  {"dimension": "place", "job_cities": ["New York"], "preferred": ["Remote"]}
@@ -5983,7 +6043,7 @@ jumptrading/8052343 · experienced_ml
          7  {"age_days": 32, "full_within_days": 7, "published_on": "2026-07-08", "zero_after_days": 90}
   priority   10  this is a new_grad posting
         10  {"seniority": "new_grad"}
-  penalty missing_requirement -15  3 of 6 required technologies have no evidence
+  penalty missing_requirement -10  2 of 6 required technologies have no evidence
   penalty seniority_mismatch 0  this is a new_grad posting and the profile states 6 years
 
 jumptrading/8052343 · early_career_no_experience
@@ -6036,15 +6096,17 @@ jumptrading/8052351 · new_grad_backend
   penalty seniority_mismatch —  this profile states no years of experience
 
 jumptrading/8052351 · experienced_ml
-  44/100  role 20 · skill 15 · project 7 · location 0 · freshness 7 · priority 10 · penalty -15
+  57/100  role 20 · skill 20 · project 10 · location 0 · freshness 7 · priority 10 · penalty -10
   role       20  this is a ml_ai role and the profile asks for one
         20  job "AI" @7-9 [title] · user "machine learning engineer" · {"preferred_role": "machine learning engineer", "role_family": "ml_ai"}
-  skill      15  3 of 6 required technologies confirmed
+  skill      20  4 of 6 required technologies confirmed, 1 of them demonstrated by a confirmed tool rather than named
+         5  job "ML" @2602-2604 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "required", "requirement": "Machine Learning"}
          5  job "Python" @2761-2767 [description_text] · user "Python" · {"confirmed_as": "Python", "necessity": "required", "requirement": "Python"}
          5  job "C++" @2775-2778 [description_text] · user "C++" · {"confirmed_as": "C++", "necessity": "required", "requirement": "C++"}
          5  job "PyTorch" @2831-2838 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "necessity": "required", "requirement": "PyTorch"}
-  project     7  projects demonstrate 2 of 6 required technologies
-         4  job "Python" @2761-2767 [description_text] · user "Wrote the evaluation harness in Python and ran it nightly." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Python"}
+  project    10  projects demonstrate 3 of 6 required technologies
+         4  job "ML" @2602-2604 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
+         3  job "Python" @2761-2767 [description_text] · user "Wrote the evaluation harness in Python and ran it nightly." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Python"}
          3  job "PyTorch" @2831-2838 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "PyTorch"}
   location    0  0 of 2 stated location preferences met
          0  {"dimension": "place", "job_cities": ["New York"], "preferred": ["Remote"]}
@@ -6053,7 +6115,7 @@ jumptrading/8052351 · experienced_ml
          7  {"age_days": 32, "full_within_days": 7, "published_on": "2026-07-08", "zero_after_days": 90}
   priority   10  this is a internship posting
         10  {"seniority": "internship"}
-  penalty missing_requirement -15  3 of 6 required technologies have no evidence
+  penalty missing_requirement -10  2 of 6 required technologies have no evidence
   penalty seniority_mismatch 0  this is a internship posting and the profile states 6 years
 
 jumptrading/8052351 · early_career_no_experience
@@ -6106,15 +6168,17 @@ jumptrading/8052356 · new_grad_backend
   penalty seniority_mismatch —  this profile states no years of experience
 
 jumptrading/8052356 · experienced_ml
-  44/100  role 20 · skill 15 · project 7 · location 0 · freshness 7 · priority 10 · penalty -15
+  57/100  role 20 · skill 20 · project 10 · location 0 · freshness 7 · priority 10 · penalty -10
   role       20  this is a ml_ai role and the profile asks for one
         20  job "AI" @7-9 [title] · user "machine learning engineer" · {"preferred_role": "machine learning engineer", "role_family": "ml_ai"}
-  skill      15  3 of 6 required technologies confirmed
+  skill      20  4 of 6 required technologies confirmed, 1 of them demonstrated by a confirmed tool rather than named
+         5  job "ML" @2602-2604 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "required", "requirement": "Machine Learning"}
          5  job "Python" @2761-2767 [description_text] · user "Python" · {"confirmed_as": "Python", "necessity": "required", "requirement": "Python"}
          5  job "C++" @2775-2778 [description_text] · user "C++" · {"confirmed_as": "C++", "necessity": "required", "requirement": "C++"}
          5  job "PyTorch" @2831-2838 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "necessity": "required", "requirement": "PyTorch"}
-  project     7  projects demonstrate 2 of 6 required technologies
-         4  job "Python" @2761-2767 [description_text] · user "Wrote the evaluation harness in Python and ran it nightly." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Python"}
+  project    10  projects demonstrate 3 of 6 required technologies
+         4  job "ML" @2602-2604 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
+         3  job "Python" @2761-2767 [description_text] · user "Wrote the evaluation harness in Python and ran it nightly." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Python"}
          3  job "PyTorch" @2831-2838 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "PyTorch"}
   location    0  0 of 2 stated location preferences met
          0  {"dimension": "place", "job_cities": ["New York"], "preferred": ["Remote"]}
@@ -6123,7 +6187,7 @@ jumptrading/8052356 · experienced_ml
          7  {"age_days": 32, "full_within_days": 7, "published_on": "2026-07-08", "zero_after_days": 90}
   priority   10  this is a new_grad posting
         10  {"seniority": "new_grad"}
-  penalty missing_requirement -15  3 of 6 required technologies have no evidence
+  penalty missing_requirement -10  2 of 6 required technologies have no evidence
   penalty seniority_mismatch 0  this is a new_grad posting and the profile states 6 years
 
 jumptrading/8052356 · early_career_no_experience
@@ -7999,15 +8063,17 @@ point72/8511578002 · new_grad_backend
   penalty seniority_mismatch —  this profile states no years of experience
 
 point72/8511578002 · experienced_ml
-  10/90  role 20 · skill 0 · project 0 · location — · freshness 0 · priority 0 · penalty -10
+  40/90  role 20 · skill 15 · project 10 · location — · freshness 0 · priority 0 · penalty -5
   role       20  this is a ml_ai role and the profile asks for one
         20  job "AI" @0-2 [title] · user "machine learning engineer" · {"preferred_role": "machine learning engineer", "role_family": "ml_ai"}
-  skill       0  none of the 2 required technologies is confirmed on this profile
-  project     0  no project demonstrates any of the 2 required technologies
+  skill      15  1 of 2 required technologies confirmed, 1 of them demonstrated by a confirmed tool rather than named
+        15  job "ML" @2067-2069 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "required", "requirement": "Machine Learning"}
+  project    10  projects demonstrate 1 of 2 required technologies
+        10  job "ML" @2067-2069 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
   location    —  this posting states no location and no work-mode this profile asked about
   freshness   0  published 114 days ago, past the 90-day window
   priority    0  this is a mid posting, not an early-career one
-  penalty missing_requirement -10  2 of 2 required technologies have no evidence
+  penalty missing_requirement -5  1 of 2 required technologies have no evidence
   penalty seniority_mismatch 0  this is a mid posting and the profile states 6 years
 
 point72/8511578002 · early_career_no_experience
@@ -8356,20 +8422,22 @@ point72/8658618002 · new_grad_backend
   penalty seniority_mismatch —  this profile states no years of experience
 
 point72/8658618002 · experienced_ml
-  37/100  role 20 · skill 10 · project 7 · location 0 · freshness 10 · priority 0 · penalty -10
+  58/100  role 20 · skill 20 · project 13 · location 0 · freshness 10 · priority 0 · penalty -5
   role       20  this is a ml_ai role and the profile asks for one
         20  job "AI" @0-2 [title] · user "machine learning engineer" · {"preferred_role": "machine learning engineer", "role_family": "ml_ai"}
-  skill      10  1 of 3 required technologies confirmed
+  skill      20  2 of 3 required technologies confirmed, 1 of them demonstrated by a confirmed tool rather than named
+        10  job "machine learning" @1596-1612 [description_text] · user "PyTorch" · {"confirmed_as": "PyTorch", "demonstrated_via": "PyTorch", "necessity": "required", "requirement": "Machine Learning"}
         10  job "Python" @1661-1667 [description_text] · user "Python" · {"confirmed_as": "Python", "necessity": "required", "requirement": "Python"}
-  project     7  projects demonstrate 1 of 3 required technologies
-         7  job "Python" @1661-1667 [description_text] · user "Wrote the evaluation harness in Python and ran it nightly." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Python"}
+  project    13  projects demonstrate 2 of 3 required technologies
+         7  job "machine learning" @1596-1612 [description_text] · user "Trained the reranker in PyTorch across eight GPUs." · {"demonstrated_via": "PyTorch", "necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Machine Learning"}
+         6  job "Python" @1661-1667 [description_text] · user "Wrote the evaluation harness in Python and ran it nightly." · {"necessity": "required", "project": "Retrieval evaluation harness", "requirement": "Python"}
   location    0  0 of 2 stated location preferences met
          0  {"dimension": "place", "job_cities": ["Hong Kong"], "preferred": ["Remote"]}
          0  {"dimension": "work_mode", "job_remote_policy": "on_site", "preference": "remote"}
   freshness  10  published 10 days ago
         10  {"age_days": 10, "full_within_days": 7, "published_on": "2026-07-30", "zero_after_days": 90}
   priority    0  this is a mid posting, not an early-career one
-  penalty missing_requirement -10  2 of 3 required technologies have no evidence
+  penalty missing_requirement -5  1 of 3 required technologies have no evidence
   penalty seniority_mismatch 0  this is a mid posting and the profile states 6 years
 
 point72/8658618002 · early_career_no_experience

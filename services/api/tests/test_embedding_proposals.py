@@ -83,6 +83,7 @@ quietly reversed. These tests make it a thing that can go red:
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 import pytest
@@ -90,7 +91,12 @@ import pytest
 from nightshift.db.base import EvidenceSource, MatchComponent
 from nightshift.domain.embeddings import cosine_similarity, default_embedder, real_model_available
 from nightshift.domain.matching_weights import load_weights
-from nightshift.domain.scoring import ScoringProfile, score_match
+from nightshift.domain.scoring import (
+    NO_DEMONSTRATION_EDGES,
+    ScoringProfile,
+    score_match,
+)
+from nightshift.domain.skill_vocabulary import load_vocabulary
 from tests.matching_corpus import AS_OF, CorpusPosting, load_profiles, required_technologies
 
 #: What the rules-only scorer matched on 2026-08-10, per fixture profile, out of
@@ -100,6 +106,21 @@ from tests.matching_corpus import AS_OF, CorpusPosting, load_profiles, required_
 RULES_ONLY_BASELINE: dict[str, int] = {
     "new_grad_backend": 90,
     "experienced_ml": 88,
+    "early_career_no_experience": 59,
+    "states_nothing": 0,
+}
+
+#: The same measurement with M3d Task 1's `demonstrated_by` edges in force —
+#: ADR 0018's own recommended successor, built.
+#:
+#: One profile moves and the other three do not, which is the shape a narrow
+#: ontology edge should have: only `experienced_ml` confirms PyTorch, Kubernetes
+#: and the rest of the tools that demonstrate the two concepts carrying an edge.
+#: A change that moved every profile would mean the edges were matching on
+#: something broader than they claim to.
+RULES_WITH_ONTOLOGY_EDGES: dict[str, int] = {
+    "new_grad_backend": 90,
+    "experienced_ml": 118,
     "early_career_no_experience": 59,
     "states_nothing": 0,
 }
@@ -152,6 +173,7 @@ class Missed:
 def _matched_and_missed(
     corpus: tuple[CorpusPosting, ...],
     profiles: tuple[tuple[str, ScoringProfile], ...],
+    demonstrates: Mapping[str, tuple[str, ...]] = NO_DEMONSTRATION_EDGES,
 ) -> tuple[dict[str, int], tuple[Missed, ...]]:
     """Run the real scorer and read what its evidence covers.
 
@@ -170,7 +192,13 @@ def _matched_and_missed(
             required = required_technologies(entry.posting)
             if not required:
                 continue
-            score = score_match(entry.posting, profile, weights=weights, as_of=AS_OF)
+            score = score_match(
+                entry.posting,
+                profile,
+                weights=weights,
+                as_of=AS_OF,
+                demonstrates=demonstrates,
+            )
             covered = {
                 row.requirement.value
                 for row in score.evidence
@@ -206,16 +234,53 @@ def test_the_rules_only_baseline_is_what_task_11_was_measured_against(
 ) -> None:
     """The figure ADR 0018 quotes, as an assertion rather than a sentence.
 
-    If the vocabulary grows or a fixture profile changes, this goes red and the
-    ADR's arithmetic has to be re-read — which is the point. The decision not to
-    ship rests on these numbers, so they are not allowed to drift silently.
+    **Measured with the ontology edges off**, which is a change made at M3d Task
+    1 and is the whole point of the parameter. ADR 0018's decision not to ship an
+    embedding rests on what the rules missed *at Task 11*; building the ADR's own
+    recommended successor then moves that number, and if this test simply tracked
+    the current rules it would erase the evidence for the decision it exists to
+    protect. The historical claim is measured under historical conditions.
+
+    If the vocabulary's *terms* grow or a fixture profile changes, this still goes
+    red and the ADR's arithmetic has to be re-read — which was always the point.
     """
-    matched, missed = _matched_and_missed(scoring_corpus, load_profiles())
+    matched, missed = _matched_and_missed(
+        scoring_corpus, load_profiles(), demonstrates=NO_DEMONSTRATION_EDGES
+    )
 
     assert matched == RULES_ONLY_BASELINE
     assert len(missed) == sum(
         REQUIRED_ROWS_PER_PROFILE - hit for hit in RULES_ONLY_BASELINE.values()
     )
+
+
+def test_the_ontology_edges_recover_part_of_the_gap_the_embedding_could_not(
+    scoring_corpus: tuple[CorpusPosting, ...],
+) -> None:
+    """M3d Task 1's yield, as a number rather than a claim.
+
+    ADR 0018 measured a gap of 150-181 required rows per profile and found that
+    essentially none of it was recoverable by an embedding — the ordering was
+    inverted, siblings outranking concepts. It named `demonstrated_by` edges as
+    the constructive successor. This is that successor, measured the same way.
+
+    30 rows on the one profile confirming the tools involved, and zero fabricated
+    ones: every row still quotes a posting span and a confirmed skill, and the
+    claim behind it is a line in `skills.yaml` a human wrote and can be argued
+    with, not a cosine above a threshold.
+    """
+    matched, _ = _matched_and_missed(
+        scoring_corpus, load_profiles(), demonstrates=load_vocabulary().edges
+    )
+
+    assert matched == RULES_WITH_ONTOLOGY_EDGES
+    recovered = {name: matched[name] - RULES_ONLY_BASELINE[name] for name in RULES_ONLY_BASELINE}
+    assert recovered == {
+        "new_grad_backend": 0,
+        "experienced_ml": 30,
+        "early_career_no_experience": 0,
+        "states_nothing": 0,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -346,7 +411,13 @@ def test_the_scorer_emits_no_evidence_row_an_embedding_proposed(
         row.proposed_by
         for entry in scoring_corpus
         for _, profile in load_profiles()
-        for row in score_match(entry.posting, profile, weights=weights, as_of=AS_OF).evidence
+        for row in score_match(
+            entry.posting,
+            profile,
+            weights=weights,
+            as_of=AS_OF,
+            demonstrates=load_vocabulary().edges,
+        ).evidence
     }
 
     assert sources == {EvidenceSource.RULE}
