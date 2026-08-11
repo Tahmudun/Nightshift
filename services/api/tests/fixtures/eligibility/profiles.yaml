@@ -1,0 +1,57 @@
+# The people the eligibility verdict is graded against. M3d Task 3.
+#
+# Fixtures, not users. Separate from `fixtures/matching/profiles.yaml` on
+# purpose: that file is `scoring.ScoringProfile`-shaped and feeds the golden
+# score, so a field added here would move 612 committed numbers for a
+# measurement that has nothing to do with them. This file is
+# `eligibility.SeekerProfile`-shaped — the five confirmed facts the gate reads.
+#
+# Every field is optional and null means **this person has not told us**, which
+# `matching.md` §3.3 and invariant I2 both insist is different from a negative
+# answer. `states_nothing` exists so that difference is exercised rather than
+# asserted: a gate that resolved silence to a "no" would answer `ineligible`
+# there instead of `uncertain`, and no other profile in this file would notice.
+#
+# Four, because the gate has five states and one of them (`likely_eligible`) is
+# unreachable by any rule — ADR 0017, and `test_the_truth_set_reaches_more_than
+# _one_state` asserts the reachable ones actually appear rather than trusting it.
+profiles:
+  # The rater's own profile, from `fixtures/relevance/ratings.yaml` — a fifth-year
+  # undergraduate graduating May 2027 with no formal job experience. This product
+  # exists for this person, so a metric computed without them measures somebody
+  # else. `degree: bachelors` is "held **or in progress**" per `eligibility.py`.
+  - name: graduating_2027_bachelors
+    graduation_year: 2027
+    graduation_month: 5
+    degree: bachelors
+    work_authorization: us_citizen
+    years_experience: 0
+    is_enrolled: true
+
+  # The other end of the ladder, and the profile that makes an internship's
+  # graduation window bite in the *opposite* direction — a window is a bar you
+  # can be above as well as below.
+  - name: experienced_phd
+    graduation_year: 2016
+    graduation_month: 6
+    degree: phd
+    work_authorization: us_citizen
+    years_experience: 8
+    is_enrolled: false
+
+  # The one profile a posting can genuinely block. `needs_sponsorship` against a
+  # posting stating sponsorship is not offered is the clearest hard blocker in
+  # the corpus, and `degree: none` is the other. Without this profile the
+  # `ineligible` row of the confusion matrix is empty and its precision and
+  # recall are both undefined — which reads as "no errors" rather than "never
+  # tested", and that is the reading A13 calls the worst output available.
+  - name: no_degree_needs_sponsorship
+    degree: none
+    work_authorization: needs_sponsorship
+    years_experience: 2
+    is_enrolled: false
+
+  # Every field null. Not a lazy fourth entry: this is the profile most real
+  # users have on their first day, and the one where every rule must answer
+  # `cannot_tell` rather than guessing.
+  - name: states_nothing
