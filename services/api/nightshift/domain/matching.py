@@ -652,11 +652,17 @@ def band_rank() -> Any:
 
 
 def coverage_weighted_rank() -> Any:
-    """The ordering key inside a band (§5.3, M3d Task 6).
+    """The ordering key inside a band (§5.3, M3d Task 6), as a SQL clause.
 
     `fraction * sqrt(assessed_out_of / 100)`, algebraically simplified so the
     division happens once. `sqrt(0)` is 0 and `NULLIF` turns that into the null an
     unassessable pair is entitled to, exactly as the plain fraction did.
+
+    **`scoring.coverage_weighted_fraction` is the definition and this is its
+    translation**, because Postgres cannot call a Python function. The two are
+    held together by `test_the_sql_ordering_is_the_documented_key` rather than by
+    the resemblance of these two lines, which is what M3d Task 8 found had let a
+    third copy of this arithmetic drift a whole task behind.
 
     **This is the ordering key, not the displayed number.** `MatchResult`'s
     `fraction` on the wire is still `overall / assessed_out_of` — "of what could

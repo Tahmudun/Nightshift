@@ -49,6 +49,7 @@ and freshness worth 50 points between them, which nobody chose.
 
 from __future__ import annotations
 
+import math
 import re
 import uuid
 from collections.abc import Iterable, Mapping
@@ -134,6 +135,31 @@ def score_fraction(overall: int, assessed_out_of: int) -> float | None:
     if not assessed_out_of:
         return None
     return overall / assessed_out_of
+
+
+def coverage_weighted_fraction(overall: int, assessed_out_of: int) -> float | None:
+    """What the ranked list is ordered by — `fraction * sqrt(assessed_out_of/100)`.
+
+    `matching.md` §5.3 carries the measurement that chose it. **This is the
+    ordering key and not the displayed number**: every row still prints
+    `score_fraction`, the honest "of what could be assessed" figure, so a reader
+    can see 17% ranked above 30% and `MatchRankingOut.ordering` says why.
+
+    One definition, because M3d Task 8 found there had been three. Task 6
+    changed the SQL clause and left `verify.py`, `matching.spec.ts` and the
+    ranking-quality grader each asserting the key they were written against; two
+    of those went red and were repaired at Task 7, and **the third reported a
+    number for an ordering this system had stopped serving.** `None` propagates
+    from `score_fraction` for exactly the same reason it does there.
+
+    `coverage_weighted_rank` in `domain/matching.py` is the same arithmetic as a
+    SQL clause, because Postgres cannot call this. They are held together by
+    `test_the_sql_ordering_is_the_documented_key`, over stored rows.
+    """
+    fraction = score_fraction(overall, assessed_out_of)
+    if fraction is None:
+        return None
+    return fraction * math.sqrt(assessed_out_of / 100)
 
 
 @dataclass(frozen=True)

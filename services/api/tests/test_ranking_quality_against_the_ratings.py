@@ -49,7 +49,12 @@ from nightshift.domain.eligibility import SeekerProfile, evaluate
 from nightshift.domain.eligibility_reading import read_posting
 from nightshift.domain.matching import BAND_ORDER
 from nightshift.domain.matching_weights import load_weights
-from nightshift.domain.scoring import ConfirmedSkill, ScoringProfile, score_match
+from nightshift.domain.scoring import (
+    ConfirmedSkill,
+    ScoringProfile,
+    coverage_weighted_fraction,
+    score_match,
+)
 from nightshift.domain.skill_vocabulary import load_vocabulary
 from tests.matching_corpus import AS_OF, CorpusPosting, load_corpus
 
@@ -127,15 +132,21 @@ def profiles_from_block(block: dict[str, Any]) -> tuple[ScoringProfile, SeekerPr
 def _sort_key(entry: tuple[str, Any, EligibilityState]) -> tuple[int, float, str]:
     """The product's own ordering (§5.3), not a second opinion about it.
 
-    Band first, then the *fraction* rather than the raw total, then the key. A
-    ranking metric computed over an order the product does not serve would be
-    measuring something nobody sees — and `RankedMatches` sorts on the fraction
-    because 40 out of 50 beats 45 out of 100. Nulls last, as the API's
-    `unassessed_sort_last` puts them.
+    Band first, then `coverage_weighted_fraction` — the key `/matches` sorts on —
+    then the corpus key. Nulls last, as the API's `unassessed_sort_last` puts
+    them.
+
+    **Read the shared function; never re-derive the key here.** Until M3d Task 8
+    this sorted on the plain fraction, which is what `/matches` served until Task
+    6 replaced it — so the number this file reported, and the number `matching.md`
+    §5.3 quotes as *"as shipped in M3c"*, was the ordering this system had
+    stopped serving. A ranking metric computed over an order the product does not
+    serve measures something nobody sees, and it fails in the flattering
+    direction: it reports whatever was graded when it was written, forever.
     """
     key, score, state = entry
-    fraction = score.fraction
-    return (BAND_ORDER.index(state), -(fraction if fraction is not None else -1.0), key)
+    weighted = coverage_weighted_fraction(score.overall, score.assessed_out_of)
+    return (BAND_ORDER.index(state), -(weighted if weighted is not None else -1.0), key)
 
 
 @pytest.fixture(scope="module")
@@ -233,6 +244,26 @@ def test_the_ranking_is_not_the_rating_order(ranked: dict[str, Any]) -> None:
     bug rather than of quality.
     """
     assert ndcg_at(ranked["gains"], 30) < 1.0
+
+
+def test_this_corpus_can_tell_the_two_orderings_apart(ranked: dict[str, Any]) -> None:
+    """The number above is a statement about the *shipped* key, not about any key.
+
+    M3d Task 8's finding: this file sorted on the plain fraction for the whole of
+    Task 6 and Task 7, so what CI reported as the ranking's quality was the
+    quality of the ordering Task 6 had replaced. Nothing went red, because
+    nothing here compared the two.
+
+    The two keys agree on most pairs — that is why the drift survived — so this
+    asserts they disagree *on this corpus*. Where they did not, the metric above
+    could not tell a revert of §5.3 from a working system, and it would be
+    reporting a number about an ordering nobody serves for a second time.
+    """
+    plain = sorted(
+        ranked["rows"],
+        key=lambda row: (BAND_ORDER.index(row[2]), -(row[1].fraction or -1.0), row[0]),
+    )
+    assert [key for key, _, _ in plain] != ranked["order"]
 
 
 def test_the_metrics_can_fail() -> None:

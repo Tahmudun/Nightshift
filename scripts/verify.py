@@ -147,7 +147,12 @@ async def check_daily_queue() -> None:
     from nightshift.db.session import dispose_engine  # noqa: PLC0415
 
     await dispose_engine()
-    check(scored >= 0, "the corpus is scored before the score-backed rows are read", str(scored))
+    # `> 0`, not `>= 0`. M3d Task 8 found this written as the latter — a check
+    # that cannot fail, added by the commit whose subject was three checks that
+    # could not fail. Every pair in the seeded corpus is invalidated by the
+    # checks above this one, so a zero here means the rescore did not happen and
+    # the three score-backed rows below are about to be asserted against nothing.
+    check(scored > 0, "the corpus is scored before the score-backed rows are read", str(scored))
     status_code, queue = get_json("/queue")
     if not (status_code == 200 and isinstance(queue, dict)):
         check(False, "the queue answers", f"HTTP {status_code}")
@@ -1211,18 +1216,24 @@ async def check_match_results() -> None:
             ranking["ordering"],
         )
 
-        def rank_key(row: dict[str, Any]) -> float | None:
-            """`fraction * sqrt(assessed_out_of / 100)`, as `matching.md` §5.3.
+        from nightshift.domain.scoring import coverage_weighted_fraction  # noqa: PLC0415
 
-            Recomputed here from the two numbers on the wire rather than trusted,
-            which is the point: the displayed `fraction` and the ordering key are
-            deliberately different, so a 17% can sit above a 30% and only this
-            arithmetic can tell that apart from a broken list.
+        def rank_key(row: dict[str, Any]) -> float | None:
+            """`matching.md` §5.3's key, applied to the two numbers on the wire.
+
+            Recomputed from the response rather than trusted, which is the point:
+            the displayed `fraction` and the ordering key are deliberately
+            different, so a 17% can sit above a 30% and only this arithmetic can
+            tell that apart from a broken list.
+
+            **The arithmetic is imported, not restated.** M3d Task 7 wrote it out
+            here a second time and Task 8 found a third copy in the ranking-quality
+            grader that had been a whole task out of date. One definition, called
+            by everything that is not SQL.
             """
-            out_of = row["match"]["assessed_out_of"]
-            if not out_of:
-                return None
-            return float(row["match"]["overall_score"]) / (out_of**0.5 * 10)
+            return coverage_weighted_fraction(
+                row["match"]["overall_score"], row["match"]["assessed_out_of"]
+            )
 
         misordered: list[str] = []
         for band in bands:
