@@ -4,9 +4,19 @@
  * The corpus readout: what is in the database, and how well it is located.
  *
  * The "mappable" figure is the important one and it is stated plainly rather
- * than buried. In M0 it reads zero, because nothing has been geocoded — and a
- * dashboard that omitted that number until it looked good would be the first
- * step toward the fabrication invariant I1 exists to prevent.
+ * than buried. A dashboard that omitted that number until it looked good would
+ * be the first step toward the fabrication invariant I1 exists to prevent.
+ *
+ * It reads zero, and the *reason* changed at M4a. Through M3 it was "nothing
+ * has been geocoded", which was true — no geocoder existed. One exists now, and
+ * the number is still zero for a better reason: M4a measured that no ATS
+ * posting in the corpus names a street, so no posting can place itself. A job
+ * reaches a building only by inheriting an office a human confirmed, and that
+ * inheritance is a read-time join (city.md §4.4) rather than a row here.
+ *
+ * The note says so, because "nothing geocoded yet" would now describe a missing
+ * feature instead of a property of the data — and the second is the honest and
+ * more interesting statement.
  */
 
 import { useQuery } from '@tanstack/react-query';
@@ -58,7 +68,9 @@ export function CorpusReadout() {
         <Readout
           label="Placeable on a map"
           value={String(data.mappable_locations)}
-          note={data.mappable_locations === 0 ? 'nothing geocoded yet' : 'verified or approximate'}
+          note={
+            data.mappable_locations === 0 ? 'no posting states a street' : 'verified or approximate'
+          }
         />
       </div>
 

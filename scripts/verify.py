@@ -898,13 +898,21 @@ def verify_http() -> None:
         mappable = stats.get("mappable_locations")
         check(
             mappable == 0,
-            "stats report 0 mappable locations in M0",
-            "nothing is geocoded yet; any other value means something fabricated one",
+            "no job_locations row carries coordinates",
+            # Reworded at M4a. This said "nothing is geocoded yet", which was
+            # true through M3 and stopped being true the moment a geocoder
+            # existed. The number is still 0, and now for a stronger reason
+            # worth guarding: `city.md` §4.4 decided that a job inheriting its
+            # employer's office is a read-time join, never a stored row, so
+            # `load_offices` writes to `company_locations` and never here.
+            # A non-zero value means something started materialising a
+            # placement the posting itself never claimed.
+            "the loader writes offices, not job locations (city.md §4.4)",
         )
         confidence = stats.get("location_confidence", {})
         check(
             confidence.get("verified") == 0 and confidence.get("approximate") == 0,
-            "no location is verified or approximate in M0",
+            "no job location claims verified or approximate precision",
             str(confidence),
         )
 

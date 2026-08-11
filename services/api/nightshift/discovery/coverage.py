@@ -105,6 +105,33 @@ STRUCTURAL_BLIND_SPOTS: tuple[BlindSpot, ...] = (
         ),
     ),
     BlindSpot(
+        id="no_posting_names_a_street",
+        title="No job posting says which building it is in",
+        explanation=(
+            "Measured at M4a rather than assumed: 247 recorded postings, 139 distinct "
+            "location strings, 10 location-bearing fields, all three providers, and "
+            "**not one names a street**. Every NYC posting in the corpus tops out at a "
+            "city name. That includes Ashby's structured `address.postalAddress`, whose "
+            "key set is only ever some subset of locality, region and country — the "
+            "schema has a `streetAddress` field and no employer fills it. "
+            "The consequence is the shape of the map: under invariant I1 a job can "
+            "never place itself on a building, so a beacon reaches a building only by "
+            "inheriting the office of the company that posted it, and those addresses "
+            "come from a human writing them into `data/company-locations.yaml`. Jobs at "
+            "an employer with no confirmed office are not lost — they sit in the "
+            "unresolved signal layer, fully searchable and applicable. They are simply "
+            "not on a building, because nothing in the data says which one. "
+            "Reproduce with `scripts/census_location_text.py`, which refuses to print a "
+            "count until it has proved on that run that it can see a real address."
+        ),
+        # Deliberately unset. `count` means "how many things sit in this gap",
+        # and the honest answer for the live database is every posting at an
+        # employer with no confirmed office — a number that moves as the
+        # worksheet is filled in. The 247 above is the *recorded corpus*, stated
+        # in the text where it can be attributed, rather than in a field the
+        # page would render as though it described what is in Postgres now.
+    ),
+    BlindSpot(
         id="own_careers_system",
         title="Employers running their own careers system",
         explanation=(

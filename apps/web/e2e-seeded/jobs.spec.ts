@@ -151,8 +151,14 @@ test.describe('seeded corpus in the browser', () => {
     const stats = await api<Stats>('/stats');
     await page.goto('/analyze');
     await expect(page.getByText(String(stats.total_jobs)).first()).toBeVisible();
-    // The honest reading is the default one: M0 states it on screen rather than
-    // leaving a bare 0 for the reader to interpret.
-    await expect(page.getByText('nothing geocoded yet').first()).toBeVisible();
+    // The honest reading is the default one: the page states it on screen
+    // rather than leaving a bare 0 for the reader to interpret.
+    //
+    // The wording changed at M4a and the change is the point. "Nothing geocoded
+    // yet" described a missing feature; a geocoder exists now and the number is
+    // still zero because no ATS posting in the corpus names a street. That is a
+    // property of the data rather than a gap in the product, and it is the more
+    // useful thing to tell somebody looking at a zero.
+    await expect(page.getByText('no posting states a street').first()).toBeVisible();
   });
 });
