@@ -32,7 +32,16 @@
 ### M3c is closed. Next: M3d — the evaluation suite, in CI.
 
 M3c's twelve tasks are done, `make acceptance` exits 0, and PR #12 merged CI-green
-with no findings. What M3d inherits, in the order it should be picked up:
+with no findings.
+
+**The plan is `docs/plans/2026-08-10-m3d-evaluation.md`.** Eight tasks. Its §1
+measured what already exists before planning anything, and the answer changes the
+shape of the milestone: **three of `matching.md` §7.1's six metrics are already
+built and gated in CI**, and two items nobody had listed are owed — five reading
+accuracies that have been measured-but-ungated since M3b on a condition that has
+since been met, and a `ratings.yaml` that no test reads.
+
+What M3d inherits, in the order it should be picked up:
 
 1. ~~**The relevance ratings, which need the human.**~~ **Done 2026-08-10.**
    Thirty rated with a filled profile — 12 `good`, 11 `acceptable`, 7 `poor` —
