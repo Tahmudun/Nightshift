@@ -833,26 +833,48 @@ export const queueSectionKeySchema = z.enum([
   'interviews_approaching',
   'stale_saved',
   'closed_while_saved',
+  'best_new_internships',
 ]);
 export type QueueSectionKey = z.infer<typeof queueSectionKeySchema>;
 
 export const queueRowSchema = z.object({
-  application_id: z.string().uuid(),
+  // Null together, on the sections that offer a posting you are not tracking
+  // (M3d Task 7). The page links to the job then; there is no application yet
+  // and creating one is the reader's action to take, never the list's (I5).
+  application_id: z.string().uuid().nullable(),
   job_id: z.string().uuid(),
   job_title: z.string(),
   company_name: z.string(),
-  current_stage: applicationStageSchema,
+  current_stage: applicationStageSchema.nullable(),
   at: z.string().datetime({ offset: true }).nullable(),
   // A row with no reason is a bare signal, which is what I4 exists to prevent.
   because: z.string().min(1),
+  // A state, never a number. I4 forbids a bare score, and a queue row has no
+  // room for the breakdown that would make one legitimate.
+  eligibility: eligibilityStateSchema.nullable(),
 });
 export type QueueRow = z.infer<typeof queueRowSchema>;
+
+export const queueSectionBlindSpotSchema = z.object({
+  name: z.string().min(1),
+  count: z.number().int().nonnegative(),
+  // A count with no sentence beside it is the failure this field exists to
+  // stop: a reader cannot act on "3" without knowing what the 3 is.
+  because: z.string().min(1),
+});
+export type QueueSectionBlindSpot = z.infer<typeof queueSectionBlindSpotSchema>;
 
 export const queueSectionSchema = z.object({
   key: queueSectionKeySchema,
   title: z.string().min(1),
   rows: queueRowSchema.array(),
   total: z.number().int().nonnegative(),
+  // Required rather than defaulted, both of them. The API and this file ship
+  // together and `test_enum_parity` holds them to the same vocabulary, so a
+  // response missing either field is a bug worth refusing rather than filling
+  // in — a silently defaulted `[]` is a section claiming it hid nothing.
+  blind_spots: queueSectionBlindSpotSchema.array(),
+  note: z.string().min(1).nullable(),
 });
 export type QueueSection = z.infer<typeof queueSectionSchema>;
 

@@ -4,8 +4,8 @@ import { expect, test, type Page } from '@playwright/test';
  * The daily queue, walked in a browser.
  *
  * The claim under test is not "the page renders". It is that **each row the
- * page shows is true of the data behind it**, and that the four rows this
- * system cannot compute are named rather than drawn empty.
+ * page shows is true of the data behind it**, and that the rows this system
+ * still cannot compute are named rather than drawn empty.
  *
  * Everything here is driven through the product's own controls — the date
  * input, the interview field, the archive button — rather than through the
@@ -104,18 +104,27 @@ test('the queue page names every section and every absence', async ({ page }) =>
     timeout: FIRST_COMPILE,
   });
 
-  // All four sections render, including the empty ones. An unasked question
-  // and an answered one are different, and the page makes both statements.
+  // Every section renders, including the empty ones. An unasked question and
+  // an answered one are different, and the page makes both statements.
   await expect(section(page, /^Follow up$/)).toBeVisible();
   await expect(section(page, /^Interviews approaching$/)).toBeVisible();
   await expect(section(page, /^Saved and going quiet$/)).toBeVisible();
   await expect(section(page, /^Closed while you were tracking it$/)).toBeVisible();
+  await expect(section(page, /^New internships worth a look$/)).toBeVisible();
 
-  // I7: the four rows M3 will bring, named with their reason and visible
-  // without expanding anything.
+  // M3d Task 7. The section built from a match score says what it is a list of
+  // — a row whose ordering a reader cannot see the reason for is a row they
+  // have to take on trust, which is what this whole milestone is against.
+  await expect(rowsOf(page, 'best_new_internships')).toContainText(
+    /first listed in the last \d+ days/i,
+  );
+
+  // I7: the rows M3 has not brought, named with their reason and visible
+  // without expanding anything. The internship row is deliberately absent from
+  // this list now — it is a section above.
   const deferred = page.getByTestId('deferred-queue-rows');
   await expect(deferred).toBeVisible();
-  await expect(deferred).toContainText(/best new internships/i);
+  await expect(deferred).not.toContainText(/best new internships/i);
   await expect(deferred).toContainText(/high-match roles closing soon/i);
   await expect(deferred).toContainText(/resume mismatch warnings/i);
   await expect(deferred).toContainText(/one thing to do today/i);
@@ -192,7 +201,16 @@ test('an interview inside the horizon appears, and archiving removes it', async 
 
   await page.goto('/operate/queue');
   await expect(page.getByRole('heading', { name: 'Today', level: 1 })).toBeVisible();
-  for (const key of ['follow_up', 'interviews_approaching', 'stale_saved', 'closed_while_saved']) {
+  for (const key of [
+    'follow_up',
+    'interviews_approaching',
+    'stale_saved',
+    'closed_while_saved',
+    // Archiving keeps a role out of the suggestion row too, and for a
+    // different reason: archiving is how somebody says *not this one*, so
+    // re-offering it would be the page arguing with them.
+    'best_new_internships',
+  ]) {
     await expect(rowsOf(page, key).getByRole('link', { name: title })).toHaveCount(0);
   }
 });

@@ -12,9 +12,13 @@
  * "no interviews in the next fortnight" is an answer worth reading.
  *
  * An empty section and an empty queue are different claims and are made
- * separately. So is the third claim on this page: the four rows that do not
- * exist yet are named with their reason, because rendering them as empty
- * sections would say "you have none of these", which is false (I7).
+ * separately. So is the third claim on this page: the rows that do not exist
+ * yet are named with their reason, because rendering them as empty sections
+ * would say "you have none of these", which is false (I7).
+ *
+ * M3d Task 7 added a fourth claim, for the sections backed by a match score: a
+ * row that could not consider a posting says so. A list shortened because the
+ * sweep is behind looks exactly like a list of everything there is.
  *
  * Nothing here mutates. There is no dismiss and no snooze — §7.3 — and a test
  * asserts the component renders no button at all.
@@ -24,9 +28,23 @@ import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 
 import { fetchQueue } from '@/lib/api';
-import type { DailyQueue, QueueRow, QueueSection } from '@/lib/schemas';
+import type { DailyQueue, EligibilityState, QueueRow, QueueSection } from '@/lib/schemas';
 
 export const QUEUE_KEY = ['queue'] as const;
+
+/**
+ * What the band means, in a person's words — the ranked list's five sentences,
+ * shortened to fit a row. A queue row shows an eligibility *state* and never
+ * the score it was ranked on: I4 forbids a number without its breakdown, and a
+ * row has nowhere to put one.
+ */
+const ELIGIBILITY_LABEL: Record<EligibilityState, string> = {
+  eligible: 'you meet what it states',
+  likely_eligible: 'you probably meet what it states',
+  uncertain: 'not enough stated to tell',
+  likely_ineligible: 'probably not a fit — the reason is on the posting',
+  ineligible: 'it states something you do not meet',
+};
 
 /** Dates arrive UTC and are converted here, at the edge, and nowhere else. */
 function formatDate(iso: string): string {
@@ -38,17 +56,29 @@ function formatDate(iso: string): string {
 }
 
 function Row({ row }: { readonly row: QueueRow }) {
+  // A posting nobody is tracking has no application to open. The job page is
+  // not a fallback for it — it is where the sentence behind this row's
+  // eligibility state is quoted, which is the only place that claim is
+  // checkable.
+  const href =
+    row.application_id === null
+      ? `/explore/jobs/${row.job_id}`
+      : `/operate/applications/${row.application_id}`;
   return (
     <li>
-      <Link
-        href={`/operate/applications/${row.application_id}`}
-        className="block border border-ink-700 px-3 py-2 hover:border-signal-400"
-      >
+      <Link href={href} className="block border border-ink-700 px-3 py-2 hover:border-signal-400">
         <span className="text-[14px] text-paper">{row.job_title}</span>
         <span className="ml-2 text-[12px] text-paper-dim">{row.company_name}</span>
-        <span className="ml-2 font-mono text-[9px] uppercase tracking-[0.14em] text-paper-faint">
-          {row.current_stage}
-        </span>
+        {row.current_stage !== null ? (
+          <span className="ml-2 font-mono text-[9px] uppercase tracking-[0.14em] text-paper-faint">
+            {row.current_stage}
+          </span>
+        ) : null}
+        {row.eligibility !== null ? (
+          <span className="ml-2 font-mono text-[9px] uppercase tracking-[0.14em] text-gold-400">
+            {ELIGIBILITY_LABEL[row.eligibility]}
+          </span>
+        ) : null}
         <span className="mt-1 block text-[12px] text-paper-dim">
           {row.because}
           {row.at !== null ? (
@@ -62,6 +92,29 @@ function Row({ row }: { readonly row: QueueRow }) {
   );
 }
 
+/**
+ * What a section could not see.
+ *
+ * Rendered only where the count is not zero. The API always sends every spot so
+ * the shape is stable, and a permanent "0 hidden" line is noise — noise is what
+ * stops the non-zero one being read. The counts are deliberately kept out of
+ * the section's `total`: these are postings the row could not *consider*, not
+ * rows it truncated, and adding them would make the cap message wrong.
+ */
+function BlindSpots({ section }: { readonly section: QueueSection }) {
+  const seen = section.blind_spots.filter((spot) => spot.count > 0);
+  if (seen.length === 0) return null;
+  return (
+    <ul data-testid={`queue-blind-spots-${section.key}`} className="mt-2 space-y-1">
+      {seen.map((spot) => (
+        <li key={spot.name} className="max-w-2xl text-[12px] leading-relaxed text-gold-400">
+          <span className="font-mono text-[11px]">{spot.count}</span> {spot.because}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function Section({ section }: { readonly section: QueueSection }) {
   const hidden = section.total - section.rows.length;
   return (
@@ -72,13 +125,18 @@ function Section({ section }: { readonly section: QueueSection }) {
       <h2 className="font-mono text-[10px] uppercase tracking-[0.16em] text-paper-faint">
         {section.title}
       </h2>
+      {section.note !== null ? (
+        <p className="mt-1 max-w-2xl text-[12px] leading-relaxed text-paper-faint">
+          {section.note}
+        </p>
+      ) : null}
       {section.rows.length === 0 ? (
         <p className="mt-2 text-[13px] text-paper-dim">Nothing here today.</p>
       ) : (
         <>
           <ul className="mt-2 space-y-1.5">
             {section.rows.map((row) => (
-              <Row key={`${row.application_id}-${row.at ?? ''}`} row={row} />
+              <Row key={`${row.application_id ?? row.job_id}-${row.at ?? ''}`} row={row} />
             ))}
           </ul>
           {hidden > 0 ? (
@@ -90,6 +148,7 @@ function Section({ section }: { readonly section: QueueSection }) {
           ) : null}
         </>
       )}
+      <BlindSpots section={section} />
     </section>
   );
 }

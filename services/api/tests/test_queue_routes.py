@@ -99,14 +99,21 @@ async def test_every_section_carries_a_human_title(client: AsyncClient) -> None:
         assert section["title"] != section["key"]
 
 
-async def test_the_four_deferred_rows_are_named_with_reasons(client: AsyncClient) -> None:
-    """I7. The rows M3 will bring exist on the page as named absences."""
+async def test_every_deferred_row_is_named_with_a_reason(client: AsyncClient) -> None:
+    """I7. What this page still cannot compute exists on it as a named absence."""
     body = (await client.get("/queue")).json()
-    names = {row["name"] for row in body["deferred_rows"]}
-    assert len(body["deferred_rows"]) == 4
+    assert body["deferred_rows"]
     assert all(row["reason"].strip() and row["blocked_on"].strip() for row in body["deferred_rows"])
-    assert any("internship" in name.lower() for name in names)
-    assert any("resume" in name.lower() for name in names)
+
+
+async def test_a_row_that_got_built_is_no_longer_deferred(client: AsyncClient) -> None:
+    """M3d Task 7. A deferral is a claim with a date on it, and one left standing
+    after its cause is gone is a false statement the page keeps making."""
+    body = (await client.get("/queue")).json()
+    deferred = {row["name"] for row in body["deferred_rows"]}
+    built = {section["key"] for section in body["sections"]}
+    assert not any("internship" in name.lower() for name in deferred)
+    assert QueueSectionKey.BEST_NEW_INTERNSHIPS.value in built
 
 
 async def test_no_deferred_row_shows_a_number(client: AsyncClient) -> None:

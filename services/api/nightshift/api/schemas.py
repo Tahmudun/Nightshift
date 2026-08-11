@@ -849,14 +849,35 @@ class ApplicationListOut(BaseModel):
 
 
 class QueueRowOut(BaseModel):
-    """One row. ``because`` is a sentence, not a score — I4."""
+    """One row. ``because`` is a sentence, not a score — I4.
 
-    application_id: UUID
+    ``application_id`` and ``current_stage`` are null together, on the sections
+    that offer a posting the reader is not tracking (M3d Task 7). The page links
+    to the job in that case, because there is no application to link to.
+    """
+
+    application_id: UUID | None
     job_id: UUID
     job_title: str
     company_name: str
-    current_stage: ApplicationStage
+    current_stage: ApplicationStage | None
     at: datetime | None
+    because: str
+    #: The band this suggestion came out of. A *state*, never a number: I4
+    #: forbids a bare score and a row here has nowhere to put a breakdown.
+    eligibility: EligibilityState | None = None
+
+
+class QueueSectionBlindSpotOut(BaseModel):
+    """What a section could not see, counted and named.
+
+    Serialised even at zero. "Nothing was hidden from this row" is a statement
+    worth being able to make, and a spot that appears only when non-zero cannot
+    make it — the reader cannot tell a clean run from a field nobody added.
+    """
+
+    name: str
+    count: int
     because: str
 
 
@@ -866,6 +887,12 @@ class QueueSectionOut(BaseModel):
     rows: list[QueueRowOut]
     #: Before the cap, so the page can say "and N more" honestly.
     total: int
+    #: Empty for the four M2d sections, which read committed application state
+    #: and can see all of it.
+    blind_spots: list[QueueSectionBlindSpotOut] = []
+    #: One sentence about the section as a whole, where the rows cannot carry
+    #: it. Null where the title says everything.
+    note: str | None = None
 
 
 class DeferredQueueRowOut(BaseModel):

@@ -127,22 +127,62 @@ def check_daily_queue() -> None:
 
     keys = [section["key"] for section in queue["sections"]]
     check(
-        keys == ["follow_up", "interviews_approaching", "stale_saved", "closed_while_saved"],
-        "four sections, always",
+        keys
+        == [
+            "follow_up",
+            "interviews_approaching",
+            "stale_saved",
+            "closed_while_saved",
+            "best_new_internships",
+        ],
+        "every section, always",
         ", ".join(keys),
     )
 
     deferred = queue["deferred_rows"]
     check(
-        len(deferred) == 4 and all(row["reason"].strip() for row in deferred),
-        "four deferred rows, each with a reason",
+        bool(deferred) and all(row["reason"].strip() for row in deferred),
+        "every deferred row carries a reason",
         str(len(deferred)),
+    )
+    # M3d Task 7. A deferral is a claim with a date on it. One left standing
+    # after the thing that blocked it was built is a false statement the page
+    # keeps making, and nothing local can see it.
+    check(
+        not (set(keys) & {row["name"].strip().lower().replace(" ", "_") for row in deferred}),
+        "no section is both built and deferred",
+        ", ".join(row["name"] for row in deferred),
     )
     # I4 and I7: a count beside a row that does not exist reads as a real,
     # empty result rather than as an absence.
     check(
         not any(character.isdigit() for row in deferred for character in row["name"]),
         "no deferred row carries a number",
+    )
+
+    # M3d Task 7: the score-backed section, and the three promises it makes.
+    internships = next(s for s in queue["sections"] if s["key"] == "best_new_internships")
+    check(
+        bool(internships["note"]),
+        "the suggested section explains what it is a list of",
+        (internships["note"] or "")[:60],
+    )
+    spots = internships["blind_spots"]
+    check(
+        len(spots) == 2 and all(spot["because"].strip() for spot in spots),
+        "it says what it could not see, with a sentence per count",
+        ", ".join(f"{spot['name']}={spot['count']}" for spot in spots),
+    )
+    # I4: the ranking that produced these rows is not shown as a number here,
+    # because a queue row has no room for the breakdown behind one. The band is
+    # a verdict and travels; the score does not.
+    check(
+        all(
+            row["application_id"] is None and row["eligibility"] is not None
+            for row in internships["rows"]
+        ),
+        "each suggestion carries a state and no application",
+        f"{len(internships['rows'])} rows, {internships['total']} before the cap",
     )
 
     thresholds = queue["thresholds"]

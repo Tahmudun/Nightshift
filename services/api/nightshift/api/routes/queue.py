@@ -18,6 +18,7 @@ from nightshift.api.schemas import (
     DailyQueueOut,
     DeferredQueueRowOut,
     QueueRowOut,
+    QueueSectionBlindSpotOut,
     QueueSectionOut,
     QueueThresholdsOut,
 )
@@ -41,21 +42,21 @@ SECTION_TITLES: dict[QueueSectionKey, str] = {
     QueueSectionKey.INTERVIEWS_APPROACHING: "Interviews approaching",
     QueueSectionKey.STALE_SAVED: "Saved and going quiet",
     QueueSectionKey.CLOSED_WHILE_SAVED: "Closed while you were tracking it",
+    QueueSectionKey.BEST_NEW_INTERNSHIPS: "New internships worth a look",
 }
 
-#: I7: the four rows PRODUCT-SPEC §10.4 asks for that this system cannot
-#: compute honestly yet. Named on the page with the reason, because an empty
-#: section claims "you have none of these" and that is a different, false
-#: statement. `command-center.md` §7.
+#: I7: the rows PRODUCT-SPEC §10.4 asks for that this system cannot compute
+#: honestly yet. Named on the page with the reason, because an empty section
+#: claims "you have none of these" and that is a different, false statement.
+#: `command-center.md` §7.
+#:
+#: **Best new internships left this tuple at M3d Task 7** and is a real section
+#: now. Its old reason — *"'best' is a ranking, and there is no match score
+#: behind it yet"* — was true when written and stopped being true, which is the
+#: failure mode the remaining entries are checked against: a deferral is a claim
+#: with a date on it, and one that outlives its cause is a false statement the
+#: page keeps making.
 DEFERRED_ROWS: tuple[DeferredQueueRowOut, ...] = (
-    DeferredQueueRowOut(
-        name="Best new internships",
-        blocked_on="milestone 3",
-        reason=(
-            "'best' is a ranking, and there is no match score behind it yet. A list "
-            "ordered by anything else would be a guess wearing a recommendation's clothes."
-        ),
-    ),
     DeferredQueueRowOut(
         name="High-match roles closing soon",
         blocked_on="milestone 3",
@@ -106,10 +107,16 @@ async def get_queue(
                         current_stage=row.current_stage,
                         at=row.at,
                         because=row.because,
+                        eligibility=row.eligibility,
                     )
                     for row in section.rows
                 ],
                 total=section.total,
+                blind_spots=[
+                    QueueSectionBlindSpotOut(name=spot.name, count=spot.count, because=spot.because)
+                    for spot in section.blind_spots
+                ],
+                note=section.note,
             )
             for section in queue.sections
         ],

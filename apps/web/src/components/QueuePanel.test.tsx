@@ -11,6 +11,14 @@ vi.mock('@/lib/api', () => ({
 
 const { fetchQueue } = await import('@/lib/api');
 
+/** An empty section, so a fixture states only what it is about. */
+function bare(
+  key: DailyQueue['sections'][number]['key'],
+  title: string,
+): DailyQueue['sections'][number] {
+  return { key, title, rows: [], total: 0, blind_spots: [], note: null };
+}
+
 const QUEUE: DailyQueue = {
   generated_at: '2026-08-04T12:00:00+00:00',
   sections: [
@@ -26,21 +34,47 @@ const QUEUE: DailyQueue = {
           current_stage: 'applied',
           at: '2026-07-26T12:00:00+00:00',
           because: 'no activity from you in 9 days',
+          eligibility: null,
         },
       ],
       total: 24,
+      blind_spots: [],
+      note: null,
     },
-    { key: 'interviews_approaching', title: 'Interviews approaching', rows: [], total: 0 },
-    { key: 'stale_saved', title: 'Saved and going quiet', rows: [], total: 0 },
-    { key: 'closed_while_saved', title: 'Closed while you were tracking it', rows: [], total: 0 },
-  ],
-  total_rows: 24,
-  deferred_rows: [
+    bare('interviews_approaching', 'Interviews approaching'),
+    bare('stale_saved', 'Saved and going quiet'),
+    bare('closed_while_saved', 'Closed while you were tracking it'),
     {
-      name: 'Best new internships',
-      blocked_on: 'milestone 3',
-      reason: 'there is no match score yet',
+      key: 'best_new_internships',
+      title: 'New internships worth a look',
+      rows: [
+        {
+          // M3d Task 7: a posting the reader is not tracking, so there is no
+          // application behind it.
+          application_id: null,
+          job_id: '00000000-0000-4000-8000-000000000003',
+          job_title: 'Software Engineer Internship',
+          company_name: 'Ramp',
+          current_stage: null,
+          at: '2026-08-01T12:00:00+00:00',
+          because: 'internship for summer 2027, first listed 3 days ago',
+          eligibility: 'uncertain',
+        },
+      ],
+      total: 1,
+      blind_spots: [
+        { name: 'not_yet_scored', count: 4, because: 'recent internships with no score yet.' },
+        {
+          name: 'level_not_read',
+          count: 0,
+          because: 'recent postings whose level was unreadable.',
+        },
+      ],
+      note: 'Internships first listed in the last 14 days that you are not already tracking.',
     },
+  ],
+  total_rows: 25,
+  deferred_rows: [
     { name: 'High-match roles closing soon', blocked_on: 'milestone 3', reason: 'needs a score' },
     { name: 'Resume mismatch warnings', blocked_on: 'milestone 3', reason: 'needs extraction' },
     { name: 'The one thing to do today', blocked_on: 'milestone 3', reason: 'needs ranking' },
@@ -98,10 +132,9 @@ describe('QueuePanel', () => {
     expect(await screen.findByText(/23 more/i)).toBeInTheDocument();
   });
 
-  it('names all four deferred rows without anything being expanded', async () => {
+  it('names every deferred row without anything being expanded', async () => {
     renderPanel(QUEUE);
     const deferred = await screen.findByTestId('deferred-queue-rows');
-    expect(deferred).toHaveTextContent(/best new internships/i);
     expect(deferred).toHaveTextContent(/resume mismatch/i);
     expect(deferred).toHaveTextContent(/one thing to do today/i);
     expect(deferred).toHaveTextContent(/milestone 3/i);
@@ -140,6 +173,48 @@ describe('QueuePanel', () => {
     expect(explainer).toHaveTextContent(/7 days/);
     expect(explainer).toHaveTextContent(/21 days/);
     expect(explainer).toHaveTextContent(/14 days/);
+  });
+
+  // --- M3d Task 7: rows about postings nobody is tracking yet ---------------
+
+  it('links a row with no application to the posting instead', async () => {
+    // There is no application to open. Linking to the job is also where the
+    // sentence behind the eligibility state lives.
+    renderPanel(QUEUE);
+    const link = await screen.findByRole('link', { name: /Software Engineer Internship/i });
+    expect(link).toHaveAttribute('href', '/explore/jobs/00000000-0000-4000-8000-000000000003');
+  });
+
+  it('shows a suggested row as a state and never as a number', async () => {
+    // I4: a bare score with no breakdown behind it is a bug. The band the row
+    // came out of is a verdict, and the posting page carries its reason.
+    renderPanel(QUEUE);
+    const section = await screen.findByTestId('queue-section-best_new_internships');
+    expect(section).toHaveTextContent(/not enough stated to tell/i);
+    expect(section.textContent ?? '').not.toMatch(/\d+\s*%/);
+  });
+
+  it('states what a section could not see', async () => {
+    // A row computed from scores shows fewer items when the sweep is behind,
+    // and that looks exactly like having less to do.
+    renderPanel(QUEUE);
+    const spots = await screen.findByTestId('queue-blind-spots-best_new_internships');
+    expect(spots).toHaveTextContent(/4/);
+    expect(spots).toHaveTextContent(/recent internships with no score yet/i);
+  });
+
+  it('does not print a blind spot nobody has', async () => {
+    // The API sends every spot so the shape is stable. A permanent "0 hidden"
+    // line is noise, and noise is what stops the non-zero one being read.
+    renderPanel(QUEUE);
+    const spots = await screen.findByTestId('queue-blind-spots-best_new_internships');
+    expect(spots).not.toHaveTextContent(/unreadable/i);
+  });
+
+  it('explains a section whose rows cannot explain themselves', async () => {
+    renderPanel(QUEUE);
+    const section = await screen.findByTestId('queue-section-best_new_internships');
+    expect(section).toHaveTextContent(/first listed in the last 14 days/i);
   });
 
   it('renders no control that changes anything', async () => {

@@ -629,13 +629,17 @@ class Ranking:
     ruleset: str
 
 
-def _band_rank() -> Any:
+def band_rank() -> Any:
     """`BAND_ORDER` as a SQL sort key, so the grouping and the ordering agree.
 
     Built from the same tuple the response groups by rather than written out a
     second time in SQL: two orderings that agree today are the shape of thing this
     project keeps finding out of date, and the failure is a band whose rows arrive
     ahead of the band above it with nothing looking wrong.
+
+    Public since M3d Task 7, when the daily queue's internship row became the
+    second surface that orders stored scores. Two surfaces ranking the same rows
+    by two clauses is the same drift one file down.
     """
     # Cast to text rather than binding the enum members: a `CASE ... WHEN` over a
     # PG enum column binds its whens as `varchar`, and Postgres has no
@@ -647,15 +651,36 @@ def _band_rank() -> Any:
     )
 
 
+def coverage_weighted_rank() -> Any:
+    """The ordering key inside a band (§5.3, M3d Task 6).
+
+    `fraction * sqrt(assessed_out_of / 100)`, algebraically simplified so the
+    division happens once. `sqrt(0)` is 0 and `NULLIF` turns that into the null an
+    unassessable pair is entitled to, exactly as the plain fraction did.
+
+    **This is the ordering key, not the displayed number.** `MatchResult`'s
+    `fraction` on the wire is still `overall / assessed_out_of` — "of what could
+    be assessed" — because that is the honest statement about the pair. The
+    consequence is that a reader can see 17% ranked above 30%, which is why
+    `MatchRankingOut.ordering` says out loud what the list is sorted by.
+
+    Sorted `.desc().nulls_last()` by both callers: a null fraction keeps its band,
+    because the eligibility verdict on such a pair is real, and leaves the
+    ordering at the end rather than at whichever end Postgres defaults to.
+    """
+    return MatchResult.overall_score / func.nullif(
+        func.sqrt(sql_cast(MatchResult.assessed_out_of, Float)) * 10, 0
+    )
+
+
 async def ranked_for(session: AsyncSession, *, user_id: uuid.UUID, limit: int) -> Ranking:
     """This person's scored postings, banded and best-first inside each band.
 
-    **The sort is on the fraction, not on `overall_score`** (§5.1.1). Raw totals
-    are not comparable across postings because `assessed_out_of` is not always
-    100: a 40/50 beats a 45/100 and sorting on the totals puts them the other way
-    round. `NULLIF` is what keeps the division from raising on the pairs where
-    nothing could be assessed — five in the committed corpus — and it also gives
-    them the null they are entitled to rather than a zero.
+    **The sort is on the fraction, not on `overall_score`** (§5.1.1) — see
+    `coverage_weighted_rank`, which is the clause and carries the argument. Raw
+    totals are not comparable across postings because `assessed_out_of` is not
+    always 100: a 40/50 beats a 45/100 and sorting on the totals puts them the
+    other way round.
 
     **A null fraction sorts last within its band, not out of the list.** The
     eligibility verdict on such a pair is real, so the band is right; the ordering
@@ -673,18 +698,7 @@ async def ranked_for(session: AsyncSession, *, user_id: uuid.UUID, limit: int) -
         MatchResult.user_id == user_id,
         MatchResult.ruleset_version == ruleset,
     )
-    # `fraction * sqrt(assessed_out_of / 100)`, algebraically simplified so the
-    # division happens once. `sqrt(0)` is 0 and `NULLIF` turns that into the null
-    # an unassessable pair is entitled to, exactly as the plain fraction did.
-    #
-    # **This is the ordering key, not the displayed number.** `MatchResult`'s
-    # `fraction` on the wire is still `overall / assessed_out_of` — "of what
-    # could be assessed" — because that is the honest statement about the pair.
-    # The consequence is that a reader can see 17% ranked above 30%, which is why
-    # `MatchRankingOut.ordering` says out loud what the list is sorted by.
-    rank_key = MatchResult.overall_score / func.nullif(
-        func.sqrt(sql_cast(MatchResult.assessed_out_of, Float)) * 10, 0
-    )
+    rank_key = coverage_weighted_rank()
 
     rows = (
         await session.execute(
@@ -699,7 +713,7 @@ async def ranked_for(session: AsyncSession, *, user_id: uuid.UUID, limit: int) -
                 selectinload(MatchResult.penalties),
             )
             .order_by(
-                _band_rank(),
+                band_rank(),
                 rank_key.desc().nulls_last(),
                 # Deterministic all the way down, as `list_jobs` is: a whole board
                 # shares one `first_seen_at`, so without the id a reload can
