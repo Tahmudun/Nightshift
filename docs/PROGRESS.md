@@ -22,7 +22,9 @@
 **Q5 (relevance ratings): ANSWERED 2026-08-10. Thirty rated, profile filled — 12 good / 11 acceptable / 7 poor. M3d has a held-out set.**
 **M3d: COMPLETE, reviewed, CI-green at `ade217b`, merged to `main` as PR #14 (`7b480e9`). `main` green after the merge.**
 **M3: CLOSED. All six acceptance criteria walked with evidence — see "M3 acceptance" below. Two of the six carry a stated limit rather than a clean pass.**
-**Current milestone: M4 — the living city, and the shippable checkpoint (A15). Branch `m4a-geo-spine`.**
+**M4a: COMPLETE — five tasks, seven commits on `m4a-geo-spine`. `make acceptance` exit 0 (160 verify checks, 56 seeded browser tests). Opened as draft PR #15 at task 1, per the practice change M3d earned.**
+**Current milestone: M4 — the living city, and the shippable checkpoint (A15). M4a done; M4b next.**
+**The finding that shaped the milestone: no ATS posting names a street. 0 of 247, 139 distinct location strings, 10 fields, three providers. A job can never place itself on a building, so every building comes from an address a human confirmed.**
 **Task 11 measured the embedding proposal path and declined to ship it — ADR 0018.**
 **Task 12 gave the seed a reader to be about, and found three false claims on the page — ADR 0019.**
 **Last updated: 2026-08-11**
@@ -32,23 +34,75 @@
 
 ## Next exact action
 
-### M4a Task 4 — the geocode cache, and the loader that makes a building.
+### M4a is COMPLETE. Next: M4b — the basemap, and the first thing you can see.
 
-Tasks 1–3 are done. The remaining M4a work is the part that connects them:
+Five tasks, seven commits, on `m4a-geo-spine`. **`make acceptance` exit 0: 160
+verify checks and 56 seeded browser tests.**
 
-1. **The permanent geocode cache table.** An address is never geocoded twice.
-   A table rather than a dict, because it has to survive a restart and be
-   inspectable when a placement is questioned.
-2. **The loader.** `read_worksheet` → the §4.3 ladder → a `company_locations`
-   row, and jobs at that employer inheriting it as `company_office`.
-3. **The coverage readout** on `/analyze/coverage`: the census, the fill rate,
-   and what could not be placed.
+M4b, per `city.md` §7: the pmtiles pipeline and its `make setup` cache; NYC
+building footprints into PostGIS and out to vector tiles; MapLibre with a
+hand-written dark style; extrusion at real heights; the camera controller and
+its full gesture surface; the `dusk-*` atmosphere tokens. **No job data on
+screen** — that is M4c.
 
-Then Nominatim — rate-limited, fixture-tested, never reached in `make demo`.
+Two things carry into it from M4a:
 
-**`data/company-locations.yaml` is ready for the human and blocks none of the
-above.** Nine NYC registry companies, `street_address` blank. Blank is a correct
-answer: those companies' jobs stay in the unresolved layer, fully usable.
+- **The BIN join is a key, not a computation.** `company_locations.building_id`
+  holds NYC's Building Identification Number, returned free by GeoSearch. M4b's
+  extrusion layer joins on it; point-in-polygon is the fallback, not the path.
+- **Nominatim is still unbuilt** and stays deferred. Rung 1 is the only rung
+  that can produce a building, and rungs 2–3 produce `approximate` points the
+  office loader refuses by design. Nothing needs them until something wants an
+  approximate placement, and nothing does yet.
+
+**`data/company-locations.yaml` is with the human and blocks nothing.** Nine NYC
+registry companies, `street_address` blank, and blank is a correct answer.
+Until a row is filled the honest render is every job in the unresolved layer,
+which §4.8 designs as the default view rather than the sad one.
+
+**Q2 (deployment target) is the only open question that blocks anything**, and
+only M4d.
+
+---
+
+### M4a Task 5 — the coverage readout, and three descriptions that had gone stale.
+
+The census belongs on `/analyze/coverage`, and `discovery/coverage.py` from M1
+was already the right home — it exists to name what this system cannot see, its
+`BlindSpot` carries `count: int | None`, and its docstring already forbids
+denominators and zeros-as-stand-ins.
+
+**No web work was needed.** The page renders `blind_spots` generically and
+`coverage.spec.ts` reads the list from the API *at run time* rather than from a
+snapshot, so the new disclosure was covered the moment it existed. One named
+test was added on top, because this is the disclosure that explains the shape of
+the whole map and removing it should go red rather than go quiet.
+
+**One judgement inside it.** The first draft set `count=0`. `count` means "how
+many things sit in this gap", and for the live database that is every posting at
+an employer with no confirmed office — a number that moves as the worksheet is
+filled. The 247 is the *recorded corpus*, so it is stated in the explanation
+where it can be attributed rather than in a field the page renders as though it
+described Postgres.
+
+**Then acceptance surfaced three descriptions that had stopped being true while
+still passing**, which is the dangerous kind:
+
+| Where | Said | Now |
+|---|---|---|
+| `verify.py` | "0 mappable locations **in M0** — nothing is geocoded yet" | "no `job_locations` row carries coordinates — the loader writes offices, not job locations (§4.4)" |
+| `verify.py` | "no location is verified or approximate **in M0**" | "no job location claims verified or approximate precision" |
+| The Analyze page, **on screen** | "nothing geocoded yet" | "no posting states a street" |
+
+The first got *stronger* rather than reworded: it used to assert "we have not
+built geocoding" and now asserts the §4.4 decision holds. The third is the one
+that matters, because it is the only one a person reads — "nothing geocoded yet"
+describes a missing feature, and the number is zero because of a property of the
+data instead.
+
+**Sixth time in this project a description has outlived the thing it described,
+and the first caught inside the slice that caused it** rather than a milestone
+later.
 
 ---
 
