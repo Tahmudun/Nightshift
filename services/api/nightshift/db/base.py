@@ -90,6 +90,13 @@ class ResolutionMethod(enum.StrEnum):
     NOMINATIM = "nominatim"
     NEIGHBORHOOD_CENTROID = "neighborhood_centroid"
     MANUAL = "manual"
+    # A job sitting at its employer's confirmed office, because it named no
+    # address of its own — which `city.md` §4.1 measured as *every* job in the
+    # corpus. Distinct from the rung that resolved the office itself: "this
+    # posting stated this address" and "this posting stated a city, and its
+    # employer's office is here" are different claims, and the detail panel has
+    # to be able to say which one placed the beacon.
+    COMPANY_OFFICE = "company_office"
 
 
 class JobStatus(enum.StrEnum):

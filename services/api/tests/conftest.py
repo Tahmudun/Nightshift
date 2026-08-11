@@ -318,6 +318,11 @@ _INGESTION_TABLES = (
     "application_events",
     "applications",
     "jobs",
+    # M4a. References `companies`, so it has to precede it — the fifth milestone
+    # running that this list has been kept correct by the database rather than
+    # by somebody remembering, and the fifth time the no-CASCADE choice below
+    # paid for itself.
+    "company_locations",
     "companies",
     "sources",
 )

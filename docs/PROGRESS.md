@@ -32,19 +32,55 @@
 
 ## Next exact action
 
-### M4a Task 2 — the geocoder, the tables, and the promotion path §4.4 forced.
+### M4a Task 3 — the geocoder itself, behind a Protocol.
 
-**Task 1 is done, and its answer changed the milestone.** See "M4a Task 1" below
-for the census and what it cost. Short version: no ATS posting in the recorded
-corpus names a street, so no job can ever place itself on a building, so buildings
-have to come from curated company addresses. `city.md` §4.4 is the new design and
-Q7 asks the human how far to take the curation.
+Tasks 1 and 2 are done. **Task 1** ran the census and the answer changed the
+milestone (below). **Task 2** built the table that answer forced:
+`company_locations`, migration `0020`, with `confirmed_by`/`confirmed_at` as
+`NOT NULL` so a row cannot exist without saying who vouched for the address.
 
-Task 2 builds what is the same code either way: `domain/geocoding.py` behind a
-Protocol with the §4.3 ladder; the permanent geocode cache table; the
-`company_locations` migration; `data/company-locations.yaml` and its promotion
-path; the NYC GeoSearch adapter with committed fixtures. Nominatim after that,
-rate-limited and never reached in `make demo`.
+Task 3: `domain/geocoding.py` behind a Protocol so nothing else imports an HTTP
+client; the permanent geocode cache table; the NYC GeoSearch adapter with
+committed fixtures. Then `data/company-locations.yaml` and the loader that is
+the promotion path, then Nominatim — rate-limited, fixture-tested, and never
+reached in `make demo`.
+
+---
+
+### M4a Task 2 — the office table, and the first enum value this project has added.
+
+`company_locations` exists (PRODUCT-SPEC §6.6, unbuilt for four milestones
+because nothing needed it until Task 1 gave it a measured reason).
+
+**Two constraints carry the design.**
+`ck_company_locations_verified_requires_a_street_address` is new and has no
+counterpart on `job_locations`: `verified` is the confidence that puts a beacon
+on one specific building, and Task 1 measured that a city name can never earn
+it. Without it, an office geocoded from "New York, NY" stores as `verified` and
+the renderer places it on whichever building the centroid landed in — I1's exact
+failure, arriving through the door `confidence_matches_coordinates` leaves open,
+since that check only asks whether coordinates are *present*. And `confirmed_by`
+/ `confirmed_at` are `NOT NULL`, which is what turns *"a lit building is a
+verified fact"* from a habit into a property of the schema.
+
+**The first enum value this project has ever added to an existing PG type**, so
+there was no migration to copy. PostgreSQL has `ALTER TYPE ... ADD VALUE` and no
+`DROP VALUE`, so the downgrade rebuilds the type and converts `job_locations`
+across rather than leaving the value behind — the short version would have made
+up/down/up pass while quietly not reversing, and the next person to add a value
+would have copied it. The downgrade fails loudly if a surviving row uses
+`company_office`, which is correct: you cannot downgrade past data that needs
+the value.
+
+`conftest._TRUNCATED` gained `company_locations` before `companies` — **the
+fifth milestone running that this list has been kept correct by the database
+rather than by somebody remembering**, and the fifth time the no-CASCADE choice
+paid for itself.
+
+Evidence: `alembic upgrade` → `downgrade -1` → `upgrade` all clean; `make drift`
+reports no model/migration drift; `tests/test_company_location_models.py`, 11
+tests, including two that attack the constraints with raw SQL because a
+constraint only the ORM respects is one a raw INSERT gets past.
 
 ---
 
