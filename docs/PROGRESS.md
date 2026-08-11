@@ -20,9 +20,9 @@
 **M3b: COMPLETE, reviewed, CI-green at `7bfbf2d`, merged to `main` as PR #11 (`d2273e7`). `main` green after the merge.**
 **M3c: COMPLETE, reviewed, CI-green at `42b989e`, merged to `main` as PR #12 (`03fa035`). All five CI jobs passed with no findings — the first slice in this project where CI found nothing. Review: `docs/reviews/milestone-3c-review.md`.**
 **Q5 (relevance ratings): ANSWERED 2026-08-10. Thirty rated, profile filled — 12 good / 11 acceptable / 7 poor. M3d has a held-out set.**
-**M3d: COMPLETE — all eight tasks done on `m3d-evaluation`. ADR 0020, ADR 0021, `docs/reviews/milestone-3d-review.md`, and M3's acceptance walk below.**
-**M3: all six acceptance criteria walked with evidence — see "M3 acceptance" below. Two of the six carry a stated limit rather than a clean pass.**
-**Current milestone: M3 — explainable matching, closing. Next: push, open the PR, CI green, merge. Then M4.**
+**M3d: COMPLETE, reviewed, CI-green at `ade217b`, merged to `main` as PR #14 (`7b480e9`). `main` green after the merge.**
+**M3: CLOSED. All six acceptance criteria walked with evidence — see "M3 acceptance" below. Two of the six carry a stated limit rather than a clean pass.**
+**Current milestone: M4 — the living city, and the shippable checkpoint (A15). Branch `m4a-geo-spine`.**
 **Task 11 measured the embedding proposal path and declined to ship it — ADR 0018.**
 **Task 12 gave the seed a reader to be about, and found three false claims on the page — ADR 0019.**
 **Last updated: 2026-08-11**
@@ -32,27 +32,39 @@
 
 ## Next exact action
 
-### M3d is done. Next: open the PR, get CI green, merge, then start M4.
+### M4a Task 1 — geocoding, starting with the measurement that decides the renderer.
 
-Everything M3d owed is committed on `m3d-evaluation`. What remains is not
-engineering:
+M3 is closed and merged. M4 is open on `m4a-geo-spine`, and the design is written:
+**`docs/architecture/city.md`. Read it before any MapLibre, any Three.js, and any
+geocoding.** It is the required-read for M4 the way `matching.md` was for M3.
 
-1. **Push and open the PR.** The branch is at the remote and has **no PR**, which
-   is why it has had **no CI run at all across eight tasks** — `ci.yml` triggers
-   on `push: [main]` and on `pull_request`, and neither has happened. This is
-   review finding §2.3 and it is the reason two of this milestone's four
-   drift findings survived as long as they did.
-2. **CI green**, then merge. M3's *"eval suite runs in CI"* criterion is walked
-   below against the workflow's contents; a green run is the evidence that the
-   walk is describing something real rather than something configured.
-3. **Then M4** — `docs/architecture/` has no city document yet, and `CLAUDE.md`
-   §6 says M4 is the shippable checkpoint. Write the plan before any MapLibre.
+**M4 does not begin with the map, because it cannot.** No coordinate has ever been
+written to this database. `job_locations.geom` is a column with an index and no
+values; `mappable_locations` reads 0. Geocoding was labelled M1 in the table below
+for four milestones and never built. A renderer on top of that would have 31 jobs
+all reading "New York, NY" and, under I1, nothing it is allowed to place on a
+building. So the milestone runs geo spine → basemap → signal layer → ship, and the
+slice plan is `city.md` §7.
 
-**Working-practice change this milestone earned: open the PR as a draft at task
-1 of a slice, not at the end.** It costs nothing, gates nothing, and it is the
-difference between a wrong sort key being caught in four minutes and being caught
-in seven days. `make check` was run before every commit and it was not enough,
-because `make check` does not run the browser suite.
+**The next exact action is `city.md` §4.1 — count the corpus before geocoding it.**
+Take the location strings already in `job_locations` and `source_job_records` and
+report how many carry a street address, how many are a bare place name, how many
+are remote, and how many are nothing. Nobody has ever run this. It decides whether
+the city is mostly buildings with a small unresolved layer, or mostly an unresolved
+layer with a few buildings — and those are two different products, one of which
+§4.7 has to be designed properly rather than treated as an edge case.
+
+Do the count first. Write the number down. Then build the geocoder.
+
+**Working-practice change M3d earned, in force from this task: open the PR as a
+draft at task 1 of a slice, not at the end.** It costs nothing, gates nothing, and
+it is the difference between a wrong sort key being caught in four minutes and
+being caught in seven days. `make check` was run before every M3d commit and it was
+not enough, because `make check` does not run the browser suite.
+
+**Open question that does not block the first three slices but does block the
+fourth:** Q2, the deployment target. A15 calls M4 a real ship. `city.md` §8 names
+what changes under each answer.
 
 ---
 
@@ -203,7 +215,9 @@ added postings, which is what would otherwise make people disable it.
 
 ## M3d — the evaluation suite. All eight tasks done.
 
-Branch `m3d-evaluation`, not yet a PR.
+Branch `m3d-evaluation`, merged as PR #14 (`7b480e9`) on 2026-08-11. The PR run
+at `ade217b` and the post-merge run on `main` both passed — which is the evidence
+criterion 5 below was arguing for from the workflow file rather than from a run.
 
 ### Task 8 — the ADRs, the review, and a metric that had been grading the wrong thing
 
@@ -5387,11 +5401,12 @@ rather than from memory, because the commit message for this work says 36 and is
 wrong: ML frameworks (JAX, LangChain, HuggingFace, DSPy), accelerators (CUDA, ROCm, Triton, SYCL), HDLs (Verilog, VHDL, SystemVerilog), Windows/network/security administration (Active Directory, SIEM, EDR, SSO, MFA, VPN, DNS, TCP/IP, PowerShell, Windows, macOS, firewalls), and business systems (Salesforce, Google Sheets, Microsoft 365). Recall moved 0.459 → 0.861. **What is deliberately still absent**: structural engineering codes (ACI 318, ASCE 7, IBC, IFC, AISC, FM Global), treasury systems (Kyriba, GTreasury, Trovata, TMS), accounting standards (US GAAP, IFRS), and words too ordinary to match safely (`Word`, `MS Office`). Those are real requirements of real postings in the corpus and are not software skills — adding them would raise recall by teaching the product a domain it does not serve | Closed as vocabulary work. The residual absences are a scope decision, revisited only if the product's scope changes |
 | Eligibility answer key (`tests/fixtures/eligibility/labels.yaml`) | **Filled in, and model-labeled rather than human-verified.** All 60 postings × 9 fields were labeled 2026-08-04 by a browser-side Claude reading the recorded excerpts, with the web explicitly off — the grader compares against text the extractor also sees, so a label sourced from outside that text marks a correct extractor wrong. Audited on install: 0 of 199 named technologies absent from the posting text, and no sponsorship, graduation-window, internship or years claim unsupported by the text. Two `+equivalent` calls read an escape hatch worded without the word "equivalent" (`akunacapital/8035515`, `openai/8fb1615c…`) and are the entries most likely to be wrong. Not spot-checked by a human | Human spot-check of ~10 entries, unscheduled |
 | `FixtureGreenhouseAdapter` (`cli.py`) | Subclasses the real adapter, overrides only `fetch_board` to read a committed JSON file. Constructed with no HTTP client, so it cannot make a request. Attributed to source `greenhouse_fixture` with `source_type='fixture'`, badged **"committed fixture"** in the Operate UI. ADR 0004 | Permanent — this is the offline demo path, not a stopgap |
-| Geocoding | **Does not exist.** No coordinate has ever been written. Every location is `city_only`, `remote`, or `unknown`; `mappable_locations` reads 0 and the UI says "nothing geocoded yet" | M1 (NYC GeoSearch, A4) |
+| Geocoding | **Does not exist.** No coordinate has ever been written. Every location is `city_only`, `remote`, or `unknown`; `mappable_locations` reads 0 and the UI says "nothing geocoded yet". **This row said "Real at M1" for four milestones and was wrong every time** — M1 closed, M2 closed, M3 closed, and no geocoder was built. It is the first slice of M4 because the city cannot open without it (`city.md` §4) | **M4a**, NYC GeoSearch per A4 |
+| `company_locations` table | **Does not exist**, though §6.6 specifies it. Only `job_locations` is in the schema, and it is fed from ATS location strings, which are usually a bare place name. A company's office address is the better geocoding input and the natural anchor for a building — `city.md` §4.3 | **M4a** |
 | Dedupe similarity threshold | **Real, thinly calibrated, and now with one real-world data point.** `SIMILARITY_THRESHOLD = 0.85` was derived from three labelled pairs. M1d's live Datadog poll merged two genuine postings on `similar_description` at **0.864** — the first evidence from outside the labelled set, and it landed close to the line. One observation is not a calibration and nothing was changed on the strength of it, but it is the first sign the number is doing real work at a real boundary. Re-derive as the fixture set grows | Unscheduled; revisit when more live boards are polled |
 | ~~Merge concurrency~~ | **Fixed in M1d** (`408c768`). The defect was reproduced before being fixed — Postgres reported a real `DeadlockDetectedError` between two workers merging the same pair in opposite directions. Both rows are now locked in primary-key order, as two statements rather than one `IN` clause, because a single statement's lock acquisition follows the query plan rather than the sort. Mutation-checked: the caller's order deadlocks on 3 of 3 runs; the fix passed 8 consecutive | Done |
 | Later-arising duplicates | Dedupe runs only on creation, deliberately: re-running the matcher every poll is how a settled merge starts oscillating. The consequence is that two jobs which become duplicates *later* — a title corrected on one board to match the other — never merge, and nothing reconciles them | No milestone. Revisit if visible duplicates are reported |
-| `job_locations.geom` | Column and GiST index exist; always NULL | M1 |
+| `job_locations.geom` | Column and GiST index exist; always NULL | **M4a** |
 | `normalize_title` | Whitespace and dash folding only. Deliberately does **not** attempt role-family normalization — asserted by `test_does_not_attempt_role_family_normalisation` | M3 |
 | ~~`jobs.role_family`, `jobs.seniority`~~ | **Filled in as of M3b (`cbcd5dc`), and this row said otherwise for a day.** `sync_classification` runs on every poll, ungated, and a freshly seeded database reads 16 `unclear`, 5 `director`, 4 `senior`, 3 `mid`, 2 `staff`, 1 `internship` — checked against Postgres rather than inferred. NULL still means "never classified" and stays distinct from `unclear`. **This is the fifth time a list in this project has quietly stopped describing the thing it names, and the fifth in the same direction**: the code moved and the row did not | Done |
 | `jobs.internship_season`, `jobs.internship_year` | **Real, and null on all 31 seeded jobs — which is the correct answer, not a gap.** The seed holds one internship, "Software Engineer Internship, Android", whose title states no season and no year. Across the wider recorded corpus 8 of 19 internships state a season and 10 of 19 a year. The filter reports what it hid rather than returning an empty list | Done |
@@ -5402,8 +5417,9 @@ wrong: ML frameworks (JAX, LangChain, HuggingFace, DSPy), accelerators (CUDA, RO
 | Discovery beyond Ashby | `PROVIDER_PATTERNS` includes both Greenhouse board domains and the code paths work, but **no Greenhouse crawl fixture is recorded**, so `make discover --provider greenhouse` has never run against real data. Greenhouse *validation* is tested, on the recorded `6sense` board | M1d |
 | The 2,605-token figure | Not re-measured by M1c and never claimed by it. The committed slice is **400 rows → 23 tokens**, the alphabetical head of one provider (`0g`…`abridge`). Common Crawl's index 504s at `limit=6000`, so a full harvest needs paging that does not exist | M1d |
 | ~~Discovered boards in the registry~~ | **19 promoted in M1d** (`d3738b6`), on the human's decision. 4 boards → 23, 171 insertions and 0 deletions, nothing lost or modified. Two `Abridge` candidates and two `empty` boards remain withheld for individual review under ADR 0005 | Done |
-| Ashby's `address.postalAddress` | Structured (`addressLocality`/`addressRegion`/`addressCountry`), recorded verbatim in every raw payload, and better geocoding input than the free-text `location`/`secondaryLocations` strings — but deliberately unread by `AshbyAdapter.normalize`. Feeding a second location source into `job_locations` before geocoding has its own fixtures would mean two code paths writing the same table | M1, at the geocoding stage |
-| 3D city, map, MapLibre, Three.js | Not started, not scaffolded, no dependency added. Explore is a list and says so | M4 |
+| Ashby's `address.postalAddress` | Structured (`addressLocality`/`addressRegion`/`addressCountry`), recorded verbatim in every raw payload, and better geocoding input than the free-text `location`/`secondaryLocations` strings — but deliberately unread by `AshbyAdapter.normalize`. Feeding a second location source into `job_locations` before geocoding has its own fixtures would mean two code paths writing the same table. The condition it was waiting on is what M4a builds | **M4a**, at the geocoding stage |
+| 3D city, map, MapLibre, Three.js | Not started, not scaffolded, no dependency added. Explore is a list and says so. Designed in `city.md`; deliberately **not** the first slice of M4, because a renderer over zero coordinates has nothing it is permitted to draw | Basemap and camera **M4b**, signal layer **M4c** |
+| NYC building footprints | Not downloaded, not in PostGIS, no tile pipeline. A4 names the dataset and the approach (load once, filter to rendered boroughs, bake tiles, never query per frame) and nothing has acted on it | **M4b** |
 | Auth | None. Single seeded `dev_user`, id in config (A3). Every user-owned table will still carry a real `user_id` FK from its first migration | M5 |
 | Live polling of Lever/Ashby | **Fixed in M1d.** `ADAPTERS` in `domain/polling.py` covers all three providers, `sync_board_poll_state` gives every pollable registry board a schedule, and `nightshift poll --ats lever --token alloy` works. `active` in the registry now means what an operator would assume. **Caveat:** only `greenhouse:datadog` has actually been polled live end to end. Lever and Ashby were measured serving `304` during design, but their conditional path has been exercised only against fixtures | Polled path proven on one provider; the other two are wired and fixture-tested |
 
