@@ -548,6 +548,80 @@ class CompanyLocation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     company: Mapped[Company] = relationship(back_populates="locations")
 
 
+class GeocodeCache(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Every address ever geocoded, and what came back. Permanent.
+
+    A4: *"Cache every geocode by normalized address string, permanently. Never
+    re-geocode an address you have already resolved."* A table rather than an
+    in-process dict, for two reasons that are not about speed. It has to survive
+    a restart, and it has to be **inspectable** — when somebody says a beacon is
+    on the wrong building, the question is what the provider actually returned
+    for that string on that day, and a cache nobody can query cannot answer it.
+
+    **A miss is cached. An outage is not.** This is invariant I3's reasoning
+    applied one subsystem over. *"We asked and NYC has no such address"* is an
+    answer, it will not change tomorrow, and re-asking it every poll is a
+    request spent to learn nothing. *"The provider was unreachable"* is not an
+    answer about the address at all — caching it would turn one bad afternoon
+    into a permanent refusal to place a building that was always placeable.
+    `refusal` is therefore nullable and never holds `provider_unavailable`,
+    enforced by a check constraint rather than by remembering.
+    """
+
+    __tablename__ = "geocode_cache"
+    __table_args__ = (
+        # The lookup key. Unique per (address, rung): the same string may be
+        # asked of GeoSearch and of Nominatim, and those are two different
+        # answers worth keeping apart.
+        Index(
+            "uq_geocode_cache_query",
+            "normalized_query",
+            "resolution_method",
+            unique=True,
+        ),
+        CheckConstraint(
+            "(latitude IS NULL) = (longitude IS NULL)",
+            name="coordinates_are_paired",
+        ),
+        # A row is either a hit or a miss, never both and never neither. Without
+        # this, a bug that wrote a refusal alongside coordinates would produce a
+        # row whose meaning depends on which column the reader looked at first.
+        CheckConstraint(
+            "(latitude IS NULL) <> (refusal IS NULL)",
+            name="a_row_is_a_hit_or_a_miss",
+        ),
+        # The rule the class docstring argues for, made structural.
+        CheckConstraint(
+            "refusal IS NULL OR refusal <> 'provider_unavailable'",
+            name="an_outage_is_never_cached",
+        ),
+    )
+
+    #: Exactly what was asked, kept so the normalisation is auditable.
+    query: Mapped[str] = mapped_column(String(500), nullable=False)
+    #: Casefolded, whitespace-collapsed. The key.
+    normalized_query: Mapped[str] = mapped_column(String(500), nullable=False)
+
+    resolution_method: Mapped[ResolutionMethod] = mapped_column(
+        _enum(ResolutionMethod, "resolution_method"), nullable=False
+    )
+
+    latitude: Mapped[float | None] = mapped_column(NUMERIC(9, 6))
+    longitude: Mapped[float | None] = mapped_column(NUMERIC(9, 6))
+    location_confidence: Mapped[LocationConfidence | None] = mapped_column(
+        _enum(LocationConfidence, "location_confidence")
+    )
+    building_id: Mapped[str | None] = mapped_column(String(20))
+    #: What the provider said it matched. The first thing to look at when a
+    #: placement is disputed.
+    matched_text: Mapped[str | None] = mapped_column(String(500))
+
+    #: Why nothing was found, for a miss. Null on a hit.
+    refusal: Mapped[str | None] = mapped_column(String(50))
+
+    resolved_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+
+
 class Source(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """One row per ATS provider, not per company board.
 

@@ -325,6 +325,11 @@ _INGESTION_TABLES = (
     "company_locations",
     "companies",
     "sources",
+    # M4a. References nothing — it is keyed on an address string, not on a
+    # company — so it truncates in any order. Listed anyway: a cache that
+    # survived between tests would make the second test to ask for an address
+    # pass without ever reaching the rung it was written to exercise.
+    "geocode_cache",
 )
 
 
