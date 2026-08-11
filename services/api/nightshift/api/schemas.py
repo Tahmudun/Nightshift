@@ -538,6 +538,15 @@ class MatchRankingOut(BaseModel):
     #: neither best nor worst. It keeps its band — the eligibility verdict is
     #: real — and leaves the ordering, at the end, marked.
     unassessed_sort_last: Literal[True] = True
+    #: What the list is sorted by, in words, because the printed number and the
+    #: ordering key are deliberately not the same thing (M3d Task 6).
+    #:
+    #: Every row shows its `fraction` — the honest "of what could be assessed"
+    #: figure — and the sort weights that fraction by how much *was* assessed. So
+    #: a row reading 17% can sit above one reading 30%, and without this field a
+    #: reader's only available conclusion is that the list is broken. Review
+    #: §2.10 is the defect; `matching.md` §5.3 carries the measurement.
+    ordering: Literal["coverage_weighted_fraction"] = "coverage_weighted_fraction"
     #: §5.1's two, repeated here because the ranked list is where a total is
     #: compared against another total, which is the moment the ten points nobody
     #: scored matter most.

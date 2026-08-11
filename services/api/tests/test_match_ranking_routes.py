@@ -65,7 +65,18 @@ DESCRIPTION = "We need strong Python and PostgreSQL for a team in New York."
 #: 20, 10, 10, 10, and `0018`'s trigger ties the denominator to exactly this.
 _UNASSESSABLE_FOR = {
     100: (),
+    # Added at M3d Task 6, and both are real denominators from the rated corpus
+    # rather than convenient ones: 80 and 20 are what a posting naming no
+    # projects and a posting naming almost nothing actually produce.
+    80: (MatchComponent.PROJECT,),
     50: (MatchComponent.SKILL, MatchComponent.PROJECT),
+    20: (
+        MatchComponent.SKILL,
+        MatchComponent.PROJECT,
+        MatchComponent.LOCATION,
+        MatchComponent.FRESHNESS,
+        MatchComponent.PRIORITY,
+    ),
     0: tuple(MatchComponent),
 }
 
@@ -440,3 +451,40 @@ async def test_the_ten_deferred_points_are_named_on_the_list_too(
         "company_preference",
         "application_urgency",
     }
+
+
+async def test_a_barely_assessed_posting_does_not_outrank_a_thoroughly_assessed_one(
+    client: AsyncClient, db_session: AsyncSession, user: User
+) -> None:
+    """M3d Task 6, and review §2.10 measured rather than argued.
+
+    6 out of 20 is 30% and 14 out of 80 is 17.5%, so the plain fraction puts the
+    first one higher — on a posting where four fifths of the score could not be
+    assessed at all. Both numbers are true and neither is comparable to the
+    other, which is the whole of §2.10: a ratio of incomparable denominators is
+    not a total order.
+
+    These are the real figures from the rated corpus. Under the plain fraction an
+    Employee Experience Specialist (Receptionist) rated `poor` ranked **fifth**,
+    above four postings rated `good`; weighting by coverage moves it below them.
+
+    The weight is `sqrt(assessed_out_of / 100)`, chosen by measurement and not by
+    taste — see `matching.md` §5.3 for the leave-one-out figures and for why the
+    exponent is not pinned harder than the data supports.
+    """
+    thorough = await _job(db_session)
+    barely = await _job(db_session)
+    await _store(
+        db_session, user=user, job=thorough, overall=14, out_of=80, state=EligibilityState.ELIGIBLE
+    )
+    await _store(
+        db_session, user=user, job=barely, overall=6, out_of=20, state=EligibilityState.ELIGIBLE
+    )
+
+    items = _band(await _ranking(client), EligibilityState.ELIGIBLE)["items"]
+
+    assert [row["job"]["id"] for row in items] == [str(thorough.id), str(barely.id)]
+    # The displayed fraction is unchanged and still reads "of what could be
+    # assessed" — the ordering is weighted, the printed number is not. A reader
+    # therefore sees 17% above 30%, which is why the response names its ordering.
+    assert items[0]["match"]["fraction"] < items[1]["match"]["fraction"]

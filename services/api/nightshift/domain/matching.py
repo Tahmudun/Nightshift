@@ -69,6 +69,7 @@ from typing import Any, cast
 import structlog
 from sqlalchemy import (
     CursorResult,
+    Float,
     Text,
     and_,
     case,
@@ -672,7 +673,18 @@ async def ranked_for(session: AsyncSession, *, user_id: uuid.UUID, limit: int) -
         MatchResult.user_id == user_id,
         MatchResult.ruleset_version == ruleset,
     )
-    fraction = MatchResult.overall_score / func.nullif(MatchResult.assessed_out_of, 0)
+    # `fraction * sqrt(assessed_out_of / 100)`, algebraically simplified so the
+    # division happens once. `sqrt(0)` is 0 and `NULLIF` turns that into the null
+    # an unassessable pair is entitled to, exactly as the plain fraction did.
+    #
+    # **This is the ordering key, not the displayed number.** `MatchResult`'s
+    # `fraction` on the wire is still `overall / assessed_out_of` — "of what
+    # could be assessed" — because that is the honest statement about the pair.
+    # The consequence is that a reader can see 17% ranked above 30%, which is why
+    # `MatchRankingOut.ordering` says out loud what the list is sorted by.
+    rank_key = MatchResult.overall_score / func.nullif(
+        func.sqrt(sql_cast(MatchResult.assessed_out_of, Float)) * 10, 0
+    )
 
     rows = (
         await session.execute(
@@ -688,7 +700,7 @@ async def ranked_for(session: AsyncSession, *, user_id: uuid.UUID, limit: int) -
             )
             .order_by(
                 _band_rank(),
-                fraction.desc().nulls_last(),
+                rank_key.desc().nulls_last(),
                 # Deterministic all the way down, as `list_jobs` is: a whole board
                 # shares one `first_seen_at`, so without the id a reload can
                 # reorder two equal rows and the list appears to shuffle itself.

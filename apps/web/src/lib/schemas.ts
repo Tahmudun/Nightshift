@@ -515,6 +515,10 @@ export const matchRankingSchema = z.object({
   not_yet_scored: z.number().int(),
   ruleset_version: z.string(),
   unassessed_sort_last: z.literal(true).default(true),
+  // What the list is sorted by. The printed fraction and the ordering key are
+  // deliberately different: rows show "of what could be assessed", and the sort
+  // weights that by how much was assessed, so 17% can sit above 30%.
+  ordering: z.literal('coverage_weighted_fraction').default('coverage_weighted_fraction'),
   deferred_components: z.array(deferredComponentSchema).default([]),
 });
 export type MatchRanking = z.infer<typeof matchRankingSchema>;

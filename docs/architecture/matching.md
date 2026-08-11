@@ -870,6 +870,54 @@ Three decisions the section above did not settle, taken when it was built:
   puts them the other way round while both numbers on the page stay true. In
   SQL that is `NULLIF(assessed_out_of, 0)`, which also hands the unassessable
   pairs the null they are entitled to instead of raising.
+
+  **Amended at M3d Task 6: the sort is the fraction *weighted by coverage*.**
+  The paragraph above is right that raw totals are not comparable and wrong to
+  stop there — a fraction of 20 assessable points is not comparable to a fraction
+  of 80 either, which is what the M3c review named at §2.10 and declined to fix
+  for want of a way to choose. The rated corpus is that way. Measured over
+  30 postings against the profile in `ratings.yaml`:
+
+  | Ordering | NDCG@10 | NDCG@30 | P@5 |
+  |---|---|---|---|
+  | fraction (as shipped in M3c) | 0.811 | 0.926 | 0.600 |
+  | raw `overall_score` | 0.777 | 0.902 | 0.800 |
+  | fraction × shrink to corpus mean | 0.811 | 0.924 | 0.600 |
+  | **fraction × √(assessed/100)** | **0.817** | **0.931** | **0.800** |
+  | fraction, ≥50 assessed first | 0.822 | 0.934 | 0.800 |
+
+  Three things decided it, and the size of the win was not one of them — +0.006
+  NDCG@10 over 30 items is well inside what one swap moves.
+
+  1. **It is never worse.** Leave-one-out across all 30 folds: better in 28,
+     tied in 2, worse in none.
+  2. **Both endpoints are worse than the middle.** Sweeping the exponent,
+     `p=0` (the plain fraction) gives 0.811 and `p=1` (which is algebraically
+     raw score) gives 0.777, while `p=0.5` and `p=0.75` both give 0.817. No
+     weighting under-corrects and full weighting over-corrects.
+  3. **The mechanism is the one §2.10 describes**, so the fix is not fitted to
+     the corpus: a posting assessed on a fifth of the score has a fifth of the
+     evidence, and discounting by coverage is what "these denominators are not
+     comparable" means arithmetically.
+
+  The bucketed variant scores marginally higher and was **not** taken: its
+  threshold of 50 is a magic number with no support in this data, and it would
+  need its own entry in `matching.yaml` and its own mutation test to be
+  defensible. √ has no free parameter. **The exponent is not pinned harder than
+  the data supports** — 0.5 and 0.75 are indistinguishable here, and 0.5 is the
+  one with an ordinary name.
+
+  What this cost is legibility, and it is disclosed rather than absorbed. Every
+  row still prints its `fraction` — the honest *of what could be assessed*
+  figure, unchanged on the wire — so a reader can see 17% ranked above 30%. The
+  response therefore carries `ordering: "coverage_weighted_fraction"`, in the
+  shape `unassessed_sort_last` already uses, because without it a reader's only
+  available conclusion is that the list is broken.
+
+  Concretely, on the rated corpus: an Employee Experience Specialist
+  (Receptionist) rated `poor` ranked **fifth** under the plain fraction, above
+  four postings rated `good`. It now ranks sixth. That single swap is the whole
+  of the measured improvement, and it is the swap §2.10 predicted.
 - **A null fraction sorts last inside its band, and the response says so.** Such
   a pair keeps its band, because the eligibility verdict on it is real; what it
   has nothing to say about is the ordering. Last rather than first is a decision
