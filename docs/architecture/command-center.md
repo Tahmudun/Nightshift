@@ -271,6 +271,9 @@ Building them against an invented score would violate I4. Rendering them as
 empty placeholders would violate I7 and §27.7. Naming them is the third option
 and the correct one.
 
+**Three of those four were built at M3d Task 7 — see §7.4.** One remains
+deferred and its reason changed rather than persisting unexamined.
+
 ### 7.1 Assessments due — folded, not dropped
 
 PRODUCT-SPEC §10.4 lists **"Assessments due"** as a ninth row. Earlier drafts of
@@ -321,6 +324,46 @@ An empty queue says so, and says that an empty queue is a normal state rather
 than a failure. A blank panel and a permanent spinner both read as broken.
 
 ---
+### 7.4 M3d Task 7 — the three score-backed rows, and the one still not possible
+
+| Row | What shipped |
+|---|---|
+| **Best new internships** | Open postings at `seniority = 'internship'`, first seen inside `NEW_INTERNSHIP_DAYS` (14), that the reader has **no application for at all** — archived included, because archiving is how somebody says *not this one*. Ordered by `matching.band_rank` then `matching.coverage_weighted_rank`, *imported* rather than rewritten, so this and `/matches` cannot drift apart |
+| **Requirement gaps** | PRODUCT-SPEC's *"resume mismatch warnings"*, renamed. `matching.unmet_requirements` over live tracked applications, filtered to `required` — `RequirementNecessity`'s own rule — differenced against the **stored** evidence graph and never re-scored. Worst shortfall first |
+| **The one thing to do today** | One row, repeated from a list below and chosen by `ONE_THING_ORDER`. It composes nothing |
+| **High-match roles closing soon** | Still deferred, `blocked_on` changed from `"milestone 3"` to `"the sources"` |
+
+Four decisions in that table are load-bearing and none of them is obvious.
+
+**A row is not always about an application.** The internship row offers postings
+nobody is tracking, so `QueueRow.application_id` and `current_stage` are null
+together and the page links to the job. Creating an application to link to would
+be I5's irreversible act taken by a list.
+
+**A row carries an eligibility state and never a score.** I4 forbids a bare
+number and a queue row has nowhere to put a breakdown. A state is a verdict with
+a quoted sentence behind it one click away, so that is what travels.
+
+**A section can have a blind spot, and it reports it at zero as well.** A
+score-backed row shows fewer items when the sweep is behind, and fewer again
+when the classifier could not read a posting; both are indistinguishable from
+having less to do. `BlindSpot` is a name, a count and a *sentence* — a count
+alone is the unexplained number I4 is about, one level up from a score. On the
+seeded corpus `level_not_read` is **16 of 31 open postings**, so over half the
+corpus is invisible to the internship row and the row says so.
+
+**The gap row is not called a resume warning, and the word is absent from it.**
+The list is differenced against `user_skills` — confirmed facts — and never
+against `resume_extractions`, which are proposals. Shipping the spec's name
+would be ADR 0019's defect arriving by the front door: a true statement about a
+database rendered as a false one about a document. Enforced by a test in each
+language and a check in `verify.py`.
+
+`todays_one_thing` runs no query. It is named in `DERIVED_SECTIONS`, which the
+query-plan test asserts is exactly the set `queue_selects` omits — otherwise the
+next section added would drop out of that file's coverage with nothing going
+red. Its row is excluded from `total_rows`, or one follow-up reads as two.
+
 
 ## 8. Testing
 

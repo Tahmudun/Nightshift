@@ -71,10 +71,10 @@ DEFERRED_ROWS: tuple[DeferredQueueRowOut, ...] = (
         name="High-match roles closing soon",
         blocked_on="the sources",
         reason=(
-            "the match score exists now; the closing date does not. Most boards publish "
-            "no application deadline at all, and one of the sources in this registry "
-            "publishes none ever, so this row would be a ranking over the small, "
-            "unrepresentative slice that happens to state one."
+            "needs a closing date, and almost nothing publishes one. Most boards state "
+            "no application deadline at all and one of the sources in this registry "
+            "states none ever, so this row would rank the small, unrepresentative "
+            "slice that happens to give a date and silently omit everything else."
         ),
     ),
 )

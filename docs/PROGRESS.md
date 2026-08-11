@@ -20,391 +20,214 @@
 **M3b: COMPLETE, reviewed, CI-green at `7bfbf2d`, merged to `main` as PR #11 (`d2273e7`). `main` green after the merge.**
 **M3c: COMPLETE, reviewed, CI-green at `42b989e`, merged to `main` as PR #12 (`03fa035`). All five CI jobs passed with no findings — the first slice in this project where CI found nothing. Review: `docs/reviews/milestone-3c-review.md`.**
 **Q5 (relevance ratings): ANSWERED 2026-08-10. Thirty rated, profile filled — 12 good / 11 acceptable / 7 poor. M3d has a held-out set.**
-**Current milestone: M3 — explainable matching. Next: M3d, the evaluation suite.**
+**M3d: Tasks 1–7 of 8 done on `m3d-evaluation`. `make check` green, `make acceptance` exits 0 from a clean `make reset-db`. Not yet a PR.**
+**Current milestone: M3 — explainable matching. Next: M3d Task 8 — ADRs, the review, the M3 acceptance walk.**
 **Task 11 measured the embedding proposal path and declined to ship it — ADR 0018.**
 **Task 12 gave the seed a reader to be about, and found three false claims on the page — ADR 0019.**
-**Last updated: 2026-08-10**
+**Last updated: 2026-08-11**
 
 ---
 
+
 ## Next exact action
 
-### M3c is closed. Next: M3d — the evaluation suite, in CI.
+### M3d is seven tasks in. Next: Task 8 — ADRs, the review, and the M3 acceptance walk.
 
-M3c's twelve tasks are done, `make acceptance` exits 0, and PR #12 merged CI-green
-with no findings.
+**The plan is `docs/plans/2026-08-10-m3d-evaluation.md`.** Tasks 1–7 are done and
+committed on `m3d-evaluation`; each is recorded below. `make check` is green and
+`make acceptance` exits 0 from a `make reset-db`.
 
-**The plan is `docs/plans/2026-08-10-m3d-evaluation.md`.** Eight tasks. Its §1
-measured what already exists before planning anything, and the answer changes the
-shape of the milestone: **three of `matching.md` §7.1's six metrics are already
-built and gated in CI**, and two items nobody had listed are owed — five reading
-accuracies that have been measured-but-ungated since M3b on a condition that has
-since been met, and a `ratings.yaml` that no test reads.
+**Task 8 owes, in this order:**
 
-What M3d inherits, in the order it should be picked up:
+1. **ADRs for what Tasks 1–7 decided.** At least two: the `demonstrated_by:`
+   ontology edge and its `RULESET_LOGIC_VERSION` bump (Task 1), and the
+   coverage-weighted ordering that closed review §2.10 (Task 6). Task 7's
+   deferral-of-one-row and the rename of *resume mismatch warnings* are recorded
+   in `command-center.md` §7.4 and may not need their own.
+2. **`docs/reviews/milestone-3d-review.md`**, looking for the things `CLAUDE.md`
+   §5 lists. Two candidates are already known and are written down under Task 7
+   below: `make acceptance` was red for a week without anybody noticing, and
+   three brand-new checks were vacuous the moment they were written.
+3. **The M3 acceptance walk** — the milestone's six criteria, each with concrete
+   evidence, in this file.
+4. **PROGRESS and any doc M3d invalidated**, then the PR.
 
-1. ~~**The relevance ratings, which need the human.**~~ **Done 2026-08-10.**
-   Thirty rated with a filled profile — 12 `good`, 11 `acceptable`, 7 `poor` —
-   and the non-technical control group separates from the early-career technical
-   one (0/3/3 against 6/5/1). QUESTIONS Q5 carries the full account, including
-   the three profile fields that had to be translated rather than transcribed and
-   why the first pass at 27-of-30-`good` could not have been used. **What M3d
-   still owes this file is the metric itself**: nothing yet reads `ratings.yaml`
-   to grade an ordering.
-2. **The ordering problem Task 12 saw and did not fix.** On the seeded corpus a
-   Partner Development Representative at 19 of 40 (48%) outranks a Software
-   Engineer Internship at 30 of 100 (30%) for a CS student who asked for software
-   engineering. Every number is right and the order is misleading, because a
-   ratio of two incomparable denominators is not a total order. Review §2.10.
-   **This should be the first thing the relevance pass examines.**
-3. **The `demonstrated_by:` edges ADR 0018 recommends.** 33 concept-term
-   occurrences the scorer misses. It moves scores, so it needs a
-   `ruleset_version` bump — which is a thing to do at the start of a milestone,
-   not at the end of one.
-4. **The metrics themselves** — §7.1's table, run in CI.
+**Two things Task 8 must not skip.** M3's criterion is *"eval suite runs in CI"*,
+and Task 5's ranking metric and Task 3's per-state precision/recall are both
+**reported and ungated** by deliberate decision (§2.5 of the plan: report first,
+baseline second, gate third). The walk has to say that plainly rather than let
+"runs in CI" stand in for "gates in CI". And §7.1's table in `matching.md` should
+be brought level with what now exists, since M3d added rows to it.
 
-**Task 12 shipped** the browser walk (`e2e-seeded/matching.spec.ts`, 7 tests),
-`check_match_results` in `verify.py` (18 checks), `make score`, **ADR 0019**, and
-a demo profile the milestone turned out not to work without. It found three
-statements the page was making that were false about a person and true of a
-database, and one browser test of its own that could not fail. Full detail in the
-M3c Task 12 section below and in `docs/reviews/milestone-3c-review.md`.
+---
 
-**Task 11 shipped a measurement and a decision, and no feature.** The embedding
-proposal path §2 permits was built as an experiment, measured against the
-rules-only baseline the plan required, and declined. **ADR 0018** carries it.
+## M3d — the evaluation suite. Tasks 1–7 done, Task 8 open.
 
-The short version: over 240 required-technology rows per profile, the rules-only
-scorer matches 90 / 88 / 59 / 0 on the four fixture profiles, and the gap of
-150–181 rows is what an embedding was meant to recover. Ranking every (missed
-requirement, confirmed skill) pair under the real `bge-small-en-v1.5`, **the
-highest-confidence proposal in the entire corpus is "you meet the Java
-requirement, because you confirmed Python" at 0.797.** The one relation worth
-having — `Machine Learning` from a confirmed PyTorch — finishes ninth at 0.624.
+Branch `m3d-evaluation`, not yet a PR.
 
-The ordering is inverted, not weak, and that is why there is no threshold to
-tune: cosine over technology names measures topical relatedness, a match claim
-needs substitutability, and sibling technologies are maximally related and least
-substitutable. Any cut that admits the good relation admits eight fabrications
-first.
+### Task 1 — the ontology edge ADR 0018 asked for (`ff4feeb`)
 
-**It also corrected `matching.md` §2, which is the part worth carrying forward:
-the span rule proves provenance, not entailment.** "You have Java" quoting the
-posting's *Java* and the user's *Python* satisfies both spans literally, and
-renders beside both quotes looking audited. The rule stops invented text; it
-never stopped unwarranted inference, and the plan had it carrying the whole
-safety argument.
+`demonstrated_by:` in `data/skills.yaml`: PyTorch is evidence of Machine
+Learning, Kafka of Distributed Systems. One-directional, one-hop, and **a claim a
+human wrote into a versioned file rather than a cosine above a threshold** —
+which is the whole of ADR 0018's argument, inverted into something constructive.
 
-Full detail in the M3c Task 11 section below, including the constructive
-successor the measurement found (`demonstrated_by:` edges in `skills.yaml`, not
-built) and the three tests that keep the decision from being reversed silently.
+`RULESET_LOGIC_VERSION` 2 → 3, vocabulary `2026-08-10.1`, golden regenerated: 68
+new evidence rows across 153 postings × 4 profiles. Measured: `experienced_ml`
+matches 118 of 240 required rows where it matched 88, recovering 30. **The other
+three profiles move by zero**, which is the shape a narrow edge should have.
 
-**Task 10 shipped**: the score is visible in a browser, on two surfaces. The
-explanation panel on the job detail page (`MatchPanel`) and the banded ranked
-list at `/explore/matches` (`RankedMatches`, served by a new `GET /matches`).
-Bands are headings and the list sorts on the *fraction*, so 40 of 50 outranks 45
-of 100. The three enums Task 9 left owing — `MatchComponent`, `EvidenceSource`,
-`JobTextField` — crossed into TypeScript with `PenaltyName` beside them, all four
-now in `test_enum_parity.py`.
+`Data Structures` deliberately gets no edges — every language implements them, so
+any list reads "you have written code", which is true of everybody and evidence
+of nothing. Its three corpus occurrences stay unmatched.
 
-It took the decision PROGRESS assigned it and **revisited nothing**: §4.2's single
-`penalty_score` column stands, and `0019_match_penalties` records what that
-column is made of. Before it, the page could render `-18` with no account of it,
-which is I4's *"stores its components, its penalties"* going unmet in the one
-place a person reads. §6's element count moved too: the *recommended resume* is
-now named as **not built** rather than owed, and the reason is I2 — see the Task
-10 section below.
+**Two findings from the work rather than the plan.** The golden file was not
+scoring what production scores: `demonstrates` began as an optional parameter
+defaulting to no edges, and the golden test, the mutation harness and the
+embedding measurement all call `score_match` directly — so all three pinned a
+scorer that was not shipping, and the golden test passed with the feature
+complete and wired. It is now a required keyword-only argument. And
+`SCORING_VERSION = "m3c.1"` was dead while its comment claimed otherwise.
 
-Full detail in the M3c Task 10 section below, including the first end-to-end run
-against the seeded corpus and the two bands `make demo` cannot exercise.
+### Task 2 — floors on five reading accuracies, and one named as ungated (`c0dc8bf`)
 
-**Task 8 shipped**: scores now reach the database. Migration
-`0017_match_score_denominator` (the two columns Task 5 and Task 3 left owing),
-`domain/matching.py`, an ARQ recompute task on a one-minute cron, and the
-profile-change invalidation with its named column list. The three triggers of
-§4.2 turned out to be three routes into one state — *no row at the current
-ruleset version* — so there is one code path that computes a score rather than
-three that can drift. 14 tests in `test_match_recompute.py`, 3 in
-`test_nothing_infers.py`, 2 in `test_enum_parity.py`. Full detail in the M3c
-Task 8 section below, including one departure from the plan's wording
-(invalidate rather than enqueue) and the reason.
+Measured on the committed 60-posting key and gated just under, per M3a's rule:
 
-**Task 7 shipped**: every tunable number in `data/matching.yaml` is shown
-load-bearing — all six weights, both penalty ceilings and all eleven
-thresholds, 19 kills rather than the plan's six. 23 tests in
-`test_every_score_number_is_load_bearing.py`. It found five dead mutations and
-the fix was a fourth fixture profile at `years_experience: 0`, which was a gap
-worth closing on its own. Full detail in the M3c Task 7 section below, with the
-table of what each number is worth.
+    degree                0.867 -> floor 0.86
+    graduation_window     1.000 -> floor 0.98
+    min_years_experience  0.883 -> floor 0.88
+    sponsorship           0.917 -> floor 0.91
 
-**Task 6 shipped**: the golden test, written before any weight was tuned.
-`tests/fixtures/matching/golden.txt` — 459 scores and 1,098 evidence rows over
-153 recorded postings × 3 fixture profiles, every component decomposed with its
-own sentence. 11 tests in `test_matching_golden.py`. The corpus was measured
-before the format was chosen: 37 distinct scores, 9 distinct denominators, and
-5 pairs that genuinely reach `assessed_out_of == 0`. Full detail in the M3c
-Task 6 section below, including the regeneration guard and the end-to-end run
-that proved it fires.
+`enrollment_required` is **deliberately not gated** on its three-way accuracy of
+0.483: 30 of its 31 errors are `not_stated` where the key says `no`, and both
+mean *you need not be a student* to the gate. The question that changes a verdict
+already has a floor at 0.90 and measures 0.983. It is now an entry in
+`REPORTED_NOT_GATED`, and a test partitions the graded fields so a future field
+cannot be ungated by nobody noticing.
 
-Task 7 now has what it needs: zeroing a weight will move the golden file, and
-the golden file names which postings moved. **The order matters and it is the
-plan's**: the golden test had to exist before any weight was tuned, or it would
-pin the tuned output and call it a check.
+**The finding is the deferral itself.** The file said these stayed ungated "until
+Task 5's remaining repairs are done"; M3b Task 5 shipped on 2026-08-05 and nobody
+came back. A condition written into a docstring has no owner and no expiry, and a
+reported number reads exactly like a gated one in a green run.
 
-**Task 5 shipped**: both penalties, the composition, and `score_match` — the
-whole score for one (person, posting) pair, still pure and still with no
-database. `data/matching.yaml` gained nine thresholds; the loader gained a
-ladder that must rise. 108 tests in `test_scoring.py`, 40 in
-`test_matching_weights.py`. Full detail in the M3c Task 5 section below,
-including the reason the missing-requirement penalty counts instead of dividing
-and a column Task 8's migration now owes.
+### Task 3 — eligibility precision and recall, per state (`b58124c`)
 
-**Task 4 shipped**: location and work mode, listing freshness, early-career
-priority — the three components §2.1 exempts from quoting a person, each
-recording the values it compared instead. `data/matching.yaml` gained a
-`thresholds` block and the loader gained its validation, including a freshness
-window that runs backwards, shown able to fail. 44 tests in `test_scoring.py`,
-34 in `test_matching_weights.py`.
+§7.1's first row, which had nothing behind it at all. 240 pairs: 60 labeled
+postings × 4 fixture profiles. Agreement 202/240.
 
-**Q6 is answered: score out of what could be assessed.** A posting naming no
-technologies is scored out of 50, the page names what could not be assessed, and
-the ranked list sorts on the fraction. Written into `matching.md` §5.1.1 and
-implemented by Task 5.
+    state                 truth   pred     prec   recall
+    eligible                 64     83    0.711    0.922
+    uncertain                88     85    0.859    0.830
+    likely_ineligible        48     38    0.947    0.750
+    ineligible               40     34    1.000    0.850
 
-**Task 3 shipped**: `domain/scoring.py` — role relevance, skill overlap and
-project evidence, pure, no ORM, 28 tests in `test_scoring.py` that need no
-database. The classifier now carries the span it matched (`TextSpan`, with the
-field it came from) instead of throwing it away, because role relevance is
-decided on the *title* and every other span in this system points into
-`description_text`.
+**The errors run in the safe direction, and that is the finding.** `ineligible`
+precision is 1.000 — the extractor never produced a hard block the labels do not
+support. The weak figure is `eligible` precision at 0.711, which shows somebody a
+posting they may not get; the converse would remove one from their world without
+telling them, and A13 makes that the worst output this engine can produce.
 
-**Task 3 found the number that shapes the rest of M3c: 43% of the labeled
-corpus names no required technology.** Raised as Q6 — see below, and it is the
-first thing to read before Task 5.
+Asserted rather than admired: the no-false-block test is a hard zero, not a floor
+set under today's number. It passed on its first run, so a companion test
+exercises the detection against a constructed disagreement — a hard-zero
+assertion that has never been red is indistinguishable from one that cannot be.
 
-**Task 2 shipped**: migration `0016_match_results` — `match_results`,
-`match_evidence`, `user_skills.skill_id`, three new PG enums, and seven
-triggers. 29 tests in `test_match_result_models.py`, three in `test_profile.py`,
-two in `test_enum_parity.py`. Full detail in the M3c Task 2 section below,
-including a check constraint a test found covering only one of its two
-directions and an interaction that would have broken ingestion at commit.
+### Task 4 — §7.2's second equality reaches CI (`8609bee`)
 
-**Task 1 shipped**: `data/matching.yaml` (six components summing to 100, two
-negative penalty ceilings, `version: 2026-08-09.1`),
-`domain/matching_weights.py` (the loader, `RULESET_LOGIC_VERSION = "1"`, and
-`ruleset_version()` composing `"<logic>+<data>"` per §4.2), and 27 tests in
-`test_matching_weights.py`. The sum-to-100 assertion is shown able to fail on
-the realistic mistake — `skill_overlap` typed as 3 instead of 30, which crashes
-nothing, keeps every existing test green, and quietly removes the largest
-component from every score in the corpus.
+§7.2 has two assertions. The job-span one has had a trigger and a corpus test
+since M3c. **The user-span one — that a span quotes a *confirmed* record and
+never `resume_extractions` — ran nowhere in CI**, living only in `verify.py`,
+which needs a live stack. It now runs over 153 postings × 4 profiles with no
+database. The embedding-proposed share is published beside it.
 
-**The Q5 worksheet is generated and waiting on the human.** Thirty postings at
-`docs/labeling/relevance-worksheet.md`, rated into
-`services/api/tests/fixtures/relevance/ratings.yaml`. Roughly twenty minutes.
-Not blocking M3c; wanted before M3d, because it is the only thing that can
-measure whether the ranking is *good* rather than merely stable.
+### Task 5 — the ranking gets graded (`775b173`)
 
-The plan is `docs/plans/2026-08-09-m3c-the-score.md`. Twelve tasks. Three calls
-taken in the plan rather than inside the work:
+QUESTIONS Q5's thirty human judgements finally have a consumer. Every other
+measurement in M3 grades the system against what a posting *says*; this one
+grades it against what a person *wants*.
 
-- **The embedding proposal path is Task 11, not Task 3**, and it is allowed to
-  end in a deletion. The span rule means a proposal can only re-rank things that
-  already have spans on both sides — it cannot invent evidence — so the honest
-  question is how many *additional* pairs it finds that the vocabulary missed,
-  and that has no answer until the vocabulary's own yield is on the table. One
-  number with no way to attribute it is what shipping both together produces.
-- **The golden test is written before any weight is tuned.** Written afterwards
-  it pins whatever the code then does, which is a test that cannot fail on the
-  thing it exists to catch.
-- **"Any profile change triggers a rescore" is a trap** and is not implemented
-  as written. M2c's profile PATCH writes fifteen columns and most components
-  read none of them; rescoring the corpus because somebody edited their display
-  name is a retry storm waiting for a demo. A named scoring-relevant column list,
-  guarded against `User.__table__` the way `PROFILE_COLUMNS` now is — because
-  that hand-maintained list is exactly what quietly stopped describing what it
-  named at M3b.
+    NDCG@10      0.811
+    NDCG@30      0.926
+    precision@5  0.600
+    precision@10 0.700
 
-### Not real yet — M3c, so far
+**Reported, not gated** — first sight of these numbers, over a corpus of nine
+employers that are all quant firms or AI labs. Two anti-vacuity guards, and the
+second is the one worth having: NDCG@30 must be **below** 1.000, because a
+perfect score would mean the ordering had come from the ratings.
 
-- **The golden file pins nine employers, all quant trading firms or AI labs.**
-  It is 153 postings and it looks broad; it is the same narrow slice the rest of
-  M3 measures on. A rule that misfires only on an agency's or a hospital's
-  posting moves nothing in that file, and no test in this repository would
-  notice. This is a coverage limit, not a bug, and it is stated in the test
-  module's own docstring so it travels with the file rather than only with this
-  document.
-- **The golden file records the *untuned* weights.** It is a record of what
-  §5.1's published numbers produce, and it is deliberately not evidence that
-  those numbers are good — no measurement supports 30 for skill overlap over 25.
-  Task 7 shows each of them *matters*; nothing yet shows any of them is
-  *right*, and those are different claims. M3d measures the second one.
-- **Three of the seniority ladder's rungs are exercised by exactly one fixture
-  profile.** `internship` and `new_grad` sit at 0 and `junior` at 1, and a rung
-  only bites somebody below it, so only `early_career_no_experience` can reach
-  them. That is not a gap — deleting that profile turns three named mutations
-  red, which is the harness doing its job — but it is a thin margin worth
-  knowing about, and it is why the profile carries a comment saying what it is
-  for.
-- ~~**Nothing has scored a real posting yet.**~~ Answered at Task 10 and
-  strengthened at Task 12: 31 of 31 postings score, 11 distinct fractions, and
-  `make seed` now ends by running the sweep so the corpus is scored from the
-  moment a clean clone finishes seeding.
-- **`match_results.resume_id` is null on every row, and is now named as not
-  built rather than owed.** §6's *Recommended resume* has a column, an FK and no
-  writer. Task 10 declined it on I2 grounds and recorded the argument in
-  `matching.md` §6: a per-resume skill set exists only in `resume_extractions`,
-  which holds **proposals**, and §7.2 forbids a user-side span from quoting one.
-  Doing it honestly needs a confirmation step that attributes a confirmed skill
-  to the resume it came from — its own small design, not a rider on a panel. The
-  panel prints it under "Not built" beside the other two.
-- **Three of §8.5's nine explanation elements are not computed**, not two. The
-  count moved at Task 10 for the reason above, and `matching.md` §6's table now
-  says so. Anything describing M3c as computing seven of nine is out of date.
-- ~~**The seeded corpus fills two of the five bands.**~~ **Fixed at Task 12** by
-  giving the dev user the fixture resume's profile. Now: `eligible` 14,
-  `uncertain` 10, `likely_ineligible` 7 — so §3.3's dimming and the two blocked
-  bands' caveat copy are exercised by something a person can look at, and by a
-  browser test. `likely_eligible` and `ineligible` are still empty on this
-  corpus; the gate reaches `ineligible` only under a profile that contradicts a
-  stated bar, which `check_eligibility_gate` and `eligibility.spec.ts` both
-  construct deliberately.
-- ~~**The same run scores most of the corpus out of 10 to 50, and most of it at
-  zero.**~~ **Fixed at Task 12.** Now 6 distinct denominators including 100, 11
-  distinct fractions across 31 postings, and 102 evidence rows of which 27 quote
-  a posting and 27 quote the reader — against 13 rows quoting nothing before.
-  **What replaces it as the open question is not thinness but order:** a posting
-  assessed on 40 points can outrank one assessed on 100, because the fraction is
-  a ratio of incomparable denominators. Review §2.10, and it is M3d's.
-- **The recompute sweep is `users × open jobs`, unbounded in principle and
-  bounded in practice by the corpus being 31 postings and the user count being
-  one.** One anti-join per tick, batched at 500 pairs. At M4's scale this is
-  fine; the shape that is not fine is a version bump on a corpus of thousands
-  with real multi-user traffic, and the honest statement is that nothing here
-  has been measured above one user.
-- **`EvidenceSource.EMBEDDING` is on the wire, rendered, and unreachable.** The
-  PG enum carries it, `evidenceSourceSchema` carries it, and `MatchPanel` has a
-  branch that prints "proposed by the embedding". **Nothing produces it**, and
-  after ADR 0018 nothing is going to. This is listed here rather than deleted
-  because I7 is about the gap between what a reader would assume and what is
-  true, and a reader of `schemas.ts` would assume there are two sources of
-  evidence in this system. There is one. The branch stays because a row with
-  that source arriving and being labelled "matched by a vocabulary rule" is the
-  failure worth preventing, and `test_the_scorer_emits_no_evidence_row_an_
-  embedding_proposed` is the tripwire that sends the next person to the ADR.
-- **The one real recall gap Task 11 found is not fixed.** 33 occurrences across
-  the corpus of concept terms — `Machine Learning` (26), `Distributed Systems`
-  (4), `Data Structures` (3) — that somebody can genuinely demonstrate with a
-  concrete tool and that the scorer misses entirely. ADR 0018 recommends
-  `demonstrated_by:` edges in `data/skills.yaml`. Not built: it would move scores
-  across the corpus and so needs a `ruleset_version` bump, which is not a thing
-  to do in a milestone's last task.
-- **The seeded profile is one person, and the ranking has never been seen for
-  anybody else.** `make demo` and the whole browser walk read a single fixture
-  profile — a CS student graduating May 2027 with six skills and two projects.
-  The unit suite has four profiles; the seeded stack has one, and every judgement
-  about whether the ordering is useful has been made from that one.
-- **The ranked order is honest and can still mislead.** 19 of 40 outranks 30 of
-  100 because the fraction is a ratio of denominators that are not comparable
-  quantities, so a posting nobody could assess much of can beat one that was
-  assessed thoroughly. Both numbers are printed on every row, which is a
-  mitigation and not a fix. Review §2.10; M3d's relevance pass owns it.
-- **A hand-inserted `match_evidence` row with `proposed_by = 'embedding'` would
-  never be noticed.** Probed at Task 12: the database refuses a fabricated span
-  on INSERT *and* on UPDATE, and accepts a fabricated source. `verify.py`'s check
-  runs after everything that empties the table, so it only ever reads rows it
-  rescored itself — it asserts the *scorer* stores no such row, which is worth
-  having and is not the same claim. `matching.md` §7.2 carries the table.
-- **The ARQ recompute cron is asserted by nothing.** `recompute_pending` is
-  covered from four directions; `workers/tasks.py` scheduling it every minute is
-  covered by having been watched work in `make dev`.
-- **Old-version `match_results` rows are never garbage-collected.** §4.2 keeps
-  them on purpose, so a ruleset bump can be compared against what preceded it.
-  Nothing deletes them, so the table grows by one row per (person, posting) per
-  version bump. At this scale that is invisible and it is still an unbounded
-  growth path with no owner.
+**The top ten was Task 6's input**: an Employee Experience Specialist
+(Receptionist) rated `poor` ranked **fifth**, above four postings rated `good`.
 
-- ~~**The relevance ratings are 27/30 filled, all with the same word, and the
-  profile block is still empty.**~~ **Answered 2026-08-10 — QUESTIONS Q5.** Thirty
-  rated, profile filled, 12 `good` / 11 `acceptable` / 7 `poor`, and the six
-  non-technical control postings now separate from the twelve early-career
-  technical ones. The account of the first pass is kept below because the failure
-  mode is the reusable part: a near-constant label is a metric that discriminates
-  nothing, and it looked like a completed worksheet.
+### Task 6 — the ranked list weights its fraction by coverage (`27faac3`)
 
-  **What replaces it as the open item is that nothing reads the file.** The
-  ratings are committed and graded by no test — M3d's ranking metric is the
-  consumer and it does not exist yet, so today this is a fixture with a passing
-  schema check and no measurement behind it.
+Review §2.10 closed with a measurement rather than an argument. The ordering key
+is now `fraction × sqrt(assessed_out_of / 100)`.
 
-  The original entry, kept for the reasoning:
+    ordering                        NDCG@10  NDCG@30    P@5
+    fraction (M3c)                    0.811    0.926  0.600
+    raw overall_score                 0.777    0.902  0.800
+    fraction x sqrt(assessed/100)     0.817    0.931  0.800
 
-  The human's first pass on 2026-08-09 rated
-  everything `good` except 11, 12 and 13. Two problems, and the second is worse
-  than the first.
+Not the +0.006. Three things decided it: leave-one-out across all 30 folds is
+better in 28, tied in 2, worse in none; both endpoints of the exponent sweep lose
+to the middle; and the mechanism is the one §2.10 describes, so it is not fitted
+to the corpus. No `ruleset_version` bump — no score moved, this is a query
+concern.
 
-  *Three are held rather than recorded.* The stated reason for marking them down
-  was being underqualified, which is the odds and not the fit — the worksheet
-  asks for fit explicitly, because whether you *can* apply is the gate's
-  question and §5.2 forbids it from ever becoming points. Recording them on that
-  basis would grade the score against something the score deliberately does not
-  contain. They sit at `TO_RATE` with the reason in their `note`, and
-  regeneration preserves notes, so nothing is lost.
+**The printed number is unchanged and that is a disclosed cost**: a reader can
+see 17% ranked above 30%, which is why `MatchRankingOut.ordering` carries
+`coverage_weighted_fraction` on the wire.
 
-  They are also not one case. **11 (AML/KYC Officer, 4+ years crypto
-  compliance) and 12 (Corporate Development Manager, 8+ years in Indian
-  financial markets)** are non-technical senior roles in another field
-  altogether — `poor` on *fit*, and the instinct about them is right even
-  though the reason given was the wrong axis. **13 (Graduate Machine Learning
-  Researcher)** is the opposite: an early-career technical research role, which
-  is the shape this product exists to surface, gated by an MSc minimum and
-  sited in London. Under fit-not-odds that is plausibly `good`, and the two
-  things actually disqualifying it — a hard credential floor and a city outside
-  New York — are both things the engine should be catching on its own.
+**Task 7 later found what this task left behind** — see below.
 
-  *A near-constant label cannot measure a ranking.* 27 of 30 in one class is the
-  ranking-metric version of a gate that answers `uncertain` to everything: every
-  ordering of the corpus scores about the same, so NDCG or precision@k over it
-  would report a number that discriminates nothing. If that ratio survives a
-  second pass, the honest reading is that **the corpus is the problem, not the
-  rater** — these thirty come from nine employers, all quant trading firms or AI
-  labs, selected for eligibility-rule coverage rather than for spanning what a
-  person would actually be shown. M3d then reports ranking quality as
-  unmeasured and says why, rather than reporting a flattering number.
+### Task 7 — three queue rows come off the deferred list (`cb0d41c`, `6686d83`, `70b9883`)
 
-  **It did not survive, so the corpus was not the problem.** The second pass came
-  back 12 / 11 / 7 over the same thirty postings. That is worth recording as a
-  prediction that was tested and wrong rather than quietly dropped: the
-  hypothesis above would have had M3d declare ranking quality unmeasurable on
-  this corpus, and acting on it a day earlier would have discarded a usable
-  measurement. The corpus limit in the next entry is real and is a different
-  claim — it bounds what the number *generalises to*, not whether there is one.
+`command-center.md` **§7.4** is the design record; this is what happened.
+PRODUCT-SPEC §10.4's four score-backed queue rows were named-but-deferred since
+M2d. Three are now real and the fourth's reason changed.
 
-  The tests read the file as it stands and pass. The profile-dependent one,
-  `test_a_filled_profile_uses_skill_names_the_matcher_can_resolve`, skipped while
-  `profile` was `TO_RATE` and now runs: 9 passed, 0 skipped.
-- **The thirty come from nine employers, all of them quant trading firms or AI
-  labs.** That is the corpus M3a recorded, chosen for eligibility-rule coverage
-  rather than for being a fair sample of New York tech — no agency, no startup,
-  no bank, no hospital, no university. Whatever M3d reports is therefore a
-  measurement over *that* slice, and saying so is the difference between a
-  ranking metric and a ranking metric that sounds broader than it is.
-- **The weights are §5.1's published numbers, untuned and unmeasured.** Nothing
-  has scored anything yet, so no evidence supports 30 for skill overlap over 25.
-  Tuning is deliberately after Task 6's golden test, never before it.
-- **All three deferred guards only fire at commit** — the evidence guard from
-  Task 2, the assessment guard from Task 9 and the penalty guard from Task 10. Deferrable constraint triggers are the only
-  shape that works, since a score has to exist before a child row can reference
-  it, but it means a transaction that never commits never checks. The test suite
-  rolls back, so every test forces them with `SET CONSTRAINTS ALL IMMEDIATE`.
-  Production code commits, so the guarantee is real there; anything that writes a
-  score inside a transaction it then abandons is outside what either guard can see.
-- **`scripts/` is outside the linted tree**, found this session and pre-existing:
-  `make lint` runs ruff over `services/api` only, so `verify.py` and both
-  worksheet generators are checked by nothing. 22 findings sit there today, most
-  of them `T20` on prints that are the point of those files. Left alone
-  deliberately — turning it on means per-file ignores, and that is its own small
-  change rather than a rider on M3c. The two files added this session were
-  checked against the same config by hand and are clean.
+| Row | Outcome |
+|---|---|
+| Best new internships | Built. Internships first seen within 14 days that the reader has no application for, ordered by the *imported* `band_rank` + `coverage_weighted_rank` |
+| Resume mismatch warnings | Built as **Gaps on roles you are tracking**. `unmet_requirements` over live tracked roles, `required` only, differenced against the stored evidence graph |
+| The one thing to do today | Built. One row repeated from a list below, chosen by `ONE_THING_ORDER`, composing nothing |
+| High-match roles closing soon | Still deferred; `blocked_on` moved from `"milestone 3"` to `"the sources"` |
+
+Three shapes are new and each is in §7.4: a row that is about a *posting* rather
+than an application (`application_id` null, links to the job); a row that carries
+an eligibility **state** and never the score it was ranked on (I4); and a section
+that reports what it could not see (`BlindSpot` — a name, a count and a
+*sentence*, emitted even at zero).
+
+**The number worth remembering: `level_not_read` is 16 of 31 open postings.**
+Over half the seeded corpus is `seniority = 'unclear'` and therefore invisible to
+the internship row, which the row now says out loud and previously would have
+hidden completely.
+
+Nine mutations were run against the new tests; each killed exactly one test.
+
+**Two failures this task found, both of which are review material:**
+
+- **`make acceptance` had been red since Task 6.** `verify.py` and
+  `matching.spec.ts` both asserted the ranked list descends by printed
+  `fraction`; Task 6 replaced the key and updated neither. Both now recompute the
+  documented key from the wire *and read `ordering` off the response first*, so
+  the next change to the sort is a loud refusal rather than a wrong assertion
+  about a right answer. **Nothing in CI covers `make acceptance`**, which is why
+  a week passed.
+- **Three brand-new `verify.py` checks were vacuous when written.**
+  `check_daily_queue` runs after `check_profile_confirmation`, which invalidates
+  every score on its way past — so all three score-backed rows were asserted
+  against an empty table and passed. It rescores first now, and the gap row's
+  assertions moved below the point where the script has a tracked role for them
+  to be about. With that fixed the checks see 1 internship offered and 3 gap rows
+  naming JavaScript, Kotlin and Swift.
+
+`test_no_deferred_row_blames_something_that_now_exists` was added, mirroring
+`test_search.py`'s guard of the same name. It went red immediately on the
+reworded reason for the one surviving deferral, which is the guard working.
+
 
 ---
 

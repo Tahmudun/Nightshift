@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from nightshift.api.deps import current_user_id
 from nightshift.api.main import create_app
+from nightshift.api.routes.queue import DEFERRED_ROWS
 from nightshift.db.base import JobStatus
 from nightshift.db.models import Company, Job, User
 from nightshift.db.session import get_db_session
@@ -114,6 +115,26 @@ async def test_a_row_that_got_built_is_no_longer_deferred(client: AsyncClient) -
     built = {section["key"] for section in body["sections"]}
     assert not any("internship" in name.lower() for name in deferred)
     assert QueueSectionKey.BEST_NEW_INTERNSHIPS.value in built
+
+
+def test_no_deferred_row_blames_something_that_now_exists() -> None:
+    """`test_search.py`'s guard, pointed at the other deferral list.
+
+    A "not built" list goes stale in the one direction nobody looks: nobody
+    re-reads it when the thing it was waiting for lands. Three of the four rows
+    here blamed *"milestone 3"* and the fourth blamed the absent match score;
+    M3 built the score, and only the fourth row's blocker was ever really the
+    milestone. The remaining entry is blocked on the sources, which is a claim
+    about the world rather than about this repository's schedule.
+
+    Only the named artefacts are checkable — a test cannot read English — but
+    these are the ones that have actually gone stale here.
+    """
+    built = ("milestone 3", "match score", "requirement extraction", "evidence graph")
+    for row in DEFERRED_ROWS:
+        blamed = f"{row.blocked_on} {row.reason}".lower()
+        for artefact in built:
+            assert artefact not in blamed, f"{row.name} is deferred on {artefact!r}, which exists"
 
 
 async def test_no_deferred_row_shows_a_number(client: AsyncClient) -> None:
