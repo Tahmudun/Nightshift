@@ -81,6 +81,10 @@ change — only the composition.
 
 **Raised:** 2026-08-09 (M3c planning) · **Type:** product · **Blocking:** no
 
+**ANSWERED 2026-08-10. All thirty rated, profile filled, `ratings.yaml` complete.**
+See "The second pass" at the end of this question for what changed and why the
+first pass could not have been used.
+
 `matching.md` §7.3 names this and M3c's plan brings it forward so it can be
 scheduled rather than discovered at M3d.
 
@@ -135,6 +139,62 @@ recorded them for eligibility-rule coverage rather than as a sample of New York
 tech. So the resulting number measures the ranking over that slice, not over the
 job market. It is still the only measurement available and it is worth having;
 it is not worth over-claiming, and PROGRESS says so where the number will go.
+
+### The second pass — answered 2026-08-10
+
+Thirty ratings and a profile. **12 `good`, 11 `acceptable`, 7 `poor`.** The file
+is complete, `test_a_filled_profile_uses_skill_names_the_matcher_can_resolve`
+runs instead of skipping, and M3d has a held-out set to grade against.
+
+**The first pass could not have been used, and the reason is worth keeping.** It
+rated 27 of 30 `good`. That is the ranking-metric form of a gate answering
+`uncertain` to everything: with one class holding nine tenths of the corpus,
+every ordering scores about the same and the metric discriminates nothing. It
+was not a careless pass — the rater was answering *would I take this*, which is
+a real question and not the one the worksheet asks.
+
+**What the second pass fixed was the control group, not the spread.** Broken out
+by the role shape each posting was *selected* for:
+
+| Bucket | good | acceptable | poor |
+|---|---|---|---|
+| technical, early career (12) | 6 | 5 | 1 |
+| technical, experienced (9) | 5 | 2 | 2 |
+| clearly non-technical (6) | 0 | 3 | 3 |
+| residual (3) | 1 | 1 | 1 |
+
+The six non-technical postings exist so that a ranker burying them proves
+something. In the intermediate draft they came back 2 `good` / 3 `acceptable` /
+1 `poor` — statistically indistinguishable from the early-career engineering
+roles this product exists to surface, which would have meant a ranker putting
+Jane Street's **Campus Recruiter** above Databricks' **Software Engineer 2027
+Internship** scoring no worse than the correct order. Three rows moved on a
+re-read (7 Account Executive → `acceptable`, 15 Campus Recruiter → `poor`,
+21 Employee Experience Specialist → `poor`) and the bucket now separates.
+
+**Three fields needed translating, and the translations are decisions.**
+
+- **`degree: bachelors`** for somebody with no degree yet. The field is *highest
+  degree held **or in progress*** (`eligibility.py:79`), so a fifth-year
+  undergraduate is `bachelors` by definition rather than by charity.
+- **`years_experience: 0`**, from *"no formal job experience, but four years of
+  coding"*. The column counts professional years and the seniority penalty reads
+  it directly (`matching.md` §5.1.3), so the coding years have no honest route
+  into it — they are already carried by the 32 confirmed skills. `0` rather than
+  blank is the load-bearing half: blank is I2's *never told us*, `0` is a stated
+  fact, and §5.1.3 keeps them apart on purpose.
+- **`preferred_roles`** gained `software engineer`. *"or developer or whatever"*
+  was not added as a second entry, being the same role in different clothes.
+
+**One thing the profile makes concrete.** The rater's confirmed skills include
+**Data Structures, Machine Learning and Distributed Systems** — precisely the
+three concept terms ADR 0018 measured as the scorer's one real recall gap, 33
+occurrences across the corpus it sees nothing of. The `demonstrated_by:` edges
+that ADR recommends now have a named person they would help rather than an
+argument.
+
+**The limit above is unchanged and still applies.** Nine employers, all quant
+trading firms or AI labs. Whatever M3d reports is a measurement over that slice.
 
 ---
 
