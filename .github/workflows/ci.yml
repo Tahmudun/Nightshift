@@ -149,7 +149,7 @@ jobs:
           key: tiles-${{ hashFiles('data/basemap.manifest.json', 'data/buildings.manifest.json') }}
 
       - name: Fetch the map tiles
-        run: make tiles
+        run: make tiles-strict
 
       - name: Unit tests
         # Coverage is measured and reported from M0 but does not gate until M3.

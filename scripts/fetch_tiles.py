@@ -55,6 +55,31 @@ from nightshift.domain.basemap import (
 
 USER_AGENT = "nightshift-tile-fetch (+https://github.com/Tahmudun/Nightshift)"
 
+# Which archives `make setup` may not finish without.
+#
+# The basemap is required because without it there is no map at all — the page
+# is a card explaining that a file is missing, and the whole of §5.2 is about not
+# shipping that. The buildings archive is not, and the difference is not a
+# judgement about importance: the product **already degrades from it honestly**.
+# The style is built without the source, New York draws flat, and a panel in the
+# corner names what is missing in this script's own words.
+#
+# So a missing skyline costs a clean clone a skyline, and a missing basemap costs
+# it `make setup`. Treating both as fatal would mean a repository that cannot be
+# set up at all between a bake and the release that publishes it — and
+# `CLAUDE.md` §4 calls a broken `make demo` from a clean clone the
+# highest-priority task in the repo.
+REQUIRED = frozenset({"basemap"})
+
+BAKE_SCRIPT = {
+    "basemap": "scripts/bake_basemap.py",
+    "buildings": "scripts/bake_buildings.py",
+}
+
+
+class Unavailable(Exception):
+    """This artifact could not be fetched, and the message says why."""
+
 
 def ssl_context() -> ssl.SSLContext:
     """Trust the same roots the rest of the stack does.
@@ -74,7 +99,7 @@ def ssl_context() -> ssl.SSLContext:
     return ssl.create_default_context(cafile=certifi.where())
 
 
-def download(manifest: BasemapManifest, destination: Path) -> None:
+def download(manifest: BasemapManifest, destination: Path, artifact: str) -> None:
     """Stream the artifact to `destination`, reporting progress on a tty."""
     expected = manifest.size_bytes
     print(f"==> downloading {manifest.filename} ({expected / 1024 / 1024:.0f} MB)")
@@ -82,9 +107,12 @@ def download(manifest: BasemapManifest, destination: Path) -> None:
 
     request = urllib.request.Request(manifest.url, headers={"User-Agent": USER_AGENT})
     try:
-        with urllib.request.urlopen(
-            request, timeout=60, context=ssl_context()
-        ) as response, destination.open("wb") as handle:
+        with (
+            urllib.request.urlopen(
+                request, timeout=60, context=ssl_context()
+            ) as response,
+            destination.open("wb") as handle,
+        ):
             received = 0
             step = 0
             while chunk := response.read(1024 * 1024):
@@ -102,19 +130,23 @@ def download(manifest: BasemapManifest, destination: Path) -> None:
                 print(file=sys.stderr)
     except urllib.error.HTTPError as exc:
         destination.unlink(missing_ok=True)
-        sys.exit(
-            f"the basemap URL returned HTTP {exc.code}.\n"
-            f"  {manifest.url}\n"
-            "If that is a 404, the release asset this commit pins has not been "
-            "published yet — see scripts/bake_basemap.py."
+        unpublished = (
+            "That is a 404, so the release asset this commit pins has not been "
+            f"published yet. Bake it with {BAKE_SCRIPT[artifact]}, then run the "
+            "`gh release create` line it prints."
+            if exc.code == 404
+            else ""
         )
+        raise Unavailable(
+            f"the {artifact} URL returned HTTP {exc.code}.\n  {manifest.url}\n{unpublished}"
+        ) from exc
     except (urllib.error.URLError, TimeoutError) as exc:
         destination.unlink(missing_ok=True)
-        sys.exit(
-            f"could not reach the basemap URL ({exc}).\n"
+        raise Unavailable(
+            f"could not reach the {artifact} URL ({exc}).\n"
             "This step needs the network exactly once. Nothing after it does — "
             "`make demo` runs entirely offline afterwards."
-        )
+        ) from exc
 
 
 def ensure(artifact: str, *, check_only: bool, quiet: bool) -> None:
@@ -133,7 +165,7 @@ def ensure(artifact: str, *, check_only: bool, quiet: bool) -> None:
         return
 
     if check_only:
-        sys.exit(f"{artifact} {status.state}: {status.detail}")
+        raise Unavailable(f"{artifact} {status.state}: {status.detail}")
 
     if status.state is not BasemapState.missing:
         # An existing file that fails verification is removed rather than kept.
@@ -146,11 +178,15 @@ def ensure(artifact: str, *, check_only: bool, quiet: bool) -> None:
     cache_dir().mkdir(parents=True, exist_ok=True)
     partial = target.with_suffix(target.suffix + ".partial")
     partial.unlink(missing_ok=True)
-    download(manifest, partial)
+    download(manifest, partial, artifact)
 
     verified = verify(manifest, partial)
     if not verified.usable:
         partial.unlink(missing_ok=True)
+        # Not `Unavailable`: this is fatal for either artifact. A file that
+        # downloaded cleanly and does not match the digest is the substitution
+        # ADR 0022 exists to catch, and carrying on would leave the reader to
+        # find out from a map that half draws.
         sys.exit(
             f"the downloaded {artifact} does not match the manifest, so it was not "
             f"installed.\n  {verified.detail}"
@@ -175,12 +211,39 @@ def main() -> None:
         help="verify the cached archives and exit; never download",
     )
     parser.add_argument(
-        "--quiet", action="store_true", help="say nothing when the cache already verifies"
+        "--quiet",
+        action="store_true",
+        help="say nothing when the cache already verifies",
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="treat every archive as required, including the optional ones",
     )
     args = parser.parse_args()
 
+    # Every artifact is attempted even after one fails, so a single run reports
+    # everything wrong rather than the first thing wrong. A required failure is
+    # still a failure — it is just not an early return that hides the rest.
+    failed_required = False
     for artifact in args.artifacts or ARTIFACTS:
-        ensure(artifact, check_only=args.check, quiet=args.quiet)
+        try:
+            ensure(artifact, check_only=args.check, quiet=args.quiet)
+        except Unavailable as exc:
+            required = args.strict or artifact in REQUIRED
+            print(
+                f"==> {'cannot continue' if required else 'skipping'} {artifact}: {exc}"
+            )
+            if required:
+                failed_required = True
+            else:
+                print(
+                    f"    `make setup` continues. The map draws without {artifact} and\n"
+                    "    says so on screen, rather than pretending it is complete."
+                )
+
+    if failed_required:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

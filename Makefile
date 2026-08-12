@@ -28,7 +28,7 @@ LOADENV := set -a && source .env && set +a
         test-e2e check fmt lint typecheck reset-db ingest logs ps clean doctor \
         verify acceptance test-e2e-seeded browsers drift constraints \
         discover registry-validate registry-approve registry-approve-write coverage \
-        worksheets score tiles
+        worksheets score tiles tiles-strict
 
 help: ## Show available targets
 	@echo "Nightshift — make targets"
@@ -77,6 +77,14 @@ model: $(VENV)/.installed ## Download the local embedding model
 # file that matches its pinned digest is left alone.
 tiles: $(VENV)/.installed ## Download the pinned map tile archives
 	@$(PY) scripts/fetch_tiles.py
+
+# What CI runs. The difference is what happens to an archive that cannot be
+# fetched: `tiles` skips an optional one so that a clean clone can still be set
+# up in the window between a bake and the release it is pinned to, and this
+# refuses to. Leniency is for a developer's machine; the check that is supposed
+# to notice an unpublished pin is not the place for it.
+tiles-strict: $(VENV)/.installed ## Download the tile archives, failing if any is unpublished
+	@$(PY) scripts/fetch_tiles.py --strict
 
 doctor: ## Check that required tooling is present
 	@$(PYTHON) scripts/doctor.py
