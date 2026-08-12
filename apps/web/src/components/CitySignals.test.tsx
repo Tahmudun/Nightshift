@@ -40,6 +40,7 @@ function show(): void {
 }
 
 beforeEach(() => {
+  payload.counts = { building: 0, area: 0, unresolved: 2, total: 2 };
   act(() => {
     useCityScene.setState({ signals: [], treatments: new Map(), showArchived: false });
   });
@@ -61,6 +62,34 @@ describe('the census panel', () => {
     show();
 
     expect(await screen.findByText(/1 of these is archived/i)).toBeInTheDocument();
+  });
+
+  /**
+   * The renderer draws the unresolved field and nothing else. A role that
+   * reaches a building or an area is therefore counted on this panel and drawn
+   * nowhere, and the honest form of that is a sentence rather than a silence —
+   * see the comment beside `undrawn` in the component.
+   */
+  it('names the roles it counts but cannot place, rather than counting them and drawing nothing', async () => {
+    payload.signals = [signalFixture({ job_id: 'a' })];
+    payload.counts = { building: 1, area: 1, unresolved: 5, total: 7 };
+    act(() => useCityScene.setState({ signals: payload.signals }));
+
+    show();
+
+    expect(
+      await screen.findByText(/2 of these are not drawn on this map yet/i),
+    ).toBeInTheDocument();
+  });
+
+  it('says nothing about undrawn roles when the whole corpus is in the field', async () => {
+    payload.signals = [signalFixture({ job_id: 'a' })];
+    act(() => useCityScene.setState({ signals: payload.signals }));
+
+    show();
+
+    await screen.findByText(/roles, grouped by employer/i);
+    expect(screen.queryByText(/not drawn on this map/i)).toBeNull();
   });
 
   it('says nothing about archiving when nothing is archived', async () => {

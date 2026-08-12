@@ -87,6 +87,21 @@ export function CitySignals() {
 
   const { counts, truncated } = data;
   const archived = archivedCount(signals, treatments);
+  /**
+   * Roles this renderer has no treatment for yet.
+   *
+   * The field draws the unresolved layer and nothing else (§4.8 makes it the
+   * default view rather than the fallback), so a role that reaches a building
+   * or an area is counted two lines above and appears nowhere on the city. It
+   * is zero today — `data/company-locations.yaml` is empty and no posting names
+   * a street — and it stops being zero the first time an address is confirmed.
+   *
+   * Left unsaid, that is this panel reporting "on a building: 1" over a skyline
+   * with nothing on it, and a role gone with no notice. I7's failure mode in
+   * the form it actually arrives in: not a mock presented as working, but a
+   * renderer presented as complete.
+   */
+  const undrawn = counts.building + counts.area;
 
   return (
     // Named so it is a landmark rather than an anonymous box: §5.6 requires a
@@ -126,6 +141,18 @@ export function CitySignals() {
           </>
         )}
       </p>
+      {undrawn > 0 && (
+        <p className="mt-2 text-[12px] leading-relaxed text-paper-dim">
+          <span className="text-gold-400">
+            {undrawn.toLocaleString('en-US')} of these {undrawn === 1 ? 'is' : 'are'} not drawn on
+            this map yet
+          </span>
+          . A role that has reached a building or an area is counted above, but this city renders
+          the floating field and nothing else so far. {undrawn === 1 ? 'It is' : 'They are'} missing
+          from the sky, not from the corpus — and {undrawn === 1 ? 'it is' : 'they are'} reachable
+          from the job list.
+        </p>
+      )}
       {archived > 0 && (
         // The counts above are the corpus the API returned; §6's toggle takes
         // roles off the *city* without taking them out of that corpus. Left
