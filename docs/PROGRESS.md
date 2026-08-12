@@ -23,7 +23,7 @@
 **M3d: COMPLETE, reviewed, CI-green at `ade217b`, merged to `main` as PR #14 (`7b480e9`). `main` green after the merge.**
 **M3: CLOSED. All six acceptance criteria walked with evidence — see "M3 acceptance" below. Two of the six carry a stated limit rather than a clean pass.**
 **M4a: COMPLETE, CI-green, merged to `main` as PR #15 (`3a68bad`). All five CI jobs passed.**
-**M4b: IN PROGRESS on `m4b-dark-city`. Task 1 (the basemap artifact and its route) done — ADR 0022.**
+**M4b: IN PROGRESS on `m4b-dark-city`, draft PR #16, CI green. Tasks 1 (the artifact and its route, ADR 0022) and 2 (MapLibre and the dark style) done. New York renders, offline, with no jobs on it.**
 **Current milestone: M4 — the living city, and the shippable checkpoint (A15).**
 **The finding that shaped the milestone: no ATS posting names a street. 0 of 247, 139 distinct location strings, 10 fields, three providers. A job can never place itself on a building, so every building comes from an address a human confirmed.**
 **Task 11 measured the embedding proposal path and declined to ship it — ADR 0018.**
@@ -35,23 +35,37 @@
 
 ## Next exact action
 
-### M4b Task 2 — MapLibre on the page, and the dark style it draws with.
+### M4b Task 3 — NYC's own footprints, at heights somebody measured.
 
-Task 1 put the tiles on disk and behind a URL. Nothing renders them yet.
+Tasks 1 and 2 are done: **New York renders, dark, offline, at
+`/explore/city`.** No buildings and no job data.
 
-**Next:** add `maplibre-gl` and `pmtiles` to `apps/web`, register the pmtiles
-protocol against `BASEMAP_URL`, and write the dark style by hand — water, earth,
-landcover, landuse, roads, boundaries, places, from the nine layers the archive
-carries. Then the `dusk-*` atmosphere tokens (`city.md` §3), each with its
-contrast assertion in `colour-contrast.test.ts` per `CLAUDE.md` §7.
+**Next:** NYC Open Data Building Footprints — dataset `5zhs-2jue`, located
+during Task 1 and carrying `bin`, `height_roof`, `ground_elevation`,
+`construction_year` and `last_status_type` — loaded once into PostGIS, filtered
+to the rendered boroughs, and out to a `fill-extrusion` layer. Per §5.3 a
+footprint with no height takes a documented default **and is recorded as having
+taken it**, because a wrong building height is a small lie and this project does
+not keep a category of small lies.
 
-Then Task 3 (NYC footprints into PostGIS and out to an extrusion layer, joined
-on BIN), Task 4 (the camera controller and its full gesture surface), Task 5
-(the M4b acceptance walk).
+Then Task 4 (the camera controller and its full gesture surface, every animation
+interruptible, `prefers-reduced-motion` honoured at the controller rather than
+per call site) and Task 5 (the M4b acceptance walk).
 
 **Still no job data on screen.** That is M4c.
 
-Three things carry in from M4a and Task 1:
+**Open, with the human:** whether the basemap is too dark to read on a real
+display. The measurements say the layers separate correctly — median pixel L*
+5.6, roads at L* 40, brightest pixel exactly `ink-400` — and a screenshot codec
+is a bad judge of near-black. Left as it is pending a look.
+
+Four things carry in from M4a and Tasks 1-2:
+
+- **MapLibre is pinned to v5 and it is load-bearing.** v6.3.0 builds the map,
+  resolves the pmtiles TileJSON, fires `sourcedataloading`, and then hangs
+  forever with no tile request, no `load` and no `error`. Tile fetches go
+  through a worker and v6's worker-side custom-protocol bridge does not reach
+  `pmtiles@4.5.0`. Upgrading needs a pmtiles release that names v6.
 
 - **The BIN join is a key, not a computation.** `company_locations.building_id`
   holds NYC's Building Identification Number, returned free by GeoSearch. The
@@ -71,6 +85,69 @@ which §4.8 designs as the default view rather than the sad one.
 
 **Q2 (deployment target) is the only open question that blocks anything**, and
 only M4d.
+
+---
+
+### M4b Task 2 — the dark style, and the black rectangle with 1,263 features on it.
+
+`maplibre-gl` and `pmtiles` are in, `/explore/city` exists, and the city draws
+from the local archive with no network at all.
+
+**The style is hand-written over the archive's nine layers** rather than adapted
+from a published dark theme, because the requirement is unusual: this map is a
+*surface data is read against*, not a map. §2.2's rule — most of the city stays
+dark so active data can breathe — becomes a hard cap: **the basemap tops out at
+`ink-400`**, the dimmest shade cleared for a non-text indicator, and importance
+is carried by line **weight** rather than brightness, because there is no
+brighter shade to promote a motorway into that would not compete with a job.
+
+**Every `kind` in every filter was measured**, by decoding tiles at z8, z10,
+z12, z14 and z15 across Midtown, Lower Manhattan, Brooklyn, Staten Island and
+JFK. The load-bearing ones are pinned in tests: a filter naming a kind the
+schema dropped draws an empty layer in silence, and the harbour would simply
+stop existing. `landcover` turned out to be absent from every NYC tile sampled —
+it carries low-zoom natural land cover and New York is urban all the way down —
+so styling it would have been styling nothing.
+
+**Two absences are deliberate.** The archive's own OSM `buildings` layer is not
+drawn, because §5.3 takes heights from NYC Open Data so the skyline is measured,
+and drawing OSM footprints now would either double-draw against the real
+extrusion or quietly become it. And there is no text at all: every symbol layer
+needs a `glyphs` URL and every glyph URL is a network call.
+
+**`dusk-*` landed with its assertion running the other way** from every other
+token in this repository. Rather than proving the colour is readable it proves
+each shade is too dark to be text at all, and that no component has reached for
+one. §3's resolution to the magenta conflict is that the purple lives in the
+air; a violet that can appear on a mark makes `alert-*` unreadable.
+
+**Two failures, both silent, both worth the record.**
+
+**MapLibre v6 hangs.** On v6.3.0 the map builds, resolves the pmtiles TileJSON
+on the main thread, fires `sourcedataloading` — and then nothing, forever. No
+tile request, no `load`, no `error`, no console output. Tile fetches happen in a
+web worker, and v6's worker-side bridge for custom protocols does not reach
+`pmtiles@4.5.0`. Pinned to `maplibre-gl@5.24.0`, with the finding written into
+the component as the test to re-run before any upgrade.
+
+**The first style was invisible.** Land sat one shade above the background and
+the map rendered as an unbroken black rectangle — every layer drawing, 1,263
+features on screen, and nothing a person could see. The fix arrived with a
+metric rather than a nudge: **CIE L\*, not a WCAG contrast ratio.** The ratio's
+`+0.05` flare term rates `ink-800` on `ink-950` at 1.09:1, which sounds like
+"invisible" and describes a perfectly visible step between two large fills;
+judging the map by it would have pushed the whole basemap several shades
+brighter and spent the budget M4c needs. The thresholds are now stated as
+multiples of a just-noticeable difference, and one test guards the other
+direction — a style that passed them by simply getting brighter would ruin the
+signal layer, so `signal-400` must stay 40 L\* clear of the brightest basemap
+colour.
+
+**Evidence.** 44 new web tests (31 style, 13 palette) plus 5 new `dusk-*`
+assertions; `make check` and all five CI jobs green. Verified in Chrome against
+the real 91 MB archive by sampling the rendered canvas: 506 distinct colours,
+median pixel L\* 5.6, roads at L\* 40, and the brightest pixel exactly
+`ink-400`.
 
 ---
 
@@ -5717,7 +5794,8 @@ wrong: ML frameworks (JAX, LangChain, HuggingFace, DSPy), accelerators (CUDA, RO
 | The 2,605-token figure | Not re-measured by M1c and never claimed by it. The committed slice is **400 rows → 23 tokens**, the alphabetical head of one provider (`0g`…`abridge`). Common Crawl's index 504s at `limit=6000`, so a full harvest needs paging that does not exist | M1d |
 | ~~Discovered boards in the registry~~ | **19 promoted in M1d** (`d3738b6`), on the human's decision. 4 boards → 23, 171 insertions and 0 deletions, nothing lost or modified. Two `Abridge` candidates and two `empty` boards remain withheld for individual review under ADR 0005 | Done |
 | Ashby's `address.postalAddress` | Still deliberately unread by `AshbyAdapter.normalize`, and **M4a closed the question in the opposite direction to the one this row expected**. It was waiting for geocoding to exist; the census then showed the field carries `addressLocality`/`addressRegion`/`addressCountry` and **never `streetAddress`**, on any posting, from any employer. So reading it would upgrade nothing — it resolves to the same city name the free-text string already gives | Not a gap. Closed by measurement at **M4a** |
-| 3D city, map, MapLibre, Three.js | **Nothing renders yet.** No `maplibre-gl` dependency, no map component, no camera; Explore is a list and says so. M4b Task 1 built only the layer underneath — the tiles are on disk and behind `/api/basemap`, and nothing draws them | Basemap on screen **M4b Task 2**, signal layer **M4c** |
+| 3D city, map, MapLibre, Three.js | **The basemap renders; nothing else does.** `/explore/city` draws New York dark and offline from the local archive, on `maplibre-gl@5.24.0`. No buildings, no camera controller, no Three.js, no job data — and the page says so on screen, because a map that looks finished and is empty is indistinguishable from one that is broken | Buildings **M4b Task 3**, camera **M4b Task 4**, signal layer **M4c** |
+| Map labels — neighbourhood and street names | **Not drawn, and not an oversight.** Every symbol layer needs a `glyphs` URL and every glyph URL is a network call, which `make demo` may not make. Self-hosting the font stack is a second baked artifact on the ADR 0022 pattern; it buys neighbourhood names, which are not in M4b's acceptance. The style declares no `glyphs` and a test asserts it stays that way | Unscheduled. Needs a second baked artifact or a decision to accept a network call |
 | Basemap tiles | **Real, pinned and verified.** 95,348,122 bytes of NYC vector tiles, Protomaps build `20260810`, downloaded once by `make setup` and checked against a committed sha256 before it is installed. Served over byte ranges by `/api/basemap`. **Not a mock and not a stopgap** — this is the permanent offline tile source (ADR 0022). The one thing it is not yet is *drawn* | Done at **M4b Task 1** |
 | NYC building footprints | Not downloaded, not in PostGIS, no tile pipeline. A4 names the dataset and the approach (load once, filter to rendered boroughs, bake tiles, never query per frame). The dataset was located during M4b Task 1 — NYC Open Data `5zhs-2jue`, carrying `bin`, `height_roof`, `ground_elevation` — and nothing has loaded it. Note the Protomaps archive carries its own OSM `buildings` layer, which **must not be extruded**: those are guessed heights, and §5.3 uses `height_roof` precisely so the skyline is measured | **M4b Task 3** |
 | Auth | None. Single seeded `dev_user`, id in config (A3). Every user-owned table will still carry a real `user_id` FK from its first migration | M5 |
