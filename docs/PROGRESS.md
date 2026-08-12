@@ -27,8 +27,9 @@
 **M4b's three criteria are walked with evidence from a real browser — 19 new tests in `apps/web/e2e/city.spec.ts`, each one shown able to fail. Two carry a stated limit: no physical touch device, and no Safari.** See "M4b acceptance" below, and `docs/reviews/milestone-4b-review.md`, which found two defects the first draft of the walk had passed over.
 **The buildings artifact is published**: release `buildings-20260812`, 109,555,308 bytes, the size the manifest pins. Verified the clean-clone path by deleting the local copy and re-fetching it from the public URL — it downloads and clears its digest, so `make setup` gets the skyline anywhere.
 **ADR 0023 reversed `city.md` §2.2 on the human's call: the city is lit, and hiring is carried by a beam rather than by being the only thing bright.**
-**M4b's acceptance chain is green except for `make up`.** Docker's daemon is still wedged, so `docker compose` cannot run — but its containers never stopped serving, so `migrate`, `drift`, `seed`, `test-e2e` (24 passed), `verify` and `test-e2e-seeded` (56 passed, 1 skipped) were all run in order and all passed. What is unproven is container *startup*, not the stack.
-**M4c: Tasks 1 and 2 are done. The placement join and `GET /city/signals` (ADR 0024, which resolves a real conflict between I1 and `city.md` §4.4 rather than papering over it), and the Three.js signal layer in MapLibre's own context (ADR 0025). New York now has every open role floating above it, untethered, and none on a building — see `docs/reviews/milestone-4c-signals.png`.**
+**M4b's acceptance chain is fully green.** It was run step by step against still-serving containers while Docker's daemon was wedged — `migrate`, `drift`, `seed`, `test-e2e` (24 passed), `verify` and `test-e2e-seeded` (56 passed, 1 skipped) — leaving only container *startup* unproven. **That gap is now closed**: on 2026-08-12 Docker was force-quit and relaunched, the containers were removed outright with `docker compose down`, and `make up` created both from scratch to healthy with exit 0.
+**M4c: Tasks 1, 2 and 3 are done. The placement join and `GET /city/signals` (ADR 0024, which resolves a real conflict between I1 and `city.md` §4.4 rather than papering over it), the Three.js signal layer in MapLibre's own context (ADR 0025), and the field made legible, navigable and sortable. New York now has every open role floating above it, untethered, and none on a building — see `docs/reviews/milestone-4c-signals.png` and `docs/reviews/milestone-4c-roster.png`.**
+**Docker's daemon is no longer wedged.** It was force-quit and relaunched on 2026-08-12. `make up` was then run **from cold** — containers removed with `docker compose down` first — and created both from scratch to healthy, exit 0. **That closes the last open step in M4b's acceptance chain**; container startup is now proven rather than assumed. The seeded corpus survived and matches what this file records: 31 canonical jobs, 62 `job_locations`, 44 `city_only` + 18 `remote`, 0 mappable.
 **Current milestone: M4 — the living city, and the shippable checkpoint (A15).**
 **The finding that shaped the milestone: no ATS posting names a street. 0 of 247, 139 distinct location strings, 10 fields, three providers. A job can never place itself on a building, so every building comes from an address a human confirmed.**
 **Task 11 measured the embedding proposal path and declined to ship it — ADR 0018.**
@@ -40,7 +41,7 @@
 
 ## Next exact action
 
-### M4c Tasks 1 and 2 are done. Next: Task 3 — the unresolved field as a *good* screen.
+### M4c Tasks 1–3 are done. Next: Task 4 — selection.
 
 **The remaining M4c tasks, in order.** `city.md` §7 asks for: Three.js in
 MapLibre's context; instanced beacons; the confidence treatments of §6; the
@@ -48,22 +49,108 @@ unresolved layer as a real view; selection synced to the URL; list↔map sync; t
 in-interface legend.
 
 1. ~~**Task 2 — one WebGL context.**~~ **Done.** See below.
-2. **Task 3 — the unresolved field as a good screen.** The grammar is built and
-   the *view* is not: no labels, so a column is an anonymous stack of diamonds
-   until you know what it is; no way to tell which employer is which; no way to
-   inspect a role. §4.8 asks for "a legible, navigable, sortable field of signals
-   in which a role can be inspected, saved and applied to exactly as it can from
-   a building", and that sentence is the task.
+2. ~~**Task 3 — the unresolved field as a good screen.**~~ **Done.** See below.
 3. **Task 4 — selection.** Picking, the URL, the detail panel, the keyboard path,
    list↔map sync. **Read the `queryRenderedFeatures` finding below before
    writing this**; the obvious implementation answers zero. Note the beacons are
    *not* MapLibre features at all — they are Three.js instances in a custom
    layer, so `queryRenderedFeatures` cannot see them under any pose and picking
    needs a raycast against the same matrix the layer draws with.
+   **Task 3 deliberately stopped short of this.** §4.8's sentence has four verbs
+   — a role must be *inspected, saved and applied to* as well as found — and
+   Task 3 delivered finding it. The roster reaches an employer; it does not yet
+   open a role. That is this task, and it is the last thing standing between
+   §4.8 and being met in full.
 4. **Task 5 — the §6 treatments and the in-interface legend.** PRODUCT-SPEC
    §4.3's last line is a deliverable: these meanings are documented in the
    interface, not only in `city.md`.
 5. **Task 6 — the acceptance walk in a browser, then the M4c review.**
+
+**Task 3, done: the field is legible, navigable and sortable.**
+`docs/reviews/milestone-4c-roster.png` is the screenshot. Three things arrived:
+
+| Piece | Where |
+|---|---|
+| **Name plates in the scene** — one instanced quad per employer, all sampling one 2048×2048 canvas atlas | `lib/city/labelAtlas.ts`, `lib/city/labelMesh.ts` |
+| **Three orderings** — employer name, most openings, newest role — reordering the instance buffer rather than the component tree | `lib/city/unresolvedField.ts` |
+| **The roster rail** — every employer, its count, and a fly-to; also the field's non-3D equivalent under §5.6 | `components/CityRoster.tsx` |
+
+`first_seen_at` was added to `CitySignalOut` because "newest" cannot be derived
+from anything else the model carried. It is named for what it is — when
+ingestion first saw the role, not when the employer posted it, which no ATS in
+this corpus reports reliably.
+
+**Four traps, three of which are silent.**
+
+*One texture, not one per employer.* The obvious implementation gives each
+company its own `CanvasTexture`. That is fine at three companies and roughly
+160 MB of texture memory at the 2,605 boards M1 measured as discoverable — the
+one-object-per-job anti-pattern of `CLAUDE.md` §8, one floor down. Everything
+goes in one atlas; the per-instance UV is what makes that work, and it is why
+this needs a `ShaderMaterial` rather than a `MeshBasicMaterial`.
+
+*Nothing billboards on its own here.* `Sprite` and three's usual billboard trick
+both work off `modelViewMatrix`, and ADR 0025 left no view matrix to work off —
+MapLibre hands over one composed projection. The orientation is pushed in from
+the map's own bearing and pitch. **The sign of the bearing was derived on paper,
+through a transform that negates y, and paper was not good enough**; it was
+settled by rotating a real map and looking, the same way the `mainMatrix` trap
+was. A plate that is not oriented is not invisible — it lies flat over the city
+like a sticker and reads as a broken texture.
+
+*The plates write depth and the beacons do not.* The usual rule for a
+transparent material is not to write depth, but this shader `discard`s its empty
+fragments so only the glyphs ever reach the buffer. Without it the plates paint
+in instance order and an employer at the **back** of the field draws its name
+over one at the front. Seen at bearing 90°, where the columns line up.
+
+*`-0` reached a public interface.* `-row * COMPANY_SPACING` is negative zero for
+the first row. It renders identically, compares equal under `===`, and fails an
+`Object.is` deep-equal in a caller's test with a diff reading `0` versus `-0`.
+
+**Two defects found by looking rather than by a test.** The plates were sized
+55 m, which was legible in a screenshot and small on a screen — they are read
+from kilometres away at 76° of pitch, and 72 m is as large as they can be before
+a name reaches into the neighbouring employer's airspace (`labelMesh.test.ts`
+asserts that relationship, not the number). And `focusOn`'s default 18% margin
+is narrower than this rail, which is ~26% of a laptop window: a column drawn
+**behind the roster** counted as "already visible", so the camera declined to
+move and clicking a row appeared to do nothing.
+
+**One test of mine was wrong and failed correctly.** The first fly-to assertion
+clicked a row from the opening pose and expected the camera to move. §5.6 says
+selection "moves the camera only if needed" and the column was already on
+screen, so `focusOn` correctly returned false. The test now drives the camera
+away first, and a second test covers the other half — the `aria-current` mark,
+which is what makes a no-op click legible instead of looking broken.
+
+**A jsdom limitation moved into test setup rather than product code.**
+`HTMLCanvasElement.getContext` is unimplemented without the native `canvas`
+package, and jsdom logs through its virtual console *and then* throws — so code
+that degrades correctly still filled the output with stack traces. `getContext`
+now returns null in `vitest.setup.ts`, which is what the DOM specifies for an
+unsupported context type. The `canvas` package was declined: a native build on
+the critical path of `make setup` to buy one assertion a browser test already
+makes better.
+
+**Evidence.** 66 unit tests in `lib/city` (up from 34) and 12 seeded browser
+tests in `e2e-seeded/city.spec.ts` (up from 5). **Four of the new browser
+assertions were each shown able to fail** by breaking the mechanism they name:
+
+| Mutation | Test that went red |
+|---|---|
+| `map.on('move', faceCamera)` removed | the name plates keep facing the camera as it turns |
+| `labels.setColumns(...)` removed | every column carries a name plate in the scene |
+| `arrangeUnresolved(signals)` — sort argument dropped | reordering the field changes the order and not the roles |
+| `camera?.focusOn(...)` made unreachable | the roster flies the camera to a column that is not on screen |
+
+`make check` green: 1,936 Python tests, 454 web tests, format, lint, typecheck.
+
+**One limit, stated.** At bearing 90° and 270° the columns line up behind one
+another and the field reads as a single stack. That is inherent to a row of
+columns in three dimensions rather than a defect in the layout — the grid wraps
+at seven employers and this corpus has three — but it is worth knowing before
+Task 5 decides how the field is arranged at scale.
 
 **Task 2, done: New York has signals on it.**
 `docs/reviews/milestone-4c-signals.png` is the screenshot — untethered cyan
@@ -148,16 +235,30 @@ step by step against them:
 
 | Step | Result |
 |---|---|
-| `make up` | **Not run.** `docker compose` hangs on the wedged daemon |
+| `make up` | **green, 2026-08-12** — see below. Was "not run" while the daemon was wedged |
 | `make migrate` | green |
 | `make drift` | green — no model/migration drift |
-| `make seed` | green — 62 jobs, 44 `city_only`, 18 `remote`, 0 mappable |
+| `make seed` | green — 62 job locations over 31 jobs, 44 `city_only`, 18 `remote`, 0 mappable |
 | `make test-e2e` | green — 24 passed, 3.5 min |
 | `make verify` | green |
 | `make test-e2e-seeded` | green — 56 passed, 1 skipped, 3.0 min |
 
-So what remains unproven is **container startup**, not the stack, and not
-anything in this repository. It still wants Docker Desktop restarted by a human.
+What remained unproven was **container startup**, not the stack, and not
+anything in this repository. **It is now proven.** On 2026-08-12 Docker Desktop
+was force-quit and relaunched; `docker compose down` removed both containers
+outright; `make up` then created them from scratch, waited for both
+healthchecks, and exited 0. The database volume survived and the corpus still
+matches the row above.
+
+The wedge had also left five processes hanging — two `docker ps` calls and
+their shells, still running two hours later, because a wedged daemon does not
+time out. Any `docker` command inherits that: it hangs rather than failing.
+**The tell that it had cleared** was `docker ps` answering "Cannot connect to
+the Docker daemon" *quickly* — an error, not a hang, is the daemon coming back.
+
+One correction to what this file said on 2026-08-12: **"62 jobs" was wrong.**
+The seed reports 31 canonical jobs and 62 `job_locations`, and 44 + 18 = 62 is
+the location count, not the job count. The row above now says which.
 
 **Two tests failed on the way and neither was a regression — the instrument was
 wrong, and it is fixed.** `make acceptance` went red on the wheel zoom and the

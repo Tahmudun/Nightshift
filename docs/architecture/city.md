@@ -432,6 +432,27 @@ something honest (company, then role family), never by a spatial guess. The abse
 of a ground connection is the whole message, and it is the one piece of the visual
 language that is load-bearing for an invariant.
 
+> **Built in M4c Tasks 2 and 3, with two notes and one correction — see ADR 0026.**
+>
+> *"Legible" needed a name plate, and a name plate needed an atlas.* A column of
+> beacons is anonymous, so each employer's column carries its name in the scene.
+> Every name is painted into one 2048×2048 canvas texture and every plate samples
+> a rectangle of it, because a texture per employer is the one-object-per-job
+> anti-pattern at a different scale. That caps the field at 128 named columns;
+> past it a column is still drawn and still listed, and the interface says how
+> many have no plate rather than letting them look like a rendering failure.
+>
+> *"Sortable" is three orderings, not one.* Employer name, most openings, and
+> newest role. The last one needed `first_seen_at` on `CitySignalOut`; nothing
+> else on that model could produce it. Only `newest` reorders roles **within** a
+> column — the default stays alphabetical, because a stack that reshuffles when a
+> poll runs is a stack nobody can learn the shape of.
+>
+> *The correction: "company, then role family" is half-built.* The arrangement
+> groups by company and orders within a column by title. Role family is in the
+> database (M3b) and is not yet read here. It is not deferred to M5 — it is
+> simply not done, and it is the obvious next refinement of the layout.
+
 ---
 
 ## 5. M4b and M4c — how it is rendered
