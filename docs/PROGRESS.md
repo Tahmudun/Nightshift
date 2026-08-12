@@ -124,6 +124,32 @@ screen, so `focusOn` correctly returned false. The test now drives the camera
 away first, and a second test covers the other half — the `aria-current` mark,
 which is what makes a no-op click legible instead of looking broken.
 
+**The worst defect of this task, and a green suite sat on top of it.** The new
+rail was put at `top-24 right-4`. `CameraControls` had been placing *itself*
+there since M4b, so the rail covered it completely — every button, at full
+size, with its label, unreachable by any pointer.
+
+**Nothing went red.** Playwright's `toBeVisible` means a non-empty bounding box,
+not a reachable element, and `openCity` asserts exactly that on "Reset view" as
+its readiness check — so 68 seeded browser tests passed *through* the broken
+control while using it as the signal that the page was ready. It surfaced only
+when a test in the **offline** suite tried to `click` one, which is the suite
+with no API behind it and the one easiest to assume covers less.
+
+Two panels that each position themselves absolutely cannot know about each
+other, and a third would have repeated it. `CityRail` now owns placement for
+that whole side of the screen and the panels are flex children with no opinion
+about where they sit. A new test clicks every control in the rail — Playwright
+fails a click another element would intercept, so each is an occlusion
+assertion — and it was shown able to fail by giving the roster `absolute
+inset-0`.
+
+**A second layout bug behind it.** With the panels competing for a fixed
+height, the five camera buttons, the sort control and the counts paragraph left
+about ninety pixels for the list on a 720px window: a corpus of *three*
+employers scrolled and showed two. The rail is now the single scroll container
+and every panel keeps its natural height.
+
 **A jsdom limitation moved into test setup rather than product code.**
 `HTMLCanvasElement.getContext` is unimplemented without the native `canvas`
 package, and jsdom logs through its virtual console *and then* throws — so code
@@ -133,8 +159,8 @@ unsupported context type. The `canvas` package was declined: a native build on
 the critical path of `make setup` to buy one assertion a browser test already
 makes better.
 
-**Evidence.** 66 unit tests in `lib/city` (up from 34) and 12 seeded browser
-tests in `e2e-seeded/city.spec.ts` (up from 5). **Four of the new browser
+**Evidence.** 66 unit tests in `lib/city` (up from 34) and 13 seeded browser
+tests in `e2e-seeded/city.spec.ts` (up from 5). **Five of the new browser
 assertions were each shown able to fail** by breaking the mechanism they name:
 
 | Mutation | Test that went red |
@@ -143,8 +169,11 @@ assertions were each shown able to fail** by breaking the mechanism they name:
 | `labels.setColumns(...)` removed | every column carries a name plate in the scene |
 | `arrangeUnresolved(signals)` — sort argument dropped | reordering the field changes the order and not the roles |
 | `camera?.focusOn(...)` made unreachable | the roster flies the camera to a column that is not on screen |
+| roster given `absolute inset-0` | every control in the right rail can actually be clicked |
 
-`make check` green: 1,936 Python tests, 454 web tests, format, lint, typecheck.
+Full suite green on 2026-08-12: `make check` (1,936 Python, 454 web, format,
+lint, typecheck), `make test-e2e` (24 passed), and the seeded browser suite
+(69 passed, 1 skipped).
 
 **One limit, stated.** At bearing 90° and 270° the columns line up behind one
 another and the field reads as a single stack. That is inherent to a row of
