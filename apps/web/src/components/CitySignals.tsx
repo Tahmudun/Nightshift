@@ -30,6 +30,7 @@ import { useEffect } from 'react';
 
 import { ApiError, fetchCitySignals } from '@/lib/api';
 import { useCityScene } from '@/lib/city/scene';
+import { archivedCount } from '@/lib/city/treatments';
 
 const PANEL = 'pointer-events-auto border border-ink-700/80 bg-ink-950/70 backdrop-blur-md';
 
@@ -43,6 +44,8 @@ export function CitySignals() {
     refetchOnWindowFocus: false,
   });
 
+  const signals = useCityScene((state) => state.signals);
+  const treatments = useCityScene((state) => state.treatments);
   const setSignals = useCityScene((state) => state.setSignals);
   const setUnavailable = useCityScene((state) => state.setUnavailable);
 
@@ -83,6 +86,7 @@ export function CitySignals() {
   if (!data) return null;
 
   const { counts, truncated } = data;
+  const archived = archivedCount(signals, treatments);
 
   return (
     // Named so it is a landmark rather than an anonymous box: §5.6 requires a
@@ -122,6 +126,17 @@ export function CitySignals() {
           </>
         )}
       </p>
+      {archived > 0 && (
+        // The counts above are the corpus the API returned; §6's toggle takes
+        // roles off the *city* without taking them out of that corpus. Left
+        // unsaid, this panel and the roster would print different totals for
+        // the same screen, which is worse than either being absent.
+        <p className="mt-2 text-[12px] leading-relaxed text-paper-dim">
+          {archived.toLocaleString('en-US')} of these{' '}
+          {archived === 1 ? 'is archived and is' : 'are archived and are'} not drawn — rejected or
+          withdrawn. The legend has the switch.
+        </p>
+      )}
       {truncated ? (
         <p className="mt-2 font-mono text-[10px] tracking-[0.12em] text-gold-400 uppercase">
           Showing the first {data.limit.toLocaleString('en-US')} — this is a partial city

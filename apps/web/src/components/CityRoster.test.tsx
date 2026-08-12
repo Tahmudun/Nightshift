@@ -148,3 +148,101 @@ describe('the roster', () => {
     expect(after[1]).toContain('Alloy');
   });
 });
+
+describe('the roster carries the §6 marks the canvas does', () => {
+  it('names a role’s marks on its own row, for a reader who cannot see the city', () => {
+    // §5.6: every map action has a non-3D equivalent, and that includes the
+    // map's *encoding*. A row that says only the title makes the list a strictly
+    // poorer view rather than an equal one.
+    act(() =>
+      useCityScene.setState({
+        signals: CORPUS,
+        status: { kind: 'ready' },
+        camera,
+        treatments: new Map([
+          ['a1', { track: 'saved', pulse: 'none', beam: 'none', dimmed: false }],
+        ]),
+      }),
+    );
+    render(<CityRoster />);
+    fireEvent.click(screen.getByRole('button', { name: /Alloy/ }));
+
+    const row = screen.getByRole('button', { name: /Backend Engineer/ });
+    expect(row).toHaveTextContent(/saved/i);
+  });
+
+  it('says nothing extra on a row with no marks', () => {
+    act(() =>
+      useCityScene.setState({
+        signals: CORPUS,
+        status: { kind: 'ready' },
+        camera,
+        treatments: new Map(),
+      }),
+    );
+    render(<CityRoster />);
+    fireEvent.click(screen.getByRole('button', { name: /Alloy/ }));
+
+    expect(screen.getByRole('button', { name: /Backend Engineer/ })).toHaveTextContent(
+      /^◇?\s*Backend Engineer$/,
+    );
+  });
+
+  it('marks a gold role on its row as well as on the city', () => {
+    act(() =>
+      useCityScene.setState({
+        signals: CORPUS,
+        status: { kind: 'ready' },
+        camera,
+        treatments: new Map([
+          ['a1', { track: 'none', pulse: 'none', beam: 'deadline', dimmed: false }],
+        ]),
+      }),
+    );
+    render(<CityRoster />);
+    fireEvent.click(screen.getByRole('button', { name: /Alloy/ }));
+
+    expect(screen.getByRole('button', { name: /Backend Engineer/ })).toHaveTextContent(/deadline/i);
+  });
+});
+
+describe('the archive toggle reaches the list, not only the map', () => {
+  it('leaves an archived role out of the list while it is off the city', () => {
+    // §5.6's criterion in its sharpest form: the layer filters archived roles
+    // out of the field, so a list that still showed them would let a person
+    // click a row for a beacon that is not there.
+    act(() =>
+      useCityScene.setState({
+        signals: CORPUS,
+        status: { kind: 'ready' },
+        camera,
+        showArchived: false,
+        treatments: new Map([
+          ['a1', { track: 'archived', pulse: 'none', beam: 'none', dimmed: false }],
+        ]),
+      }),
+    );
+    render(<CityRoster />);
+    fireEvent.click(screen.getByRole('button', { name: /Alloy/ }));
+
+    expect(screen.queryByRole('button', { name: /Backend Engineer/ })).toBeNull();
+  });
+
+  it('puts it back when the toggle is on', () => {
+    act(() =>
+      useCityScene.setState({
+        signals: CORPUS,
+        status: { kind: 'ready' },
+        camera,
+        showArchived: true,
+        treatments: new Map([
+          ['a1', { track: 'archived', pulse: 'none', beam: 'none', dimmed: false }],
+        ]),
+      }),
+    );
+    render(<CityRoster />);
+    fireEvent.click(screen.getByRole('button', { name: /Alloy/ }));
+
+    expect(screen.getByRole('button', { name: /Backend Engineer/ })).toBeInTheDocument();
+  });
+});

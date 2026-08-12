@@ -19,14 +19,16 @@
  *
  * The order is deliberate: the controls first, because they are the smallest
  * and the most used; the selected role next, because it is what the person
- * just asked for and it is absent most of the time; then the roster, and the
- * counts last, because they are a summary of everything above them.
+ * just asked for and it is absent most of the time; then the roster; then the
+ * legend, which is what you reach for once the field has raised a question;
+ * and the counts last, because they are a summary of everything above them.
  */
 
 import { Suspense } from 'react';
 
 import { CameraControls } from '@/components/CameraControls';
 import { CityDetail } from '@/components/CityDetail';
+import { CityLegend } from '@/components/CityLegend';
 import { CityRoster } from '@/components/CityRoster';
 import { CitySignals } from '@/components/CitySignals';
 import { useCityScene } from '@/lib/city/scene';
@@ -62,6 +64,7 @@ export function CityRail() {
         <CityDetail />
       </Suspense>
       <CityRoster />
+      <CityLegend />
       <CitySignals />
     </div>
   );

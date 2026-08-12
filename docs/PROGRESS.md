@@ -28,6 +28,7 @@
 **The buildings artifact is published**: release `buildings-20260812`, 109,555,308 bytes, the size the manifest pins. Verified the clean-clone path by deleting the local copy and re-fetching it from the public URL — it downloads and clears its digest, so `make setup` gets the skyline anywhere.
 **ADR 0023 reversed `city.md` §2.2 on the human's call: the city is lit, and hiring is carried by a beam rather than by being the only thing bright.**
 **M4b's acceptance chain is fully green.** It was run step by step against still-serving containers while Docker's daemon was wedged — `migrate`, `drift`, `seed`, `test-e2e` (24 passed), `verify` and `test-e2e-seeded` (56 passed, 1 skipped) — leaving only container *startup* unproven. **That gap is now closed**: on 2026-08-12 Docker was force-quit and relaunched, the containers were removed outright with `docker compose down`, and `make up` created both from scratch to healthy with exit 0.
+**M4c Task 5 is done: the city speaks §6, and says what it is saying.** The table is one pure function (`treatments.ts`), the beacons carry per-instance colour, strength and pulse rate through a shader, four instanced meshes draw the marks §6 puts *on* a body, and an in-interface legend documents all thirteen rows — including the four that are not drawn, each with its reason. ADR 0028. `docs/reviews/milestone-4c-treatments.png` is the screenshot. Three defects were found by looking rather than by a test: a closed torus whose rotation was invisible by construction, a spin folded into the billboard that rolled every arc out of the camera plane, and a saved outline drawn cyan — which is exactly what ADR 0027's standing instruction ruled out.
 **M4c: Tasks 1, 2, 3 and 4 are done. The placement join and `GET /city/signals` (ADR 0024, which resolves a real conflict between I1 and `city.md` §4.4 rather than papering over it), the Three.js signal layer in MapLibre's own context (ADR 0025), and the field made legible, navigable and sortable. New York now has every open role floating above it, untethered, and none on a building — see `docs/reviews/milestone-4c-signals.png` and `docs/reviews/milestone-4c-roster.png`. Task 4 then made a role reachable: picking by raycast against the frame's own matrix, a reticle, a detail panel, and one selection shared by the list and the map (ADR 0027) — `docs/reviews/milestone-4c-selection.png`.**
 **Docker's daemon is no longer wedged.** It was force-quit and relaunched on 2026-08-12. `make up` was then run **from cold** — containers removed with `docker compose down` first — and created both from scratch to healthy, exit 0. **That closes the last open step in M4b's acceptance chain**; container startup is now proven rather than assumed. The seeded corpus survived and matches what this file records: 31 canonical jobs, 62 `job_locations`, 44 `city_only` + 18 `remote`, 0 mappable.
 **Current milestone: M4 — the living city, and the shippable checkpoint (A15).**
@@ -41,7 +42,7 @@
 
 ## Next exact action
 
-### M4c Tasks 1–4 are done. Next: Task 5 — the §6 treatments and the legend.
+### M4c Tasks 1–5 are done. Next: Task 6 — the acceptance walk, then the review.
 
 **The remaining M4c tasks, in order.** `city.md` §7 asks for: Three.js in
 MapLibre's context; instanced beacons; the confidence treatments of §6; the
@@ -52,15 +53,110 @@ in-interface legend.
 2. ~~**Task 3 — the unresolved field as a good screen.**~~ **Done.** See below.
 3. ~~**Task 4 — selection.**~~ **Done.** See below. §4.8's four verbs are met:
    a role can now be found, inspected, saved and applied to from the city.
-4. **Task 5 — the §6 treatments and the in-interface legend.** PRODUCT-SPEC
-   §4.3's last line is a deliverable: these meanings are documented in the
-   interface, not only in `city.md`.
-   **Read ADR 0027's last consequence before starting.** Selection is drawn as
-   a white ring in the air around a beacon, and §6 gives white to *saved* as a
-   thin outline on a beacon's body. Those two have to stay distinguishable at a
-   glance; if they stop being so, the reticle changes shape rather than the
-   saved treatment changing colour — §6 is the spec and the reticle is not.
+4. ~~**Task 5 — the §6 treatments and the in-interface legend.**~~ **Done.**
+   See below, and ADR 0028. All seven of `city.md` §7's M4c deliverables now
+   exist.
 5. **Task 6 — the acceptance walk in a browser, then the M4c review.**
+   M4c's own "done when" is three claims: no placement is fabricated at any
+   confidence, thousands of markers are not thousands of components, and the
+   list and the map cannot disagree. The third now has a second edge Task 5
+   added — the archive toggle removes a role from the field *and* the roster
+   through one shared filter — and that is the one to walk hardest.
+
+---
+
+**Task 5, done: the city speaks §6, and says what it is saying.**
+`docs/reviews/milestone-4c-treatments.png` is the screenshot. Six things
+arrived:
+
+| Piece | Where |
+|---|---|
+| **§6's table, as one pure function** — thirteen rows, and the resolver every consumer shares | `lib/city/treatments.ts` |
+| **The beacon buffer** — per-instance colour, strength, pulse rate and size, through a `ShaderMaterial` | `lib/city/beacon.ts` |
+| **The four marks §6 puts *on* a body** — outline, core, arc, beam, one instanced mesh each | `lib/city/markMesh.ts` |
+| **The legend** — all thirteen rows, live counts, the four undrawn ones named as undrawn, and the archive toggle | `components/CityLegend.tsx` |
+| **The non-3D equivalents** — the panel's "how this role is drawn", the freshness sentence, the roster's row marks | `CityDetail.tsx`, `CityRoster.tsx` |
+| **The data it needed** — `last_seen_at`, `last_verified_at`, `application_deadline`, and five seeded applications | `api/routes/city.py`, `nightshift/cli.py` |
+
+**Nine of §6's thirteen rows are drawn; four are not, and the legend says which
+and why.** The four are in `city.md` §6.1 and ADR 0028. The short version: no
+role in this corpus resolves to an area, an afterimage belongs to the session
+that watched a role close, nothing stands on a building to illuminate, and no
+posting carries a deadline. **A legend listing only the live rows would document
+the renderer rather than the language** — I7 in the one place a product is most
+tempted to commit it.
+
+**Three defects found by looking rather than by a test, all in my own work.**
+
+*A rotating ring whose rotation was invisible by construction.* A closed torus
+is rotationally symmetric about its own axis: spinning it draws an identical
+image every frame. §6's own words are "rotating ring / **orbiting arcs**", and
+the second half of that phrase is load-bearing. It is a 240° arc now.
+
+*A spin folded into the billboard.* The mark's own rotation was passed as the
+`y` component of the same Euler that faces it at the camera, which inserts it
+between the tilt and the turn and rolls the arc out of the camera plane. On
+screen it stopped being a ring around a beacon and became a flat ellipse lying
+across it. The billboard and the spin are now two quaternions composed in that
+order, and `markMesh.test.ts` asserts the thing that distinguishes them: a spin
+must not change where a mark faces.
+
+*A saved outline drawn in cyan.* ADR 0027 left a standing instruction — §6's
+white is spent on saved, and if the reticle and the outline stop being
+distinguishable **the reticle changes shape, because §6 is the spec and the
+reticle is not**. The first draft resolved the collision by changing the saved
+treatment's colour, which is the one move that note rules out. It is white
+again; the two are distinguishable by kind, and a test now pins the radius
+relationship that makes them so.
+
+**A fourth defect, found by a screenshot: "applied" read as nothing.** §6 asks
+for "solid illuminated", and a small cyan core inside an additive cyan beacon is
+invisible. Marks carry a per-instance size now, so an applied role's core fills
+three-quarters of its body while an offer's stays soft — two rows of §6 sharing
+one mesh, kept apart by colour *and* size.
+
+**The seed had no applications, so every lifecycle row was unreachable.**
+`make seed` creates five now, one at each stage the city draws, through
+`save_job` and `change_stage` and no shortcut — a demo database whose
+applications have no event history is a demo of something this product does not
+do. The Makefile's own description of the command has claimed applications since
+M0; it is true now.
+
+**A tautological assertion of mine, caught before it shipped.** The dimming test
+compared a role's alpha against `alpha / DIM_FACTOR`, which is true for every
+positive number. It now compares a stale role against an open one at the same
+employer.
+
+**Two API fields, kept apart on purpose.** `last_seen_at` is "the board listed
+it"; `last_verified_at` is "we refetched its content and read it". ADR 0007's
+phase-2 polling never refetches an unchanged posting, so the two diverge by
+design — a role can be listed daily while its text was last read months ago.
+Collapsing them would let the panel print "verified" about the weaker fact. The
+`max` across a merged role's source records was, in its first version, a test
+that passed just as happily against `min`, because every seeded job has exactly
+one record; it now builds a second board's record so the aggregate has something
+to choose between.
+
+**Evidence.** 187 unit tests in `lib/city` (up from 107), 43 web test files /
+618 tests green, 1,583 Python tests green, `make lint` and `make typecheck`
+clean, 24 offline browser tests green, and 28 seeded browser tests — four of
+them new and covering the marks reaching the GPU path, the archive toggle
+moving the *buffer*, reduced motion zeroing the pulses in the instance data
+rather than behind a uniform, and the legend listing its undrawable rows.
+
+**Eight mutations, each shown to turn a named assertion red:**
+
+| Mutation | Test that went red |
+|---|---|
+| `max` → `min` over a job's source records | a verified source record reaches the signal |
+| marks not rewritten when a sort moves the field | moves every mark when a sort moves the field under it |
+| `reducedMotion` ignored when writing the pulse | stops every animation under reduced motion |
+| new roles not scaled up | pulses a role first seen this morning, and swells it besides |
+| the beam never pushed | beams a role whose deadline is inside the window |
+| dimming removed | dims a stale role without changing its colour |
+| the saved outline drawn cyan | draws the saved outline in §6's white |
+| the spin folded back into the billboard Euler | spins a mark without changing where it faces |
+| deferred rows filtered out of the legend | three of the legend's assertions |
 
 **Task 4, done: a role can be reached, and it says what its position means.**
 `docs/reviews/milestone-4c-selection.png` is the screenshot. Five things
@@ -6520,6 +6616,32 @@ src/
     api.ts               single API client
     confidence.ts        the five-value scale + user-facing meanings
   app/colour-contrast.test.ts   WCAG ratios computed from the real tokens
+
+  --- the city (M4), which the tree above predates ---
+  app/explore/city/      the map route; CityMap owns lifecycle and nothing else
+  components/
+    CityMap              builds the map, adds the layer, subscribes outside React
+    CityRail             owns placement for the whole right-hand side
+    CameraControls       the gesture surface, in buttons
+    CityRoster           who is hiring; the field's non-3D equivalent (§5.6)
+    CityDetail           the selected role, and the only writer of the URL
+    CityLegend           §6's thirteen rows, live counts, the archive toggle
+    CitySignals          the census, and what is not on the city
+  lib/map/
+    darkStyle.ts         every layer, testable with no GPU
+    camera.ts            poses, limits, interruption, reduced motion
+    debug.ts             the handle the browser suite reads the scene through
+  lib/city/
+    scene.ts             zustand; the one place the map and the list agree
+    unresolvedField.ts   where a role goes when nobody said where it is (§4.8)
+    treatments.ts        `city.md` §6 as one table and one pure function
+    beacon.ts            the bodies: per-instance colour, strength, pulse, size
+    markMesh.ts          the four shapes §6 puts *on* a body
+    labelAtlas/labelMesh one texture, N employer name plates
+    selectionMesh.ts     the reticle — interface state, not a §6 row (ADR 0027)
+    signalLayer.ts       the custom layer: Three.js in MapLibre's context
+    pick.ts              raycast against the matrix the last frame drew with
+    mercator.ts, focus.ts, selection.ts
 e2e/                     Playwright with NO API — the degraded path
 e2e-seeded/              Playwright against a seeded stack — acceptance row 5
 playwright.config.ts     starts the web server only
@@ -6572,6 +6694,8 @@ presented to a user as working.
 
 | Thing | What it actually is | Real at |
 |---|---|---|
+| Four rows of `city.md` §6 | **Not drawn, named as not drawn in the interface's own legend** (ADR 0028). *Approximate location*: no role in this corpus resolves to an area — it takes a confirmed office at approximate confidence and there are none. *Closed / fading afterimage*: an afterimage belongs to the session that watched a role close, and closed listings are absent from a cold load by design. *Applied as a "solid illuminated **building**"*: nothing here stands on a building, so the beacon's own body fills instead. *Urgent deadline*: drawn, but no posting in the corpus carries `application_deadline`, so the legend counts it rather than implying it is live | The first two at **M5**; the third when a confirmed office exists; the fourth if any provider ever publishes a deadline |
+| The city's five demo applications | Real `Application` rows with real append-only event trails, written by `make seed` through `save_job` and `change_stage` — the same functions the UI calls, no shortcut. They are **seeded data, not a user's**: one at each stage §6 draws, so the encoding has something to encode in `make demo` and something to assert in the seeded browser suite | Permanent. This is the demo path, not a stopgap |
 | `data/skills.yaml` coverage against real postings | **Largely addressed at M3a.1, and the remainder is now a decision rather than a gap.** The vocabulary went from **73 entries to 107** — 34 added, counted from the file
 rather than from memory, because the commit message for this work says 36 and is
 wrong: ML frameworks (JAX, LangChain, HuggingFace, DSPy), accelerators (CUDA, ROCm, Triton, SYCL), HDLs (Verilog, VHDL, SystemVerilog), Windows/network/security administration (Active Directory, SIEM, EDR, SSO, MFA, VPN, DNS, TCP/IP, PowerShell, Windows, macOS, firewalls), and business systems (Salesforce, Google Sheets, Microsoft 365). Recall moved 0.459 → 0.861. **What is deliberately still absent**: structural engineering codes (ACI 318, ASCE 7, IBC, IFC, AISC, FM Global), treasury systems (Kyriba, GTreasury, Trovata, TMS), accounting standards (US GAAP, IFRS), and words too ordinary to match safely (`Word`, `MS Office`). Those are real requirements of real postings in the corpus and are not software skills — adding them would raise recall by teaching the product a domain it does not serve | Closed as vocabulary work. The residual absences are a scope decision, revisited only if the product's scope changes |

@@ -31,7 +31,8 @@ import { useEffect, useMemo, useRef } from 'react';
 
 import { SaveJobButton } from './SaveJobButton';
 import { focusColumn } from '@/lib/city/focus';
-import { useCityScene } from '@/lib/city/scene';
+import { useCityScene, visibleSignalsOf } from '@/lib/city/scene';
+import type { SignalTreatment } from '@/lib/city/treatments';
 import { selectionFromParams, selectionHref } from '@/lib/city/selection';
 import { arrangeUnresolved } from '@/lib/city/unresolvedField';
 import { EMPLOYMENT_LABELS, REMOTE_LABELS } from '@/lib/jobLabels';
@@ -69,11 +70,76 @@ export function daysSince(iso: string, now: number = Date.now()): number {
   return Math.max(0, Math.floor((now - Date.parse(iso)) / 86_400_000));
 }
 
-function firstSeenPhrase(iso: string): string {
-  const days = daysSince(iso);
+/**
+ * Every §6 mark this role is carrying, in words.
+ *
+ * §5.6 requires a non-3D equivalent for everything the map says, and §12.4
+ * requires that colour never carry a meaning alone. Both are satisfied by the
+ * same paragraph: a person who cannot see the canvas — or who cannot tell gold
+ * from cyan on it — reads the encoding here instead of inferring it.
+ *
+ * Order matters. The lifecycle mark comes first because it is the one about
+ * *you*, then the reason the role is lit, then the pulse, which is the weakest
+ * claim of the three.
+ */
+export function marksOf(signal: CitySignal, treatment: SignalTreatment | undefined): string[] {
+  if (treatment === undefined) return [];
+  const marks: string[] = [];
+
+  if (treatment.track === 'saved') marks.push('Saved — a thin white outline on its beacon’s body.');
+  if (treatment.track === 'applied') marks.push('Applied — the beacon is filled and fully lit.');
+  if (treatment.track === 'in_process') {
+    marks.push('Assessment or interview — a ring turns around it.');
+  }
+  if (treatment.track === 'offer') marks.push('An offer — a green core inside the beacon.');
+  if (treatment.track === 'archived') {
+    marks.push('Archived — drawn dim and neutral, and hidden unless you ask for it.');
+  }
+
+  if (treatment.beam === 'deadline') {
+    marks.push('A gold beam: the deadline on this posting is close.');
+  }
+  if (treatment.beam === 'match') {
+    marks.push(
+      'A gold beam: this scored near the top of what could be assessed, and cleared the ' +
+        'eligibility gate. The breakdown is on the role’s own page — the beam is a pointer, ' +
+        'not the evidence.',
+    );
+  }
+
+  if (treatment.pulse === 'rapid') marks.push('New internship — its beacon pulses quickly.');
+  if (treatment.pulse === 'slow') marks.push('New role — its beacon pulses slowly.');
+
+  if (treatment.dimmed) marks.push(`Drawn faint: ${freshnessPhrase(signal)}`);
+
+  return marks;
+}
+
+/**
+ * What "we have not re-checked this" actually amounts to, for this role.
+ *
+ * Two observations, kept apart, because ADR 0007's phase-2 polling never
+ * refetches an unchanged posting: `last_seen_at` is "the board listed it" and
+ * `last_verified_at` is "we read its text". A panel that printed one under the
+ * other's name would be inventing an observation, which is I3's failure mode
+ * with a date on it.
+ */
+function freshnessPhrase(signal: CitySignal): string {
+  const listed = `listed on its board ${phraseFor(daysSince(signal.last_seen_at))}`;
+  if (signal.last_verified_at === null) {
+    return `${listed}, and its text has never been re-read.`;
+  }
+  return `${listed}, and its text last read ${phraseFor(daysSince(signal.last_verified_at))}.`;
+}
+
+function phraseFor(days: number): string {
   if (days === 0) return 'today';
   if (days === 1) return 'yesterday';
   return `${days.toLocaleString('en-US')} days ago`;
+}
+
+function firstSeenPhrase(iso: string): string {
+  return phraseFor(daysSince(iso));
 }
 
 /**
@@ -126,6 +192,8 @@ export function CityDetail() {
   const signals = useCityScene((state) => state.signals);
   const sort = useCityScene((state) => state.sort);
   const selected = useCityScene((state) => state.selected);
+  const treatments = useCityScene((state) => state.treatments);
+  const showArchived = useCityScene((state) => state.showArchived);
   const select = useCityScene((state) => state.select);
   const camera = useCityScene((state) => state.camera);
 
@@ -175,7 +243,15 @@ export function CityDetail() {
   // The same pure function the renderer and the roster call, with the same
   // arguments — so the panel cannot describe a role in a position the field
   // does not put it in.
-  const { placements } = useMemo(() => arrangeUnresolved(signals, sort), [signals, sort]);
+  // The same filtered list the renderer and the roster use — the panel places
+  // the camera from these coordinates, so a field it disagreed with would fly
+  // to the wrong column.
+  const visible = useMemo(
+    () => visibleSignalsOf({ signals, treatments, showArchived }),
+    [signals, treatments, showArchived],
+  );
+
+  const { placements } = useMemo(() => arrangeUnresolved(visible, sort), [visible, sort]);
 
   const signal = useMemo(
     () => (selected === null ? null : (signals.find((s) => s.job_id === selected) ?? null)),
@@ -275,6 +351,7 @@ export function CityDetail() {
 
   const account = placementAccount(signal);
   const status = STATUS_NOTE[signal.status];
+  const marks = marksOf(signal, treatments.get(signal.job_id));
 
   return (
     <section
@@ -343,6 +420,23 @@ export function CityDetail() {
           </h3>
           <p className="mt-1 text-[12px] leading-relaxed text-paper-dim">{status.means}</p>
         </div>
+
+        {marks.length > 0 && (
+          // §5.6's non-3D equivalent for the one thing the canvas says that no
+          // other panel does: what this particular beacon looks like, and why.
+          <div>
+            <h3 className="font-mono text-[10px] tracking-[0.14em] text-paper-faint uppercase">
+              How this role is drawn
+            </h3>
+            <ul className="mt-1 space-y-1">
+              {marks.map((mark) => (
+                <li key={mark} className="text-[12px] leading-relaxed text-paper-dim">
+                  {mark}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* Labelled for what it is. "First seen" is our observation; no ATS in
             this corpus reports a publication date we would trust, so this is

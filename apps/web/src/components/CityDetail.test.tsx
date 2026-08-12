@@ -216,3 +216,84 @@ describe('daysSince', () => {
     expect(daysSince('2026-08-13T09:00:00Z', now)).toBe(0);
   });
 });
+
+describe('the detail panel says how the role is drawn — §5.6’s non-3D equivalent', () => {
+  it('names every mark the beacon is carrying', () => {
+    // A person who cannot see the canvas, or who cannot tell gold from cyan,
+    // gets the encoding in words. §12.4 in a sentence rather than a swatch.
+    useCityScene.setState({
+      signals: [signal()],
+      selected: JOB,
+      treatments: new Map([
+        [JOB, { track: 'saved', pulse: 'rapid', beam: 'deadline', dimmed: false }],
+      ]),
+    });
+    show();
+
+    expect(screen.getByTestId('city-detail')).toHaveTextContent(/saved/i);
+    expect(screen.getByTestId('city-detail')).toHaveTextContent(/new internship/i);
+    expect(screen.getByTestId('city-detail')).toHaveTextContent(/deadline/i);
+  });
+
+  it('says when a dimmed role was last checked, rather than only dimming it', () => {
+    // §6's stale row in full: "reduced opacity + an explicit 'last verified N
+    // days ago'". The dimming alone reads as a rendering fault.
+    useCityScene.setState({
+      signals: [
+        signal({
+          status: 'possibly_stale',
+          last_seen_at: new Date(Date.now() - 9 * 86_400_000).toISOString(),
+        }),
+      ],
+      selected: JOB,
+      treatments: new Map([[JOB, { track: 'none', pulse: 'none', beam: 'none', dimmed: true }]]),
+    });
+    show();
+
+    expect(screen.getByTestId('city-detail')).toHaveTextContent(/9 days ago/);
+  });
+
+  it('separates being listed from being read, when the two differ', () => {
+    // ADR 0007's phase-2 polling never refetches an unchanged posting, so a
+    // role can be listed daily and last read months ago. Printing the weaker
+    // observation under the stronger one's name would invent an observation.
+    useCityScene.setState({
+      signals: [
+        signal({
+          status: 'possibly_stale',
+          last_seen_at: new Date(Date.now() - 2 * 86_400_000).toISOString(),
+          last_verified_at: new Date(Date.now() - 40 * 86_400_000).toISOString(),
+        }),
+      ],
+      selected: JOB,
+      treatments: new Map([[JOB, { track: 'none', pulse: 'none', beam: 'none', dimmed: true }]]),
+    });
+    show();
+
+    const panel = screen.getByTestId('city-detail');
+    expect(panel).toHaveTextContent(/listed on its board 2 days ago/i);
+    expect(panel).toHaveTextContent(/read 40 days ago/i);
+  });
+
+  it('says a role has never been read, rather than saying nothing', () => {
+    useCityScene.setState({
+      signals: [signal({ status: 'unverified', last_verified_at: null })],
+      selected: JOB,
+      treatments: new Map([[JOB, { track: 'none', pulse: 'none', beam: 'none', dimmed: true }]]),
+    });
+    show();
+
+    expect(screen.getByTestId('city-detail')).toHaveTextContent(/never been re-read/i);
+  });
+
+  it('says nothing about marks for a role that carries none', () => {
+    useCityScene.setState({
+      signals: [signal()],
+      selected: JOB,
+      treatments: new Map([[JOB, { track: 'none', pulse: 'none', beam: 'none', dimmed: false }]]),
+    });
+    show();
+
+    expect(screen.getByTestId('city-detail')).not.toHaveTextContent(/how this role is drawn/i);
+  });
+});

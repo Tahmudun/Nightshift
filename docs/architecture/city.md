@@ -619,6 +619,41 @@ as a thin outline on that body. The two must stay distinguishable at a glance
 when Task 5 draws this table; if they do not, the reticle changes shape. This
 table is the spec and the reticle is not.
 
+**Resolved in Task 5 (ADR 0028): both keep their colour, because they turned out
+to be distinguishable by kind.** The saved outline is a wireframe on the beacon's
+own body at 46 m; the reticle is a camera-facing annulus in the air around it at
+62–78 m, touching nothing. The first draft changed the outline to cyan, which is
+the one resolution the paragraph above rules out.
+
+### 6.1 What is drawn, as of M4c Task 5
+
+This table is the language. Nine of its rows are spoken on the city today; four
+are not, each for a reason that is a fact rather than a shortfall. **The
+in-interface legend lists all thirteen**, with the reasons — a legend showing
+only the live rows would document the renderer rather than the language, and
+would shrink every time something was deferred.
+
+| Row | State |
+|---|---|
+| New internship / new role | Drawn. Cyan pulse, rapid and slow, plus a size that survives `prefers-reduced-motion` |
+| Saved | Drawn. White wireframe outline on the body |
+| Applied | Drawn, **translated**: nothing here stands on a building, so the beacon's own body fills — a core at three-quarters of its radius, at full strength |
+| Assessment / interview | Drawn. A turning **arc** — a closed ring is symmetric about its own axis and its rotation is invisible by construction |
+| Exceptional match | Drawn. Gold vertical beam, and only for `eligible` with a non-null fraction (I2, `matching.md` §5.2) |
+| Offer | Drawn. Soft `verdant-400` core |
+| Stale / unverified | Drawn. Reduced opacity, with the panel naming both dates — "the board listed it" and "we read its text" are different observations under ADR 0007 |
+| Rejection | Drawn, hidden by default, with the toggle in the legend |
+| City-only / unresolved | Drawn. The default view (§4.8) |
+| Urgent deadline | Drawn, unexercised: no posting in this corpus carries `application_deadline`. The legend counts it rather than implying it is live |
+| Approximate location | **Not drawn.** No role resolves to an area — it takes a confirmed office at approximate confidence, and there are none |
+| Closed | **Not drawn.** An afterimage belongs to the session that watched a role close, and closed listings are absent from a cold load by design |
+
+**The gold beam floats, and that is an invariant rather than a style.** A
+vertical shaft long enough to reach the street would draw a line from an
+unresolved role to a building nobody confirmed — I1 broken by a decoration. It is
+460 m, centred on a field whose base is 700 m, asserted against that relationship
+rather than against the number.
+
 ---
 
 ## 7. The slice plan

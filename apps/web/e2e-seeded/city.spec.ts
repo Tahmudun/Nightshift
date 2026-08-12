@@ -715,3 +715,113 @@ test('the reticle moves with the field when the ordering changes', async ({ page
   expect(after.at?.[2]).toBe(placement);
   expect(before.at).not.toBeNull();
 });
+
+/**
+ * §6's treatments, in a real browser against the seeded applications.
+ *
+ * The unit tests prove the buffers hold the right colours and counts. What they
+ * cannot see is the whole chain in one piece: two fetches landing in either
+ * order, the treatment map reaching the store, the layer picking it up outside
+ * React, and the archive toggle removing a role from both the field and the
+ * list. Every one of those seams is a place where a mark can be right in a
+ * buffer and absent from the city.
+ */
+
+/** What §6 has actually put on the city right now. */
+async function marksOnCity(page: Page) {
+  return page.evaluate((key) => {
+    const city = window[key as typeof CITY_DEBUG_KEY]!;
+    return { ...city.signals.marks, drawn: city.signals.drawn };
+  }, CITY_DEBUG_KEY);
+}
+
+async function cityHasMarks(page: Page) {
+  await expect
+    .poll(
+      async () => {
+        const marks = await marksOnCity(page);
+        return marks.outline + marks.core + marks.ring + marks.beam;
+      },
+      { timeout: 30_000, message: 'no §6 mark ever reached the city — is the seed tracking any?' },
+    )
+    .toBeGreaterThan(0);
+}
+
+test('the seeded applications reach the skyline as §6 marks', async ({ page }) => {
+  await openCity(page);
+  await cityHasSignals(page);
+  await cityHasMarks(page);
+
+  const marks = await marksOnCity(page);
+  // One application at each stage the city draws: saved is an outline, applied
+  // and offer share the core mesh, interview is the arc.
+  expect(marks.outline).toBeGreaterThan(0);
+  expect(marks.core).toBeGreaterThan(1);
+  expect(marks.ring).toBeGreaterThan(0);
+});
+
+test('an archived role is off the city and out of the list, until it is asked for', async ({
+  page,
+}) => {
+  await openCity(page);
+  await cityHasSignals(page);
+  await cityHasMarks(page);
+
+  const hidden = await marksOnCity(page);
+
+  await page.getByRole('button', { name: /what the marks mean/i }).click();
+  const toggle = page.getByRole('checkbox', { name: /rejected and withdrawn/i });
+  await expect(toggle).not.toBeChecked();
+  await toggle.check();
+
+  // §6 keeps rejections off the skyline by default and the toggle puts them
+  // back — in the buffer, not only in a React list.
+  await expect
+    .poll(async () => (await marksOnCity(page)).drawn, { timeout: 15_000 })
+    .toBe(hidden.drawn + 1);
+});
+
+test('the city stops moving under prefers-reduced-motion', async ({ browser }) => {
+  const context = await browser.newContext({ reducedMotion: 'reduce' });
+  const page = await context.newPage();
+  await openCity(page);
+  await cityHasSignals(page);
+
+  // Every pulse is a zero in the instance buffer rather than a uniform the
+  // shader ignores, so this is the data saying it is still — not a flag
+  // claiming it while the city animates anyway.
+  await expect
+    .poll(
+      () =>
+        page.evaluate((key) => {
+          const city = window[key as typeof CITY_DEBUG_KEY]!;
+          return city.signals.animating;
+        }, CITY_DEBUG_KEY),
+      { timeout: 15_000 },
+    )
+    .toBe(false);
+  expect(
+    await page.evaluate(
+      (key) => window[key as typeof CITY_DEBUG_KEY]!.signals.pulseAt(0),
+      CITY_DEBUG_KEY,
+    ),
+  ).toBe(0);
+
+  await context.close();
+});
+
+test('the legend documents every row of §6, including the ones it cannot draw', async ({
+  page,
+}) => {
+  await openCity(page);
+  await cityHasSignals(page);
+
+  await page.getByRole('button', { name: /what the marks mean/i }).click();
+
+  // PRODUCT-SPEC §4.3's last line is a deliverable. The undrawable rows are the
+  // half that is easy to quietly omit, and omitting them would document the
+  // renderer rather than the language.
+  await expect(page.getByText('New internship')).toBeVisible();
+  await expect(page.getByText('Approximate location')).toBeVisible();
+  await expect(page.getByText(/Not drawn on this city/).first()).toBeVisible();
+});

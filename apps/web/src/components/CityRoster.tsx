@@ -24,11 +24,12 @@
  * nothing else (§5.5, `CLAUDE.md` §8).
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { MAX_LABELS } from '@/lib/city/labelAtlas';
 import { focusColumn } from '@/lib/city/focus';
-import { useCityScene } from '@/lib/city/scene';
+import { useCityScene, visibleSignalsOf } from '@/lib/city/scene';
+import type { SignalTreatment } from '@/lib/city/treatments';
 import { arrangeUnresolved, FIELD_SORTS, type FieldSort } from '@/lib/city/unresolvedField';
 
 const PANEL = 'pointer-events-auto border border-ink-700/80 bg-ink-950/70 backdrop-blur-md';
@@ -47,6 +48,49 @@ const SORT_LABELS: Record<FieldSort, { readonly label: string; readonly means: s
   newest: { label: 'Newest', means: 'The employer whose newest role we saw most recently, first.' },
 };
 
+/**
+ * The one word a row shows for whatever §6 has put on its beacon.
+ *
+ * At most one, and in this order: what you did about the role beats why it is
+ * lit, which beats how new it is. A row 21rem wide cannot carry three labels,
+ * and a person scanning a list wants the strongest fact — the detail panel
+ * carries all of them in full when the role is selected.
+ *
+ * Deliberately not colour-coded to match the beacon. The row is 12px text and
+ * `ink-450` — the archived shade — is a surface colour that fails contrast as
+ * text; §12.4 is satisfied here by the *word*, which is the whole point of the
+ * row existing.
+ */
+function rowMarkOf(treatment: SignalTreatment | undefined): ReactNode {
+  if (treatment === undefined) return null;
+
+  const label =
+    treatment.track === 'offer'
+      ? 'Offer'
+      : treatment.track === 'in_process'
+        ? 'Interview'
+        : treatment.track === 'applied'
+          ? 'Applied'
+          : treatment.track === 'saved'
+            ? 'Saved'
+            : treatment.track === 'archived'
+              ? 'Archived'
+              : treatment.beam === 'deadline'
+                ? 'Deadline'
+                : treatment.beam === 'match'
+                  ? 'Strong match'
+                  : treatment.pulse !== 'none'
+                    ? 'New'
+                    : null;
+
+  if (label === null) return null;
+  return (
+    <span className="shrink-0 font-mono text-[9px] tracking-[0.12em] text-paper-faint uppercase">
+      {label}
+    </span>
+  );
+}
+
 export function CityRoster() {
   const signals = useCityScene((state) => state.signals);
   const status = useCityScene((state) => state.status);
@@ -55,6 +99,8 @@ export function CityRoster() {
   const camera = useCityScene((state) => state.camera);
   const selected = useCityScene((state) => state.selected);
   const select = useCityScene((state) => state.select);
+  const treatments = useCityScene((state) => state.treatments);
+  const showArchived = useCityScene((state) => state.showArchived);
 
   /** Which column the camera was last sent to. Navigation, not selection. */
   const [visited, setVisited] = useState<string | null>(null);
@@ -65,17 +111,25 @@ export function CityRoster() {
   // list and the field cannot disagree about what is in the city, what order it
   // is in, or which beacon a row belongs to. Memoised because it runs over the
   // whole corpus and this component re-renders on every sort change.
-  const { columns } = useMemo(() => arrangeUnresolved(signals, sort), [signals, sort]);
+  // `visibleSignalsOf`, not `signals`: §6 keeps rejections off the city by
+  // default, and a list that still showed them would let a person click a row
+  // for a beacon that is not there. One filter, shared with the renderer.
+  const visible = useMemo(
+    () => visibleSignalsOf({ signals, treatments, showArchived }),
+    [signals, treatments, showArchived],
+  );
+
+  const { columns } = useMemo(() => arrangeUnresolved(visible, sort), [visible, sort]);
 
   /** Titles for the ids the field hands back. The field owns order, not text. */
   const titles = useMemo(
-    () => new Map(signals.map((signal) => [signal.job_id, signal.title])),
-    [signals],
+    () => new Map(visible.map((signal) => [signal.job_id, signal.title])),
+    [visible],
   );
 
   const employerOf = useMemo(
-    () => new Map(signals.map((signal) => [signal.job_id, signal.company_id])),
-    [signals],
+    () => new Map(visible.map((signal) => [signal.job_id, signal.company_id])),
+    [visible],
   );
   const selectedEmployer = selected === null ? null : (employerOf.get(selected) ?? null);
 
@@ -220,6 +274,13 @@ export function CityRoster() {
                             {isSelected ? '◆' : '◇'}
                           </span>
                           <span className="min-w-0 flex-1">{titles.get(jobId) ?? jobId}</span>
+                          {/* The §6 marks, in a word, on the row that stands
+                              for the beacon carrying them. §5.6 asks the list
+                              to be an equal view rather than a poorer one, and
+                              a row that says only the title is poorer by
+                              exactly the encoding. The full sentence is in the
+                              detail panel; this is the glance. */}
+                          {rowMarkOf(treatments.get(jobId))}
                         </button>
                       </li>
                     );

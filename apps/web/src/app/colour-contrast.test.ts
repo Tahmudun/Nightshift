@@ -79,7 +79,13 @@ describe('text colours meet WCAG AA on every surface they appear on', () => {
   // and the legend and the detail panel both name that state in words. A colour
   // that is only ever a few pixels of mesh would not need this — the moment it
   // labels anything, it is text.
-  for (const name of ['signal-400', 'signal-600', 'alert-400', 'gold-400', 'verdant-400'] as const) {
+  for (const name of [
+    'signal-400',
+    'signal-600',
+    'alert-400',
+    'gold-400',
+    'verdant-400',
+  ] as const) {
     it(`${name} on ink-950 clears 4.5:1`, () => {
       expect(contrast(token(name), token('ink-950'))).toBeGreaterThanOrEqual(4.5);
     });
