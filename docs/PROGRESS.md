@@ -24,7 +24,7 @@
 **M3: CLOSED. All six acceptance criteria walked with evidence — see "M3 acceptance" below. Two of the six carry a stated limit rather than a clean pass.**
 **M4a: COMPLETE, CI-green, merged to `main` as PR #15 (`3a68bad`). All five CI jobs passed.**
 **M4b: IN PROGRESS on `m4b-dark-city`, draft PR #16. Tasks 1 (the artifact and its route, ADR 0022), 2 (MapLibre and the dark style), 3 (fullscreen, the sky, and the lights coming on — ADR 0023) and 4 (New York's own measured skyline) done. New York renders offline, full-window, under a violet horizon, 1,083,024 structures at heights the city measured, with no jobs on it.**
-**The buildings artifact is baked and committed but NOT PUBLISHED.** `data/buildings.manifest.json` names a GitHub release asset that does not exist yet, so `make tiles` works on this machine and on no other. Publishing it is a human action — see "Open, with the human" below.
+**The buildings artifact is published**: release `buildings-20260812`, 109,555,308 bytes, the size the manifest pins. Verified the clean-clone path by deleting the local copy and re-fetching it from the public URL — it downloads and clears its digest, so `make setup` gets the skyline anywhere.
 **ADR 0023 reversed `city.md` §2.2 on the human's call: the city is lit, and hiring is carried by a beam rather than by being the only thing bright.**
 **Current milestone: M4 — the living city, and the shippable checkpoint (A15).**
 **The finding that shaped the milestone: no ATS posting names a street. 0 of 247, 139 distinct location strings, 10 fields, three providers. A job can never place itself on a building, so every building comes from an address a human confirmed.**
@@ -49,33 +49,25 @@ rotate and pan on trackpad and touch; every animation interruptible; and
 site, because a rule enforced per call site is a rule that is one new call site
 away from being broken. Then Task 6, the M4b acceptance walk.
 
-**Open, with the human, and it blocks other machines:** the buildings archive is
-baked, verified and committed as a manifest — but the release it names does not
-exist. The bake printed the command:
+**The release is published and the pin resolves.** `buildings-20260812`, 104 MB,
+109,555,308 bytes. Checked the way that actually proves something rather than
+the way that looks like it does: the local copy was deleted and re-fetched from
+the public URL, which is the clean-clone path, and it cleared its digest before
+being installed.
 
-```
-gh release create buildings-20260812 data/cache/nyc-buildings-20260812.pmtiles \
-  --title "NYC building footprints — 20260812" \
-  --notes "NYC Open Data 5zhs-2jue. NYC Open Data terms of use — public domain, attribution requested."
-```
+**Committing that manifest before creating the release broke `make setup` on
+every machine but this one, and the fix stands on its own merits rather than
+being overtaken by the upload.** A 404 on the pinned URL made `make tiles` exit
+non-zero, which took `make setup` down with it — and `CLAUDE.md` §4 calls a
+broken `make demo` from a clean clone the highest-priority task in the repo. The
+two archives are no longer equally load-bearing: **the basemap is required and
+the buildings archive is not**, because the product already degrades from a
+missing skyline honestly. Verified in both directions against the real 404 while
+it was still a real 404. That window will open again on every future re-bake.
 
-104 MB, to a public repository. I attempted it and the harness blocked the
-upload, so it is one command for a human.
-
-**Committing that manifest broke `make setup` on every machine but this one, and
-that is fixed rather than waiting on the release.** A 404 on the pinned URL made
-`make tiles` exit non-zero, which took `make setup` down with it — and
-`CLAUDE.md` §4 calls a broken `make demo` from a clean clone the
-highest-priority task in the repo. The two archives are no longer equally
-load-bearing: **the basemap is required and the buildings archive is not**,
-because the product already degrades from a missing skyline honestly. A clean
-clone now sets up, draws New York flat, and names the missing archive in the
-corner. Verified in both directions against the real 404.
-
-**CI is the exception, and it will be red until the release exists.** It runs
-`make tiles-strict`, which refuses an unpublished pin. Leniency is for a
-developer's machine; the check that exists to notice a dangling pin is not the
-place for it.
+**CI runs `make tiles-strict`**, which refuses an unpublished pin — leniency is
+for a developer's clone, not for the check that exists to notice a dangling
+reference.
 
 **Also open, unchanged:** whether the basemap is too dark to read on a real
 display. Measured again with buildings on it — ground L\* 8.3, low-rise L\* 26.1,
@@ -5906,7 +5898,7 @@ wrong: ML frameworks (JAX, LangChain, HuggingFace, DSPy), accelerators (CUDA, RO
 | Ashby's `address.postalAddress` | Still deliberately unread by `AshbyAdapter.normalize`, and **M4a closed the question in the opposite direction to the one this row expected**. It was waiting for geocoding to exist; the census then showed the field carries `addressLocality`/`addressRegion`/`addressCountry` and **never `streetAddress`**, on any posting, from any employer. So reading it would upgrade nothing — it resolves to the same city name the free-text string already gives | Not a gap. Closed by measurement at **M4a** |
 | 3D city, map, MapLibre, Three.js | **The basemap and the skyline render; nothing else does.** `/explore/city` draws New York offline from two local archives on `maplibre-gl@5.24.0` — streets, water, and 1,083,024 extruded structures at measured heights. No camera controller, no Three.js, no job data — and the page says so on screen, because a map that looks finished and is empty is indistinguishable from one that is broken | Buildings **done, M4b Task 4**; camera **M4b Task 5**; signal layer **M4c** |
 | Window speckle on buildings | Not built. §2.1's treatment is edge light *plus* lit windows; the extrusion delivers the first via `fill-extrusion-vertical-gradient` and a height-driven colour ramp. The speckle needs a texture, a texture needs a sprite, and a sprite is a network call this style has spent three tasks refusing | The Three.js layer — **M5**, not scheduled sooner |
-| The published buildings artifact | **Baked, verified, committed as a manifest — and not published.** `data/buildings.manifest.json` names a GitHub release asset that does not exist, so `make tiles` finds the skyline on the machine that baked it and nowhere else. Elsewhere `make setup` completes, the map draws New York flat, and the corner names the missing archive. **CI is red until this is run**, deliberately: it uses `make tiles-strict`, which refuses an unpublished pin. The `gh release create` command is in PROGRESS's "Next exact action" | One human command, unscheduled |
+| ~~The published buildings artifact~~ | **Published 2026-08-12** as release `buildings-20260812`, 109,555,308 bytes — the size the manifest pins. Proved by deleting the local copy and re-fetching from the public URL, which is the clean-clone path, digest and all. The optional/required split built while it was unpublished stays: a re-bake reopens the same window every time, and `make tiles-strict` in CI is what closes it | Done |
 | Map labels — neighbourhood and street names | **Not drawn, and not an oversight.** Every symbol layer needs a `glyphs` URL and every glyph URL is a network call, which `make demo` may not make. Self-hosting the font stack is a second baked artifact on the ADR 0022 pattern; it buys neighbourhood names, which are not in M4b's acceptance. The style declares no `glyphs` and a test asserts it stays that way | Unscheduled. Needs a second baked artifact or a decision to accept a network call |
 | Basemap tiles | **Real, pinned and verified.** 95,348,122 bytes of NYC vector tiles, Protomaps build `20260810`, downloaded once by `make setup` and checked against a committed sha256 before it is installed. Served over byte ranges by `/api/basemap`. **Not a mock and not a stopgap** — this is the permanent offline tile source (ADR 0022). The one thing it is not yet is *drawn* | Done at **M4b Task 1** |
 | NYC building footprints | Not downloaded, not in PostGIS, no tile pipeline. A4 names the dataset and the approach (load once, filter to rendered boroughs, bake tiles, never query per frame). The dataset was located during M4b Task 1 — NYC Open Data `5zhs-2jue`, carrying `bin`, `height_roof`, `ground_elevation` — and nothing has loaded it. Note the Protomaps archive carries its own OSM `buildings` layer, which **must not be extruded**: those are guessed heights, and §5.3 uses `height_roof` precisely so the skyline is measured | **M4b Task 3** |
