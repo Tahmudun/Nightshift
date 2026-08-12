@@ -57,6 +57,13 @@
   /* Sparse gold — urgency only. Unused in M0; nothing is urgent yet. */
   --color-gold-400: #ffcf5c;
 
+  /* Green, and it means exactly one thing: an offer (city.md §6). It arrived in
+     M4c with the §6 treatments and it is the rarest colour in the product — at
+     most a handful of roles will ever carry it, and a green that shows up
+     anywhere else would spend that. Never a success toast, never a healthy
+     status dot; `signal-400` is what says "this is working". */
+  --color-verdant-400: #5cf0a8;
+
   /* Atmosphere, and nothing else. city.md §3, ADR 0023.
    *
    * The reference images for the city are violet: sky, haze, horizon glow. The

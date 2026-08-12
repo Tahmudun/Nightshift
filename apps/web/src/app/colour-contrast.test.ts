@@ -75,7 +75,11 @@ describe('text colours meet WCAG AA on every surface they appear on', () => {
 
   // Accent colours carry meaning — a failure state, a healthy signal — so they
   // are held to the same bar as body text rather than to the 3:1 component bar.
-  for (const name of ['signal-400', 'signal-600', 'alert-400', 'gold-400'] as const) {
+  // `verdant-400` joined the list in M4c: §6 gives an offer a soft green core,
+  // and the legend and the detail panel both name that state in words. A colour
+  // that is only ever a few pixels of mesh would not need this — the moment it
+  // labels anything, it is text.
+  for (const name of ['signal-400', 'signal-600', 'alert-400', 'gold-400', 'verdant-400'] as const) {
     it(`${name} on ink-950 clears 4.5:1`, () => {
       expect(contrast(token(name), token('ink-950'))).toBeGreaterThanOrEqual(4.5);
     });
