@@ -262,7 +262,12 @@ test('reordering the field changes the order and not the roles', async ({ page }
       return {
         drawn: city.signals.drawn,
         names: city.signals.columns.map((c) => c.name),
-        roles: city.signals.columns.map((c) => c.roles).sort((a, b) => a - b),
+        // Parallel to `names`, in column order. It used to be returned sorted
+        // and then indexed as though it were parallel, which made the
+        // "tallest first" assertion below compare a name's position against
+        // somebody else's height — an assertion that could only pass or fail
+        // by accident. Found while adding selection.
+        counts: city.signals.columns.map((c) => c.jobIds.length),
       };
     }, CITY_DEBUG_KEY);
 
@@ -280,13 +285,12 @@ test('reordering the field changes the order and not the roles', async ({ page }
   const byOpenings = await read();
   // Tallest first. This is the assertion that the *scene* reordered, not just
   // the list — it reads the instance buffer's own columns.
-  const heights = byOpenings.names.map((name) => byName.roles[byName.names.indexOf(name)] ?? 0);
-  expect([...heights]).toEqual([...heights].sort((a, b) => b - a));
+  expect([...byOpenings.counts]).toEqual([...byOpenings.counts].sort((a, b) => b - a));
 
   // An ordering is not a filter. The same roles are on the city before and
   // after, or the sort control is quietly hiding part of the corpus.
   expect(byOpenings.drawn).toBe(byName.drawn);
-  expect(byOpenings.roles).toEqual(byName.roles);
+  expect([...byOpenings.counts].sort()).toEqual([...byName.counts].sort());
   expect([...byOpenings.names].sort()).toEqual([...byName.names].sort());
 });
 
@@ -404,4 +408,310 @@ test('every control in the right rail can actually be clicked', async ({ page })
   // And the counts panel at the foot of the rail is still on screen with all
   // of that above it, rather than pushed off the bottom.
   await expect(page.getByRole('region', { name: /what is on the city/i })).toBeVisible();
+});
+
+test('the rail is still usable with a role selected', async ({ page }) => {
+  // Task 4 adds a fourth panel to the rail, and Task 3's worst defect was a
+  // panel that covered another one completely while a full browser suite went
+  // green over it. That panel was present on every load; this one appears only
+  // once something is selected, so the previous test — which never selects
+  // anything — cannot see it at all.
+  await openCity(page);
+  await cityHasSignals(page);
+
+  const beacon = await findBeacon(page);
+  await page.mouse.click(beacon.x, beacon.y);
+  await expect(page.getByTestId('city-detail')).toBeVisible({ timeout: 15_000 });
+
+  await page.getByRole('button', { name: 'Reset view' }).click({ timeout: 10_000 });
+  await page.getByRole('button', { name: 'Keyboard' }).click({ timeout: 10_000 });
+  await page.getByRole('button', { name: 'Hide keys' }).click({ timeout: 10_000 });
+  await page.getByRole('radio', { name: 'Newest' }).click({ timeout: 10_000 });
+  await page.getByTestId('city-detail').getByRole('button', { name: 'Close' }).click({
+    timeout: 10_000,
+  });
+
+  await expect(page.getByTestId('city-detail')).toHaveCount(0);
+});
+
+/**
+ * Selection — Task 4, and the part of §5.6 that needs a real canvas.
+ *
+ * The unit tests prove the ray maths, the instance↔role mapping and the URL
+ * round trip. None of them can prove that a *mouse click on a canvas* lands on
+ * the beacon under the pointer, because the projection they use is one the test
+ * built. These use the matrix MapLibre actually handed the layer.
+ *
+ * The beacons are not MapLibre features, so there is no `queryRenderedFeatures`
+ * shortcut for finding one to click — and M4b measured that query answering
+ * zero at this city's pitch even for features it does know about. The scan
+ * below is the honest way to find a pixel with a role behind it: if the pick is
+ * broken it finds nothing and every test here fails at its first line.
+ */
+
+/**
+ * Scan the canvas for a pixel a mouse can actually reach, with or without a
+ * role behind it.
+ *
+ * **`elementFromPoint` is the load-bearing half of this.** The city is a fixed
+ * canvas with panels floating over it, and a pixel that picks a beacon is not
+ * the same thing as a pixel a click reaches: the title panel occupies the top
+ * left and the rail the right. The first draft of the empty-sky test below
+ * clicked (30, 130), verified it picked nothing, and failed — because that
+ * point is inside the title card, so the click never got to the map at all.
+ * That is the same class of bug as the rail covering the camera panel in Task
+ * 3, arriving in the test this time rather than in the product.
+ */
+async function findPixel(
+  page: Page,
+  want: 'beacon' | 'sky',
+): Promise<{ x: number; y: number; jobId: string | null }> {
+  const found = await page.evaluate(
+    ([key, wanted]) => {
+      const city = window[key as typeof CITY_DEBUG_KEY]!;
+      const canvas = city.map.getCanvas();
+      const viewport = { width: canvas.clientWidth, height: canvas.clientHeight };
+      for (let y = 20; y < viewport.height - 20; y += 6) {
+        for (let x = 20; x < viewport.width - 20; x += 6) {
+          // Topmost element at this point. Anything but the canvas means a
+          // panel would swallow the click.
+          if (document.elementFromPoint(x, y) !== canvas) continue;
+          const jobId = city.signals.pick({ x, y }, viewport);
+          if (wanted === 'beacon' ? jobId !== null : jobId === null) return { x, y, jobId };
+        }
+      }
+      return null;
+    },
+    [CITY_DEBUG_KEY, want] as const,
+  );
+
+  expect(found, `no reachable pixel on the canvas was ${want}`).not.toBeNull();
+  return found!;
+}
+
+/** A pixel with a role behind it, reachable by a real mouse. */
+async function findBeacon(page: Page): Promise<{ x: number; y: number; jobId: string }> {
+  const found = await findPixel(page, 'beacon');
+  return { x: found.x, y: found.y, jobId: found.jobId! };
+}
+
+const selectionState = (page: Page) =>
+  page.evaluate((key) => {
+    const signals = window[key as typeof CITY_DEBUG_KEY]!.signals;
+    return { selected: signals.selected, at: signals.selectionAt };
+  }, CITY_DEBUG_KEY);
+
+test('clicking a beacon selects the role it draws', async ({ page }) => {
+  await openCity(page);
+  await cityHasSignals(page);
+
+  const beacon = await findBeacon(page);
+  await page.mouse.click(beacon.x, beacon.y);
+
+  // The claim is end to end: a real click, through MapLibre's own event, to a
+  // raycast against the matrix the last frame drew with, to the scene store.
+  await expect
+    .poll(async () => (await selectionState(page)).selected, {
+      timeout: 15_000,
+      message: 'a click on a beacon selected nothing',
+    })
+    .toBe(beacon.jobId);
+
+  // And the reticle went with it. A selection the scene does not show is a
+  // selection a person cannot see they made.
+  expect((await selectionState(page)).at).not.toBeNull();
+});
+
+test('the selected role opens the panel that describes it', async ({ page }) => {
+  await openCity(page);
+  await cityHasSignals(page);
+
+  const beacon = await findBeacon(page);
+  await page.mouse.click(beacon.x, beacon.y);
+
+  const panel = page.getByTestId('city-detail');
+  await expect(panel).toBeVisible({ timeout: 15_000 });
+  // I1 in the one place a person is actually reading about this role's
+  // position. The beacon *is* somewhere on screen, above New York, and without
+  // this sentence a position reads as a location.
+  await expect(panel).toContainText(/nothing whatsoever about where in New York/);
+  await expect(panel.getByRole('link', { name: 'Open the full role' })).toBeVisible();
+});
+
+test('a selection is a link you can send — §5.6', async ({ page }) => {
+  await openCity(page);
+  await cityHasSignals(page);
+
+  const beacon = await findBeacon(page);
+  await page.mouse.click(beacon.x, beacon.y);
+
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get('job'), {
+      timeout: 15_000,
+      message: 'the selection never reached the URL',
+    })
+    .toBe(beacon.jobId);
+
+  // The whole point of it being in the URL: open it cold and get the same role,
+  // marked on the same beacon.
+  await page.goto(`/explore/city?job=${beacon.jobId}`);
+  await cityHasSignals(page);
+
+  await expect(page.getByTestId('city-detail')).toBeVisible({ timeout: 30_000 });
+  await expect
+    .poll(async () => (await selectionState(page)).selected, { timeout: 20_000 })
+    .toBe(beacon.jobId);
+  expect((await selectionState(page)).at).not.toBeNull();
+});
+
+test('a selection keeps the query it was made under', async ({ page }) => {
+  // §5.6 asks selection to preserve filters. The city does not read `q` today,
+  // which is exactly why this is worth pinning: the failure mode is a href
+  // built from scratch, and it destroys a parameter nobody on this page was
+  // looking at.
+  await page.goto('/explore/city?q=infrastructure');
+  await expect(page.getByRole('button', { name: 'Reset view' })).toBeVisible({ timeout: 60_000 });
+  await cityHasSignals(page);
+
+  const beacon = await findBeacon(page);
+  await page.mouse.click(beacon.x, beacon.y);
+
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get('job'), { timeout: 15_000 })
+    .toBe(beacon.jobId);
+  expect(new URL(page.url()).searchParams.get('q')).toBe('infrastructure');
+});
+
+test('escape clears the selection, and the URL with it', async ({ page }) => {
+  await openCity(page);
+  await cityHasSignals(page);
+
+  const beacon = await findBeacon(page);
+  await page.mouse.click(beacon.x, beacon.y);
+  await expect(page.getByTestId('city-detail')).toBeVisible({ timeout: 15_000 });
+
+  await page.keyboard.press('Escape');
+
+  await expect(page.getByTestId('city-detail')).toHaveCount(0);
+  await expect
+    .poll(() => new URL(page.url()).searchParams.has('job'), { timeout: 10_000 })
+    .toBe(false);
+  // And the mark comes off the city rather than being left ringing a beacon
+  // nothing is selecting.
+  expect((await selectionState(page)).at).toBeNull();
+});
+
+test('clicking empty sky puts the selection down', async ({ page }) => {
+  await openCity(page);
+  await cityHasSignals(page);
+
+  const beacon = await findBeacon(page);
+  await page.mouse.click(beacon.x, beacon.y);
+  await expect(page.getByTestId('city-detail')).toBeVisible({ timeout: 15_000 });
+
+  // A pixel with no role behind it *and* nothing floating over it. Both halves
+  // matter: the first draft asserted only the first, clicked a point inside the
+  // title card, and failed because the click never reached the map.
+  const sky = await findPixel(page, 'sky');
+  expect(sky.jobId).toBeNull();
+
+  await page.mouse.click(sky.x, sky.y);
+
+  await expect(page.getByTestId('city-detail')).toHaveCount(0);
+  await expect
+    .poll(() => new URL(page.url()).searchParams.has('job'), { timeout: 10_000 })
+    .toBe(false);
+});
+
+test('the list and the map cannot disagree about what is selected', async ({ page }) => {
+  await openCity(page);
+  await cityHasSignals(page);
+
+  const beacon = await findBeacon(page);
+  await page.mouse.click(beacon.x, beacon.y);
+
+  // The roster opens the employer the role belongs to and marks the row. This
+  // is the criterion §5.6 states as "the list and the map stay synchronized",
+  // and the way it breaks is silent: the beacon lights up, the row it
+  // corresponds to is inside a collapsed group, and nothing looks wrong.
+  const roster = page.getByRole('region', { name: /who is hiring/i });
+  const row = roster.locator('[aria-current="true"]');
+  await expect(row).toHaveCount(1, { timeout: 15_000 });
+
+  // Exactly one row is marked, and it names the same role the panel does.
+  // Comparing the two pieces of interface is the assertion — a highlight in
+  // the scene and a highlight in the list that came from different state
+  // could each look right on their own.
+  const panelTitle = await page
+    .getByTestId('city-detail')
+    .getByRole('heading', { level: 2 })
+    .textContent();
+  expect((await row.textContent())?.trim()).toContain(panelTitle?.trim());
+});
+
+test('a role can be selected without touching the canvas at all', async ({ page }) => {
+  // §5.6's hard rule: every action on the map has a non-3D equivalent. Picking
+  // a beacon needs a pointer on a WebGL surface; this is the same selection
+  // reached by keyboard through the roster, which is the only path available
+  // to somebody who cannot use the canvas.
+  await openCity(page);
+  await cityHasSignals(page);
+
+  const roster = page.getByRole('region', { name: /who is hiring/i });
+  const employer = roster.getByRole('button', { expanded: false }).first();
+  await employer.focus();
+  await page.keyboard.press('Enter');
+
+  const role = roster.locator('ul ul button').first();
+  await role.focus();
+  await page.keyboard.press('Enter');
+
+  await expect(page.getByTestId('city-detail')).toBeVisible({ timeout: 15_000 });
+  // And it reached the scene, not just the panel: the reticle is on the city.
+  await expect
+    .poll(async () => (await selectionState(page)).at !== null, { timeout: 15_000 })
+    .toBe(true);
+});
+
+test('the reticle moves with the field when the ordering changes', async ({ page }) => {
+  await openCity(page);
+  await cityHasSignals(page);
+
+  const beacon = await findBeacon(page);
+  await page.mouse.click(beacon.x, beacon.y);
+  await expect
+    .poll(async () => (await selectionState(page)).selected, { timeout: 15_000 })
+    .toBe(beacon.jobId);
+  const before = await selectionState(page);
+
+  await page.getByRole('radio', { name: 'Openings' }).click();
+
+  // Every sort reorders the columns. A reticle written once at selection time
+  // stays where it was and ends up ringing whichever employer now stands
+  // there — right count, right role selected, wrong beacon marked.
+  await expect
+    .poll(
+      async () => {
+        const after = await selectionState(page);
+        return after.selected === beacon.jobId && after.at !== null;
+      },
+      { timeout: 15_000 },
+    )
+    .toBe(true);
+
+  const after = await selectionState(page);
+  const placement = await page.evaluate(
+    ([key, jobId]) => {
+      const signals = window[key as typeof CITY_DEBUG_KEY]!;
+      for (let i = 0; i < signals.signals.drawn; i += 1) {
+        if (signals.signals.jobAt(i) === jobId) return signals.signals.altitudeOf(i);
+      }
+      return null;
+    },
+    [CITY_DEBUG_KEY, beacon.jobId] as const,
+  );
+  // Read back from the buffer rather than recomputed: the reticle is on the
+  // instance the layer actually drew for this role.
+  expect(after.at?.[2]).toBe(placement);
+  expect(before.at).not.toBeNull();
 });
