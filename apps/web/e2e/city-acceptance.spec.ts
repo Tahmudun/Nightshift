@@ -357,3 +357,64 @@ test('a role the renderer cannot place yet is counted and named, not quietly dro
   await expect(readout).toContainText('5 of 7');
   await expect(readout).toContainText(/2 of these are not drawn/i);
 });
+
+/**
+ * M4d Task 1 — the instrument, in the browser it will be used from.
+ *
+ * Deliberately **not** a threshold. This machine is headless Chromium with no
+ * GPU: every frame here is drawn by SwiftShader on the CPU, so `expect(p95)
+ * .toBeLessThan(16.7)` would either fail on a correct city or pass on a slow
+ * one, and either way it would be an assertion about a software rasteriser
+ * wearing the words "60fps desktop". The numbers for `PROGRESS.md` come from a
+ * headed run on real hardware.
+ *
+ * What is asserted here is the part that must hold everywhere: the timer sees
+ * frames the map actually presented, and **the page says what drew them**.
+ */
+test('the frame timer measures frames the map really presented, and names what drew them', async ({
+  page,
+}) => {
+  const serve = await stubSignals(page);
+  serve(corpus(200, 20));
+  await openCity(page);
+  await cityHasLayer(page);
+
+  const readout = page.getByRole('region', { name: /how this is drawing/i });
+  await expect(readout).toBeVisible();
+
+  // Move the city, which is the only thing that makes it paint: an idle map
+  // with nothing animating presents no frames at all, on purpose.
+  for (let i = 0; i < 3; i += 1) {
+    await page.mouse.move(640, 480);
+    await page.mouse.down();
+    await page.mouse.move(500, 380, { steps: 24 });
+    await page.mouse.up();
+  }
+
+  const report = await expect
+    .poll(
+      () =>
+        page.evaluate(
+          (key) => window[key as typeof CITY_DEBUG_KEY]!.frames.report(),
+          CITY_DEBUG_KEY,
+        ),
+      { timeout: 30_000, message: 'the timer never saw a window of frames' },
+    )
+    .not.toBeNull();
+  void report;
+
+  const measured = await page.evaluate(
+    (key) => window[key as typeof CITY_DEBUG_KEY]!.frames.report(),
+    CITY_DEBUG_KEY,
+  );
+  expect(measured!.frames).toBeGreaterThanOrEqual(12);
+  // Every interval is a real gap between two presented frames: positive, and
+  // below the stall threshold that would have discarded it.
+  expect(measured!.p50).toBeGreaterThan(0);
+  expect(measured!.worst).toBeLessThan(1_000);
+
+  // The assertion this whole task is shaped around. Headless Chromium has no
+  // GPU, and a panel that let these numbers pass as hardware numbers would be
+  // the M4c review's finding repeated one milestone later.
+  await expect(readout).toContainText(/software rasteriser on the CPU/i);
+});

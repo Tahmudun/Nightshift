@@ -28,6 +28,7 @@
 
 import type { SignalLayer } from '@/lib/city/signalLayer';
 import type { CameraController, CameraMap } from '@/lib/map/camera';
+import type { FrameTimer } from '@/lib/map/frameTimer';
 
 /**
  * What the suite asks the map, beyond the pose the controller already exposes.
@@ -72,6 +73,16 @@ export interface CityDebugHandle {
    * prove the *fetch* worked; this proves the renderer received them.
    */
   readonly signals: SignalLayer;
+  /**
+   * The frame timer, for the criterion no DOM can answer: how long the city's
+   * frames actually take, on this machine, under a named gesture.
+   *
+   * Read by the metrics run rather than by an assertion about a number — the
+   * suite's own browser has no GPU, so a threshold asserted here would be a
+   * threshold about a software rasteriser. What *is* asserted is that the timer
+   * sees real frames and that the page names the renderer that drew them.
+   */
+  readonly frames: FrameTimer;
 }
 
 /** The one global this project defines, and only outside production. */

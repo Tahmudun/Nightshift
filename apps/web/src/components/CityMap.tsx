@@ -51,6 +51,7 @@ import { createSignalLayer } from '@/lib/city/signalLayer';
 import { BASEMAP_URL, BUILDINGS_URL } from '@/lib/tiles';
 import type { CameraController } from '@/lib/map/camera';
 import { CAMERA_LIMITS, createCameraController, INITIAL_POSE } from '@/lib/map/camera';
+import { createFrameTimer, describeRenderer, identifyRenderer } from '@/lib/map/frameTimer';
 import type { DebugMap } from '@/lib/map/debug';
 import { installCityDebug } from '@/lib/map/debug';
 import { buildDarkStyle } from '@/lib/map/darkStyle';
@@ -205,9 +206,35 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
       // map may be a long way off. Measured: the card sat over a fully drawn
       // city for more than ten seconds. A style that has not been applied cannot
       // produce a painted frame anyway, so the outer wait was buying nothing.
+      // Every painted frame, timed — M4d's acceptance criterion is a pair of
+      // numbers and this is where they come from.
+      //
+      // On MapLibre's `render` rather than a `requestAnimationFrame` loop of
+      // our own, and the difference is the whole measurement. A rAF loop ticks
+      // at the display's rate whether or not the map drew anything, so an idle
+      // city — which deliberately paints nothing (`signalLayer.ts`) — would
+      // report a flawless 60fps for frames that were never rendered. `render`
+      // fires when MapLibre actually presents one, so a window of these is a
+      // measurement of work rather than of the vsync clock.
+      const frames = createFrameTimer();
+      created.on('render', () => {
+        if (!cancelled) frames.frame(performance.now());
+      });
+
       created.once('render', () => {
         if (cancelled) return;
         setStatus({ kind: 'ready' });
+        // What drew that frame. Asked once, after a frame exists, because a
+        // context is what answers it — and published alongside the timer so no
+        // reader can get a number without the machine behind it. `getContext`
+        // on a canvas that already has one returns the same context rather
+        // than creating a second.
+        const canvas = created.getCanvas();
+        const gl = (canvas.getContext('webgl2') ?? canvas.getContext('webgl')) as
+          WebGLRenderingContext | WebGL2RenderingContext | null;
+        useCityScene
+          .getState()
+          .setInstruments(frames, describeRenderer(gl ? identifyRenderer(gl) : null));
         // Published for the rail, which decides from here whether to offer the
         // camera buttons. The controller has existed since the line above the
         // map was constructed; a painted frame is a different fact.
@@ -374,6 +401,7 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
         map: created as unknown as DebugMap,
         camera: controller,
         signals: layer,
+        frames,
       });
     }
 

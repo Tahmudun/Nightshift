@@ -21,7 +21,9 @@
  * and the most used; the selected role next, because it is what the person
  * just asked for and it is absent most of the time; then the roster; then the
  * legend, which is what you reach for once the field has raised a question;
- * and the counts last, because they are a summary of everything above them.
+ * then the counts, because they are a summary of everything above them; and
+ * the frame times last, because they are the only panel that is about the
+ * renderer rather than about the job market.
  */
 
 import { Suspense } from 'react';
@@ -29,6 +31,7 @@ import { Suspense } from 'react';
 import { CameraControls } from '@/components/CameraControls';
 import { CityDetail } from '@/components/CityDetail';
 import { CityLegend } from '@/components/CityLegend';
+import { CityPerformance } from '@/components/CityPerformance';
 import { CityRoster } from '@/components/CityRoster';
 import { CitySignals } from '@/components/CitySignals';
 import { useCityScene } from '@/lib/city/scene';
@@ -66,6 +69,12 @@ export function CityRail() {
       <CityRoster />
       <CityLegend />
       <CitySignals />
+      {/* Last, and below the counts, because it is the only panel that is
+          about the *renderer* rather than about the job market. A person
+          looking for a role never needs it; a person judging whether this
+          thing is fast enough needs it on the screen it describes rather than
+          in a document they cannot check. */}
+      <CityPerformance />
     </div>
   );
 }

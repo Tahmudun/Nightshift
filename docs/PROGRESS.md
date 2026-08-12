@@ -53,16 +53,7 @@ milestone, and it is the one that turns impressions into numbers.
 
 **M4d's tasks, in order.** Deliverables from `city.md` §7 and `CLAUDE.md` §6.
 
-1. **Frame-time instrumentation, and a machine that admits what it is.** The
-   criterion is *"60fps desktop and 30fps mobile are numbers in `PROGRESS.md`
-   rather than impressions"*, and the trap is visible before a line is written:
-   the browser suite runs headless Chromium with **no GPU**, so a number
-   measured there is a number about ANGLE on a CPU. Any frame timer that cannot
-   report *which renderer produced the frames* is an instrument that will
-   eventually publish a software-rasteriser number as a desktop claim. That is
-   M4c's finding in a new coat, and it decides the shape of this task: measure
-   frame intervals, and record the unmasked renderer string beside every
-   measurement.
+1. ~~**Frame-time instrumentation, and a machine that admits what it is.**~~ **Done** — see "M4d Task 1" below. The criterion is met on this machine at both 200 and 5,000 roles, and the first run caught the instrument itself reporting a 60fps city as missing half its frames.
 2. **Adaptive quality tiers** — Ultra / High / Balanced / Battery saver, over
    pixel ratio, animation density and label detail (§5.5). Chosen from what
    Task 1 measures, overridable by hand, and **named on screen**: a tier that
@@ -625,6 +616,75 @@ which §4.8 designs as the default view rather than the sad one.
 
 **Q2 (deployment target) is the only open question that blocks anything**, and
 only M4d.
+
+---
+
+## M4d Task 1 — the frame timer, and the first number it caught being wrong
+
+**M4's desktop criterion is met, with numbers rather than an impression.**
+Measured on 2026-08-12 on this machine, headed, on a real GPU:
+
+**ANGLE (Intel, ANGLE Metal Renderer: Intel(R) Iris(TM) Plus Graphics 645)** —
+an integrated GPU from 2018, which makes the result stronger rather than weaker.
+
+### 200 roles
+
+| Scenario | Frames | p50 ms | p95 ms | Worst ms | Missed |
+|---|---|---|---|---|---|
+| Idle, pulses only | 120 | 16.7 | 17.6 | 18.5 | 0% |
+| Pan | 120 | 16.6 | 21.9 | 79.3 | 3% |
+| Orbit (right-drag) | 120 | 16.6 | 19.0 | 64.7 | 1% |
+| Zoom | 120 | 16.7 | 17.8 | 18.9 | 0% |
+| Re-sort the whole field | 120 | 16.6 | 18.0 | 27.6 | 1% |
+
+### 5,000 roles — the ceiling, `MAX_BEACONS`
+
+| Scenario | Frames | p50 ms | p95 ms | Worst ms | Missed |
+|---|---|---|---|---|---|
+| Idle, pulses only | 120 | 16.7 | 18.1 | 18.5 | 0% |
+| Pan | 120 | 16.7 | 19.3 | 33.1 | 3% |
+| Orbit (right-drag) | 120 | 16.7 | 17.7 | 27.0 | 1% |
+| Zoom | 120 | 16.6 | 17.7 | 18.1 | 0% |
+| Re-sort the whole field | 120 | 16.6 | 17.9 | **191.7** | 2% |
+
+**p50 is 16.6–16.7 ms in every scenario at both sizes** — pinned to the 60 Hz
+refresh — and **the 5,000-role city is not measurably slower than the 200-role
+one**, which is what one geometry and N transforms was for (§5.5). Reproduce
+with:
+
+```
+cd apps/web && NIGHTSHIFT_METRICS=1 npx playwright test e2e/city-metrics.spec.ts --headed
+```
+
+**`--headed` is the measurement, not a convenience.** Headless Chromium has no
+GPU and rasterises through SwiftShader on the CPU. The run prints its renderer
+with every table, the page prints it beside every number, and
+`city-acceptance.spec.ts` asserts that a software rasteriser is *named as one*
+on screen — so the caveat cannot be lost between the machine and the document.
+
+**One hitch the numbers found, and it is real:** re-sorting 5,000 roles costs a
+single **191.7 ms** frame. Every beacon, mark, plate and the label atlas are
+rewritten in one synchronous pass. It is one frame per deliberate action rather
+than a sustained cost, which is why it does not move p95 — and it is exactly the
+kind of thing task 2's quality tiers and task 3's field work should be judged
+against.
+
+**And one defect in the instrument, caught by the first real run.** The first
+table reported *"53% over budget"* beside a p50 of 16.7 ms — a city pinned at
+exactly 60fps, reported as missing half its frames. Both numbers were computed
+correctly and one was nonsense: a 60 Hz display presents frames 16.67 ms apart
+and the intervals jitter either side, so counting everything strictly greater
+than the budget counts vsync noise as failure. A missed frame is the renderer
+failing to present in time for the *next refresh* — `MISS_FACTOR = 1.5` — and
+the corrected column reads 0–3%. **The instrument was wrong before the product
+was, for the second milestone running.**
+
+Also in this task: the timer refuses to report from fewer than twelve frames,
+discards gaps over a second as pauses rather than counting a backgrounded tab as
+the worst frame of the window, reports percentiles instead of a mean, and lives
+outside React — the panel polls it twice a second, because a frame time written
+into the store would re-render every subscriber sixty times a second and the
+instrument would become the largest thing it measures.
 
 ---
 

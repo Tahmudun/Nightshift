@@ -28,6 +28,7 @@
 import { create } from 'zustand';
 
 import type { CameraController } from '@/lib/map/camera';
+import type { DescribedRenderer, FrameTimer } from '@/lib/map/frameTimer';
 import type { CitySignal } from '@/lib/schemas';
 
 import type { SignalTreatment } from './treatments';
@@ -55,6 +56,20 @@ interface CityScene {
   readonly sort: FieldSort;
   /** The live camera, or null when no map is mounted. A handle, not state. */
   readonly camera: CameraController | null;
+  /**
+   * The frame timer, and what drew the frames. **Handles, not state** — for the
+   * same reason the camera is one, and more sharply.
+   *
+   * A frame time that lived in this store would be a store write sixty times a
+   * second, and every component subscribed to any part of the scene would
+   * re-render at 60fps to display how fast the city is rendering. The panel
+   * polls this handle twice a second instead. The instrument must not be the
+   * largest thing it measures.
+   *
+   * `renderer` is set once, when the context exists, and is null until then.
+   */
+  readonly frames: FrameTimer | null;
+  readonly renderer: DescribedRenderer | null;
   /**
    * Has the map painted a frame?
    *
@@ -100,6 +115,7 @@ interface CityScene {
   setUnavailable(detail: string): void;
   setSort(sort: FieldSort): void;
   setCamera(camera: CameraController | null): void;
+  setInstruments(frames: FrameTimer | null, renderer: DescribedRenderer | null): void;
   setMapReady(ready: boolean): void;
   select(jobId: string | null): void;
   setTreatments(treatments: ReadonlyMap<string, SignalTreatment>): void;
@@ -112,6 +128,8 @@ export const useCityScene = create<CityScene>((set) => ({
   status: { kind: 'loading' },
   sort: 'company',
   camera: null,
+  frames: null,
+  renderer: null,
   mapReady: false,
   selected: null,
   treatments: new Map(),
@@ -122,6 +140,7 @@ export const useCityScene = create<CityScene>((set) => ({
   setUnavailable: (detail) => set({ signals: [], status: { kind: 'unavailable', detail } }),
   setSort: (sort) => set({ sort }),
   setCamera: (camera) => set({ camera }),
+  setInstruments: (frames, renderer) => set({ frames, renderer }),
   setMapReady: (mapReady) => set({ mapReady }),
   select: (selected) => set({ selected }),
   // Called when the map unmounts. A store that kept the last city would hand
@@ -135,7 +154,18 @@ export const useCityScene = create<CityScene>((set) => ({
   // sort: it lives in the URL. Clearing it here would make an unmount rewrite
   // the address bar, so following a link to a role and then navigating back
   // would land on a page whose `?job=` had been quietly deleted.
-  reset: () => set({ signals: [], status: { kind: 'loading' }, camera: null, mapReady: false }),
+  reset: () =>
+    set({
+      signals: [],
+      status: { kind: 'loading' },
+      camera: null,
+      // The instruments go with the map they were measuring. A timer left
+      // behind reports the last city's frame times over the next city's blank
+      // canvas, which is a number that looks live and is history.
+      frames: null,
+      renderer: null,
+      mapReady: false,
+    }),
 }));
 
 /**
