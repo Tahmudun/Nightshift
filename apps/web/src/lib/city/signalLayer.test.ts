@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { CitySignal } from '@/lib/schemas';
 
+import { MAX_LABELS } from './labelAtlas';
 import { createSignalLayer, MAX_BEACONS, SIGNAL_COLOR, SIGNAL_LAYER_ID } from './signalLayer';
 import { COMPANIES_PER_ROW } from './unresolvedField';
 
@@ -22,15 +23,16 @@ import { COMPANIES_PER_ROW } from './unresolvedField';
 
 const ANCHOR = [-73.98, 40.75] as const;
 
-function signal(jobId: string, companyId = 'company-a'): CitySignal {
+function signal(jobId: string, companyId = 'company-a', companyName = 'Alloy'): CitySignal {
   return {
     job_id: jobId,
     title: `Role ${jobId}`,
     company_id: companyId,
-    company_name: 'Alloy',
+    company_name: companyName,
     employment_type: 'full_time',
     remote_policy: 'on_site',
     status: 'open',
+    first_seen_at: '2026-01-01T00:00:00Z',
     placement: {
       kind: 'unresolved',
       latitude: null,
@@ -125,5 +127,91 @@ describe('createSignalLayer', () => {
 
     expect(match).not.toBeNull();
     expect(SIGNAL_COLOR.toLowerCase()).toBe(match?.[1]?.toLowerCase());
+  });
+});
+
+describe('the columns the layer exposes', () => {
+  /**
+   * jsdom has no 2D context, so no atlas is painted and no plate is textured.
+   * What survives that — and is what these assert — is the bookkeeping: which
+   * employers the field found, how many plates it would draw, and how many it
+   * had to leave unnamed. The plates *appearing* is `city.spec.ts`'s claim.
+   */
+  it('names every employer it laid out, in the order it laid them out', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+
+    layer.setSignals([
+      signal('r1', 'ramp', 'Ramp'),
+      signal('a1', 'alloy', 'Alloy'),
+      signal('a2', 'alloy', 'Alloy'),
+    ]);
+
+    expect(layer.columns.map((c) => c.name)).toEqual(['Alloy', 'Ramp']);
+    expect(layer.columns.map((c) => c.roles)).toEqual([2, 1]);
+  });
+
+  it('passes the sort through to the field rather than reordering after it', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    const signals = [
+      signal('r1', 'ramp', 'Ramp'),
+      signal('a1', 'alloy', 'Alloy'),
+      signal('r2', 'ramp', 'Ramp'),
+    ];
+
+    layer.setSignals(signals, 'openings');
+
+    expect(layer.columns.map((c) => c.name)).toEqual(['Ramp', 'Alloy']);
+  });
+
+  it('draws the same beacons under every sort — ordering is not filtering', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    const signals = [signal('a', 'c1', 'Alloy'), signal('b', 'c2', 'Ramp'), signal('c', 'c2')];
+
+    layer.setSignals(signals, 'company');
+    const byCompany = layer.drawn;
+    layer.setSignals(signals, 'newest');
+
+    expect(layer.drawn).toBe(byCompany);
+    expect(layer.drawn).toBe(3);
+  });
+
+  it('plans one name plate per employer, not one per role', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+
+    layer.setSignals([
+      signal('a1', 'alloy', 'Alloy'),
+      signal('a2', 'alloy', 'Alloy'),
+      signal('a3', 'alloy', 'Alloy'),
+    ]);
+
+    expect(layer.drawn).toBe(3);
+    expect(layer.labelled).toBe(1);
+    expect(layer.unlabelled).toBe(0);
+  });
+
+  it('says how many employers it could not name rather than hiding them', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    const tooMany = Array.from({ length: MAX_LABELS + 5 }, (_, i) =>
+      signal(`job-${i}`, `company-${i}`, `Company ${i}`),
+    );
+
+    layer.setSignals(tooMany);
+
+    // The beacons are all still there — the atlas ceiling costs a name, not a
+    // role. A column with no plate that is not counted anywhere reads as a
+    // rendering failure.
+    expect(layer.drawn).toBe(MAX_LABELS + 5);
+    expect(layer.labelled).toBe(MAX_LABELS);
+    expect(layer.unlabelled).toBe(5);
+  });
+
+  it('forgets the last city when it is given an empty one', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    layer.setSignals([signal('a')]);
+
+    layer.setSignals([]);
+
+    expect(layer.columns).toEqual([]);
+    expect(layer.labelled).toBe(0);
   });
 });

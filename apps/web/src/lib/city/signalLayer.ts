@@ -53,8 +53,9 @@ import {
 
 import type { CitySignal } from '@/lib/schemas';
 
+import { createLabelMesh } from './labelMesh';
 import { mercatorFromLngLat, metreInMercatorUnits } from './mercator';
-import { arrangeUnresolved } from './unresolvedField';
+import { arrangeUnresolved, type FieldColumn, type FieldSort } from './unresolvedField';
 
 /** The layer's id in the style, and the handle every test reaches for. */
 export const SIGNAL_LAYER_ID = 'nightshift-signals';
@@ -108,10 +109,24 @@ export interface SignalLayerOptions {
  * drawn is the set of signals.
  */
 export interface SignalLayer extends CustomLayerInterface {
-  /** Rebuild the instance buffer. Cheap enough to call on every data change. */
-  setSignals(signals: readonly CitySignal[]): void;
+  /**
+   * Rebuild the instance buffer. Cheap enough to call on every data change.
+   *
+   * `sort` is §4.8's "sortable" reaching the renderer. It reorders the field
+   * rather than filtering it, so the same roles are on screen before and
+   * after — see `arrangeUnresolved`.
+   */
+  setSignals(signals: readonly CitySignal[], sort?: FieldSort): void;
   /** How many beacons the last `setSignals` actually drew. */
   readonly drawn: number;
+  /** The columns as laid out, in order: what the roster panel navigates by. */
+  readonly columns: readonly FieldColumn[];
+  /** How many employers have a name plate. */
+  readonly labelled: number;
+  /** Employers past the atlas ceiling, which have no plate. */
+  readonly unlabelled: number;
+  /** The camera angles the name plates are currently turned to, in degrees. */
+  readonly labelsOrientedTo: { readonly bearing: number; readonly pitch: number };
   /**
    * The altitude, in metres, of one instance **as the buffer holds it**.
    *
@@ -170,11 +185,30 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
   mesh.count = 0;
   scene.add(mesh);
 
+  // The plates live in the same scene as the beacons so they share the depth
+  // buffer this layer exists to share (§5.1) — a name behind a tower is hidden
+  // by it, exactly like the column it belongs to.
+  const labels = createLabelMesh();
+  scene.add(labels.mesh);
+
   let renderer: WebGLRenderer | null = null;
   let map: MapLibreMap | null = null;
   let drawn = 0;
+  let columns: readonly FieldColumn[] = [];
 
   const scratch = new Object3D();
+
+  /**
+   * Turn the plates to face wherever the camera now is.
+   *
+   * Bound to the map's move events rather than called from `render`, so a
+   * still map does no work at all — and `orient` itself returns early when
+   * neither angle has changed, which is most of a pan.
+   */
+  function faceCamera(): void {
+    if (!map) return;
+    labels.orient(map.getBearing(), map.getPitch());
+  }
 
   const layer: SignalLayer = {
     id: SIGNAL_LAYER_ID,
@@ -196,9 +230,26 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       return matrix.elements[14] ?? null;
     },
 
-    setSignals(signals) {
-      const field = arrangeUnresolved(signals);
+    get columns() {
+      return columns;
+    },
+
+    get labelled() {
+      return labels.drawn;
+    },
+
+    get unlabelled() {
+      return labels.unlabelled;
+    },
+
+    get labelsOrientedTo() {
+      return labels.orientedTo;
+    },
+
+    setSignals(signals, sort = 'company') {
+      const field = arrangeUnresolved(signals, sort);
       const count = Math.min(field.placements.length, MAX_BEACONS);
+      columns = field.columns;
 
       for (let i = 0; i < count; i += 1) {
         const placement = field.placements[i];
@@ -211,11 +262,24 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       mesh.count = count;
       mesh.instanceMatrix.needsUpdate = true;
       drawn = count;
+
+      labels.setColumns(field.columns, SIGNAL_COLOR);
+      // The plates are built facing bearing 0 / pitch 0. Without this they
+      // stay that way until the user happens to move the map, so a field that
+      // loads under an already-pitched camera — which is every load, the
+      // opening pose is 76° — would show its names lying flat over the city.
+      faceCamera();
+
       map?.triggerRepaint();
     },
 
     onAdd(addedMap, gl) {
       map = addedMap;
+      // 'move' rather than 'rotate'/'pitch': a fly-to changes both without
+      // firing either, and a plate that only reorients on a manual gesture
+      // spends every animation facing where the camera used to be.
+      addedMap.on('move', faceCamera);
+      faceCamera();
       // The renderer shares MapLibre's canvas *and* its context. Passing the
       // canvas without the context makes Three create a second one, and the
       // browser then hands back a canvas that already has a context — the
@@ -269,15 +333,22 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       // ask for their own frames, and under reduced motion they never will.
     },
 
-    onRemove() {
+    onRemove(removedMap) {
+      // A listener left on the map outlives this layer and keeps the whole
+      // closure — scene, meshes, atlas — reachable, so none of the disposal
+      // below is ever collected. It is removed first for that reason.
+      removedMap.off('move', faceCamera);
+
       // Every one of these leaks GPU memory that outlives the page's own
       // teardown, and a context reaching the browser's limit fails to create
       // the *next* map with an error naming none of this.
       geometry.dispose();
       material.dispose();
       mesh.dispose();
+      labels.dispose();
       renderer = null;
       map = null;
+      columns = [];
     },
   };
 
