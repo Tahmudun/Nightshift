@@ -46,32 +46,16 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-import { BASEMAP_BOUNDS, BASEMAP_URL, BUILDINGS_URL } from '@/lib/tiles';
+import { CameraControls } from '@/components/CameraControls';
+import { BASEMAP_URL, BUILDINGS_URL } from '@/lib/tiles';
+import type { CameraController } from '@/lib/map/camera';
+import { CAMERA_LIMITS, createCameraController, INITIAL_POSE } from '@/lib/map/camera';
 import { buildDarkStyle } from '@/lib/map/darkStyle';
 
 // MapLibre's own stylesheet, for the attribution control and the canvas
 // positioning. A static import so Next can hoist it into the CSS bundle; the
 // *library* is still loaded lazily below, which is the part that costs 800 KB.
 import 'maplibre-gl/dist/maplibre-gl.css';
-
-/**
- * Chelsea, looking down the island, tilted far enough to put the horizon on
- * screen.
- *
- * The pitch is the whole point of these numbers. At the 55° the first version
- * used, the frame is entirely ground: the sky, the horizon glow and the haze
- * between the viewer and the far city — the `dusk-*` atmosphere, which is where
- * most of the reference images' feeling actually lives — were all built,
- * shipped, and permanently off the top of the screen. A camera that never looks
- * up cannot show a skyline, which is a problem worth fixing before there is a
- * skyline to show.
- */
-const INITIAL = {
-  center: [-73.9903, 40.7449] as [number, number],
-  zoom: 13.6,
-  pitch: 76,
-  bearing: 202,
-} as const;
 
 /**
  * `addProtocol` writes into a module-global registry and registering twice is a
@@ -107,6 +91,13 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
   const [status, setStatus] = useState<Status>({ kind: 'loading' });
   /** The route's explanation for a missing skyline, or null when there is one. */
   const [skyline, setSkyline] = useState<string | null>(null);
+  /**
+   * In state rather than a ref, because the controls render from it. It is
+   * created inside the effect and torn down with the map: a controller outliving
+   * its map holds listeners on a detached container and answers questions about
+   * a camera that no longer exists.
+   */
+  const [camera, setCamera] = useState<CameraController | null>(null);
 
   // Stand down the document shell — the centred column, the page padding, the
   // footer — for as long as this map is mounted. The rules live in globals.css
@@ -124,6 +115,7 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
     // leak the first WebGL context for the life of the page.
     let cancelled = false;
     let map: { remove: () => void } | null = null;
+    let controller: CameraController | null = null;
 
     void (async () => {
       try {
@@ -164,21 +156,24 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
         protocolRegistered = true;
       }
 
+      // Every number here comes from `lib/map/camera`, including the opening
+      // view. A camera with one set of limits in the constructor and another in
+      // the controller is a camera with none — and the keyboard's reset key
+      // needs a home position that cannot drift from the one the map opened at.
       const created = new maplibregl.Map({
         container: container.current,
         style: buildDarkStyle({ buildings: skylineProblem === null }),
-        ...INITIAL,
-        // The archive covers New York and nothing else. Panning past its edge
-        // would show empty tiles, which reads as a broken map rather than as
-        // the edge of the data.
-        maxBounds: [
-          [BASEMAP_BOUNDS.west, BASEMAP_BOUNDS.south],
-          [BASEMAP_BOUNDS.east, BASEMAP_BOUNDS.north],
+        center: [...INITIAL_POSE.center] as [number, number],
+        zoom: INITIAL_POSE.zoom,
+        pitch: INITIAL_POSE.pitch,
+        bearing: INITIAL_POSE.bearing,
+        maxBounds: CAMERA_LIMITS.bounds.map(([lng, lat]) => [lng, lat] as [number, number]) as [
+          [number, number],
+          [number, number],
         ],
-        // Past about 78° the ground plane approaches edge-on and the tile
-        // budget explodes for a view of almost nothing. The sky is already
-        // fully in frame well before that.
-        maxPitch: 78,
+        minZoom: CAMERA_LIMITS.minZoom,
+        maxZoom: CAMERA_LIMITS.maxZoom,
+        maxPitch: CAMERA_LIMITS.maxPitch,
         attributionControl: { compact: true },
       });
 
@@ -219,10 +214,19 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
         return;
       }
       map = created;
+
+      // The gesture surface, the keyboard, the limits and the reduced-motion
+      // rule, all in one object that knows nothing about React. It attaches its
+      // listeners to the map's container, so it must be built after the map and
+      // destroyed before it.
+      controller = createCameraController({ map: created });
+      setCamera(controller);
     }
 
     return () => {
       cancelled = true;
+      controller?.destroy();
+      setCamera(null);
       map?.remove();
     };
   }, []);
@@ -249,7 +253,12 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
       {/* Overlays sit above the canvas and below the app header. `pointer-events`
           is off on the layer and back on inside each panel, so a gap between
           panels is still a place you can drag the city by. */}
-      <div className="pointer-events-none absolute inset-0 z-10">{children}</div>
+      <div className="pointer-events-none absolute inset-0 z-10">
+        {children}
+        {/* Only once there is a camera to drive. Rendering the panel over a
+            still-loading map would offer buttons that do nothing. */}
+        {status.kind === 'ready' && <CameraControls camera={camera} />}
+      </div>
 
       {/* A city drawing without its skyline says so, in place, rather than
           looking like a New York where nothing was ever built. I3's habit of

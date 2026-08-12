@@ -23,7 +23,7 @@
 **M3d: COMPLETE, reviewed, CI-green at `ade217b`, merged to `main` as PR #14 (`7b480e9`). `main` green after the merge.**
 **M3: CLOSED. All six acceptance criteria walked with evidence — see "M3 acceptance" below. Two of the six carry a stated limit rather than a clean pass.**
 **M4a: COMPLETE, CI-green, merged to `main` as PR #15 (`3a68bad`). All five CI jobs passed.**
-**M4b: IN PROGRESS on `m4b-dark-city`, draft PR #16. Tasks 1 (the artifact and its route, ADR 0022), 2 (MapLibre and the dark style), 3 (fullscreen, the sky, and the lights coming on — ADR 0023) and 4 (New York's own measured skyline) done. New York renders offline, full-window, under a violet horizon, 1,083,024 structures at heights the city measured, with no jobs on it.**
+**M4b: IN PROGRESS on `m4b-dark-city`, draft PR #16. Tasks 1 (the artifact and its route, ADR 0022), 2 (MapLibre and the dark style), 3 (fullscreen, the sky, and the lights coming on — ADR 0023), 4 (New York's own measured skyline) and 5 (the camera controller and its gesture surface) done. New York renders offline, full-window, under a violet horizon, 1,083,024 structures at heights the city measured, with no jobs on it — and it can be driven by mouse, trackpad, keyboard and a control panel.**
 **The buildings artifact is published**: release `buildings-20260812`, 109,555,308 bytes, the size the manifest pins. Verified the clean-clone path by deleting the local copy and re-fetching it from the public URL — it downloads and clears its digest, so `make setup` gets the skyline anywhere.
 **ADR 0023 reversed `city.md` §2.2 on the human's call: the city is lit, and hiring is carried by a beam rather than by being the only thing bright.**
 **Current milestone: M4 — the living city, and the shippable checkpoint (A15).**
@@ -37,17 +37,21 @@
 
 ## Next exact action
 
-### M4b Task 5 — the camera controller.
+### M4b Task 6 — the acceptance walk.
 
-Tasks 1-4 are done: **New York renders full-window, offline, with its own
-skyline** at `/explore/city`. 1,083,024 structures at the heights the city
-measured. No job data — that is M4c.
+Tasks 1-5 are done: **New York renders full-window, offline, with its own
+skyline and a camera you can drive** at `/explore/city`. 1,083,024 structures at
+the heights the city measured. No job data — that is M4c.
 
-**Next:** the camera controller and its full gesture surface. Pinch, orbit,
-rotate and pan on trackpad and touch; every animation interruptible; and
-`prefers-reduced-motion` honoured **at the controller** rather than at each call
-site, because a rule enforced per call site is a rule that is one new call site
-away from being broken. Then Task 6, the M4b acceptance walk.
+**Next:** walk M4b's three acceptance criteria one at a time and record the
+evidence here, in the shape `CLAUDE.md` §5 asks for. They are: NYC renders dark,
+extruded and offline in `make demo`; every gesture in §9.3 works on trackpad and
+touch; every animation is interruptible. The first and third have evidence
+already — the third has 37 unit tests and a hand check — and the second is the
+one that needs an honest answer, because **touch has not been tested on a touch
+device.** MapLibre's touch handlers are enabled and unit-tested as enabled,
+which is not the same claim as "pinch and rotate work on a phone", and the
+difference between those two sentences is exactly what I6 is about.
 
 **The release is published and the pin resolves.** `buildings-20260812`, 104 MB,
 109,555,308 bytes. Checked the way that actually proves something rather than
@@ -105,6 +109,108 @@ which §4.8 designs as the default view rather than the sad one.
 
 **Q2 (deployment target) is the only open question that blocks anything**, and
 only M4d.
+
+---
+
+### M4b Task 5 — the camera, and the two handlers it had to switch off.
+
+**The city can be driven.** `apps/web/src/lib/map/camera.ts` is the controller
+`city.md` §5.4 asks for: no React in it, wrapping MapLibre's camera rather than
+replacing it, and owning the whole of §9.3 in one place. 37 unit tests, plus 7
+on the control panel, all in jsdom with no GPU.
+
+**The split with MapLibre is the design, and two `disable()` calls are the
+load-bearing lines.** MapLibre already has a good handler for every direct
+manipulation gesture — drag-pan, right-drag orbit, wheel and trackpad-pinch
+zoom, two-finger pinch, rotate and pitch — and rewriting those would be a worse
+version of code that exists. So the controller enables all of those explicitly
+(a default is a thing that changes in a minor release; this list is an
+acceptance criterion) and takes over exactly two:
+
+- **`keyboard`**, because the steps have to be ours. Arrows pan in _screen_
+  space through `panBy`, so "up" is up the screen whatever the bearing is — the
+  city opens at bearing 202°, and a keyboard that panned north would send the
+  camera down and to the right when you press up. Shift+arrows rotate and tilt,
+  `+`/`-` zoom, `0` goes home, `Esc` stops.
+- **`doubleClickZoom`**, because a double-click here focuses: it flies to the
+  point under the pointer and _keeps the pitch and bearing_, which is §9.3's
+  "preserve spatial orientation". Zoom-around-centre throws the frame's subject
+  off the edge.
+
+Leaving either one enabled is a double-handling bug with no error attached: the
+map pans twice per arrow key, or both zooms and flies on a double-click. A test
+asserts the exact division rather than "the handlers are on".
+
+**Reduced motion is one `if`, and every programmatic move is behind it.**
+`flyTo` becomes `jumpTo`, keyboard steps get a duration of 0, and the orbit
+simply does not run — there is no reduced version of "turn in a circle forever",
+and slowing it down is still the motion the preference is about. The preference
+is also watched: turning it on mid-orbit stops the orbit rather than waiting for
+the next call. MapLibre's own camera happens to check the same media query, and
+that is not a reason to skip this — nothing should depend on a library's private
+courtesy for a guarantee we have written down as acceptance.
+
+**Interruption is deliberately indiscriminate.** Any `pointerdown`, `wheel`,
+`touchstart` or `keydown` on the container, in the capture phase, stops the
+camera where it has reached. The alternative — cancelling only for inputs
+MapLibre recognises as camera gestures — leaves the user watching a fly-to
+finish a journey they already tried to stop, and "which inputs count" is a
+question with no good answer at the moment it is being asked. The capture phase
+matters: a keypress during a fly-to cancels the fly _before_ issuing its own
+pan, and a test pins that call order.
+
+**The orbit is a chain of 90° legs, not one 360° animation.** A single long
+animation cannot be stopped and left where it got to without a snap, and cannot
+change speed. A chain just stops scheduling. Each leg pivots `around` the point,
+so the thing being orbited stays put on screen instead of swinging across it.
+
+**`focusOn` returns whether it moved, and usually it should not.** §5.6 says
+selection "moves the camera only if needed"; a camera that flies on every
+selection makes a result list unusable, because reading the second result means
+waiting out a journey from the first. On screen — with a margin, since a point
+three pixels from the window edge behind a panel is not on screen in any sense a
+user recognises — and close enough, and it does nothing. This is M4c's entry
+point and it is built and tested now, before there is a selection to hand it.
+
+**Trackpad rotation exists on exactly one engine.** Safari on macOS emits
+`gesturestart`/`gesturechange` with a `rotation`; nothing else reports a
+trackpad rotate at all, which is what §9.3's "where supported" is about. It
+reads `rotation` and pointedly ignores `scale`, because Safari also emits a
+ctrl+wheel for the same pinch and MapLibre's `scrollZoom` already answers that
+one — applying both would zoom twice per pinch.
+
+**The controller has one set of limits and the map constructor now reads them.**
+`CAMERA_LIMITS` and `INITIAL_POSE` moved into `camera.ts` and `CityMap` imports
+them, adding `minZoom: 9.5` (below it the NYC extract is a lit island in a void)
+and `maxZoom: 18`. A camera with one set of limits in the constructor and
+another in the controller is a camera with none, and the keyboard's reset key
+needs a home position that cannot drift from the one the map opened at.
+
+**The fake map is the reason any of this is tested.** `camera.ts` takes a
+`CameraMap` — the exact subset of MapLibre it touches — so `camera.fixture.ts`
+can supply a fake with no WebGL context, no tile archive and no frame budget. A
+controller whose tests need a real map is a controller with no tests. jsdom also
+implements no `matchMedia` at all, so the motion preference is faked in the same
+file.
+
+**`CameraControls` is not decoration.** Orbiting the city otherwise means
+holding the right mouse button and dragging, and there are people for whom that
+is not available; every button there is somebody's only route to the behaviour.
+It also has no local copy of "orbiting" — it reads the controller through a
+subscription, because the failure it exists to avoid is a button that still says
+"Stop orbit" after a gesture ended the orbit, and then starts one while claiming
+to stop it.
+
+**Checked in a real browser, not only in jsdom:** the panel appears over the
+city, the keyboard legend matches the keys the controller implements (it is
+generated from the same table), Shift+→ rotates, double-click flies to street
+level keeping the tilt, `0` returns exactly to the opening view, and a drag
+during an orbit both stops the camera and flips the button back to "Orbit". No
+console errors on load.
+
+**Not verified: touch.** The touch handlers are enabled and the unit tests
+assert they are enabled. Nobody has pinched this map on a phone. That is Task
+6's problem and it should not be written up as a pass before then.
 
 ---
 
