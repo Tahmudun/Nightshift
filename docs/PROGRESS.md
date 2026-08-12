@@ -28,6 +28,8 @@
 **The buildings artifact is published**: release `buildings-20260812`, 109,555,308 bytes, the size the manifest pins. Verified the clean-clone path by deleting the local copy and re-fetching it from the public URL — it downloads and clears its digest, so `make setup` gets the skyline anywhere.
 **ADR 0023 reversed `city.md` §2.2 on the human's call: the city is lit, and hiring is carried by a beam rather than by being the only thing bright.**
 **M4b's acceptance chain is fully green.** It was run step by step against still-serving containers while Docker's daemon was wedged — `migrate`, `drift`, `seed`, `test-e2e` (24 passed), `verify` and `test-e2e-seeded` (56 passed, 1 skipped) — leaving only container *startup* unproven. **That gap is now closed**: on 2026-08-12 Docker was force-quit and relaunched, the containers were removed outright with `docker compose down`, and `make up` created both from scratch to healthy with exit 0.
+**M4c is COMPLETE — all six tasks, all seven of `city.md` §7's deliverables, and its three acceptance claims walked in a browser.** See "M4c acceptance" below and `docs/reviews/milestone-4c-review.md`. Task 6 built the instrument the seeded corpus could not be: `apps/web/e2e/city-acceptance.spec.ts` serves a corpus this repo *chooses* — a fabricated placement, five thousand roles, a role at a confirmed building — against the real map, the real archives and the real instance buffers, with no API. It found three defects on its first run, all fixed: a page that counted roles the renderer does not draw and never said so (I7 in the form it actually arrives in), two ceilings coupled only by a comment (`MAX_BEACONS` vs `MAX_SIGNALS` — raise the API's and the surplus vanishes silently), and a `WebGLRenderer` whose compiled programs outlived the layer. **The milestone's lesson: a corpus that cannot produce a failure cannot test the guard against it.**
+**The scale claim is an equality, not a bound.** 100 roles → 5,000 roles at a fixed 20 employers: **364 DOM elements before, 364 after**, 5,000 of 5,000 in the buffer, one canvas, one custom layer. One `<span hidden />` per role turns 364 into 5,264 and the test red. `docs/reviews/milestone-4c-scale.png` is the 5,000-role city — and it is also the evidence for the one limit this review records rather than fixes: **the field is legible at 31 roles and not at 5,000**, which is deferred to M4d beside the adaptive quality tiers it belongs with.
 **M4c Task 5 is done: the city speaks §6, and says what it is saying.** The table is one pure function (`treatments.ts`), the beacons carry per-instance colour, strength and pulse rate through a shader, four instanced meshes draw the marks §6 puts *on* a body, and an in-interface legend documents all thirteen rows — including the four that are not drawn, each with its reason. ADR 0028. `docs/reviews/milestone-4c-treatments.png` is the screenshot. Three defects were found by looking rather than by a test: a closed torus whose rotation was invisible by construction, a spin folded into the billboard that rolled every arc out of the camera plane, and a saved outline drawn cyan — which is exactly what ADR 0027's standing instruction ruled out.
 **M4c: Tasks 1, 2, 3 and 4 are done. The placement join and `GET /city/signals` (ADR 0024, which resolves a real conflict between I1 and `city.md` §4.4 rather than papering over it), the Three.js signal layer in MapLibre's own context (ADR 0025), and the field made legible, navigable and sortable. New York now has every open role floating above it, untethered, and none on a building — see `docs/reviews/milestone-4c-signals.png` and `docs/reviews/milestone-4c-roster.png`. Task 4 then made a role reachable: picking by raycast against the frame's own matrix, a reticle, a detail panel, and one selection shared by the list and the map (ADR 0027) — `docs/reviews/milestone-4c-selection.png`.**
 **Docker's daemon is no longer wedged.** It was force-quit and relaunched on 2026-08-12. `make up` was then run **from cold** — containers removed with `docker compose down` first — and created both from scratch to healthy, exit 0. **That closes the last open step in M4b's acceptance chain**; container startup is now proven rather than assumed. The seeded corpus survived and matches what this file records: 31 canonical jobs, 62 `job_locations`, 44 `city_only` + 18 `remote`, 0 mappable.
@@ -42,26 +44,37 @@
 
 ## Next exact action
 
-### M4c Tasks 1–5 are done. Next: Task 6 — the acceptance walk, then the review.
+### M4c is done, walked and reviewed. Next: get the branch green in CI and merged, then M4d.
 
-**The remaining M4c tasks, in order.** `city.md` §7 asks for: Three.js in
-MapLibre's context; instanced beacons; the confidence treatments of §6; the
-unresolved layer as a real view; selection synced to the URL; list↔map sync; the
-in-interface legend.
+**All six M4c tasks are complete**, all seven of `city.md` §7's M4c deliverables
+exist, and the three acceptance claims are walked with evidence — see "M4c
+acceptance" below and `docs/reviews/milestone-4c-review.md`.
 
 1. ~~**Task 2 — one WebGL context.**~~ **Done.** See below.
 2. ~~**Task 3 — the unresolved field as a good screen.**~~ **Done.** See below.
 3. ~~**Task 4 — selection.**~~ **Done.** See below. §4.8's four verbs are met:
    a role can now be found, inspected, saved and applied to from the city.
 4. ~~**Task 5 — the §6 treatments and the in-interface legend.**~~ **Done.**
-   See below, and ADR 0028. All seven of `city.md` §7's M4c deliverables now
-   exist.
-5. **Task 6 — the acceptance walk in a browser, then the M4c review.**
-   M4c's own "done when" is three claims: no placement is fabricated at any
-   confidence, thousands of markers are not thousands of components, and the
-   list and the map cannot disagree. The third now has a second edge Task 5
-   added — the archive toggle removes a role from the field *and* the roster
-   through one shared filter — and that is the one to walk hardest.
+   See below, and ADR 0028.
+5. ~~**Task 6 — the acceptance walk, then the review.**~~ **Done.** See below.
+
+**The next actions, in order.**
+
+1. **`m4b-dark-city` off draft.** The branch now carries M4b *and* M4c and is
+   PR #16. Push, let CI run all five jobs, fix what it finds, merge. Every
+   milestone before this one was merged before the next began and there is no
+   reason for this one to be the exception.
+2. **M4d — measured, accessible, shipped.** Frame-time instrumentation and
+   recorded metrics, adaptive quality tiers, reduced motion end to end, a
+   keyboard path to every map action, automated accessibility tests (A14), the
+   M4 review, the deploy and the case study. **Q2 (the deployment target) blocks
+   the last of those and nothing else**, and it is the only open question that
+   blocks anything.
+3. **Two things this review deferred *into* M4d**, both recorded in
+   `docs/reviews/milestone-4c-review.md` §4: the field stops being legible
+   somewhere between 31 roles and 5,000, and a treatment change writes the
+   instance buffer twice. Both want a frame-time number before they want a fix,
+   and M4d is where the numbers come from.
 
 ---
 
@@ -600,6 +613,123 @@ which §4.8 designs as the default view rather than the sad one.
 
 **Q2 (deployment target) is the only open question that blocks anything**, and
 only M4d.
+
+---
+
+## M4c acceptance — the three claims, walked
+
+`city.md` §7: *"Done when: no placement is fabricated at any confidence,
+thousands of markers are not thousands of components, and the list and the map
+cannot disagree."*
+
+Walked on 2026-08-12 at the tip of `m4b-dark-city`. **All three pass.** The
+review is `docs/reviews/milestone-4c-review.md`.
+
+**The instrument is new, and the reason is the whole of this milestone's
+lesson.** The seeded corpus is 31 roles, every one of them `unresolved`, none
+carrying a coordinate, none at a confirmed office. Against that corpus the first
+claim tests what happens when nothing lies rather than what happens when
+something does; the second would pass against an implementation that renders one
+`<div>` per marker; and the branch that handles a role the renderer cannot place
+has never executed. So Task 6 added a second corpus, **chosen rather than
+found** — `apps/web/e2e/city-acceptance.spec.ts` stubs `/city/signals` and runs
+in the *offline* config, because everything except the corpus is real: the
+archives, MapLibre, Three.js, the instance buffers.
+
+### 1. No placement is fabricated at any confidence — PASS
+
+| Claim | Evidence |
+|---|---|
+| Nothing in the real corpus claims a position | Every signal is one of the three kinds and the three counts sum to the total — `e2e-seeded/city.spec.ts`, "nothing on the city claims a precision the corpus does not have (I1)" |
+| A payload that *does* lie is refused **whole**, in three shapes | An unresolved role carrying coordinates, a building placement below `verified`, an area placement naming a BIN. Each takes the entire corpus off the city and the page says the roles could not be loaded — not an empty sky |
+| The refusal is about the lie, not about the stub | The same twelve roles with nothing fabricated draw twelve beacons, in the same test, before the fabrications |
+| A person reading about a role is told what its position means | The panel: its position means its employer and *"nothing whatsoever about where in New York"* |
+| A role the renderer cannot place is counted **and named** | Fixed this session — see below. Zero today; non-zero the first time an address is confirmed |
+
+Refusing the whole payload rather than the offending row is deliberate: a corpus
+shown to produce fabricated positions is a corpus whose *other* placements have
+not been shown to be sound.
+
+### 2. Thousands of markers are not thousands of components — PASS
+
+Employer count held fixed at 20, role count moved 100 → 5,000 — fifty times the
+markers. The DOM under `#main` had to be **identical**, not merely small.
+
+| Claim | Evidence |
+|---|---|
+| The DOM does not move | **364 elements at 100 roles, 364 at 5,000** |
+| Every marker reaches the GPU | 5,000 of 5,000 in the instance buffer — `MAX_BEACONS`, which is also the API's `MAX_SIGNALS`, so this is the largest city this product can be asked to draw |
+| They are one object | One `canvas`, one `custom` layer, no per-marker node anywhere |
+| The test can fail | One `<span hidden />` per visible role in `CityRoster`: 364 → 5,264, red, naming the cause |
+
+`docs/reviews/milestone-4c-scale.png` is that city, drawn at 200 employers.
+
+### 3. The list and the map cannot disagree — PASS
+
+Eight assertions existed before this session — selection by click, by roster and
+by deep link; escape; empty sky; the reticle following a re-sort; the query
+surviving a selection; the archive toggle moving the *buffer* rather than a
+list. The edge Task 5 created was the one left: **a role that is selected and
+not drawn**, reachable by a link to a role you have since been rejected from.
+
+Three things could disagree about it and all three are one assertion, because
+they are one piece of state: the panel says the role is hidden rather than
+describing it as on-screen, the reticle is on nobody (`selectionAt` is null
+rather than parked on whichever beacon now stands there), and checking the
+toggle brings the beacon *and* the reticle back together. Mutation: parking the
+reticle on `placements[0]` turns null into `[-620, 0, 700]` and the test red.
+
+### Task 6, and the three defects the new instrument found
+
+**The page counted roles it does not draw — FIXED.** `CitySignals` printed "On a
+building: *n*" from the endpoint's counts while `arrangeUnresolved` draws the
+unresolved field and nothing else. It is 0 today because
+`data/company-locations.yaml` is empty; it stops being 0 the first time a human
+confirms one address, and the failure would have been a quiet, permanent,
+plausible undercount rather than a crash. **I7 in the form it actually arrives
+in: not a mock presented as working, but a renderer presented as complete.** The
+fix is a sentence.
+
+**Two ceilings coupled by a comment — FIXED.** `MAX_BEACONS` (5,000, web) and
+`MAX_SIGNALS` (5,000, API), with a `Math.min` between them and nothing checking.
+Raising the API's is a one-line change with every test in both suites still
+green, and the surplus roles are dropped on the floor: nothing throws, no count
+disagrees with itself, and the `truncated` banner stays off because the *API*
+did not truncate. The assertion went into `test_enum_parity.py`, which exists
+for exactly this class of cross-language drift.
+
+**A `WebGLRenderer`'s programs outliving the layer — FIXED.** `onRemove` disposed
+every geometry, material and texture and then nulled the renderer. Bounded today
+(nothing removes the layer without destroying the map) but undocumented, in the
+one place §5.1 gave a second library a share of somebody else's context.
+`renderer?.dispose()` — not `forceContextLoss()`, since the context is
+MapLibre's and MapLibre is still drawing New York with it.
+
+**And one fault in the instrument, before the product.** The DOM count first
+read `document.querySelectorAll('*')` and flaked by a handful of elements
+between two loads of the *same* corpus: `<head>` gains a `<style>` and a
+`<script>` per route `next dev` has compiled, and the header's health indicators
+move through loading → unreachable on their own schedule. Scoped to `#main`.
+
+### Evidence, at Task 6
+
+- **624 web unit tests green** (43 files), **187 of them in `lib/city`**.
+- **27 offline browser tests green** (2.3 min) — 24 from M4b plus this session's
+  three, in `e2e/city-acceptance.spec.ts`.
+- **84 seeded browser tests green, 1 skipped** (5.6 min), 28 of them the city's.
+- **1,940 Python tests green**, run alone, plus the new ceiling-parity assertion.
+- `make lint` and `make typecheck` clean across both languages.
+- **Six mutations, each shown to turn a named test red** — the table is in
+  `docs/reviews/milestone-4c-review.md` §5.
+
+**One limit recorded rather than fixed: the field is legible at 31 roles and not
+at 5,000.** The layout wraps at six employers per row, so 200 employers recede
+34 rows deep, the name plates at the back overlap into an unreadable strip, and
+a column of 25 roles is ~1,125 m tall. The acceptance claim is unaffected — the
+buffer takes all 5,000 and the DOM does not move — but §4.8's "legible" was
+designed and measured at the size of the corpus that exists. The roster stays
+usable at either size, so the information is never lost, only the view.
+Deferred to M4d, beside the adaptive quality tiers it belongs with.
 
 ---
 
@@ -6713,6 +6843,8 @@ presented to a user as working.
 | Thing | What it actually is | Real at |
 |---|---|---|
 | Four rows of `city.md` §6 | **Not drawn, named as not drawn in the interface's own legend** (ADR 0028). *Approximate location*: no role in this corpus resolves to an area — it takes a confirmed office at approximate confidence and there are none. *Closed / fading afterimage*: an afterimage belongs to the session that watched a role close, and closed listings are absent from a cold load by design. *Applied as a "solid illuminated **building**"*: nothing here stands on a building, so the beacon's own body fills instead. *Urgent deadline*: drawn, but no posting in the corpus carries `application_deadline`, so the legend counts it rather than implying it is live | The first two at **M5**; the third when a confirmed office exists; the fourth if any provider ever publishes a deadline |
+| Roles at a confirmed office, or in an area | **Counted, named, and not drawn.** `arrangeUnresolved` lays out the unresolved field and ignores every other placement kind, so a `building` or `area` role appears in the census panel's counts and nowhere on the city. It is **0 today** — `data/company-locations.yaml` is blank and no posting names a street — and the panel now says *"n of these are not drawn on this map yet… missing from the sky, not from the corpus"* the moment it stops being 0. Found by the M4c acceptance walk, which is the only thing that has ever executed that branch | The renderer's building and area treatments are **M4d/M5**, and arrive with the first confirmed address |
+| The unresolved field's legibility past a few hundred roles | **Real, and measured at the wrong size until now.** The layout wraps at six employers per row, so 200 employers recede 34 rows deep: the name plates at the back overlap into an unreadable strip and a column of 25 roles is ~1,125 m tall. Legible at the 31 roles this corpus has, and `docs/reviews/milestone-4c-scale.png` shows what 5,000 looks like. The roster stays usable at either size, so the *information* is never lost — only the view | **M4d**, beside the adaptive quality tiers: level-of-detail on the plates, a camera that frames the field, clustering |
 | The city's five demo applications | Real `Application` rows with real append-only event trails, written by `make seed` through `save_job` and `change_stage` — the same functions the UI calls, no shortcut. They are **seeded data, not a user's**: one at each stage §6 draws, so the encoding has something to encode in `make demo` and something to assert in the seeded browser suite | Permanent. This is the demo path, not a stopgap |
 | `data/skills.yaml` coverage against real postings | **Largely addressed at M3a.1, and the remainder is now a decision rather than a gap.** The vocabulary went from **73 entries to 107** — 34 added, counted from the file
 rather than from memory, because the commit message for this work says 36 and is
@@ -6737,7 +6869,7 @@ wrong: ML frameworks (JAX, LangChain, HuggingFace, DSPy), accelerators (CUDA, RO
 | The 2,605-token figure | Not re-measured by M1c and never claimed by it. The committed slice is **400 rows → 23 tokens**, the alphabetical head of one provider (`0g`…`abridge`). Common Crawl's index 504s at `limit=6000`, so a full harvest needs paging that does not exist | M1d |
 | ~~Discovered boards in the registry~~ | **19 promoted in M1d** (`d3738b6`), on the human's decision. 4 boards → 23, 171 insertions and 0 deletions, nothing lost or modified. Two `Abridge` candidates and two `empty` boards remain withheld for individual review under ADR 0005 | Done |
 | Ashby's `address.postalAddress` | Still deliberately unread by `AshbyAdapter.normalize`, and **M4a closed the question in the opposite direction to the one this row expected**. It was waiting for geocoding to exist; the census then showed the field carries `addressLocality`/`addressRegion`/`addressCountry` and **never `streetAddress`**, on any posting, from any employer. So reading it would upgrade nothing — it resolves to the same city name the free-text string already gives | Not a gap. Closed by measurement at **M4a** |
-| 3D city, map, MapLibre, Three.js | **The city renders, can be driven, and has roles on it.** `/explore/city` draws New York offline from two local archives on `maplibre-gl@5.24.0` — streets, water, and 1,083,024 extruded structures at measured heights — with the full §9.3 gesture surface, a keyboard, and a control panel, all proved in a browser by `e2e/city.spec.ts`. **Three.js and the job data arrived at M4c Tasks 1-2**: every open role is a floating beacon above the skyline and none is on a building, which the page states in those words — a map that looks finished and is empty is indistinguishable from one that is broken. **This row said "no camera controller" for two days after the controller shipped** — the sixth time a list here has quietly stopped describing the thing it names, and again in the same direction | Buildings **done, M4b Task 4**; camera **done, M4b Task 5**; signal layer drawing at **M4c Task 2**, with labels, picking, selection and the legend still to come |
+| 3D city, map, MapLibre, Three.js | **The city renders, can be driven, and has roles on it.** `/explore/city` draws New York offline from two local archives on `maplibre-gl@5.24.0` — streets, water, and 1,083,024 extruded structures at measured heights — with the full §9.3 gesture surface, a keyboard, and a control panel, all proved in a browser by `e2e/city.spec.ts`. **Three.js and the job data arrived at M4c Tasks 1-2**: every open role is a floating beacon above the skyline and none is on a building, which the page states in those words — a map that looks finished and is empty is indistinguishable from one that is broken. **This row said "no camera controller" for two days after the controller shipped** — the sixth time a list here has quietly stopped describing the thing it names, and again in the same direction | Buildings **done, M4b Task 4**; camera **done, M4b Task 5**; signal layer drawing at **M4c Task 2**; labels, sorting and the roster at **Task 3**; picking, the reticle and the shared selection at **Task 4**; §6's treatments and the in-interface legend at **Task 5**; the acceptance walk at **Task 6**. **M4c is complete.** What remains for M4d: frame-time numbers, adaptive quality tiers and automated accessibility tests |
 | The signal layer's renderer | **Built and drawing (M4c Task 2).** Three.js in MapLibre's context, one instanced mesh, one draw call, N transforms — every unresolved role is a floating beacon above the skyline, grouped into a column per employer. What is **not** built: labels (a column is an anonymous stack until you know what it is), picking, selection, the §6 treatments and the legend. Nothing is on a building, and nothing may be until an office is confirmed | Tasks 3-5 |
 | Window speckle on buildings | Not built. §2.1's treatment is edge light *plus* lit windows; the extrusion delivers the first via `fill-extrusion-vertical-gradient` and a height-driven colour ramp. The speckle needs a texture, a texture needs a sprite, and a sprite is a network call this style has spent three tasks refusing | The Three.js layer — **M5**, not scheduled sooner |
 | ~~The published buildings artifact~~ | **Published 2026-08-12** as release `buildings-20260812`, 109,555,308 bytes — the size the manifest pins. Proved by deleting the local copy and re-fetching from the public URL, which is the clean-clone path, digest and all. The optional/required split built while it was unpublished stays: a re-bake reopens the same window every time, and `make tiles-strict` in CI is what closes it | Done |

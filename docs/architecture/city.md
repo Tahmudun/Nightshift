@@ -648,6 +648,18 @@ would shrink every time something was deferred.
 | Approximate location | **Not drawn.** No role resolves to an area — it takes a confirmed office at approximate confidence, and there are none |
 | Closed | **Not drawn.** An afterimage belongs to the session that watched a role close, and closed listings are absent from a cold load by design |
 
+**Two placement kinds have no renderer at all, and the page says so.** The field
+draws the unresolved layer; a role that reaches a `building` or an `area` is
+counted in the census panel and drawn nowhere. That is 0 of the corpus today —
+`data/company-locations.yaml` is blank — and it stops being 0 the first time an
+address is confirmed, at which point the count on the panel would be describing
+roles nobody can see. The panel names them instead: *"n of these are not drawn on
+this map yet… missing from the sky, not from the corpus"*. The renderer's own
+building and area treatments are M4d/M5 work and arrive with the first confirmed
+address; **the sentence arrives now**, because the count already exists. Found by
+the M4c acceptance walk, which is the only thing that has ever executed that
+branch (`docs/reviews/milestone-4c-review.md` §3.1).
+
 **The gold beam floats, and that is an invariant rather than a style.** A
 vertical shaft long enough to reach the street would draw a line from an
 unresolved role to a building nobody confirmed — I1 broken by a decoration. It is
@@ -691,6 +703,17 @@ in-interface legend.
 
 **Done when:** no placement is fabricated at any confidence, thousands of markers
 are not thousands of components, and the list and the map cannot disagree.
+
+**Done: 2026-08-12.** All three walked in a browser at the tip of
+`m4b-dark-city` — see `docs/PROGRESS.md` "M4c acceptance" and
+`docs/reviews/milestone-4c-review.md`. The first two needed a corpus this repo
+*chooses* rather than the one it has: 31 unresolved roles cannot falsify "no
+placement is fabricated", and 30 markers cannot falsify "not thousands of
+components". `apps/web/e2e/city-acceptance.spec.ts` serves that corpus against
+the real map. **One limit is recorded rather than fixed** — the field is legible
+at 31 roles and not at 5,000 — and it is deferred into M4d beside the adaptive
+quality tiers, which is where the frame-time numbers that should drive its fix
+come from.
 
 ### M4d — measured, accessible, shipped
 
