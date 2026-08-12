@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { mercatorFromLngLat, metreInMercatorUnits } from './mercator';
+import {
+  lngLatFromMercator,
+  lngLatFromScene,
+  mercatorFromLngLat,
+  metreInMercatorUnits,
+} from './mercator';
 
 /**
  * Values chosen to be checkable by hand rather than copied from a run of the
@@ -96,5 +101,75 @@ describe('against MapLibre’s own MercatorCoordinate', () => {
     }
 
     vi.unstubAllGlobals();
+  });
+});
+
+describe('lngLatFromMercator', () => {
+  it('is the inverse of the projection, not a second implementation of it', () => {
+    // Round-tripping rather than a table of constants: a table can only ever
+    // agree with whatever the code did on the day it was written, and these two
+    // functions being mutually consistent is the entire property that matters.
+    for (const [lng, lat] of [
+      [0, 0],
+      [-73.98, 40.75],
+      [-180, -60],
+      [179.9, 72.3],
+      [12.5, -33.9],
+    ] as const) {
+      const [backLng, backLat] = lngLatFromMercator(mercatorFromLngLat(lng, lat));
+      expect(backLng).toBeCloseTo(lng, 9);
+      expect(backLat).toBeCloseTo(lat, 9);
+    }
+  });
+
+  it('puts the middle of the world back on the equator', () => {
+    const [lng, lat] = lngLatFromMercator({ x: 0.5, y: 0.5 });
+    expect(lng).toBeCloseTo(0, 12);
+    expect(lat).toBeCloseTo(0, 12);
+  });
+});
+
+describe('lngLatFromScene', () => {
+  const ANCHOR = [-73.98, 40.75] as const;
+
+  it('leaves the anchor exactly where it is', () => {
+    const [lng, lat] = lngLatFromScene(ANCHOR, 0, 0);
+    expect(lng).toBeCloseTo(ANCHOR[0], 9);
+    expect(lat).toBeCloseTo(ANCHOR[1], 9);
+  });
+
+  it('sends +y north and +x east', () => {
+    // The flip that mirrors an entire field about its anchor while still
+    // looking like a plausible arrangement of columns. Mercator y grows
+    // *southward*; the scene's y is metres north.
+    const [, north] = lngLatFromScene(ANCHOR, 0, 1_000);
+    const [east] = lngLatFromScene(ANCHOR, 1_000, 0);
+
+    expect(north).toBeGreaterThan(ANCHOR[1]);
+    expect(east).toBeGreaterThan(ANCHOR[0]);
+  });
+
+  it('moves about the distance it was asked to, in metres', () => {
+    // One degree of latitude is close to 111 km, so 1110 m north is roughly
+    // 0.01°. Checked to two significant figures, which is enough to catch the
+    // scale being wrong by the cos(latitude) factor — the mistake that shrinks
+    // a whole field by a quarter and looks like a design choice.
+    const [, lat] = lngLatFromScene(ANCHOR, 0, 1_110);
+    expect(lat - ANCHOR[1]).toBeCloseTo(0.01, 3);
+  });
+
+  it('round-trips through the transform the renderer uses', () => {
+    // The scene positions the field with `anchorTransform`; this reverses it.
+    // If the two ever disagree, the roster flies the camera to empty sky beside
+    // the column it named.
+    const origin = mercatorFromLngLat(ANCHOR[0], ANCHOR[1]);
+    const scale = metreInMercatorUnits(ANCHOR[1]);
+    const [x, y] = [620, -1_240];
+
+    const [lng, lat] = lngLatFromScene(ANCHOR, x, y);
+    const forward = mercatorFromLngLat(lng, lat);
+
+    expect(forward.x).toBeCloseTo(origin.x + x * scale, 12);
+    expect(forward.y).toBeCloseTo(origin.y - y * scale, 12);
   });
 });

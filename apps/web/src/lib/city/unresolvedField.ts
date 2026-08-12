@@ -56,6 +56,26 @@ export const COMPANY_SPACING = 620;
  */
 export const COMPANIES_PER_ROW = 6;
 
+/**
+ * Metres between the top role in a column and its name plate.
+ *
+ * A label sitting on the topmost beacon reads as a caption for *that role*
+ * rather than for the stack. The gap is what makes it a column heading.
+ */
+export const LABEL_GAP = 95;
+
+/**
+ * The orderings the field offers, and the whole of §4.8's "sortable".
+ *
+ * Three rather than one because the field is the default view of this product
+ * (§4.8) and a default view with a single fixed order is a list nobody can
+ * interrogate. Each answers a different question a person actually arrives
+ * with: *who is hiring* (`company`), *who is hiring most* (`openings`), and
+ * *what is new since I last looked* (`newest`).
+ */
+export const FIELD_SORTS = ['company', 'openings', 'newest'] as const;
+export type FieldSort = (typeof FIELD_SORTS)[number];
+
 /** One role's place in the field, in metres relative to the scene anchor. */
 export interface FieldPlacement {
   readonly jobId: string;
@@ -67,10 +87,44 @@ export interface FieldPlacement {
   readonly altitude: number;
 }
 
+/**
+ * One employer's column: who it is, how tall it is, and where it stands.
+ *
+ * It carries geometry because two things outside this file need to point *at*
+ * a column rather than at a role — the name plates in the scene, and the
+ * roster panel's fly-to. Recomputing the column's position in either of them
+ * would be a second implementation of this layout, free to disagree with it.
+ */
+export interface FieldColumn {
+  readonly companyId: string;
+  readonly name: string;
+  /** How many unresolved roles are stacked here. */
+  readonly roles: number;
+  /** East of the anchor. */
+  readonly x: number;
+  /** North of the anchor. */
+  readonly y: number;
+  /** Where this column's name plate goes: clear of the topmost beacon. */
+  readonly labelAltitude: number;
+}
+
 export interface UnresolvedField {
   readonly placements: readonly FieldPlacement[];
-  /** Employers in the order their columns are laid out. */
-  readonly companies: readonly string[];
+  /** Employers in the order their columns are laid out, left to right. */
+  readonly columns: readonly FieldColumn[];
+}
+
+/** One employer mid-grouping: the id it is keyed by, and what landed under it. */
+type GroupEntry = readonly [string, { readonly name: string; readonly roles: CitySignal[] }];
+
+/** Milliseconds since the epoch, from the ISO string Zod already validated. */
+function seenAt(signal: CitySignal): number {
+  return Date.parse(signal.first_seen_at);
+}
+
+/** The most recent `first_seen_at` in a column, which is the column's own age. */
+function newestIn(roles: readonly CitySignal[]): number {
+  return roles.reduce((newest, role) => Math.max(newest, seenAt(role)), Number.NEGATIVE_INFINITY);
 }
 
 /**
@@ -80,8 +134,19 @@ export interface UnresolvedField {
  * caller: this function owns the rule that a placed role is not in this field,
  * and a caller that forgot to filter would otherwise draw a role twice — once
  * on its building and once floating above it, which reads as two openings.
+ *
+ * `sort` reorders **columns**, and only `newest` also reorders the roles
+ * inside one. That asymmetry is deliberate and it is a reversal of this
+ * module's original rule, so it is worth the sentence: a stack that reshuffles
+ * when a poll runs is a stack a person cannot learn the shape of, which is why
+ * the default stays alphabetical. But a person who has *asked* for recency has
+ * asked for exactly that reshuffle, and refusing it would be the module
+ * deciding it knows better.
  */
-export function arrangeUnresolved(signals: readonly CitySignal[]): UnresolvedField {
+export function arrangeUnresolved(
+  signals: readonly CitySignal[],
+  sort: FieldSort = 'company',
+): UnresolvedField {
   const unresolved = signals.filter((signal) => signal.placement.kind === 'unresolved');
 
   // Group by employer. `company_id` is the key and the name is only the sort,
@@ -95,16 +160,30 @@ export function arrangeUnresolved(signals: readonly CitySignal[]): UnresolvedFie
     else groups.set(signal.company_id, { name: signal.company_name, roles: [signal] });
   }
 
-  // Name, then id: the id breaks ties so two employers with the same display
-  // name still get a stable order rather than one that depends on insertion.
-  const ordered = [...groups.entries()].sort(
-    ([idA, a], [idB, b]) => a.name.localeCompare(b.name) || idA.localeCompare(idB),
-  );
+  // Name, then id, as the base ordering. The id breaks ties so two employers
+  // with the same display name still get a stable order rather than one that
+  // depends on insertion, and every other sort falls back to this pair — so no
+  // ordering below can ever be ambiguous, however many employers tie on it.
+  const byName = ([idA, a]: GroupEntry, [idB, b]: GroupEntry): number =>
+    a.name.localeCompare(b.name) || idA.localeCompare(idB);
+
+  const comparators: Record<FieldSort, (a: GroupEntry, b: GroupEntry) => number> = {
+    company: byName,
+    // Tallest column first. Ties fall back to the name, so the field does not
+    // reshuffle among equal-height columns between two loads.
+    openings: (a, b) => b[1].roles.length - a[1].roles.length || byName(a, b),
+    // A column is as new as its newest role. Sorting a column by its oldest or
+    // its average would bury an employer who posted this morning behind one
+    // who has been open since spring.
+    newest: (a, b) => newestIn(b[1].roles) - newestIn(a[1].roles) || byName(a, b),
+  };
+
+  const ordered = [...groups.entries()].sort(comparators[sort]);
 
   const placements: FieldPlacement[] = [];
-  const companies: string[] = [];
+  const columns: FieldColumn[] = [];
 
-  ordered.forEach(([, group], index) => {
+  ordered.forEach(([companyId, group], index) => {
     const column = index % COMPANIES_PER_ROW;
     const row = Math.floor(index / COMPANIES_PER_ROW);
     const rowWidth = Math.min(ordered.length - row * COMPANIES_PER_ROW, COMPANIES_PER_ROW);
@@ -112,16 +191,28 @@ export function arrangeUnresolved(signals: readonly CitySignal[]): UnresolvedFie
     // Each row is centred on the anchor, so the field grows outward from the
     // middle of the view instead of off one edge of it.
     const x = (column - (rowWidth - 1) / 2) * COMPANY_SPACING;
-    const y = -row * COMPANY_SPACING;
+    // `|| 0` normalises negative zero, which `-row * spacing` produces for the
+    // first row. It renders identically and compares equal under `===`, so it
+    // survives every obvious check and then fails an `Object.is` deep-equal in
+    // a caller's test with a diff reading `0` versus `-0`.
+    const y = -row * COMPANY_SPACING || 0;
 
-    companies.push(group.name);
-
-    // Title, then job id. The sort is alphabetical rather than by date on
-    // purpose: a stack that reorders when a poll runs is a stack a person
-    // cannot learn the shape of.
-    const roles = [...group.roles].sort(
-      (a, b) => a.title.localeCompare(b.title) || a.job_id.localeCompare(b.job_id),
+    // Title, then job id — see the note on `sort` above for why recency is the
+    // one ordering allowed to move a role within its own column.
+    const roles = [...group.roles].sort((a, b) =>
+      sort === 'newest'
+        ? seenAt(b) - seenAt(a) || a.job_id.localeCompare(b.job_id)
+        : a.title.localeCompare(b.title) || a.job_id.localeCompare(b.job_id),
     );
+
+    columns.push({
+      companyId,
+      name: group.name,
+      roles: roles.length,
+      x,
+      y,
+      labelAltitude: FIELD_BASE_ALTITUDE + (roles.length - 1) * ROLE_SPACING + LABEL_GAP,
+    });
 
     roles.forEach((signal, depth) => {
       placements.push({
@@ -133,5 +224,5 @@ export function arrangeUnresolved(signals: readonly CitySignal[]): UnresolvedFie
     });
   });
 
-  return { placements, companies };
+  return { placements, columns };
 }
