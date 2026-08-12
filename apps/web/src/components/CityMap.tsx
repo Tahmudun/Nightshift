@@ -50,6 +50,8 @@ import { CameraControls } from '@/components/CameraControls';
 import { BASEMAP_URL, BUILDINGS_URL } from '@/lib/tiles';
 import type { CameraController } from '@/lib/map/camera';
 import { CAMERA_LIMITS, createCameraController, INITIAL_POSE } from '@/lib/map/camera';
+import type { DebugMap } from '@/lib/map/debug';
+import { installCityDebug } from '@/lib/map/debug';
 import { buildDarkStyle } from '@/lib/map/darkStyle';
 
 // MapLibre's own stylesheet, for the attribution control and the canvas
@@ -63,6 +65,15 @@ import 'maplibre-gl/dist/maplibre-gl.css';
  * component state would re-register on every mount.
  */
 let protocolRegistered = false;
+
+/**
+ * What a screen reader says this is.
+ *
+ * The second sentence is the point of it: §5.6 requires every map action to have
+ * a non-3D equivalent, and a person who cannot use the map needs to be told the
+ * list exists at the moment they land on the canvas, not after exploring it.
+ */
+const MAP_LABEL = 'New York City map. Every role on this map is also in the list view.';
 
 type Status =
   | { readonly kind: 'loading' }
@@ -116,6 +127,7 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
     let cancelled = false;
     let map: { remove: () => void } | null = null;
     let controller: CameraController | null = null;
+    let uninstallDebug: (() => void) | null = null;
 
     void (async () => {
       try {
@@ -221,10 +233,37 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
       // destroyed before it.
       controller = createCameraController({ map: created });
       setCamera(controller);
+
+      // **The label goes on the canvas, because the canvas is what focus lands
+      // on.** MapLibre gives it `tabindex="0"`, `role="region"` and the name
+      // "Map", and a tab walk from the top of the document reaches it in five
+      // stops — so "Map" is the entire description a screen-reader user gets of
+      // this page's main content, while the sentence written for them sat on a
+      // wrapper `div` with `tabindex="-1"` that nothing ever focuses. Found by
+      // walking the tab order during the M4b review; it had been wrong since
+      // Task 2, the commit that first drew a map, and looked right in the JSX.
+      //
+      // `application` rather than `region` for the same reason the arrow keys
+      // exist: it asks the screen reader to pass keystrokes through to the page
+      // instead of consuming them for its own browse-mode navigation, and a
+      // camera you drive with the arrow keys is unusable if the arrow keys never
+      // arrive.
+      const canvas = created.getCanvas();
+      canvas.setAttribute('role', 'application');
+      canvas.setAttribute('aria-label', MAP_LABEL);
+
+      // Outside production only, and compiled out inside it — see `map/debug`.
+      // The acceptance suite reads the camera from here because the pose lives
+      // in a WebGL transform and nothing mirrors it into the DOM.
+      uninstallDebug = installCityDebug({
+        map: created as unknown as DebugMap,
+        camera: controller,
+      });
     }
 
     return () => {
       cancelled = true;
+      uninstallDebug?.();
       controller?.destroy();
       setCamera(null);
       map?.remove();
@@ -245,9 +284,11 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
         //
         // MapLibre also owns everything inside this node, so React must never
         // try to reconcile its children.
+        //
+        // Deliberately unlabelled: the role and the name live on the canvas
+        // inside it, which is the node that takes focus. Naming both announces
+        // the same sentence twice on the way in.
         className="h-full w-full"
-        role="application"
-        aria-label="New York City map. Every role on this map is also in the list view."
       />
 
       {/* Overlays sit above the canvas and below the app header. `pointer-events`

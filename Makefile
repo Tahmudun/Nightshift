@@ -202,11 +202,20 @@ verify: setup ## Assert the stack actually works, and exit with a status code
 #
 # `verify` covers the API and the database; `test-e2e-seeded` covers the one
 # criterion neither can reach — that the jobs actually render in a browser.
-acceptance: ## up && migrate && drift && seed && verify && seeded e2e — the acceptance run
+#
+# `test-e2e` is in here for M4b, whose criteria are about a renderer: New York
+# draws dark, extruded and offline; every gesture works; every animation can be
+# interrupted. None of those is reachable from Python, and `make demo` — the
+# command the criterion names — ends in a foreground server with no exit code.
+# It runs *before* the API starts, which is not an ordering accident: that suite
+# asserts both that the shell says "api unreachable" and that the city needs no
+# API at all, and a running API turns both into passes for the wrong reason.
+acceptance: ## up && migrate && drift && seed && offline e2e && verify && seeded e2e
 	@$(MAKE) up
 	@$(MAKE) migrate
 	@$(MAKE) drift
 	@$(MAKE) seed
+	@$(MAKE) test-e2e
 	@$(MAKE) verify
 	@$(MAKE) test-e2e-seeded
 
