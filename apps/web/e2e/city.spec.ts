@@ -67,6 +67,35 @@ function headingGap(a: number, b: number): number {
   return Math.abs(((a - b + 540) % 360) - 180);
 }
 
+type Pose = Awaited<ReturnType<typeof pose>>;
+
+/**
+ * Wait for the camera to *reach* a state, rather than for a number of
+ * milliseconds to pass, and return the pose once it has.
+ *
+ * **A fixed wait after a gesture is a machine-speed detector, and it caught this
+ * suite out.** Two tests — the wheel zoom and the trackpad pinch — failed inside
+ * `make acceptance` with `zoom` at exactly its opening value, and passed on
+ * their own seconds later. Nothing was broken. MapLibre's scroll zoom is
+ * animated and driven by `requestAnimationFrame`, this browser has no GPU, and
+ * two workers rasterising a million footprints between them can starve rAF for
+ * longer than the 800 ms the assertion allowed. The event had arrived; the frame
+ * that would have acted on it had not.
+ *
+ * The instrument, not the product, was wrong: "the wheel zooms" is a claim about
+ * whether the camera ends up closer, not about how many milliseconds it takes.
+ * Polling says exactly that. It still goes red when the handler is switched off
+ * — it just spends twenty seconds finding out instead of eight hundred
+ * milliseconds, which is the right trade when the alternative is a suite that
+ * teaches people to re-run it rather than read it.
+ */
+async function settles(page: Page, reached: (p: Pose) => boolean, what: string): Promise<Pose> {
+  await expect
+    .poll(async () => reached(await pose(page)), { message: what, timeout: 20_000 })
+    .toBe(true);
+  return pose(page);
+}
+
 /** Where to put the pointer so a drag lands on the map and not on a panel. */
 const MAP_POINT = { x: 640, y: 480 };
 
@@ -186,9 +215,12 @@ test.describe('§9.3 — the gesture surface, with a mouse and a trackpad', () =
     await page.mouse.down();
     await page.mouse.move(MAP_POINT.x - 220, MAP_POINT.y - 120, { steps: 12 });
     await page.mouse.up();
-    await page.waitForTimeout(500);
 
-    const after = await pose(page);
+    const after = await settles(
+      page,
+      (p) => p.center[0] !== before.center[0] || p.center[1] !== before.center[1],
+      'the drag moves the centre',
+    );
     expect(after.center).not.toEqual(before.center);
     // A pan is a pan: it must not have rotated or zoomed on the way.
     expect(after.bearing).toBeCloseTo(before.bearing, 3);
@@ -203,9 +235,12 @@ test.describe('§9.3 — the gesture surface, with a mouse and a trackpad', () =
     await page.mouse.down({ button: 'right' });
     await page.mouse.move(MAP_POINT.x - 200, MAP_POINT.y + 60, { steps: 12 });
     await page.mouse.up({ button: 'right' });
-    await page.waitForTimeout(500);
 
-    const after = await pose(page);
+    const after = await settles(
+      page,
+      (p) => headingGap(p.bearing, before.bearing) > 1,
+      'the right-drag turns the camera',
+    );
     expect(headingGap(after.bearing, before.bearing)).toBeGreaterThan(1);
   });
 
@@ -215,9 +250,9 @@ test.describe('§9.3 — the gesture surface, with a mouse and a trackpad', () =
 
     await page.mouse.move(MAP_POINT.x, MAP_POINT.y);
     await page.mouse.wheel(0, -600);
-    await page.waitForTimeout(800);
 
-    expect((await pose(page)).zoom).toBeGreaterThan(before.zoom);
+    const after = await settles(page, (p) => p.zoom > before.zoom, 'the wheel zooms in');
+    expect(after.zoom).toBeGreaterThan(before.zoom);
   });
 
   test('a trackpad pinch zooms — ctrl+wheel, which is how the browser reports it', async ({
@@ -240,9 +275,9 @@ test.describe('§9.3 — the gesture surface, with a mouse and a trackpad', () =
       deltaY: -120,
       modifiers: 2, // ctrl
     });
-    await page.waitForTimeout(800);
 
-    expect((await pose(page)).zoom).toBeGreaterThan(before.zoom);
+    const after = await settles(page, (p) => p.zoom > before.zoom, 'the pinch zooms in');
+    expect(after.zoom).toBeGreaterThan(before.zoom);
     await cdp.detach();
   });
 
@@ -262,16 +297,22 @@ test.describe('§9.3 — the gesture surface, with a mouse and a trackpad', () =
       { key: CITY_DEBUG_KEY, point: target },
     );
 
-    await page.mouse.dblclick(target.x, target.y);
-    await page.waitForTimeout(1_500);
+    // Closer to the clicked coordinate than it started, which is the whole
+    // claim — and the pitch and bearing hold at every sample of a fly-to that
+    // changes neither, so this can be read the moment it is true.
+    const gap = (a: readonly [number, number]) => Math.hypot(a[0] - where[0], a[1] - where[1]);
 
-    const after = await pose(page);
+    await page.mouse.dblclick(target.x, target.y);
+
+    const after = await settles(
+      page,
+      (p) => gap(p.center) < gap(before.center),
+      'the double-click moves the camera towards the point under it',
+    );
     // §9.3: preserve spatial orientation. A double-click here is a focus, not a
     // zoom-around-centre, so the frame's angles survive it.
     expect(after.pitch).toBeCloseTo(before.pitch, 1);
     expect(after.bearing).toBeCloseTo(before.bearing, 1);
-    // And it went *there*: closer to the clicked coordinate than it started.
-    const gap = (a: readonly [number, number]) => Math.hypot(a[0] - where[0], a[1] - where[1]);
     expect(gap(after.center)).toBeLessThan(gap(before.center));
   });
 
@@ -434,7 +475,12 @@ test.describe('§9.3 — the gesture surface, with two fingers', () => {
       Array.from({ length: 8 }, (_, i) => [{ x: MAP_POINT.x - i * 20, y: MAP_POINT.y - i * 12 }]),
     );
 
-    expect((await pose(page)).center).not.toEqual(before.center);
+    const after = await settles(
+      page,
+      (p) => p.center[0] !== before.center[0] || p.center[1] !== before.center[1],
+      'one finger moves the centre',
+    );
+    expect(after.center).not.toEqual(before.center);
   });
 
   test('two fingers pinch to zoom', async ({ page }) => {
@@ -450,7 +496,8 @@ test.describe('§9.3 — the gesture surface, with two fingers', () => {
       ]),
     );
 
-    expect((await pose(page)).zoom).toBeGreaterThan(before.zoom);
+    const after = await settles(page, (p) => p.zoom > before.zoom, 'two fingers spreading zoom in');
+    expect(after.zoom).toBeGreaterThan(before.zoom);
   });
 
   test('two fingers rotate', async ({ page }) => {
@@ -477,7 +524,12 @@ test.describe('§9.3 — the gesture surface, with two fingers', () => {
       }),
     );
 
-    expect(headingGap((await pose(page)).bearing, before.bearing)).toBeGreaterThan(2);
+    const after = await settles(
+      page,
+      (p) => headingGap(p.bearing, before.bearing) > 2,
+      'two fingers sweeping turn the camera',
+    );
+    expect(headingGap(after.bearing, before.bearing)).toBeGreaterThan(2);
   });
 });
 
