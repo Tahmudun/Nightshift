@@ -1233,10 +1233,16 @@ class CitySignalOut(BaseModel):
     """One role on the map: enough to draw it, name it and open it.
 
     Deliberately not :class:`JobSummaryOut`. The map asks for thousands of these
-    at once and needs none of the salary, the location list or the source
-    timestamps; sending them would multiply the payload for fields no beacon
-    reads. The detail panel fetches the full job by id, the way the list view
-    already does.
+    at once and needs none of the salary or the location list; sending them
+    would multiply the payload for fields no beacon reads. The detail panel
+    fetches the full job by id, the way the list view already does.
+
+    ``first_seen_at`` is the one source timestamp that survived that cut, and it
+    is here because `city.md` §4.8 asks for a field that is **sortable**. Every
+    other ordering the field offers can be derived from what is already on this
+    model; "newest first" cannot, and on a corpus where every role floats it is
+    the ordering a person actually wants. Sending it costs one timestamp per
+    role and saves the alternative, which is a second round trip per column.
     """
 
     job_id: UUID
@@ -1246,6 +1252,11 @@ class CitySignalOut(BaseModel):
     employment_type: EmploymentType
     remote_policy: RemotePolicy
     status: JobStatus
+    #: When ingestion first saw this role — *not* when the employer posted it.
+    #: No ATS in this corpus publishes a reliable posting date, and naming this
+    #: field ``posted_at`` would turn "we noticed this on Tuesday" into "this
+    #: was posted on Tuesday", which is a claim nobody measured.
+    first_seen_at: datetime
     placement: PlacementOut
 
 

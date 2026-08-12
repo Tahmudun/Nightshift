@@ -128,6 +128,7 @@ async def city_signals(
                 employment_type=job.employment_type,
                 remote_policy=job.remote_policy,
                 status=job.status,
+                first_seen_at=job.first_seen_at,
                 placement=_to_placement(placement),
             )
         )

@@ -1221,6 +1221,10 @@ export const citySignalSchema = z.object({
   employment_type: employmentTypeSchema,
   remote_policy: remotePolicySchema,
   status: jobStatusSchema,
+  // When ingestion first saw the role, not when it was posted — see
+  // `CitySignalOut`. It is here so the field can be ordered by recency, which
+  // §4.8's "sortable" needs and nothing else on this model can produce.
+  first_seen_at: z.string().datetime({ offset: true }),
   placement: placementSchema,
 });
 export type CitySignal = z.infer<typeof citySignalSchema>;
