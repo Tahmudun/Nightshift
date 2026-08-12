@@ -168,7 +168,7 @@ describe('arrangeUnresolved', () => {
 });
 
 describe('the columns a roster can navigate by', () => {
-  it('reports each column’s employer, height and position', () => {
+  it('reports each column’s employer, roles and position', () => {
     const field = arrangeUnresolved([
       signal({ job_id: 'a1', company_id: 'alloy', company_name: 'Alloy' }),
       signal({ job_id: 'a2', company_id: 'alloy', company_name: 'Alloy', title: 'Analyst' }),
@@ -179,7 +179,10 @@ describe('the columns a roster can navigate by', () => {
       {
         companyId: 'alloy',
         name: 'Alloy',
-        roles: 2,
+        // Bottom to top, in the buffer's own order: 'Analyst' sorts before
+        // 'Software Engineer'. The roster lists these by name, so the ids and
+        // their order are the contract, not the count.
+        jobIds: ['a2', 'a1'],
         x: -COMPANY_SPACING / 2,
         y: 0,
         labelAltitude: FIELD_BASE_ALTITUDE + ROLE_SPACING + LABEL_GAP,
@@ -187,7 +190,7 @@ describe('the columns a roster can navigate by', () => {
       {
         companyId: 'ramp',
         name: 'Ramp',
-        roles: 1,
+        jobIds: ['r1'],
         x: COMPANY_SPACING / 2,
         y: 0,
         labelAltitude: FIELD_BASE_ALTITUDE + LABEL_GAP,
@@ -219,7 +222,7 @@ describe('the columns a roster can navigate by', () => {
 
     for (const column of field.columns) {
       const own = field.placements.filter((p) => p.x === column.x && p.y === column.y);
-      expect(own).toHaveLength(column.roles);
+      expect(own).toHaveLength(column.jobIds.length);
     }
   });
 });
@@ -267,7 +270,7 @@ describe('the field is sortable — §4.8', () => {
 
     // Zeta has two and sorts before Acme despite losing on the alphabet.
     expect(field.columns.map((c) => c.name)).toEqual(['Zeta', 'Acme']);
-    expect(field.columns.map((c) => c.roles)).toEqual([2, 1]);
+    expect(field.columns.map((c) => c.jobIds.length)).toEqual([2, 1]);
   });
 
   it('orders columns by their newest role, not their oldest', () => {

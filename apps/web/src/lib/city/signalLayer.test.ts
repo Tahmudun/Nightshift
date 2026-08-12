@@ -1,12 +1,19 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { Matrix4, PerspectiveCamera, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 
 import type { CitySignal } from '@/lib/schemas';
 
 import { MAX_LABELS } from './labelAtlas';
-import { createSignalLayer, MAX_BEACONS, SIGNAL_COLOR, SIGNAL_LAYER_ID } from './signalLayer';
+import {
+  anchorTransform,
+  createSignalLayer,
+  MAX_BEACONS,
+  SIGNAL_COLOR,
+  SIGNAL_LAYER_ID,
+} from './signalLayer';
 import { COMPANIES_PER_ROW } from './unresolvedField';
 
 /**
@@ -147,7 +154,7 @@ describe('the columns the layer exposes', () => {
     ]);
 
     expect(layer.columns.map((c) => c.name)).toEqual(['Alloy', 'Ramp']);
-    expect(layer.columns.map((c) => c.roles)).toEqual([2, 1]);
+    expect(layer.columns.map((c) => c.jobIds.length)).toEqual([2, 1]);
   });
 
   it('passes the sort through to the field rather than reordering after it', () => {
@@ -213,5 +220,207 @@ describe('the columns the layer exposes', () => {
 
     expect(layer.columns).toEqual([]);
     expect(layer.labelled).toBe(0);
+  });
+});
+
+/**
+ * Selection, minus the part that needs a GPU.
+ *
+ * The pick itself — a click on a canvas finding the beacon under it — is
+ * `city.spec.ts`'s claim, for the same reason every other rendering claim is:
+ * there is no context here and the layer has never drawn a frame. What is
+ * provable without one is the bookkeeping that a pick depends on, and it is
+ * where the silent failures live: which instance is which role, and whether the
+ * reticle is still on the role it was put on after the field moves underneath
+ * it.
+ */
+describe('selection', () => {
+  /**
+   * A frame's worth of MapLibre, faked at the one seam that matters.
+   *
+   * `render` is handed `defaultProjectionData.mainMatrix`, which takes
+   * *mercator* space to clip space. The scene is in metres, so the layer
+   * composes it with the anchor transform. Working backwards from a projection
+   * we can reason about — `mainMatrix = composed · anchorTransform⁻¹` — gives a
+   * frame the layer will compose back into exactly `composed`, so a pixel can
+   * be computed by hand and the whole pick path exercised with no GPU.
+   */
+  function drawFrame(layer: ReturnType<typeof createSignalLayer>, composed: Matrix4): void {
+    const mainMatrix = composed
+      .clone()
+      .multiply(anchorTransform(ANCHOR).clone().invert())
+      .toArray();
+    layer.render(
+      null as unknown as WebGLRenderingContext,
+      {
+        defaultProjectionData: { mainMatrix },
+      } as unknown as Parameters<typeof layer.render>[1],
+    );
+  }
+
+  /** A pitched, rotated perspective — the only kind of pose this city is in. */
+  function tiltedProjection(): Matrix4 {
+    const camera = new PerspectiveCamera(45, 16 / 9, 1, 40_000);
+    camera.position.set(900, -3_600, 2_400);
+    camera.lookAt(new Vector3(0, 0, 760));
+    camera.updateMatrixWorld(true);
+    return new Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+  }
+
+  const VIEWPORT = { width: 1_600, height: 900 };
+
+  /** Where a scene point lands on the canvas, under this projection. */
+  function pixelOf(composed: Matrix4, point: readonly [number, number, number]) {
+    const clip = new Vector3(...point).applyMatrix4(composed);
+    return {
+      x: ((clip.x + 1) / 2) * VIEWPORT.width,
+      y: ((1 - clip.y) / 2) * VIEWPORT.height,
+    };
+  }
+
+  it('cannot pick before it has drawn a frame, and says so rather than guessing', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    layer.setSignals([signal('a')]);
+
+    // The pick inverts the matrix the last frame drew with. Before there is a
+    // frame the honest answer is "I do not know" — a projection reconstructed
+    // from the map's pose instead would answer with plausible wrong roles.
+    expect(layer.canPick).toBe(false);
+    expect(layer.pick({ x: 400, y: 300 }, { width: 800, height: 600 })).toBeNull();
+  });
+
+  it('knows which role each instance in the buffer draws', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+
+    layer.setSignals([
+      signal('r1', 'ramp', 'Ramp'),
+      signal('a1', 'alloy', 'Alloy'),
+      signal('a2', 'alloy', 'Alloy'),
+    ]);
+
+    // Field order: Alloy's column first, then Ramp's. A pick returns an
+    // instance index and nothing else, so an off-by-one here selects a
+    // different company's role and looks like a working feature.
+    expect([0, 1, 2].map((i) => layer.jobAt(i))).toEqual(['a1', 'a2', 'r1']);
+  });
+
+  it('names no role for an index outside what it drew', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    layer.setSignals([signal('a')]);
+
+    expect(layer.jobAt(1)).toBeNull();
+    expect(layer.jobAt(-1)).toBeNull();
+  });
+
+  it('puts the reticle on the selected role', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    layer.setSignals([signal('a1', 'alloy', 'Alloy'), signal('a2', 'alloy', 'Alloy')]);
+
+    layer.setSelected('a2');
+
+    expect(layer.selected).toBe('a2');
+    // Second in the stack: one role-spacing above the base altitude.
+    expect(layer.selectionAt?.[2]).toBe(layer.altitudeOf(1));
+  });
+
+  it('moves the reticle when a sort moves the field under it', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    const signals = [
+      signal('a1', 'alloy', 'Alloy'),
+      signal('r1', 'ramp', 'Ramp'),
+      signal('r2', 'ramp', 'Ramp'),
+    ];
+    layer.setSignals(signals, 'company');
+    layer.setSelected('a1');
+    const before = layer.selectionAt;
+
+    layer.setSignals(signals, 'openings');
+
+    // Every sort reorders the columns. A reticle written once at selection
+    // time stays at the old coordinates and ends up ringing whichever employer
+    // now stands there — a wrong answer that looks like a working feature.
+    expect(layer.selectionAt).not.toEqual(before);
+    expect(layer.selectionAt?.[0]).toBe(layer.columns.find((c) => c.name === 'Alloy')?.x);
+  });
+
+  it('keeps the selection but draws no reticle when the role leaves the corpus', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    layer.setSignals([signal('a'), signal('b')]);
+    layer.setSelected('b');
+
+    layer.setSignals([signal('a')]);
+
+    // The selection survives because it lives in the URL, and the panel has a
+    // sentence for a role that is no longer here. What must not survive is the
+    // mark: a reticle left on the city would ring the wrong beacon, or the
+    // origin.
+    expect(layer.selected).toBe('b');
+    expect(layer.selectionAt).toBeNull();
+  });
+
+  it('takes the reticle off the city when the selection is cleared', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    layer.setSignals([signal('a')]);
+    layer.setSelected('a');
+
+    layer.setSelected(null);
+
+    expect(layer.selected).toBeNull();
+    expect(layer.selectionAt).toBeNull();
+  });
+
+  it('finds the role under a pixel, through the matrix the frame drew with', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    layer.setSignals([
+      signal('a1', 'alloy', 'Alloy'),
+      signal('a2', 'alloy', 'Alloy'),
+      signal('r1', 'ramp', 'Ramp'),
+    ]);
+    const composed = tiltedProjection();
+    drawFrame(layer, composed);
+
+    expect(layer.canPick).toBe(true);
+    for (const index of [0, 1, 2]) {
+      const jobId = layer.jobAt(index)!;
+      const column = layer.columns.find((c) => c.jobIds.includes(jobId))!;
+      const pixel = pixelOf(composed, [column.x, column.y, layer.altitudeOf(index)!]);
+
+      expect(layer.pick(pixel, VIEWPORT)).toBe(jobId);
+    }
+  });
+
+  it('finds nothing where there is nothing, rather than the nearest thing', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    layer.setSignals([signal('a')]);
+    const composed = tiltedProjection();
+    drawFrame(layer, composed);
+
+    // Far off to one side of the single column, still inside the canvas.
+    expect(layer.pick({ x: 20, y: 20 }, VIEWPORT)).toBeNull();
+  });
+
+  it('can still pick the roles that arrived after the last pick', () => {
+    // The bounding-sphere trap, at the level that actually ships. three caches
+    // the sphere on first raycast and gates every later one on it, so a field
+    // that grows keeps a sphere too small to admit its new columns — and
+    // picking stops working, silently, for exactly the newest employers.
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    layer.setSignals([signal('a1', 'alloy', 'Alloy')]);
+    const composed = tiltedProjection();
+    drawFrame(layer, composed);
+    const first = layer.columns[0]!;
+    layer.pick(pixelOf(composed, [first.x, first.y, layer.altitudeOf(0)!]), VIEWPORT);
+
+    layer.setSignals(
+      Array.from({ length: 9 }, (_, i) => signal(`j${i}`, `company-${i}`, `Company ${i}`)),
+    );
+    drawFrame(layer, composed);
+
+    // The last column is on the field's second row, well outside the sphere a
+    // one-column field would have left cached.
+    const last = layer.columns.at(-1)!;
+    const index = layer.drawn - 1;
+    const pixel = pixelOf(composed, [last.x, last.y, layer.altitudeOf(index)!]);
+    expect(layer.pick(pixel, VIEWPORT)).toBe(layer.jobAt(index));
   });
 });

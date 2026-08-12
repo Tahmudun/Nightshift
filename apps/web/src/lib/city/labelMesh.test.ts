@@ -14,7 +14,14 @@ import { COMPANY_SPACING, LABEL_GAP, type FieldColumn } from './unresolvedField'
  */
 
 function column(name: string, x: number, roles = 1): FieldColumn {
-  return { companyId: name.toLowerCase(), name, roles, x, y: 0, labelAltitude: 700 + LABEL_GAP };
+  return {
+    companyId: name.toLowerCase(),
+    name,
+    jobIds: Array.from({ length: roles }, (_, i) => `${name.toLowerCase()}-${i}`),
+    x,
+    y: 0,
+    labelAltitude: 700 + LABEL_GAP,
+  };
 }
 
 describe('a name plate’s size', () => {

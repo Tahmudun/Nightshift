@@ -55,7 +55,14 @@ import type { CitySignal } from '@/lib/schemas';
 
 import { createLabelMesh } from './labelMesh';
 import { mercatorFromLngLat, metreInMercatorUnits } from './mercator';
-import { arrangeUnresolved, type FieldColumn, type FieldSort } from './unresolvedField';
+import { pickInstance, sceneRayFromPointer, type PointerPoint, type Viewport } from './pick';
+import { createSelectionMesh } from './selectionMesh';
+import {
+  arrangeUnresolved,
+  type FieldColumn,
+  type FieldPlacement,
+  type FieldSort,
+} from './unresolvedField';
 
 /** The layer's id in the style, and the handle every test reaches for. */
 export const SIGNAL_LAYER_ID = 'nightshift-signals';
@@ -72,12 +79,16 @@ export const SIGNAL_COLOR = '#5ce8ff';
 /**
  * Half-height of one beacon in metres.
  *
+ * Exported so the selection reticle's radii can be asserted against it rather
+ * than against a number somebody copied — a ring drawn inside the beacon is a
+ * ring nobody can see.
+ *
  * Large, and deliberately: these are read from a camera kilometres away at a
  * 76° pitch, where a marker sized like a map pin is a single pixel. This is
  * roughly a twelve-storey building, which is the smallest thing that reads at
  * this range at all.
  */
-const BEACON_RADIUS = 34;
+export const BEACON_RADIUS = 34;
 
 /**
  * The most beacons this layer will allocate room for.
@@ -138,6 +149,41 @@ export interface SignalLayer extends CustomLayerInterface {
    * entirely the wrong place — has somewhere to be caught.
    */
   altitudeOf(index: number): number | null;
+  /**
+   * Which role instance `index` draws, or null if nothing is drawn there.
+   *
+   * The instance buffer is written in the field's own order and that order
+   * changes with the sort, so the mapping cannot be reconstructed by a caller
+   * without reimplementing `arrangeUnresolved`. Exposed rather than inferred.
+   */
+  jobAt(index: number): string | null;
+  /**
+   * Which role is under this point on the canvas, or null for empty sky.
+   *
+   * Returns null until the layer has rendered once: the pick uses the matrix
+   * the last frame drew with (see `pick.ts`), and before there is a frame there
+   * is no honest answer. A guessed projection would return plausible wrong
+   * roles rather than nothing.
+   */
+  pick(point: PointerPoint, viewport: Viewport): string | null;
+  /** Draw the reticle around this role, or take it off the city with null. */
+  setSelected(jobId: string | null): void;
+  /** Which role the reticle is on, or null. */
+  readonly selected: string | null;
+  /**
+   * Where the reticle is, in scene metres, or null if it is not drawn.
+   *
+   * Not derivable from `selected`, and that is the point of exposing it. A
+   * role can be selected while its beacon is not in the field — it was
+   * filtered out, or a poll returned a corpus without it — and the honest
+   * render of that is a selection with no mark rather than a mark parked at
+   * the origin. It is also how a test can see that a sort *moved* the reticle
+   * rather than leaving it ringing whichever employer now stands where the
+   * selected one used to.
+   */
+  readonly selectionAt: readonly [number, number, number] | null;
+  /** Has a frame been drawn? Until it has, `pick` cannot answer. */
+  readonly canPick: boolean;
 }
 
 /**
@@ -191,15 +237,32 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
   const labels = createLabelMesh();
   scene.add(labels.mesh);
 
+  // The reticle. In the same scene for the same reason the plates are: it
+  // shares the depth buffer, so a ring around a role behind a tower is hidden
+  // by that tower exactly as the role is.
+  const reticle = createSelectionMesh();
+  scene.add(reticle.mesh);
+
   let renderer: WebGLRenderer | null = null;
   let map: MapLibreMap | null = null;
   let drawn = 0;
   let columns: readonly FieldColumn[] = [];
+  /** Where each drawn role is, in the buffer's own order. Index ↔ instance. */
+  let placements: readonly FieldPlacement[] = [];
+  let selected: string | null = null;
+  /**
+   * The matrix the last frame drew with: scene metres straight to clip space.
+   *
+   * Kept rather than recomputed because picking has to use *this* matrix and
+   * not a second derivation of it — see the head of `pick.ts`. Null until the
+   * first frame, which is what `canPick` reports.
+   */
+  let projection: Matrix4 | null = null;
 
   const scratch = new Object3D();
 
   /**
-   * Turn the plates to face wherever the camera now is.
+   * Turn the plates and the reticle to face wherever the camera now is.
    *
    * Bound to the map's move events rather than called from `render`, so a
    * still map does no work at all — and `orient` itself returns early when
@@ -208,6 +271,22 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
   function faceCamera(): void {
     if (!map) return;
     labels.orient(map.getBearing(), map.getPitch());
+    reticle.orient(map.getBearing(), map.getPitch());
+  }
+
+  /**
+   * Put the reticle where the selected role currently is.
+   *
+   * Called after every rewrite of the buffer as well as on selection, because
+   * a sort change moves every role in the field: a reticle written once at
+   * selection time would stay at the old coordinates and end up ringing a
+   * different company's beacon, which is a wrong answer that looks like a
+   * working feature.
+   */
+  function placeReticle(): void {
+    const placement = selected === null ? undefined : placements.find((p) => p.jobId === selected);
+    if (placement === undefined) reticle.clear();
+    else reticle.moveTo(placement.x, placement.y, placement.altitude);
   }
 
   const layer: SignalLayer = {
@@ -246,10 +325,46 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       return labels.orientedTo;
     },
 
+    get selected() {
+      return selected;
+    },
+
+    get selectionAt() {
+      return reticle.at;
+    },
+
+    get canPick() {
+      return projection !== null;
+    },
+
+    jobAt(index) {
+      if (index < 0 || index >= drawn) return null;
+      return placements[index]?.jobId ?? null;
+    },
+
+    pick(point, viewport) {
+      if (projection === null) return null;
+      const ray = sceneRayFromPointer(projection, point, viewport);
+      if (ray === null) return null;
+      const index = pickInstance(mesh, ray);
+      if (index === null) return null;
+      return placements[index]?.jobId ?? null;
+    },
+
+    setSelected(jobId) {
+      selected = jobId;
+      placeReticle();
+      map?.triggerRepaint();
+    },
+
     setSignals(signals, sort = 'company') {
       const field = arrangeUnresolved(signals, sort);
       const count = Math.min(field.placements.length, MAX_BEACONS);
       columns = field.columns;
+      // Truncated to what is actually in the buffer, so index ↔ instance holds
+      // at the ceiling too. Keeping the full list here would let `pick` name a
+      // role that was never drawn, for a click that hit the beacon after it.
+      placements = field.placements.slice(0, count);
 
       for (let i = 0; i < count; i += 1) {
         const placement = field.placements[i];
@@ -261,7 +376,16 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
 
       mesh.count = count;
       mesh.instanceMatrix.needsUpdate = true;
+      // three caches the bounding sphere on first raycast and gates every later
+      // one on it, so a field that grows keeps a sphere too small to admit its
+      // new columns — and picking silently stops working for exactly the
+      // employers that just arrived. `pick.test.ts` demonstrates it.
+      mesh.boundingSphere = null;
       drawn = count;
+
+      // The selected role has moved, if it is still here at all: every sort
+      // reorders the field and a poll can remove a role outright.
+      placeReticle();
 
       labels.setColumns(field.columns, SIGNAL_COLOR);
       // The plates are built facing bearing 0 / pitch 0. Without this they
@@ -295,8 +419,14 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
     },
 
     render(_gl: WebGLRenderingContext | WebGL2RenderingContext, args: CustomRenderMethodInput) {
-      if (!renderer || mesh.count === 0) return;
-
+      // Composed *before* the early return below, deliberately. The projection
+      // is a fact about this frame whether or not there is anything to draw
+      // with it, and picking reads it — a map with an empty buffer that then
+      // receives its signals would otherwise have no matrix until the next
+      // frame happened to arrive. It also means the whole pick path can be
+      // exercised in jsdom by calling `render` with a matrix and no renderer,
+      // which is where `signalLayer.test.ts` gets its end-to-end pick from.
+      //
       // MapLibre hands over the matrix that takes mercator world space to clip
       // space; the anchor transform takes metres to mercator. Composed, they
       // take the scene straight to the screen, so the Three camera needs no
@@ -319,6 +449,11 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       camera.projectionMatrix = new Matrix4()
         .fromArray(args.defaultProjectionData.mainMatrix as unknown as number[])
         .multiply(transform);
+      // Kept for picking, which must invert *this* matrix rather than build a
+      // second one from the map's pose — see the head of `pick.ts`.
+      projection = camera.projectionMatrix;
+
+      if (!renderer || mesh.count === 0) return;
 
       // Three and MapLibre each cache what they believe the GL state to be, and
       // they are both wrong after the other has drawn. This is the line whose
@@ -346,9 +481,13 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       material.dispose();
       mesh.dispose();
       labels.dispose();
+      reticle.dispose();
       renderer = null;
       map = null;
       columns = [];
+      placements = [];
+      selected = null;
+      projection = null;
     },
   };
 

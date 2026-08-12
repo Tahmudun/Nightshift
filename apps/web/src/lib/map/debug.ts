@@ -52,6 +52,15 @@ export interface DebugMap extends CameraMap {
   ): readonly unknown[];
   isMoving(): boolean;
   isStyleLoaded(): boolean;
+  /**
+   * The canvas, for its CSS size.
+   *
+   * Picking is in canvas pixels, and the suite has to hand `pick` the same
+   * viewport the product does — reading it from `window.innerWidth` instead
+   * would be a second definition that is right until something puts a border
+   * on the container.
+   */
+  getCanvas(): HTMLCanvasElement;
 }
 
 export interface CityDebugHandle {

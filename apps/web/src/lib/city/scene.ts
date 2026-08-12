@@ -63,11 +63,26 @@ interface CityScene {
    * when the controls moved into the rail.
    */
   readonly mapReady: boolean;
+  /**
+   * The selected role's `job_id`, or null.
+   *
+   * **One piece of state shared by the map and the list**, which is §5.6's
+   * rule stated as a field: "selection is one piece of state shared by both."
+   * The alternative — a highlight in the renderer and a highlighted row in the
+   * roster, each holding its own copy — is precisely the way a list and a map
+   * come to disagree, and §5.6 makes "they cannot disagree" an M4c acceptance
+   * criterion rather than a nicety.
+   *
+   * The URL is kept in step with this by `CityDetail`, in one place, rather
+   * than by every control that can change a selection.
+   */
+  readonly selected: string | null;
   setSignals(signals: readonly CitySignal[]): void;
   setUnavailable(detail: string): void;
   setSort(sort: FieldSort): void;
   setCamera(camera: CameraController | null): void;
   setMapReady(ready: boolean): void;
+  select(jobId: string | null): void;
   reset(): void;
 }
 
@@ -77,16 +92,23 @@ export const useCityScene = create<CityScene>((set) => ({
   sort: 'company',
   camera: null,
   mapReady: false,
+  selected: null,
   setSignals: (signals) => set({ signals, status: { kind: 'ready' } }),
   setUnavailable: (detail) => set({ signals: [], status: { kind: 'unavailable', detail } }),
   setSort: (sort) => set({ sort }),
   setCamera: (camera) => set({ camera }),
   setMapReady: (mapReady) => set({ mapReady }),
+  select: (selected) => set({ selected }),
   // Called when the map unmounts. A store that kept the last city would hand
   // the next map a frame of stale beacons before its own fetch resolved.
   //
   // The sort is deliberately *not* reset: it is a choice the person made, and
   // returning from a job's detail page to find the field reordered would be
   // the interface forgetting something they did on purpose.
+  //
+  // The selection is not reset either, and for a stronger reason than the
+  // sort: it lives in the URL. Clearing it here would make an unmount rewrite
+  // the address bar, so following a link to a role and then navigating back
+  // would land on a page whose `?job=` had been quietly deleted.
   reset: () => set({ signals: [], status: { kind: 'loading' }, camera: null, mapReady: false }),
 }));

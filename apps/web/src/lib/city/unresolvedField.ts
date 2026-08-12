@@ -98,8 +98,16 @@ export interface FieldPlacement {
 export interface FieldColumn {
   readonly companyId: string;
   readonly name: string;
-  /** How many unresolved roles are stacked here. */
-  readonly roles: number;
+  /**
+   * The roles stacked here, bottom to top, in the order the buffer draws them.
+   *
+   * Ids rather than a count, because the roster lists these roles by name and
+   * a list that re-derived its own order would be a second implementation of
+   * the sort — free to put a person's third row against the field's fourth
+   * beacon. The count is `jobIds.length`; there is deliberately no second
+   * field holding it.
+   */
+  readonly jobIds: readonly string[];
   /** East of the anchor. */
   readonly x: number;
   /** North of the anchor. */
@@ -208,7 +216,7 @@ export function arrangeUnresolved(
     columns.push({
       companyId,
       name: group.name,
-      roles: roles.length,
+      jobIds: roles.map((role) => role.job_id),
       x,
       y,
       labelAltitude: FIELD_BASE_ALTITUDE + (roles.length - 1) * ROLE_SPACING + LABEL_GAP,
