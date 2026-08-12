@@ -40,28 +40,64 @@
 
 ## Next exact action
 
-### M4c Task 1 is done. Next: Task 2 — Three.js in MapLibre's context.
+### M4c Tasks 1 and 2 are done. Next: Task 3 — the unresolved field as a *good* screen.
 
 **The remaining M4c tasks, in order.** `city.md` §7 asks for: Three.js in
 MapLibre's context; instanced beacons; the confidence treatments of §6; the
 unresolved layer as a real view; selection synced to the URL; list↔map sync; the
 in-interface legend.
 
-1. **Task 2 — one WebGL context.** A Three.js custom layer taking MapLibre's
-   projection matrix each frame, with the ADR §5.1 calls "the single most
-   consequential technical decision in M4". One geometry, N transforms; React
-   never drives the render loop; Zustand holds scene state and the loop reads it.
-2. **Task 3 — the unresolved layer as a good screen.** §4.8: untethered floating
-   signals, arranged by company then role family, never by a spatial guess. On
-   this corpus this is *the* view, not the fallback, and today it is the only one
-   with anything in it.
+1. ~~**Task 2 — one WebGL context.**~~ **Done.** See below.
+2. **Task 3 — the unresolved field as a good screen.** The grammar is built and
+   the *view* is not: no labels, so a column is an anonymous stack of diamonds
+   until you know what it is; no way to tell which employer is which; no way to
+   inspect a role. §4.8 asks for "a legible, navigable, sortable field of signals
+   in which a role can be inspected, saved and applied to exactly as it can from
+   a building", and that sentence is the task.
 3. **Task 4 — selection.** Picking, the URL, the detail panel, the keyboard path,
    list↔map sync. **Read the `queryRenderedFeatures` finding below before
-   writing this**; the obvious implementation answers zero.
+   writing this**; the obvious implementation answers zero. Note the beacons are
+   *not* MapLibre features at all — they are Three.js instances in a custom
+   layer, so `queryRenderedFeatures` cannot see them under any pose and picking
+   needs a raycast against the same matrix the layer draws with.
 4. **Task 5 — the §6 treatments and the in-interface legend.** PRODUCT-SPEC
    §4.3's last line is a deliverable: these meanings are documented in the
    interface, not only in `city.md`.
 5. **Task 6 — the acceptance walk in a browser, then the M4c review.**
+
+**Task 2, done: New York has signals on it.**
+`docs/reviews/milestone-4c-signals.png` is the screenshot — untethered cyan
+columns above the skyline, one column per employer, connected to nothing.
+`lib/city/signalLayer.ts` is a Three.js `CustomLayerInterface` sharing MapLibre's
+canvas, context and matrix; `lib/city/unresolvedField.ts` decides where each
+role goes; `lib/city/scene.ts` is the Zustand store the layer subscribes to
+outside React; `lib/city/mercator.ts` is the projection, written out rather than
+imported. ADR 0025 records the decision and both traps. 24 unit tests, 5 seeded
+browser tests, 1 more in the offline suite.
+
+**The trap worth knowing before Task 3.** MapLibre v5 hands the render method
+two 4×4 matrices, both of which typecheck and only one of which is in the space
+this scene is anchored in. Measured at the opening pose:
+
+| Argument | Anchor projects to |
+|---|---|
+| `defaultProjectionData.mainMatrix` | clip x ≈ 0, y = 0.41 — **centre frame** |
+| `modelViewProjectionMatrix` | clip x = **-3.02** — three screens off to the left |
+
+`modelViewProjectionMatrix` is the better-sounding name and the wrong one, and
+its failure is silent and total: every count right, the layer in the style, the
+buffer full, `drawn` reporting 31, five browser assertions green — and nothing
+whatsoever on the canvas. It reads as "the beacons are not drawing" and sends
+you to inspect the material. What settled it was a probe printing the clip
+coordinates from both matrices; two numbers ended it.
+
+**A second trap, and it is M4b's scar one floor down.** The layer first attached
+on `map.once('load')`, and `load` never fires here — it waits for every source in
+the viewport, and at 76° of pitch the viewport reaches past the edge of a
+city-sized archive. `CityMap` already carried that comment for its loading card;
+attaching the signal layer to the same event reproduced it, producing a map with
+a full instance buffer and no layer in its style. `styledata` is the event
+`addLayer` actually needs.
 
 **Task 1, done:** `services/api/nightshift/domain/placement.py` decides where a
 role is drawn; `GET /city/signals` serves it; `placementSchema` in the browser

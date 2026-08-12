@@ -1,16 +1,19 @@
 import Link from 'next/link';
 
 import { CityMap } from '@/components/CityMap';
+import { CitySignals } from '@/components/CitySignals';
 import { basemapManifest, buildingsManifest } from '@/lib/tiles';
 
 /**
- * The city, at M4b: New York with no jobs on it.
+ * The city, at M4c: New York with every open role floating above it.
  *
- * That is the milestone rather than a shortfall. `city.md` §7 puts the basemap
- * and the camera in M4b and the signal layer in M4c, because a renderer over
- * zero coordinates has nothing it is permitted to draw — invariant I1 — and
- * building it in the other order means writing the interesting half against
- * placeholder data and then rewriting it.
+ * Not one of them is on a building, and that is the milestone rather than a
+ * shortfall. `city.md` §4.1 measured that no ATS posting in this corpus names a
+ * street, so a role reaches a structure only by inheriting an office a human
+ * confirmed (§4.4, ADR 0024) — and `data/company-locations.yaml` is still
+ * blank, which is a correct answer. §4.8 designs this state as **the default
+ * view rather than the fallback**, and the field of untethered signals is what
+ * that looks like.
  *
  * The page says so on screen, in the same words. A map that looks finished and
  * is empty is indistinguishable from a map that is broken, and the person
@@ -34,9 +37,11 @@ export default function CityPage() {
       <section className={`absolute top-24 left-4 max-w-sm p-4 sm:left-6 ${PANEL}`}>
         <h1 className="text-[18px] font-medium tracking-tight text-paper">The city</h1>
         <p className="mt-1.5 text-[13px] leading-relaxed text-paper-dim">
-          New York, drawn from a tile archive on this machine. No network, no key, no tile server.{' '}
-          <span className="text-paper">There are no roles on it yet</span> — until a company address
-          has been confirmed, there is nothing this map is permitted to place on a building.
+          New York, drawn from a tile archive on this machine. No network, no key, no tile server.
+          The signals above the skyline are open roles,{' '}
+          <span className="text-paper">floating because nobody has said where they are</span> —
+          until a company address has been confirmed, there is nothing this map is permitted to
+          place on a building.
         </p>
         <Link
           href="/explore"
@@ -45,6 +50,11 @@ export default function CityPage() {
           Back to the list
         </Link>
       </section>
+
+      {/* Bottom right. What the field above the skyline actually contains, and
+          why none of it is on a building. Fetches into the scene store; the
+          renderer reads that store outside React. */}
+      <CitySignals />
 
       {/* Bottom left, out of the way of the attribution control. Provenance:
           how old the world in these tiles is, and who it belongs to. */}

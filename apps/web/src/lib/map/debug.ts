@@ -26,6 +26,7 @@
  * so rather than silently testing nothing.
  */
 
+import type { SignalLayer } from '@/lib/city/signalLayer';
 import type { CameraController, CameraMap } from '@/lib/map/camera';
 
 /**
@@ -56,6 +57,12 @@ export interface DebugMap extends CameraMap {
 export interface CityDebugHandle {
   readonly map: DebugMap;
   readonly camera: CameraController;
+  /**
+   * The signal layer, for the one question the DOM cannot answer: how many
+   * beacons are actually in the instance buffer. A count in the overlay would
+   * prove the *fetch* worked; this proves the renderer received them.
+   */
+  readonly signals: SignalLayer;
 }
 
 /** The one global this project defines, and only outside production. */

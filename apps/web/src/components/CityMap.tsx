@@ -47,6 +47,8 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { CameraControls } from '@/components/CameraControls';
+import { useCityScene } from '@/lib/city/scene';
+import { createSignalLayer } from '@/lib/city/signalLayer';
 import { BASEMAP_URL, BUILDINGS_URL } from '@/lib/tiles';
 import type { CameraController } from '@/lib/map/camera';
 import { CAMERA_LIMITS, createCameraController, INITIAL_POSE } from '@/lib/map/camera';
@@ -128,6 +130,7 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
     let map: { remove: () => void } | null = null;
     let controller: CameraController | null = null;
     let uninstallDebug: (() => void) | null = null;
+    let unsubscribeScene: (() => void) | null = null;
 
     void (async () => {
       try {
@@ -252,21 +255,66 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
       canvas.setAttribute('role', 'application');
       canvas.setAttribute('aria-label', MAP_LABEL);
 
+      // The signal layer, and the seam that keeps React out of the render loop.
+      //
+      // It is added on `load` rather than now, because `addLayer` before the
+      // style has been applied throws — and it subscribes to the scene store
+      // **outside React**, so a fetch resolving updates an instance buffer
+      // rather than re-rendering the component that owns a WebGL context
+      // (`city.md` §5.5, `CLAUDE.md` §8).
+      const layer = createSignalLayer({ anchor: INITIAL_POSE.center });
+      let attached = false;
+      const attachSignals = () => {
+        if (cancelled || attached) return;
+        // `addLayer` throws if the style has not been applied yet, and there is
+        // exactly one honest signal for that.
+        //
+        // **Not `load`, and not `isStyleLoaded()`.** Both wait for every source
+        // in the viewport to finish loading, and this viewport reaches past the
+        // edge of a city-sized archive: at 76° of pitch you are looking at New
+        // Jersey, where New York's archive has no tiles, so the source never
+        // reports itself loaded. The card above already carries this scar —
+        // `load` was observed never firing — and attaching the signal layer to
+        // it reproduced the bug one floor down: a map with beacons in its buffer
+        // and no layer in its style, which draws nothing and reports no error.
+        // Caught by a seeded browser test asking `getLayer` for it.
+        //
+        // `styledata` fires when the style itself is applied, which is the thing
+        // `addLayer` actually requires. It fires more than once — the buildings
+        // TileJSON resolves seconds after the basemap's — hence the guard.
+        attached = true;
+        created.addLayer(layer);
+        layer.setSignals(useCityScene.getState().signals);
+        unsubscribeScene = useCityScene.subscribe((state, previous) => {
+          if (state.signals !== previous.signals) layer.setSignals(state.signals);
+        });
+      };
+      if (created.isStyleLoaded()) attachSignals();
+      else created.on('styledata', attachSignals);
+
       // Outside production only, and compiled out inside it — see `map/debug`.
       // The acceptance suite reads the camera from here because the pose lives
       // in a WebGL transform and nothing mirrors it into the DOM.
       uninstallDebug = installCityDebug({
         map: created as unknown as DebugMap,
         camera: controller,
+        signals: layer,
       });
     }
 
     return () => {
       cancelled = true;
+      unsubscribeScene?.();
       uninstallDebug?.();
       controller?.destroy();
       setCamera(null);
+      // `map.remove()` calls `onRemove` on every layer, which is where the
+      // signal layer disposes its geometry, its material and its mesh. A
+      // teardown that skipped it would leak GPU memory past the page's own.
       map?.remove();
+      // A store that kept the last city would hand the next map a frame of
+      // stale beacons before its own fetch resolved.
+      useCityScene.getState().reset();
     };
   }, []);
 
@@ -306,7 +354,10 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
           mind applied to a renderer: the absence of the archive is not evidence
           the buildings are not there. */}
       {status.kind === 'ready' && skyline !== null && (
-        <div className="absolute right-3 bottom-9 z-20 max-w-sm border border-ink-700 bg-ink-950/90 p-3 backdrop-blur-sm">
+        // Above the signals readout rather than beside it: both are bottom-right
+        // and at the same offset they overlapped, hiding whichever rendered
+        // first.
+        <div className="absolute top-24 right-4 z-20 max-w-sm border border-ink-700 bg-ink-950/90 p-3 backdrop-blur-sm">
           <h2 className="font-mono text-[10px] tracking-[0.16em] text-gold-400 uppercase">
             No skyline
           </h2>

@@ -198,11 +198,27 @@ test.describe('the city renders', () => {
     expect(Buffer.compare(before, after)).not.toBe(0);
   });
 
-  test('says on screen that there are no roles on it yet', async ({ page }) => {
+  test('an empty sky with no API says it is a missing connection, not an empty market', async ({
+    page,
+  }) => {
     await openCity(page);
-    // M4b's fourth line: no job data. The page has to say so, because a finished
-    // -looking empty map is indistinguishable from a broken one.
-    await expect(page.getByText('There are no roles on it yet')).toBeVisible();
+
+    // This suite runs with no API behind it, so the signal layer receives
+    // nothing. I3's habit of mind applied to a renderer: an unreachable source
+    // is not evidence that nobody is hiring, and a sky with no beacons and no
+    // explanation says exactly that.
+    await expect(page.getByText('No roles on the city')).toBeVisible();
+    await expect(
+      page.getByText('An empty sky here is a missing connection, not an empty market.'),
+    ).toBeVisible();
+
+    // And the map is still a map. The city does not need the API.
+    expect(
+      await page.evaluate(
+        (key) => window[key as typeof CITY_DEBUG_KEY]!.signals.drawn,
+        CITY_DEBUG_KEY,
+      ),
+    ).toBe(0);
   });
 });
 
