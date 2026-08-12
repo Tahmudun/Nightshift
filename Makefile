@@ -28,7 +28,7 @@ LOADENV := set -a && source .env && set +a
         test-e2e check fmt lint typecheck reset-db ingest logs ps clean doctor \
         verify acceptance test-e2e-seeded browsers drift constraints \
         discover registry-validate registry-approve registry-approve-write coverage \
-        worksheets score
+        worksheets score tiles tiles-strict
 
 help: ## Show available targets
 	@echo "Nightshift — make targets"
@@ -58,7 +58,7 @@ $(WEB_DIR)/node_modules/.installed: $(WEB_DIR)/package.json
 	@cd $(WEB_DIR) && npm install --silent --no-audit --no-fund
 	@touch $@
 
-setup: .env $(VENV)/.installed $(WEB_DIR)/node_modules/.installed model ## Install JS + Python deps, fetch the embedding model, create .env
+setup: .env $(VENV)/.installed $(WEB_DIR)/node_modules/.installed model tiles ## Install JS + Python deps, fetch the embedding model and map tiles, create .env
 	@echo "==> setup complete. next: make demo"
 
 # ~130 MB, downloaded once (AMENDMENTS A5). Kept inside `setup` rather than in
@@ -69,6 +69,22 @@ model: $(VENV)/.installed ## Download the local embedding model
 	from nightshift.domain.embeddings import FastEmbedEmbedder, cache_dir, real_model_available; \
 	print('==> embedding model already present at', cache_dir()) if real_model_available() else \
 	(FastEmbedEmbedder().embed(['warm the cache']), print('==> embedding model ready at', cache_dir()))"
+
+# Two archives, ~190 MB together, downloaded once for the same reason as the
+# model: `make demo` renders the city with no network at all (city.md §5.2,
+# ADR 0022). The basemap is streets and water; the second is New York's own
+# measured building heights. Re-running is cheap and makes no request — a cached
+# file that matches its pinned digest is left alone.
+tiles: $(VENV)/.installed ## Download the pinned map tile archives
+	@$(PY) scripts/fetch_tiles.py
+
+# What CI runs. The difference is what happens to an archive that cannot be
+# fetched: `tiles` skips an optional one so that a clean clone can still be set
+# up in the window between a bake and the release it is pinned to, and this
+# refuses to. Leniency is for a developer's machine; the check that is supposed
+# to notice an unpublished pin is not the place for it.
+tiles-strict: $(VENV)/.installed ## Download the tile archives, failing if any is unpublished
+	@$(PY) scripts/fetch_tiles.py --strict
 
 doctor: ## Check that required tooling is present
 	@$(PYTHON) scripts/doctor.py
@@ -186,11 +202,20 @@ verify: setup ## Assert the stack actually works, and exit with a status code
 #
 # `verify` covers the API and the database; `test-e2e-seeded` covers the one
 # criterion neither can reach — that the jobs actually render in a browser.
-acceptance: ## up && migrate && drift && seed && verify && seeded e2e — the acceptance run
+#
+# `test-e2e` is in here for M4b, whose criteria are about a renderer: New York
+# draws dark, extruded and offline; every gesture works; every animation can be
+# interrupted. None of those is reachable from Python, and `make demo` — the
+# command the criterion names — ends in a foreground server with no exit code.
+# It runs *before* the API starts, which is not an ordering accident: that suite
+# asserts both that the shell says "api unreachable" and that the city needs no
+# API at all, and a running API turns both into passes for the wrong reason.
+acceptance: ## up && migrate && drift && seed && offline e2e && verify && seeded e2e
 	@$(MAKE) up
 	@$(MAKE) migrate
 	@$(MAKE) drift
 	@$(MAKE) seed
+	@$(MAKE) test-e2e
 	@$(MAKE) verify
 	@$(MAKE) test-e2e-seeded
 

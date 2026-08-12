@@ -135,6 +135,22 @@ jobs:
       - name: Fetch the embedding model
         run: make model
 
+      - name: Cache the map tiles
+        # ~91 MB of NYC vector tiles (ADR 0022), cached for the same reason as
+        # the model above: without it,
+        # test_the_downloaded_artifact_matches_the_manifest *skips*, and the one
+        # end-to-end claim this pipeline makes — that the pinned digest matches
+        # what the release actually serves — never gets checked anywhere.
+        # The key carries the digest, so re-baking invalidates the cache rather
+        # than serving the previous map forever.
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/nightshift/basemap
+          key: tiles-${{ hashFiles('data/basemap.manifest.json', 'data/buildings.manifest.json') }}
+
+      - name: Fetch the map tiles
+        run: make tiles-strict
+
       - name: Unit tests
         # Coverage is measured and reported from M0 but does not gate until M3.
         # The database-backed tests truncate-and-rollback their own tables (see
@@ -285,9 +301,14 @@ jobs:
         working-directory: services/api
 
   e2e:
-    name: e2e — degraded shell and seeded corpus
+    name: e2e — degraded shell, the city, and the seeded corpus
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Raised from 15 with the city suite. Nineteen of its tests drive a real
+    # MapLibre in a browser with no GPU — every frame is ANGLE on the CPU — and
+    # the whole no-API suite costs about two and a half minutes locally, on the
+    # two workers `playwright.config.ts` now caps it to. This is the headroom for
+    # a slower runner, not a budget.
+    timeout-minutes: 25
     # A14's scope list does not mention e2e, and it was deliberately deferred.
     # It comes back in because the seeded suite is now the only automated proof
     # of M0 acceptance criterion 5 — that a real board's jobs reach a browser.
@@ -356,6 +377,30 @@ jobs:
         run: npx playwright install --with-deps chromium
         working-directory: apps/web
 
+      - name: Cache the map tiles
+        # The city suite in `e2e/city.spec.ts` draws New York from these two
+        # archives, and there is no honest way for it to run without them: with
+        # the tile route answering 503 the page shows its "cannot be drawn" card,
+        # which is correct behaviour and proves nothing about M4b. The
+        # alternative — skipping when the archives are absent — is the failure
+        # this pipeline already learned once, where a suite went green having
+        # checked nothing. Same key as the api job, so one download serves both.
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/nightshift/basemap
+          key: tiles-${{ hashFiles('data/basemap.manifest.json', 'data/buildings.manifest.json') }}
+
+      - name: Fetch the map tiles
+        # The script rather than `make tiles-strict`, which is what the api job
+        # runs: that target depends on the virtualenv, and this job installs its
+        # Python deps into the runner's interpreter instead — going through make
+        # would build a second, redundant environment to perform one download.
+        # `--strict` for the reason CI always uses it: a pin that resolves to
+        # nothing must fail here rather than degrade into a city with no
+        # skyline, which is a legitimate state for a developer's clone and a
+        # silent pass for this suite.
+        run: python scripts/fetch_tiles.py --strict
+
       - name: Create extensions
         run: |
           PGPASSWORD=$POSTGRES_PASSWORD psql -h localhost -U nightshift -d nightshift \
@@ -369,10 +414,13 @@ jobs:
         run: python -m nightshift.cli seed
         working-directory: services/api
 
-      - name: Degraded shell e2e
+      - name: Degraded shell and city e2e
         # Must run before the API starts: this suite asserts the app says
         # "api unreachable" rather than showing an ambiguous empty state, so a
-        # running API would make it pass for the wrong reason.
+        # running API would make it pass for the wrong reason. The city belongs
+        # in the same suite for the same reason inverted — `city.spec.ts` claims
+        # New York draws with no API and no network behind it, and the way to
+        # keep that claim honest is to run it where there is none.
         run: npm run test:e2e
         working-directory: apps/web
 

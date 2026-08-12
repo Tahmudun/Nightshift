@@ -50,6 +50,7 @@ from nightshift.db.base import (
     TransitionClass,
     WorkAuthorization,
 )
+from nightshift.domain.placement import PlacementKind
 from nightshift.domain.queue import QueueSectionKey
 
 
@@ -1190,3 +1191,115 @@ class ConfirmationOut(BaseModel):
     skills_added: int
     projects_added: int
     profile_fields_set: list[str]
+
+
+# ---------------------------------------------------------------------------
+# The city (M4c)
+# ---------------------------------------------------------------------------
+
+
+class PlacementOut(BaseModel):
+    """Where one role is drawn, and why it is drawn there.
+
+    I1 with its teeth showing. ``kind`` is the only thing the renderer is
+    allowed to branch on, and there is no shape it can produce from a
+    coordinate alone: an ``unresolved`` placement has no coordinates at all, and
+    a ``building`` cannot exist below ``verified``.
+
+    ``inherited`` is the field that keeps two different sentences apart, and it
+    is the reason this schema is not just a lat/lng pair. ``location_confidence``
+    describes the *coordinate* — an office resolved from a confirmed street
+    address really is verified. It says nothing about the claim that this role
+    sits at it. When ``inherited`` is true the honest sentence is "this posting
+    named no address; its employer's confirmed office is here", and ``stated``
+    carries what the posting did say so the panel can show both.
+    """
+
+    kind: PlacementKind
+    latitude: float | None
+    longitude: float | None
+    building_id: str | None = Field(
+        description="NYC Building Identification Number, when the office carried one"
+    )
+    location_confidence: LocationConfidence
+    resolution_method: ResolutionMethod
+    stated: str | None = Field(description="What the posting itself said about where it is")
+    inherited: bool
+    office_label: str | None
+    office_address: str | None
+
+
+class CitySignalOut(BaseModel):
+    """One role on the map: enough to draw it, name it and open it.
+
+    Deliberately not :class:`JobSummaryOut`. The map asks for thousands of these
+    at once and needs none of the salary or the location list; sending them
+    would multiply the payload for fields no beacon reads. The detail panel
+    fetches the full job by id, the way the list view already does.
+
+    ``first_seen_at`` is the one source timestamp that survived that cut, and it
+    is here because `city.md` §4.8 asks for a field that is **sortable**. Every
+    other ordering the field offers can be derived from what is already on this
+    model; "newest first" cannot, and on a corpus where every role floats it is
+    the ordering a person actually wants. Sending it costs one timestamp per
+    role and saves the alternative, which is a second round trip per column.
+    """
+
+    job_id: UUID
+    title: str
+    company_id: UUID
+    company_name: str
+    employment_type: EmploymentType
+    remote_policy: RemotePolicy
+    status: JobStatus
+    #: When ingestion first saw this role — *not* when the employer posted it.
+    #: No ATS in this corpus publishes a reliable posting date, and naming this
+    #: field ``posted_at`` would turn "we noticed this on Tuesday" into "this
+    #: was posted on Tuesday", which is a claim nobody measured.
+    first_seen_at: datetime
+    #: When ingestion last found this role listed on its employer's board.
+    #: `city.md` §6 dims a stale or unverified role and requires the panel to say
+    #: *how* stale — "reduced opacity + an explicit 'last verified N days ago'",
+    #: because a dimmed thing with no explanation reads as a rendering fault.
+    last_seen_at: datetime
+    #: The stronger observation, and a different one:
+    #: ``source_job_records.last_verified_at`` means "we refetched its content
+    #: and read it", against ``last_seen_at``'s "the board listed it". Under ADR
+    #: 0007's phase-2 polling an unchanged posting is deliberately never
+    #: refetched, so these two dates diverge by design and a role can be listed
+    #: daily while its text was last read months ago. Kept apart rather than
+    #: collapsed, so the panel can say which of the two it is showing instead of
+    #: promoting the weaker one by giving it the stronger one's name. ``None``
+    #: when no record behind this role has ever been read; a role merged from
+    #: several boards carries the most recent of its records'.
+    last_verified_at: datetime | None
+    #: Gold in §6 is "exceptional match **or urgent deadline**", and this is the
+    #: second half. Almost always ``None`` — few ATS postings publish a closing
+    #: date — which is why the legend counts how many roles actually carry one
+    #: rather than implying the treatment is live.
+    application_deadline: datetime | None
+    placement: PlacementOut
+
+
+class PlacementCounts(BaseModel):
+    """The honest coverage readout, per §4.7, in the payload that draws the map.
+
+    On this corpus ``unresolved`` is expected to be the total and the other two
+    zero, and that is the milestone rather than a shortfall — no ATS posting
+    names a street (§4.1). A client that wants to say "247 roles, none of them
+    placeable" has the numbers to say it without counting the array itself.
+    """
+
+    building: int = 0
+    area: int = 0
+    unresolved: int = 0
+    total: int = 0
+
+
+class CitySignalsOut(BaseModel):
+    signals: list[CitySignalOut]
+    counts: PlacementCounts
+    limit: int
+    truncated: bool = Field(
+        description="True when more roles matched than were returned. The map says so on screen."
+    )

@@ -86,6 +86,17 @@ between the viewer and the far buildings, never in front of the near ones.
 
 ### 2.2 What to refuse
 
+> **SUPERSEDED by ADR 0023 on 2026-08-12.** The paragraph below was built
+> faithfully in M4b and the result was a city nobody wanted to look at. The
+> ratio is what broke it: tens of thousands of footprints render, and tens will
+> ever be hiring, so a *brightness* difference cannot carry the signal either
+> way round. **The city is now lit, and hiring is carried by a beam** — a column
+> of light off the roof, vertical where the city is horizontal, and moving. That
+> reads at any background brightness because it differs in shape rather than in
+> level. What the paragraph got right is kept and enforced by tests: a job is
+> still the brightest thing on the map, and `dusk-*` still never touches a mark.
+> Read ADR 0023 before changing either.
+
 **Every building glows.** In all four images the whole skyline is lit. That is the
 one thing this city may never do, and not for taste reasons: §9.2 says *"most of the
 city should remain dark so active data can breathe"*, and if every building is lit
@@ -156,6 +167,16 @@ Every `dusk-*` value is added with its assertion in `colour-contrast.test.ts` pe
 `CLAUDE.md` §7 — for `dusk-*` the assertion is the inverse of the usual one: it
 proves the token is **never** used as a text or accent colour, because a token that
 cannot clear AA must not be able to reach text.
+
+> **Amended by ADR 0023.** The ring-fence stands and is now what makes the whole
+> design work: a magenta *sky* is only compatible with magenta *meaning something*
+> because dusk can never reach a mark. What changed is how that is checked. The
+> first version enforced it with a proxy — every dusk shade below 3:1, too dark to
+> be text — and that proxy also kept the sky too dark to be a sky. It is replaced
+> by the two structural checks that test the actual rule (no source file uses a
+> `dusk-*` utility; no map layer paints with one), plus one number that matters:
+> every dusk shade stays under a third of `signal-400`'s luminance, so a job always
+> outshines the weather.
 
 ---
 
@@ -411,6 +432,27 @@ something honest (company, then role family), never by a spatial guess. The abse
 of a ground connection is the whole message, and it is the one piece of the visual
 language that is load-bearing for an invariant.
 
+> **Built in M4c Tasks 2 and 3, with two notes and one correction — see ADR 0026.**
+>
+> *"Legible" needed a name plate, and a name plate needed an atlas.* A column of
+> beacons is anonymous, so each employer's column carries its name in the scene.
+> Every name is painted into one 2048×2048 canvas texture and every plate samples
+> a rectangle of it, because a texture per employer is the one-object-per-job
+> anti-pattern at a different scale. That caps the field at 128 named columns;
+> past it a column is still drawn and still listed, and the interface says how
+> many have no plate rather than letting them look like a rendering failure.
+>
+> *"Sortable" is three orderings, not one.* Employer name, most openings, and
+> newest role. The last one needed `first_seen_at` on `CitySignalOut`; nothing
+> else on that model could produce it. Only `newest` reorders roles **within** a
+> column — the default stays alphabetical, because a stack that reshuffles when a
+> poll runs is a stack nobody can learn the shape of.
+>
+> *The correction: "company, then role family" is half-built.* The arrangement
+> groups by company and orders within a column by title. Role family is in the
+> database (M3b) and is not yet read here. It is not deferred to M5 — it is
+> simply not done, and it is the obvious next refinement of the layout.
+
 ---
 
 ## 5. M4b and M4c — how it is rendered
@@ -447,6 +489,15 @@ download is checksummed, its absence is a clear error message naming the command
 fix it rather than a broken map, and `docs/architecture/costs.md` gets its row: zero
 dollars, no key, one cached artifact.
 
+> **Built, with one correction — see ADR 0022.** The paragraph above says
+> "downloads it once" and leaves *from where* unstated, which turned out to be the
+> hard part. Protomaps keeps a dated daily planet build for **about a week**
+> (`20260804` was already a 404 on 2026-08-11), so extracting at setup time both
+> expires and, until it does, hands two clones two different maps — leaving nothing
+> to checksum. The extract is therefore baked once by a maintainer script, published
+> as a release asset on this repository, and pinned by digest in
+> `data/basemap.manifest.json`. Everything else in this section stands.
+
 ### 5.3 Buildings
 
 NYC Open Data Building Footprints, which carry per-building roof height and ground
@@ -459,6 +510,33 @@ A building's appearance is dark mass plus edge light, per §2.1. Height comes fr
 `heightroof`; a footprint missing a height gets a documented default and is recorded
 as having taken it, because a wrong building height is a small lie and this project
 does not keep a category of small lies.
+
+**Built in M4b Task 4, with three corrections to the paragraph above.**
+
+*PostGIS is not in the path.* The bake goes GeoJSON export → tippecanoe →
+pmtiles, as a maintainer script publishing a pinned artifact (ADR 0022). A
+database in the middle would be a second copy of a static file that changes
+quarterly, and nothing would ever query it.
+
+*Nothing is filtered to "the boroughs rendered".* All five are rendered, and the
+tempting economy — dropping `feature_code` 5110, 213,470 garages and sheds
+averaging eleven feet — was declined. Excluding a fifth of the city's structures
+to save download is an editorial claim about what counts as a building;
+tippecanoe already drops them at the zooms where they would be noise. The one
+exclusion is the fourteen structures the city records as demolished, because
+those are not there.
+
+*"Dark mass plus edge light" is now ADR 0023's lit city*, and MapLibre has no
+outline for an extrusion — a line layer on the same footprints draws on the
+ground, underneath the building. The read comes from
+`fill-extrusion-vertical-gradient` plus a height-driven colour ramp instead. The
+window speckle §2.1 also asks for needs a texture, a texture needs a sprite, and
+a sprite is a network call; it is deferred to the Three.js layer and listed under
+"Not real yet".
+
+The documented default is **25 ft**, chosen to be unremarkable rather than
+accurate: an average or an area-derived guess produces a plausible skyline out of
+data nobody measured. 732 of 1,083,024 structures take it.
 
 ### 5.4 The camera
 
@@ -531,6 +609,63 @@ Two standing rules apply to every row. Colour never carries a meaning alone (§1
 deliverable, not a note: these meanings are documented **in the interface**, on a
 legend the user can open, not only in this file.
 
+**One mark on the city is deliberately *not* in this table, and it arrived in
+M4c Task 4: the selection reticle** (ADR 0027). Every row above encodes a state
+of a *role*; selection encodes a state of the *interface* — which role the
+detail panel is currently describing — so it is drawn as a different kind of
+thing, a white ring in the air around the beacon rather than a treatment of the
+beacon's body. It matters here because §6's white is already spent on *saved*,
+as a thin outline on that body. The two must stay distinguishable at a glance
+when Task 5 draws this table; if they do not, the reticle changes shape. This
+table is the spec and the reticle is not.
+
+**Resolved in Task 5 (ADR 0028): both keep their colour, because they turned out
+to be distinguishable by kind.** The saved outline is a wireframe on the beacon's
+own body at 46 m; the reticle is a camera-facing annulus in the air around it at
+62–78 m, touching nothing. The first draft changed the outline to cyan, which is
+the one resolution the paragraph above rules out.
+
+### 6.1 What is drawn, as of M4c Task 5
+
+This table is the language. Nine of its rows are spoken on the city today; four
+are not, each for a reason that is a fact rather than a shortfall. **The
+in-interface legend lists all thirteen**, with the reasons — a legend showing
+only the live rows would document the renderer rather than the language, and
+would shrink every time something was deferred.
+
+| Row | State |
+|---|---|
+| New internship / new role | Drawn. Cyan pulse, rapid and slow, plus a size that survives `prefers-reduced-motion` |
+| Saved | Drawn. White wireframe outline on the body |
+| Applied | Drawn, **translated**: nothing here stands on a building, so the beacon's own body fills — a core at three-quarters of its radius, at full strength |
+| Assessment / interview | Drawn. A turning **arc** — a closed ring is symmetric about its own axis and its rotation is invisible by construction |
+| Exceptional match | Drawn. Gold vertical beam, and only for `eligible` with a non-null fraction (I2, `matching.md` §5.2) |
+| Offer | Drawn. Soft `verdant-400` core |
+| Stale / unverified | Drawn. Reduced opacity, with the panel naming both dates — "the board listed it" and "we read its text" are different observations under ADR 0007 |
+| Rejection | Drawn, hidden by default, with the toggle in the legend |
+| City-only / unresolved | Drawn. The default view (§4.8) |
+| Urgent deadline | Drawn, unexercised: no posting in this corpus carries `application_deadline`. The legend counts it rather than implying it is live |
+| Approximate location | **Not drawn.** No role resolves to an area — it takes a confirmed office at approximate confidence, and there are none |
+| Closed | **Not drawn.** An afterimage belongs to the session that watched a role close, and closed listings are absent from a cold load by design |
+
+**Two placement kinds have no renderer at all, and the page says so.** The field
+draws the unresolved layer; a role that reaches a `building` or an `area` is
+counted in the census panel and drawn nowhere. That is 0 of the corpus today —
+`data/company-locations.yaml` is blank — and it stops being 0 the first time an
+address is confirmed, at which point the count on the panel would be describing
+roles nobody can see. The panel names them instead: *"n of these are not drawn on
+this map yet… missing from the sky, not from the corpus"*. The renderer's own
+building and area treatments are M4d/M5 work and arrive with the first confirmed
+address; **the sentence arrives now**, because the count already exists. Found by
+the M4c acceptance walk, which is the only thing that has ever executed that
+branch (`docs/reviews/milestone-4c-review.md` §3.1).
+
+**The gold beam floats, and that is an invariant rather than a style.** A
+vertical shaft long enough to reach the street would draw a line from an
+unresolved role to a building nobody confirmed — I1 broken by a decoration. It is
+460 m, centred on a field whose base is 700 m, asserted against that relationship
+rather than against the number.
+
 ---
 
 ## 7. The slice plan
@@ -568,6 +703,17 @@ in-interface legend.
 
 **Done when:** no placement is fabricated at any confidence, thousands of markers
 are not thousands of components, and the list and the map cannot disagree.
+
+**Done: 2026-08-12.** All three walked in a browser at the tip of
+`m4b-dark-city` — see `docs/PROGRESS.md` "M4c acceptance" and
+`docs/reviews/milestone-4c-review.md`. The first two needed a corpus this repo
+*chooses* rather than the one it has: 31 unresolved roles cannot falsify "no
+placement is fabricated", and 30 markers cannot falsify "not thousands of
+components". `apps/web/e2e/city-acceptance.spec.ts` serves that corpus against
+the real map. **One limit is recorded rather than fixed** — the field is legible
+at 31 roles and not at 5,000 — and it is deferred into M4d beside the adaptive
+quality tiers, which is where the frame-time numbers that should drive its fix
+come from.
 
 ### M4d — measured, accessible, shipped
 

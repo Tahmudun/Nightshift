@@ -28,6 +28,23 @@ export default function ExplorePage() {
 
       <section className="border border-ink-700 bg-ink-900/40 p-5">
         <h2 className="font-mono text-[10px] uppercase tracking-[0.16em] text-paper-faint">
+          The city
+        </h2>
+        <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-paper-dim">
+          New York, drawn offline from a tile archive on this machine. There are no roles on it yet
+          — the map is a second view of this list and it arrives one layer at a time, starting with
+          the ground.
+        </p>
+        <Link
+          href="/explore/city"
+          className="mt-3 inline-block border border-ink-700 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-signal-400 hover:border-signal-400"
+        >
+          Open the city
+        </Link>
+      </section>
+
+      <section className="border border-ink-700 bg-ink-900/40 p-5">
+        <h2 className="font-mono text-[10px] uppercase tracking-[0.16em] text-paper-faint">
           Ranked for you
         </h2>
         <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-paper-dim">

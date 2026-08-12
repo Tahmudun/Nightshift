@@ -34,6 +34,15 @@
      such as a status dot. Text stops at paper-faint. See colour-contrast.test.ts. */
   --color-ink-400: #4d5f83;
 
+  /* The top of the building height ramp, and the brightest shade in the ink
+     family. It exists because ADR 0023 lit the city: the old rule was "nothing
+     on the map is brighter than ink-400", and the rule that replaced it is that
+     scenery stays a stated distance below signal-400 — 41.3 L* here, against a
+     bound of 40. Surfaces only, like the rest of the family; 3.66:1 on ink-950,
+     which is a non-text indicator and not a text colour. Only the tallest
+     towers reach it. See darkStyle.ts HEIGHT_STOPS. */
+  --color-ink-450: #56698f;
+
   /* Cyan / electric blue: the signal. */
   --color-signal-400: #5ce8ff;
   --color-signal-500: #29d3f5;
@@ -47,6 +56,37 @@
 
   /* Sparse gold — urgency only. Unused in M0; nothing is urgent yet. */
   --color-gold-400: #ffcf5c;
+
+  /* Green, and it means exactly one thing: an offer (city.md §6). It arrived in
+     M4c with the §6 treatments and it is the rarest colour in the product — at
+     most a handful of roles will ever carry it, and a green that shows up
+     anywhere else would spend that. Never a success toast, never a healthy
+     status dot; `signal-400` is what says "this is working". */
+  --color-verdant-400: #5cf0a8;
+
+  /* Atmosphere, and nothing else. city.md §3, ADR 0023.
+   *
+   * The reference images for the city are violet: sky, haze, horizon glow. The
+   * rule above says magenta is never decorative, and those images use magenta
+   * decoratively as half the light in frame. Taken literally they would require
+   * magenta to mean nothing, costing the product four milestones of established
+   * encoding.
+   *
+   * The resolution is that the purple lives in the air, not on the objects. A
+   * dusk shade may be the sky, the fog, the haze behind the skyline. It may
+   * never be a data mark, a building, a selection state, or text.
+   *
+   * These started far darker, and the first version of the city was the poorer
+   * for it — an unlit ground plane under a sky nobody could see. What actually
+   * protects the encoding is that dusk never touches a *mark*, which
+   * colour-contrast.test.ts enforces by reading the source, and darkStyle.test.ts
+   * by reading every layer. Given those, the sky is free to be a sky. The one
+   * numeric bound left is the one that matters: atmosphere stays clear of the
+   * signal family, so a job always outshines the weather. */
+  --color-dusk-900: #180d33;
+  --color-dusk-700: #2d1263;
+  --color-dusk-500: #5a1d94;
+  --color-dusk-300: #a63398;
 
   /* Thin white highlights. Exactly three text weights, and every one of them is
      readable: 17.7:1, 8.1:1, 5.4:1 against ink-950. paper-faint was #5d6e88
@@ -67,6 +107,30 @@
     ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
 
   --radius-sharp: 2px;
+}
+
+/* Immersive routes — the city, and whatever else earns it later.
+ *
+ * The root layout gives every page a centred column, vertical padding and a
+ * footer, which is right for a document and wrong for a full-screen map: the
+ * map is fixed to the viewport, so that padding and footer become a dead strip
+ * you can scroll to below the city.
+ *
+ * A layout cannot know its own route, and moving fourteen pages into a route
+ * group to express "this one page is different" would be a large diff for a
+ * small fact. So the page sets `data-immersive` on <html> while it is mounted
+ * (see CityMap) and these three rules stand the shell down. Keeping them here,
+ * next to the shell they modify, is what stops this being a trick nobody can
+ * find later. */
+:root[data-immersive] body {
+  overflow: hidden;
+}
+:root[data-immersive] main {
+  padding: 0;
+  max-width: none;
+}
+:root[data-immersive] footer {
+  display: none;
 }
 
 /* Tailwind v4's reset does not include a base background/colour. */

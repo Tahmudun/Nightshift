@@ -26,6 +26,11 @@ export const resolutionMethodSchema = z.enum([
   'nominatim',
   'neighborhood_centroid',
   'manual',
+  // A role standing at its employer's confirmed office because it named no
+  // address of its own — `city.md` §4.4, ADR 0024. Added to the Python enum in
+  // M4a and missing here until M4c, which `test_enum_parity.py` did not catch
+  // because this enum was not in its list. It is now.
+  'company_office',
 ]);
 
 export const jobStatusSchema = z.enum(['open', 'possibly_stale', 'unverified', 'closed']);
@@ -39,8 +44,10 @@ export const employmentTypeSchema = z.enum([
   'temporary',
   'unknown',
 ]);
+export type EmploymentType = z.infer<typeof employmentTypeSchema>;
 
 export const remotePolicySchema = z.enum(['on_site', 'hybrid', 'remote', 'unknown']);
+export type RemotePolicy = z.infer<typeof remotePolicySchema>;
 
 export const jobLocationSchema = z
   .object({
@@ -1139,3 +1146,115 @@ export const confirmationSchema = z.object({
   profile_fields_set: z.string().array(),
 });
 export type Confirmation = z.infer<typeof confirmationSchema>;
+
+// ---------------------------------------------------------------------------
+// The city (M4c)
+// ---------------------------------------------------------------------------
+
+/**
+ * The three spatial treatments of `city.md` §6, and the only thing the renderer
+ * branches on. A value not in this list is a beacon that does not draw, which
+ * is why it is guarded by `test_enum_parity.py` like a database enum.
+ */
+export const placementKindSchema = z.enum(['building', 'area', 'unresolved']);
+export type PlacementKind = z.infer<typeof placementKindSchema>;
+
+export const placementSchema = z
+  .object({
+    kind: placementKindSchema,
+    latitude: z.number().nullable(),
+    longitude: z.number().nullable(),
+    building_id: z.string().nullable(),
+    location_confidence: locationConfidenceSchema,
+    resolution_method: resolutionMethodSchema,
+    stated: z.string().nullable(),
+    inherited: z.boolean(),
+    office_label: z.string().nullable(),
+    office_address: z.string().nullable(),
+  })
+  .superRefine((placement, ctx) => {
+    // I1 again, and deliberately a second copy rather than a shared helper.
+    // The API enforces this in `Placement.__post_init__` and the database
+    // enforces the half of it that is storable; this is the browser refusing
+    // to draw a beacon whose position its own precision claim cannot support.
+    // Three checks, matching the API's three.
+    const hasPoint = placement.latitude !== null && placement.longitude !== null;
+
+    if (placement.kind === 'unresolved') {
+      if (hasPoint || placement.building_id !== null) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'an unresolved placement carried a position — refusing to draw it (I1)',
+        });
+      }
+      return;
+    }
+
+    if (!hasPoint) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `a ${placement.kind} placement arrived without coordinates (I1)`,
+      });
+    }
+
+    if (placement.kind === 'building' && placement.location_confidence !== 'verified') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          `a building placement claimed confidence "${placement.location_confidence}" — ` +
+          'only a verified coordinate may stand on a structure (I1)',
+      });
+    }
+
+    if (placement.kind === 'area' && placement.building_id !== null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'an approximate placement named a building — a BIN is not a promotion (I1)',
+      });
+    }
+  });
+export type Placement = z.infer<typeof placementSchema>;
+
+export const citySignalSchema = z.object({
+  job_id: z.string().uuid(),
+  title: z.string(),
+  company_id: z.string().uuid(),
+  company_name: z.string(),
+  employment_type: employmentTypeSchema,
+  remote_policy: remotePolicySchema,
+  status: jobStatusSchema,
+  // When ingestion first saw the role, not when it was posted — see
+  // `CitySignalOut`. It is here so the field can be ordered by recency, which
+  // §4.8's "sortable" needs and nothing else on this model can produce.
+  first_seen_at: z.string().datetime({ offset: true }),
+  /**
+   * The two observations §6 keeps apart, and the reason the stale treatment can
+   * say more than "dim".
+   *
+   * `last_seen_at` is "the board listed it"; `last_verified_at` is the stronger
+   * "we refetched its content and read it", and is null when no source record
+   * behind this role has ever been read. ADR 0007's phase-2 polling never
+   * refetches an unchanged posting, so the two diverge by design — a role can
+   * be listed daily while its text was last read months ago. Collapsing them
+   * into one date would let the panel print "verified" about the weaker fact.
+   */
+  last_seen_at: z.string().datetime({ offset: true }),
+  last_verified_at: z.string().datetime({ offset: true }).nullable(),
+  /** The second half of §6's gold. Null on almost every posting. */
+  application_deadline: z.string().datetime({ offset: true }).nullable(),
+  placement: placementSchema,
+});
+export type CitySignal = z.infer<typeof citySignalSchema>;
+
+export const citySignalsSchema = z.object({
+  signals: citySignalSchema.array(),
+  counts: z.object({
+    building: z.number(),
+    area: z.number(),
+    unresolved: z.number(),
+    total: z.number(),
+  }),
+  limit: z.number(),
+  truncated: z.boolean(),
+});
+export type CitySignals = z.infer<typeof citySignalsSchema>;

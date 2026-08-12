@@ -60,8 +60,12 @@ export default function RootLayout({ children }: { readonly children: React.Reac
           </main>
 
           <footer className="mx-auto max-w-6xl border-t border-ink-800 px-5 py-6">
-            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-paper-faint">
-              Milestone 0 · ingestion spine · no map yet
+            {/* Says where the product actually is. It read "milestone 0 ·
+             * ingestion spine · no map yet" until M4b put a map on the screen,
+             * which is the seventh time in this project a description has
+             * outlived the thing it described. */}
+            <p className="font-mono text-[10px] tracking-[0.14em] text-paper-faint uppercase">
+              Milestone 4 · the living city · basemap up, no roles on it yet
             </p>
           </footer>
         </Providers>

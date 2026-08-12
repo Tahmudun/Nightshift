@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   applicationEventSchema,
   applicationSchema,
+  citySignalSchema,
   companyDetailSchema,
   dailyQueueSchema,
   queueRowSchema,
@@ -13,6 +14,8 @@ import {
   jobLocationSchema,
   matchRankingSchema,
   matchSchema,
+  placementSchema,
+  resolutionMethodSchema,
   extractionSchema,
   profileSchema,
   resumeDetailSchema,
@@ -650,5 +653,131 @@ describe('matchRankingSchema', () => {
     const without: Record<string, unknown> = { ...ranking };
     delete without.not_yet_scored;
     expect(matchRankingSchema.safeParse(without).success).toBe(false);
+  });
+});
+
+describe('placementSchema — I1 at the browser boundary', () => {
+  const unresolved = {
+    kind: 'unresolved' as const,
+    latitude: null,
+    longitude: null,
+    building_id: null,
+    location_confidence: 'city_only' as const,
+    resolution_method: 'source_text_parse' as const,
+    stated: 'New York, NY',
+    inherited: false,
+    office_label: null,
+    office_address: null,
+  };
+
+  const onABuilding = {
+    kind: 'building' as const,
+    latitude: 40.755913,
+    longitude: -73.989658,
+    building_id: '1087186',
+    location_confidence: 'verified' as const,
+    resolution_method: 'company_office' as const,
+    stated: 'New York, NY',
+    inherited: true,
+    office_label: 'New York HQ',
+    office_address: '620 Eighth Avenue, New York, NY',
+  };
+
+  it('accepts the shape this corpus actually produces', () => {
+    expect(placementSchema.safeParse(unresolved).success).toBe(true);
+  });
+
+  it('accepts a role standing at its employer’s confirmed office', () => {
+    const parsed = placementSchema.parse(onABuilding);
+    // ADR 0024: the inheritance travels with the coordinate, so a panel can
+    // never render the position without the sentence that qualifies it.
+    expect(parsed.inherited).toBe(true);
+    expect(parsed.resolution_method).toBe('company_office');
+  });
+
+  it('refuses an unresolved placement that arrived carrying a position', () => {
+    expect(
+      placementSchema.safeParse({ ...unresolved, latitude: 40.7, longitude: -74 }).success,
+    ).toBe(false);
+  });
+
+  it('refuses a building placement below verified', () => {
+    // The exact failure I1 names: something plausible-looking put on a
+    // structure on the strength of a city name.
+    expect(
+      placementSchema.safeParse({ ...onABuilding, location_confidence: 'approximate' }).success,
+    ).toBe(false);
+  });
+
+  it('refuses a placed beacon with no coordinates to place it at', () => {
+    expect(
+      placementSchema.safeParse({ ...onABuilding, latitude: null, longitude: null }).success,
+    ).toBe(false);
+  });
+
+  it('refuses an approximate placement that named a building — a BIN is not a promotion', () => {
+    expect(
+      placementSchema.safeParse({
+        ...onABuilding,
+        kind: 'area',
+        location_confidence: 'approximate',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('knows the resolution method M4a added, which it did not until M4c', () => {
+    // `company_office` reached the Python enum a milestone before it reached
+    // this file. Nothing failed in between because nothing sent it.
+    expect(resolutionMethodSchema.safeParse('company_office').success).toBe(true);
+  });
+});
+
+describe('citySignalSchema — the two observations §6 keeps apart', () => {
+  const signal = {
+    job_id: '11111111-1111-4111-8111-111111111111',
+    title: 'Software Engineer',
+    company_id: '22222222-2222-4222-8222-222222222222',
+    company_name: 'Alloy',
+    employment_type: 'full_time' as const,
+    remote_policy: 'on_site' as const,
+    status: 'possibly_stale' as const,
+    first_seen_at: '2026-06-01T00:00:00Z',
+    last_seen_at: '2026-08-10T00:00:00Z',
+    last_verified_at: '2026-07-02T00:00:00Z',
+    application_deadline: null,
+    placement: {
+      kind: 'unresolved' as const,
+      latitude: null,
+      longitude: null,
+      building_id: null,
+      location_confidence: 'city_only' as const,
+      resolution_method: 'source_text_parse' as const,
+      stated: 'New York, NY',
+      inherited: false,
+      office_label: null,
+      office_address: null,
+    },
+  };
+
+  it('keeps "the board listed it" and "we read it" as two different dates', () => {
+    // §6 dims a stale role and requires the panel to say how stale. Under ADR
+    // 0007's phase-2 polling these two dates diverge by design, so a schema
+    // that dropped either would leave the panel guessing which it had.
+    const parsed = citySignalSchema.parse(signal);
+    expect(parsed.last_seen_at).toBe('2026-08-10T00:00:00Z');
+    expect(parsed.last_verified_at).toBe('2026-07-02T00:00:00Z');
+  });
+
+  it('accepts a role no source record has ever been read for', () => {
+    const parsed = citySignalSchema.parse({ ...signal, last_verified_at: null });
+    expect(parsed.last_verified_at).toBeNull();
+  });
+
+  it('carries the deadline that is the second half of §6’s gold', () => {
+    const parsed = citySignalSchema.parse({
+      ...signal,
+      application_deadline: '2026-08-20T00:00:00Z',
+    });
+    expect(parsed.application_deadline).toBe('2026-08-20T00:00:00Z');
   });
 });

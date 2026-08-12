@@ -31,18 +31,23 @@ from nightshift.db.base import (
     ApplicationPriority,
     ApplicationStage,
     EligibilityState,
+    EmploymentType,
     EvidenceSource,
     ExtractionKind,
     ExtractionStatus,
     InternshipSeason,
+    JobStatus,
     JobTextField,
+    LocationConfidence,
     MatchComponent,
     PenaltyName,
     ProficiencyLevel,
     ProjectStatus,
+    RemotePolicy,
     RemotePreference,
     RequirementKind,
     RequirementNecessity,
+    ResolutionMethod,
     ResumeSourceKind,
     ResumeVariant,
     RoleFamily,
@@ -52,9 +57,14 @@ from nightshift.db.base import (
     WorkAuthorization,
 )
 from nightshift.domain.eligibility import _ASKS_FOR
+from nightshift.domain.placement import PlacementKind
 from nightshift.domain.queue import QueueSectionKey
 
 SCHEMAS_TS = Path(__file__).resolve().parents[3] / "apps" / "web" / "src" / "lib" / "schemas.ts"
+CITY_ROUTES_PY = Path(__file__).resolve().parents[1] / "nightshift" / "api" / "routes" / "city.py"
+BEACON_TS = (
+    Path(__file__).resolve().parents[3] / "apps" / "web" / "src" / "lib" / "city" / "beacon.ts"
+)
 JOB_ELIGIBILITY_TSX = (
     Path(__file__).resolve().parents[3]
     / "apps"
@@ -120,15 +130,42 @@ PAIRS: tuple[tuple[str, type[enum.Enum]], ...] = (
     ("jobTextFieldSchema", JobTextField),
     ("evidenceSourceSchema", EvidenceSource),
     ("penaltyNameSchema", PenaltyName),
+    # M4c Task 1, and the five oldest enums in the product — they have crossed
+    # this boundary since M0 and none of them was guarded here.
+    #
+    # `resolutionMethodSchema` had already drifted, and had been wrong since
+    # M4a: `ResolutionMethod` gained `company_office` when `company_locations`
+    # arrived and the browser's copy did not. Nothing failed, because nothing
+    # had ever sent the value — `/city/signals` is the first endpoint that
+    # emits it, and it would have met a Zod refusal to parse the page. Exactly
+    # the failure the docstring above describes, sitting latent for a milestone
+    # because these five were not in this list.
+    ("locationConfidenceSchema", LocationConfidence),
+    ("resolutionMethodSchema", ResolutionMethod),
+    ("jobStatusSchema", JobStatus),
+    ("employmentTypeSchema", EmploymentType),
+    ("remotePolicySchema", RemotePolicy),
+    # M4c Task 1. Not a database enum: the renderer branches on this and
+    # nothing else, so a value it does not know is a beacon that does not draw.
+    ("placementKindSchema", PlacementKind),
 )
 
 
 def _typescript_enum(name: str) -> set[str]:
-    """The string literals inside `export const <name> = z.enum([...])`."""
+    """The string literals inside `export const <name> = z.enum([...])`.
+
+    Line comments are stripped first, and that is not tidiness. An English
+    apostrophe inside a `//` comment — "its employer's office" — opens a quoted
+    region as far as this regex is concerned, and everything up to the next
+    apostrophe becomes a phantom enum member. It happened on the first comment
+    written inside one of these blocks, and the failure named the enum rather
+    than the apostrophe, which is a bad hour waiting to happen twice.
+    """
     source = SCHEMAS_TS.read_text(encoding="utf-8")
     match = re.search(rf"export const {re.escape(name)} = z\.enum\(\[(.*?)\]\)", source, re.DOTALL)
     assert match is not None, f"{name} is not declared as a z.enum in schemas.ts"
-    return set(re.findall(r"'([^']*)'", match.group(1)))
+    body = re.sub(r"//[^\n]*", "", match.group(1))
+    return set(re.findall(r"'([^']*)'", body))
 
 
 def test_the_typescript_file_is_where_this_test_thinks_it_is() -> None:
@@ -283,3 +320,33 @@ def test_every_match_component_is_scored_by_a_column_of_its_own() -> None:
     assert set(pairs) == {m.value for m in MatchComponent}
     columns = set(MatchResult.__table__.columns.keys())
     assert set(pairs.values()) <= columns, sorted(set(pairs.values()) - columns)
+
+
+def test_the_browser_allocates_room_for_every_signal_the_api_can_send() -> None:
+    """`MAX_BEACONS` against `MAX_SIGNALS`, which is the same boundary as the
+    enums above and fails more quietly than any of them.
+
+    The instance buffer is allocated once at `MAX_BEACONS` and `setSignals`
+    clamps to it with a `Math.min`. If the API's ceiling is ever raised past the
+    renderer's — a one-line change on the Python side, made for a good reason,
+    with every test in both suites still green — the extra roles are dropped on
+    the floor. Nothing throws, no count on the page disagrees with itself, and
+    the `truncated` banner stays off because the *API* did not truncate. The
+    city simply stops drawing some of the corpus.
+
+    `beacon.ts` already claims the two match, in a comment. This is the claim
+    with something behind it.
+    """
+    signals = re.search(
+        r"^MAX_SIGNALS = ([\d_]+)", CITY_ROUTES_PY.read_text(encoding="utf-8"), re.M
+    )
+    beacons = re.search(
+        r"^export const MAX_BEACONS = ([\d_]+);", BEACON_TS.read_text(encoding="utf-8"), re.M
+    )
+    assert signals is not None, "MAX_SIGNALS is no longer a module-level literal in city.py"
+    assert beacons is not None, "MAX_BEACONS is no longer a module-level literal in beacon.ts"
+
+    assert int(beacons.group(1).replace("_", "")) >= int(signals.group(1).replace("_", "")), (
+        "the API can return more signals than the renderer has room for, and the "
+        "surplus is dropped silently — raise MAX_BEACONS or lower MAX_SIGNALS"
+    )

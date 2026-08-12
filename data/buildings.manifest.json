@@ -1,0 +1,22 @@
+{
+  "filename": "nyc-buildings-20260812.pmtiles",
+  "url": "https://github.com/Tahmudun/Nightshift/releases/download/buildings-20260812/nyc-buildings-20260812.pmtiles",
+  "sha256": "ffd0ba6eaf0776f2d645afc34d49f4033157ffe3fe44d629a7b558c46b5b2387",
+  "size_bytes": 109555308,
+  "protomaps_build": "20260812",
+  "protomaps_version": "nyc-open-data:5zhs-2jue",
+  "osm_replication_time": "2026-08-12T05:48:45+00:00",
+  "bbox": [
+    -74.255497,
+    40.498438,
+    -73.700064,
+    40.915058
+  ],
+  "minzoom": 13,
+  "maxzoom": 16,
+  "attribution": "<a href=\"https://www.nyc.gov/site/planning/data-maps/open-data.page\" target=\"_blank\">NYC Open Data</a>",
+  "licence": "NYC Open Data terms of use \u2014 public domain, attribution requested",
+  "baked_on": "2026-08-12",
+  "structures": 1083024,
+  "structures_without_height": 732
+}

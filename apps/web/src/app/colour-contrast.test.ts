@@ -75,7 +75,17 @@ describe('text colours meet WCAG AA on every surface they appear on', () => {
 
   // Accent colours carry meaning — a failure state, a healthy signal — so they
   // are held to the same bar as body text rather than to the 3:1 component bar.
-  for (const name of ['signal-400', 'signal-600', 'alert-400', 'gold-400'] as const) {
+  // `verdant-400` joined the list in M4c: §6 gives an offer a soft green core,
+  // and the legend and the detail panel both name that state in words. A colour
+  // that is only ever a few pixels of mesh would not need this — the moment it
+  // labels anything, it is text.
+  for (const name of [
+    'signal-400',
+    'signal-600',
+    'alert-400',
+    'gold-400',
+    'verdant-400',
+  ] as const) {
     it(`${name} on ink-950 clears 4.5:1`, () => {
       expect(contrast(token(name), token('ink-950'))).toBeGreaterThanOrEqual(4.5);
     });
@@ -95,6 +105,16 @@ describe('surface shades stay out of the text ramp', () => {
     expect(contrast(token('ink-400'), token('ink-950'))).toBeGreaterThanOrEqual(3);
   });
 
+  it('ink-450 clears 3:1 too, and still is not text', () => {
+    // The tallest rung of the building height ramp (ADR 0023). Brighter than
+    // ink-400, which used to be the map's ceiling — so it is worth stating that
+    // it did not cross into the text ramp on the way up. The other half of its
+    // bound, that it stays 40 L* below signal-400, is in darkStyle.test.ts where
+    // the layers that use it live.
+    expect(contrast(token('ink-450'), token('ink-950'))).toBeGreaterThanOrEqual(3);
+    expect(contrast(token('ink-450'), token('ink-950'))).toBeLessThan(4.5);
+  });
+
   it('ink-500 is too dark for either purpose, which is why it is borders only', () => {
     // Asserting the *known-bad* value documents why the token is restricted. If
     // someone lightens ink-500 to make it usable as text, this fails and points
@@ -111,10 +131,71 @@ describe('the source no longer uses surface shades as text', () => {
     const offenders: string[] = [];
     for (const file of files) {
       const source = readFileSync(join(SRC, file), 'utf8');
-      if (/text-ink-(400|500|600|700|800|900|950)\b/.test(source)) {
+      if (/text-ink-(400|450|500|600|700|800|900|950)\b/.test(source)) {
         offenders.push(file);
       }
     }
     expect(offenders, 'use paper-faint for the dimmest text').toEqual([]);
+  });
+});
+
+/**
+ * `dusk-*` is the one family whose assertion runs the other way.
+ *
+ * Every other token here is checked for being *readable enough*. Dusk exists to
+ * carry the reference images' violet field — sky, haze, horizon glow, fog — and
+ * `city.md` §3 is explicit that it is atmosphere only: never a data mark, never
+ * a building, never a selection state, never text. The reason is not taste. The
+ * stylesheet's oldest rule is that magenta means "something is wrong and you can
+ * act on it", and a violet that can appear on a mark makes that rule unreadable.
+ *
+ * **The first version of this suite enforced that by keeping every dusk shade
+ * below 3:1 — too dark to be text at all.** It worked, and it was the wrong
+ * tool: it also kept the sky too dark to be a sky, which is most of why the
+ * first city looked like nothing. ADR 0023 replaced the proxy with the rule it
+ * was standing in for. What stops dusk becoming a mark is that no source file
+ * uses it as one and no map layer paints with it, and both of those are checked
+ * directly below. Given that, the only number left is the one that actually
+ * matters.
+ */
+describe('dusk is atmosphere and can never become a mark', () => {
+  const DUSK = ['dusk-900', 'dusk-700', 'dusk-500', 'dusk-300'] as const;
+
+  for (const name of DUSK) {
+    it(`${name} stays well clear of the signal colour, so weather never outshines a job`, () => {
+      // The city may be lit; a job must still be the brightest thing on it.
+      // `signal-400` is the cyan a beacon is drawn in, and this is the gap
+      // ADR 0023 keeps in exchange for letting the sky be bright.
+      const beacon = luminance(token('signal-400'));
+      expect(luminance(token(name))).toBeLessThan(beacon / 3);
+    });
+  }
+
+  it('rises monotonically from the upper sky to the horizon', () => {
+    // The family is a gradient, not four independent colours: dusk-900 is the
+    // top of the sky and dusk-300 the glow at the horizon. Reordering them
+    // would invert the sky.
+    // DUSK is declared darkest-first, so this reads straight down the family.
+    const ordered = DUSK.map((name) => luminance(token(name)));
+    for (let i = 1; i < ordered.length; i += 1) {
+      expect(ordered[i]!).toBeGreaterThan(ordered[i - 1]!);
+    }
+  });
+
+  it('no component uses a dusk shade for text, a border, or a fill', () => {
+    const files = globSync('**/*.{tsx,ts}', { cwd: SRC });
+    expect(files.length, 'the glob must actually find components').toBeGreaterThan(5);
+
+    const offenders: string[] = [];
+    for (const file of files) {
+      // The map style is the one legitimate consumer, and it reads the tokens
+      // for sky and fog. Everything else is a Tailwind utility, and there is no
+      // legitimate `text-dusk-*` or `border-dusk-*` anywhere.
+      const source = readFileSync(join(SRC, file), 'utf8');
+      if (/\b(text|border|ring|from|via|to|fill|stroke|decoration)-dusk-\d{3}\b/.test(source)) {
+        offenders.push(file);
+      }
+    }
+    expect(offenders, 'dusk is sky and fog only — see city.md §3').toEqual([]);
   });
 });
