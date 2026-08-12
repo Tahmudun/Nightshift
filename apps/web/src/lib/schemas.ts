@@ -26,6 +26,11 @@ export const resolutionMethodSchema = z.enum([
   'nominatim',
   'neighborhood_centroid',
   'manual',
+  // A role standing at its employer's confirmed office because it named no
+  // address of its own — `city.md` §4.4, ADR 0024. Added to the Python enum in
+  // M4a and missing here until M4c, which `test_enum_parity.py` did not catch
+  // because this enum was not in its list. It is now.
+  'company_office',
 ]);
 
 export const jobStatusSchema = z.enum(['open', 'possibly_stale', 'unverified', 'closed']);
@@ -1139,3 +1144,96 @@ export const confirmationSchema = z.object({
   profile_fields_set: z.string().array(),
 });
 export type Confirmation = z.infer<typeof confirmationSchema>;
+
+// ---------------------------------------------------------------------------
+// The city (M4c)
+// ---------------------------------------------------------------------------
+
+/**
+ * The three spatial treatments of `city.md` §6, and the only thing the renderer
+ * branches on. A value not in this list is a beacon that does not draw, which
+ * is why it is guarded by `test_enum_parity.py` like a database enum.
+ */
+export const placementKindSchema = z.enum(['building', 'area', 'unresolved']);
+export type PlacementKind = z.infer<typeof placementKindSchema>;
+
+export const placementSchema = z
+  .object({
+    kind: placementKindSchema,
+    latitude: z.number().nullable(),
+    longitude: z.number().nullable(),
+    building_id: z.string().nullable(),
+    location_confidence: locationConfidenceSchema,
+    resolution_method: resolutionMethodSchema,
+    stated: z.string().nullable(),
+    inherited: z.boolean(),
+    office_label: z.string().nullable(),
+    office_address: z.string().nullable(),
+  })
+  .superRefine((placement, ctx) => {
+    // I1 again, and deliberately a second copy rather than a shared helper.
+    // The API enforces this in `Placement.__post_init__` and the database
+    // enforces the half of it that is storable; this is the browser refusing
+    // to draw a beacon whose position its own precision claim cannot support.
+    // Three checks, matching the API's three.
+    const hasPoint = placement.latitude !== null && placement.longitude !== null;
+
+    if (placement.kind === 'unresolved') {
+      if (hasPoint || placement.building_id !== null) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'an unresolved placement carried a position — refusing to draw it (I1)',
+        });
+      }
+      return;
+    }
+
+    if (!hasPoint) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `a ${placement.kind} placement arrived without coordinates (I1)`,
+      });
+    }
+
+    if (placement.kind === 'building' && placement.location_confidence !== 'verified') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          `a building placement claimed confidence "${placement.location_confidence}" — ` +
+          'only a verified coordinate may stand on a structure (I1)',
+      });
+    }
+
+    if (placement.kind === 'area' && placement.building_id !== null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'an approximate placement named a building — a BIN is not a promotion (I1)',
+      });
+    }
+  });
+export type Placement = z.infer<typeof placementSchema>;
+
+export const citySignalSchema = z.object({
+  job_id: z.string().uuid(),
+  title: z.string(),
+  company_id: z.string().uuid(),
+  company_name: z.string(),
+  employment_type: employmentTypeSchema,
+  remote_policy: remotePolicySchema,
+  status: jobStatusSchema,
+  placement: placementSchema,
+});
+export type CitySignal = z.infer<typeof citySignalSchema>;
+
+export const citySignalsSchema = z.object({
+  signals: citySignalSchema.array(),
+  counts: z.object({
+    building: z.number(),
+    area: z.number(),
+    unresolved: z.number(),
+    total: z.number(),
+  }),
+  limit: z.number(),
+  truncated: z.boolean(),
+});
+export type CitySignals = z.infer<typeof citySignalsSchema>;

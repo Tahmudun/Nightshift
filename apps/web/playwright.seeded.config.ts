@@ -32,6 +32,19 @@ export default defineConfig({
   // the same six profile columns while a third read verdicts computed from them.
   fullyParallel: true,
   workers: 1,
+  /**
+   * The same fifteen seconds as the offline config, for the same reason.
+   *
+   * One worker is not the same as an idle machine. On 2026-08-12 the description
+   * search test failed here waiting five seconds for a result count that the API
+   * had already returned correctly — the run happened to share the machine with
+   * a Python suite and a Vitest run. Nothing was broken; `next dev` was
+   * compiling the route behind a busy CPU.
+   *
+   * A budget that only holds when nothing else is running is not a budget. It
+   * costs nothing on a passing run, because every `expect` polls.
+   */
+  expect: { timeout: 15_000 },
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? 'github' : 'list',

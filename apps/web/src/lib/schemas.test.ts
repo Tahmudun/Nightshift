@@ -13,6 +13,8 @@ import {
   jobLocationSchema,
   matchRankingSchema,
   matchSchema,
+  placementSchema,
+  resolutionMethodSchema,
   extractionSchema,
   profileSchema,
   resumeDetailSchema,
@@ -650,5 +652,81 @@ describe('matchRankingSchema', () => {
     const without: Record<string, unknown> = { ...ranking };
     delete without.not_yet_scored;
     expect(matchRankingSchema.safeParse(without).success).toBe(false);
+  });
+});
+
+describe('placementSchema — I1 at the browser boundary', () => {
+  const unresolved = {
+    kind: 'unresolved' as const,
+    latitude: null,
+    longitude: null,
+    building_id: null,
+    location_confidence: 'city_only' as const,
+    resolution_method: 'source_text_parse' as const,
+    stated: 'New York, NY',
+    inherited: false,
+    office_label: null,
+    office_address: null,
+  };
+
+  const onABuilding = {
+    kind: 'building' as const,
+    latitude: 40.755913,
+    longitude: -73.989658,
+    building_id: '1087186',
+    location_confidence: 'verified' as const,
+    resolution_method: 'company_office' as const,
+    stated: 'New York, NY',
+    inherited: true,
+    office_label: 'New York HQ',
+    office_address: '620 Eighth Avenue, New York, NY',
+  };
+
+  it('accepts the shape this corpus actually produces', () => {
+    expect(placementSchema.safeParse(unresolved).success).toBe(true);
+  });
+
+  it('accepts a role standing at its employer’s confirmed office', () => {
+    const parsed = placementSchema.parse(onABuilding);
+    // ADR 0024: the inheritance travels with the coordinate, so a panel can
+    // never render the position without the sentence that qualifies it.
+    expect(parsed.inherited).toBe(true);
+    expect(parsed.resolution_method).toBe('company_office');
+  });
+
+  it('refuses an unresolved placement that arrived carrying a position', () => {
+    expect(
+      placementSchema.safeParse({ ...unresolved, latitude: 40.7, longitude: -74 }).success,
+    ).toBe(false);
+  });
+
+  it('refuses a building placement below verified', () => {
+    // The exact failure I1 names: something plausible-looking put on a
+    // structure on the strength of a city name.
+    expect(
+      placementSchema.safeParse({ ...onABuilding, location_confidence: 'approximate' }).success,
+    ).toBe(false);
+  });
+
+  it('refuses a placed beacon with no coordinates to place it at', () => {
+    expect(
+      placementSchema.safeParse({ ...onABuilding, latitude: null, longitude: null }).success,
+    ).toBe(false);
+  });
+
+  it('refuses an approximate placement that named a building — a BIN is not a promotion', () => {
+    expect(
+      placementSchema.safeParse({
+        ...onABuilding,
+        kind: 'area',
+        location_confidence: 'approximate',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('knows the resolution method M4a added, which it did not until M4c', () => {
+    // `company_office` reached the Python enum a milestone before it reached
+    // this file. Nothing failed in between because nothing sent it.
+    expect(resolutionMethodSchema.safeParse('company_office').success).toBe(true);
   });
 });

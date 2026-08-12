@@ -15,6 +15,7 @@ import {
   applicationSchema,
   companyDetailSchema,
   companyListSchema,
+  citySignalsSchema,
   coverageSchema,
   dailyQueueSchema,
   healthSchema,
@@ -32,6 +33,7 @@ import {
   resumeListSchema,
   userProjectSchema,
   userSkillSchema,
+  type CitySignals,
   type CompanyDetail,
   type CompanyList,
   type Coverage,
@@ -491,4 +493,19 @@ export function confirmExtractions(
   decisions: { extraction_id: string; decision: 'confirm' | 'reject' }[],
 ): Promise<Confirmation> {
   return send(`/resumes/${resumeId}/confirm`, confirmationSchema, 'POST', { decisions });
+}
+
+/**
+ * Every role the city can show, each with its placement already resolved.
+ *
+ * One request for the whole map rather than one per beacon: the renderer
+ * instances thousands of these into a handful of draw calls (§5.5), and a
+ * per-marker fetch would be the component-per-job anti-pattern wearing a
+ * network cable.
+ */
+export async function fetchCitySignals(options?: {
+  readonly includeClosed?: boolean;
+}): Promise<CitySignals> {
+  const query = options?.includeClosed ? '?include_closed=true' : '';
+  return request(`/city/signals${query}`, citySignalsSchema);
 }

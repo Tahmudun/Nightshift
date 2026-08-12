@@ -31,18 +31,23 @@ from nightshift.db.base import (
     ApplicationPriority,
     ApplicationStage,
     EligibilityState,
+    EmploymentType,
     EvidenceSource,
     ExtractionKind,
     ExtractionStatus,
     InternshipSeason,
+    JobStatus,
     JobTextField,
+    LocationConfidence,
     MatchComponent,
     PenaltyName,
     ProficiencyLevel,
     ProjectStatus,
+    RemotePolicy,
     RemotePreference,
     RequirementKind,
     RequirementNecessity,
+    ResolutionMethod,
     ResumeSourceKind,
     ResumeVariant,
     RoleFamily,
@@ -52,6 +57,7 @@ from nightshift.db.base import (
     WorkAuthorization,
 )
 from nightshift.domain.eligibility import _ASKS_FOR
+from nightshift.domain.placement import PlacementKind
 from nightshift.domain.queue import QueueSectionKey
 
 SCHEMAS_TS = Path(__file__).resolve().parents[3] / "apps" / "web" / "src" / "lib" / "schemas.ts"
@@ -120,15 +126,42 @@ PAIRS: tuple[tuple[str, type[enum.Enum]], ...] = (
     ("jobTextFieldSchema", JobTextField),
     ("evidenceSourceSchema", EvidenceSource),
     ("penaltyNameSchema", PenaltyName),
+    # M4c Task 1, and the five oldest enums in the product — they have crossed
+    # this boundary since M0 and none of them was guarded here.
+    #
+    # `resolutionMethodSchema` had already drifted, and had been wrong since
+    # M4a: `ResolutionMethod` gained `company_office` when `company_locations`
+    # arrived and the browser's copy did not. Nothing failed, because nothing
+    # had ever sent the value — `/city/signals` is the first endpoint that
+    # emits it, and it would have met a Zod refusal to parse the page. Exactly
+    # the failure the docstring above describes, sitting latent for a milestone
+    # because these five were not in this list.
+    ("locationConfidenceSchema", LocationConfidence),
+    ("resolutionMethodSchema", ResolutionMethod),
+    ("jobStatusSchema", JobStatus),
+    ("employmentTypeSchema", EmploymentType),
+    ("remotePolicySchema", RemotePolicy),
+    # M4c Task 1. Not a database enum: the renderer branches on this and
+    # nothing else, so a value it does not know is a beacon that does not draw.
+    ("placementKindSchema", PlacementKind),
 )
 
 
 def _typescript_enum(name: str) -> set[str]:
-    """The string literals inside `export const <name> = z.enum([...])`."""
+    """The string literals inside `export const <name> = z.enum([...])`.
+
+    Line comments are stripped first, and that is not tidiness. An English
+    apostrophe inside a `//` comment — "its employer's office" — opens a quoted
+    region as far as this regex is concerned, and everything up to the next
+    apostrophe becomes a phantom enum member. It happened on the first comment
+    written inside one of these blocks, and the failure named the enum rather
+    than the apostrophe, which is a bad hour waiting to happen twice.
+    """
     source = SCHEMAS_TS.read_text(encoding="utf-8")
     match = re.search(rf"export const {re.escape(name)} = z\.enum\(\[(.*?)\]\)", source, re.DOTALL)
     assert match is not None, f"{name} is not declared as a z.enum in schemas.ts"
-    return set(re.findall(r"'([^']*)'", match.group(1)))
+    body = re.sub(r"//[^\n]*", "", match.group(1))
+    return set(re.findall(r"'([^']*)'", body))
 
 
 def test_the_typescript_file_is_where_this_test_thinks_it_is() -> None:
