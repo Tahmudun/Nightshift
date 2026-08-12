@@ -60,10 +60,15 @@ acceptance" below and `docs/reviews/milestone-4c-review.md`.
 
 **The next actions, in order.**
 
-1. **`m4b-dark-city` off draft.** The branch now carries M4b *and* M4c and is
-   PR #16. Push, let CI run all five jobs, fix what it finds, merge. Every
-   milestone before this one was merged before the next began and there is no
-   reason for this one to be the exception.
+1. **Merge PR #16.** Done except the merge itself: the branch is pushed, PR #16
+   is out of draft, retitled *"M4b + M4c — the dark city, and the signals on
+   it"* with a description covering both milestones, and **all five CI jobs are
+   green** at `27a68fc` — python, web, e2e (which runs the new acceptance spec
+   and the seeded suite in CI), migrations up/down/up with no drift, and the
+   secret scan. `mergeStateStatus` is CLEAN. **43 commits, 106 files, ~20,700
+   lines**, carrying two milestones because they are one renderer. Awaiting the
+   human's look before it goes into `main` — this is the branch A15 calls the
+   portfolio checkpoint, and it is the largest thing this project has merged.
 2. **M4d — measured, accessible, shipped.** Frame-time instrumentation and
    recorded metrics, adaptive quality tiers, reduced motion end to end, a
    keyboard path to every map action, automated accessibility tests (A14), the
