@@ -378,3 +378,30 @@ test('the sort control is a radio group a keyboard can reach', async ({ page }) 
   await expect(newest).toHaveAttribute('aria-checked', 'true');
   await expect(name).toHaveAttribute('aria-checked', 'false');
 });
+
+test('every control in the right rail can actually be clicked', async ({ page }) => {
+  await openCity(page);
+  await cityHasSignals(page);
+
+  // The regression this exists for: the camera panel placed itself at
+  // `top-24 right-4`, the roster was later given the same corner, and the
+  // buttons disappeared underneath it. Nothing went red — `toBeVisible` means
+  // a non-empty bounding box, not a reachable element, so a green suite sat on
+  // top of controls no pointer could touch. Clicking is what tells them apart,
+  // and this is the seeded suite, where the rail is at its fullest: the
+  // controls, a roster of employers, and the counts.
+  //
+  // Playwright's actionability check fails a click that another element would
+  // intercept, so each of these is an occlusion assertion.
+  await page.getByRole('button', { name: 'Reset view' }).click({ timeout: 10_000 });
+  await page.getByRole('button', { name: 'Keyboard' }).click({ timeout: 10_000 });
+  await page.getByRole('button', { name: 'Hide keys' }).click({ timeout: 10_000 });
+  await page.getByRole('radio', { name: 'Openings' }).click({ timeout: 10_000 });
+
+  const roster = page.getByRole('region', { name: /who is hiring/i });
+  await roster.getByRole('button').first().click({ timeout: 10_000 });
+
+  // And the counts panel at the foot of the rail is still on screen with all
+  // of that above it, rather than pushed off the bottom.
+  await expect(page.getByRole('region', { name: /what is on the city/i })).toBeVisible();
+});

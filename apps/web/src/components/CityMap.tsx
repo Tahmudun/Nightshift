@@ -46,7 +46,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-import { CameraControls } from '@/components/CameraControls';
 import { useCityScene } from '@/lib/city/scene';
 import { createSignalLayer } from '@/lib/city/signalLayer';
 import { BASEMAP_URL, BUILDINGS_URL } from '@/lib/tiles';
@@ -104,14 +103,6 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
   const [status, setStatus] = useState<Status>({ kind: 'loading' });
   /** The route's explanation for a missing skyline, or null when there is one. */
   const [skyline, setSkyline] = useState<string | null>(null);
-  /**
-   * In state rather than a ref, because the controls render from it. It is
-   * created inside the effect and torn down with the map: a controller outliving
-   * its map holds listeners on a detached container and answers questions about
-   * a camera that no longer exists.
-   */
-  const [camera, setCamera] = useState<CameraController | null>(null);
-
   // Stand down the document shell — the centred column, the page padding, the
   // footer — for as long as this map is mounted. The rules live in globals.css
   // beside the shell they modify; this only flips the switch, and it flips it
@@ -214,7 +205,12 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
       // city for more than ten seconds. A style that has not been applied cannot
       // produce a painted frame anyway, so the outer wait was buying nothing.
       created.once('render', () => {
-        if (!cancelled) setStatus({ kind: 'ready' });
+        if (cancelled) return;
+        setStatus({ kind: 'ready' });
+        // Published for the rail, which decides from here whether to offer the
+        // camera buttons. The controller has existed since the line above the
+        // map was constructed; a painted frame is a different fact.
+        useCityScene.getState().setMapReady(true);
       });
       created.on('error', (event: { error?: { message?: string } }) => {
         if (cancelled) return;
@@ -235,10 +231,11 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
       // listeners to the map's container, so it must be built after the map and
       // destroyed before it.
       controller = createCameraController({ map: created });
-      setCamera(controller);
-      // Also into the store, so overlays passed in as `children` can drive the
-      // camera without this component threading it through them. Nulled in the
-      // teardown below, next to `setCamera(null)`.
+      // Into the store rather than into component state, which is where it used
+      // to go when this component rendered the camera panel. That panel now
+      // lives in `CityRail` with everything else on that side of the screen, so
+      // the store is the only reader and a second copy here could only
+      // disagree with it. Cleared by `reset()` in the teardown below.
       useCityScene.getState().setCamera(controller);
 
       // **The label goes on the canvas, because the canvas is what focus lands
@@ -318,7 +315,6 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
       unsubscribeScene?.();
       uninstallDebug?.();
       controller?.destroy();
-      setCamera(null);
       // `map.remove()` calls `onRemove` on every layer, which is where the
       // signal layer disposes its geometry, its material and its mesh. A
       // teardown that skipped it would leak GPU memory past the page's own.
@@ -353,12 +349,7 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
       {/* Overlays sit above the canvas and below the app header. `pointer-events`
           is off on the layer and back on inside each panel, so a gap between
           panels is still a place you can drag the city by. */}
-      <div className="pointer-events-none absolute inset-0 z-10">
-        {children}
-        {/* Only once there is a camera to drive. Rendering the panel over a
-            still-loading map would offer buttons that do nothing. */}
-        {status.kind === 'ready' && <CameraControls camera={camera} />}
-      </div>
+      <div className="pointer-events-none absolute inset-0 z-10">{children}</div>
 
       {/* A city drawing without its skyline says so, in place, rather than
           looking like a New York where nothing was ever built. I3's habit of

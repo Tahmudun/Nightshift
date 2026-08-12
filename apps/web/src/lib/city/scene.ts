@@ -53,10 +53,21 @@ interface CityScene {
   readonly sort: FieldSort;
   /** The live camera, or null when no map is mounted. A handle, not state. */
   readonly camera: CameraController | null;
+  /**
+   * Has the map painted a frame?
+   *
+   * Not the same question as "is there a camera": the controller exists from
+   * the moment the map is constructed, several seconds before New York is on
+   * screen. The rail uses this to keep from offering camera buttons over a
+   * blank canvas — a gate `CityMap` used to hold in its own state, moved here
+   * when the controls moved into the rail.
+   */
+  readonly mapReady: boolean;
   setSignals(signals: readonly CitySignal[]): void;
   setUnavailable(detail: string): void;
   setSort(sort: FieldSort): void;
   setCamera(camera: CameraController | null): void;
+  setMapReady(ready: boolean): void;
   reset(): void;
 }
 
@@ -65,15 +76,17 @@ export const useCityScene = create<CityScene>((set) => ({
   status: { kind: 'loading' },
   sort: 'company',
   camera: null,
+  mapReady: false,
   setSignals: (signals) => set({ signals, status: { kind: 'ready' } }),
   setUnavailable: (detail) => set({ signals: [], status: { kind: 'unavailable', detail } }),
   setSort: (sort) => set({ sort }),
   setCamera: (camera) => set({ camera }),
+  setMapReady: (mapReady) => set({ mapReady }),
   // Called when the map unmounts. A store that kept the last city would hand
   // the next map a frame of stale beacons before its own fetch resolved.
   //
   // The sort is deliberately *not* reset: it is a choice the person made, and
   // returning from a job's detail page to find the field reordered would be
   // the interface forgetting something they did on purpose.
-  reset: () => set({ signals: [], status: { kind: 'loading' }, camera: null }),
+  reset: () => set({ signals: [], status: { kind: 'loading' }, camera: null, mapReady: false }),
 }));

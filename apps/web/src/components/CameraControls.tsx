@@ -21,6 +21,7 @@
 
 import { useState, useSyncExternalStore } from 'react';
 
+import { useCityScene } from '@/lib/city/scene';
 import type { CameraController } from '@/lib/map/camera';
 import { KEYBOARD_HELP } from '@/lib/map/camera';
 
@@ -32,8 +33,19 @@ const BUTTON =
   'text-[10px] tracking-[0.14em] uppercase backdrop-blur-md transition-colors ' +
   'hover:border-signal-400 focus-visible:border-signal-400 focus-visible:outline-none';
 
-export function CameraControls({ camera }: { readonly camera: CameraController | null }) {
+/**
+ * The controller is a prop *or* the one in the scene store.
+ *
+ * The prop is what the unit tests drive, and it wins when given. The fallback
+ * is what the page uses: this panel is rendered from the overlay rail, which
+ * is several components away from the map that builds the controller, and
+ * threading it through would mean prop-drilling through a component whose
+ * whole job is lifecycle.
+ */
+export function CameraControls({ camera: given }: { readonly camera?: CameraController | null }) {
   const [keysOpen, setKeysOpen] = useState(false);
+  const stored = useCityScene((state) => state.camera);
+  const camera = given === undefined ? stored : given;
   const source = camera ?? NO_SUBSCRIPTION;
   // The server has no camera and no motion preference, so the server snapshot
   // is a constant — otherwise React warns about a mismatched hydration.
@@ -59,7 +71,16 @@ export function CameraControls({ camera }: { readonly camera: CameraController |
   };
 
   return (
-    <div className="pointer-events-none absolute top-24 right-4 flex w-44 flex-col items-stretch gap-2 sm:right-6">
+    // Deliberately unpositioned. It used to place itself at `top-24 right-4`,
+    // and the roster rail was later given the same corner — which covered these
+    // buttons completely while every test kept passing, because Playwright's
+    // "visible" means a non-empty box rather than a reachable one. `CityRail`
+    // owns where everything on this side of the screen goes, so a panel can no
+    // longer be hidden by a sibling that never knew it existed.
+    // `shrink-0`, so the rail takes its slack out of the roster instead. These
+    // are five fixed buttons; the roster is the only panel here whose height is
+    // a function of the corpus, so it is the only one that should give.
+    <div className="pointer-events-none flex w-44 shrink-0 flex-col items-stretch gap-2 self-end">
       <button type="button" className={`${BUTTON} text-paper-dim`} onClick={() => camera.reset()}>
         Reset view
       </button>

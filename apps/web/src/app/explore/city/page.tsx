@@ -1,8 +1,7 @@
 import Link from 'next/link';
 
 import { CityMap } from '@/components/CityMap';
-import { CityRoster } from '@/components/CityRoster';
-import { CitySignals } from '@/components/CitySignals';
+import { CityRail } from '@/components/CityRail';
 import { basemapManifest, buildingsManifest } from '@/lib/tiles';
 
 /**
@@ -52,18 +51,11 @@ export default function CityPage() {
         </Link>
       </section>
 
-      {/* The right rail: who is hiring, and what the field above the skyline
-          actually contains. One column rather than two floating panels, because
-          they are two halves of one answer and at the same corner the taller
-          one simply covered the other.
-
-          `bottom-9` clears MapLibre's attribution control. The roster takes the
-          slack and scrolls inside itself, so a corpus of three employers and one
-          of three hundred both leave the counts visible at the bottom. */}
-      <div className="pointer-events-none absolute top-24 right-4 bottom-9 z-20 flex w-[21rem] max-w-[calc(100vw-2rem)] flex-col gap-3">
-        <CityRoster />
-        <CitySignals />
-      </div>
+      {/* The right rail: the camera controls, who is hiring, and what the field
+          above the skyline actually contains. One component owns where all
+          three go — see `CityRail`, which exists because two panels that each
+          placed themselves ended up in the same corner. */}
+      <CityRail />
 
       {/* Bottom left, out of the way of the attribution control. Provenance:
           how old the world in these tiles is, and who it belongs to. */}

@@ -99,7 +99,10 @@ export function CityRoster() {
   }
 
   return (
-    <section aria-labelledby="city-roster-heading" className={`flex min-h-0 flex-col ${PANEL}`}>
+    // Natural height, and `shrink-0` like every other panel in the rail: the
+    // rail is the scroll container now, so nothing here competes for a fixed
+    // budget. See `CityRail` for why that turned out to matter at three rows.
+    <section aria-labelledby="city-roster-heading" className={`flex shrink-0 flex-col ${PANEL}`}>
       <div className="border-b border-ink-700/80 p-4 pb-3">
         <h2
           id="city-roster-heading"
@@ -142,7 +145,7 @@ export function CityRoster() {
         <p className="mt-2 text-[11px] leading-relaxed text-paper-dim">{SORT_LABELS[sort].means}</p>
       </div>
 
-      <ul className="min-h-0 flex-1 overflow-y-auto">
+      <ul>
         {columns.map((column, index) => (
           <li key={column.companyId}>
             <button
