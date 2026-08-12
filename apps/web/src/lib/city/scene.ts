@@ -13,14 +13,24 @@
  * store write and a buffer update, and no component renders at all.
  *
  * Deliberately small. This holds what is *on* the city, not what the city looks
- * like: the camera lives in `map/camera.ts` and the style in `map/darkStyle.ts`,
- * and pulling either in here would make this the god object those two files
- * were split to avoid.
+ * like: the style lives in `map/darkStyle.ts` and every rule about how the
+ * camera behaves lives in `map/camera.ts`, and pulling either in here would
+ * make this the god object those two files were split to avoid.
+ *
+ * The camera *controller* is the one exception, and it is a handle rather than
+ * state — no pose, no limits, no behaviour, just the object overlays call. It
+ * is here because `CityMap` builds the controller and the panels that need to
+ * drive it are passed to that map as `children`, so the alternative is prop
+ * drilling through a component whose entire job is lifecycle. It is set on
+ * build and nulled on teardown, and nothing reads it after that.
  */
 
 import { create } from 'zustand';
 
+import type { CameraController } from '@/lib/map/camera';
 import type { CitySignal } from '@/lib/schemas';
+
+import type { FieldSort } from './unresolvedField';
 
 /**
  * Why the signals are not on screen, when they are not.
@@ -39,17 +49,31 @@ export type SignalsStatus =
 interface CityScene {
   readonly signals: readonly CitySignal[];
   readonly status: SignalsStatus;
+  /** How the field is ordered — §4.8's "sortable". Shared by the roster and the layer. */
+  readonly sort: FieldSort;
+  /** The live camera, or null when no map is mounted. A handle, not state. */
+  readonly camera: CameraController | null;
   setSignals(signals: readonly CitySignal[]): void;
   setUnavailable(detail: string): void;
+  setSort(sort: FieldSort): void;
+  setCamera(camera: CameraController | null): void;
   reset(): void;
 }
 
 export const useCityScene = create<CityScene>((set) => ({
   signals: [],
   status: { kind: 'loading' },
+  sort: 'company',
+  camera: null,
   setSignals: (signals) => set({ signals, status: { kind: 'ready' } }),
   setUnavailable: (detail) => set({ signals: [], status: { kind: 'unavailable', detail } }),
+  setSort: (sort) => set({ sort }),
+  setCamera: (camera) => set({ camera }),
   // Called when the map unmounts. A store that kept the last city would hand
   // the next map a frame of stale beacons before its own fetch resolved.
-  reset: () => set({ signals: [], status: { kind: 'loading' } }),
+  //
+  // The sort is deliberately *not* reset: it is a choice the person made, and
+  // returning from a job's detail page to find the field reordered would be
+  // the interface forgetting something they did on purpose.
+  reset: () => set({ signals: [], status: { kind: 'loading' }, camera: null }),
 }));

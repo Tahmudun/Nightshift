@@ -236,6 +236,10 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
       // destroyed before it.
       controller = createCameraController({ map: created });
       setCamera(controller);
+      // Also into the store, so overlays passed in as `children` can drive the
+      // camera without this component threading it through them. Nulled in the
+      // teardown below, next to `setCamera(null)`.
+      useCityScene.getState().setCamera(controller);
 
       // **The label goes on the canvas, because the canvas is what focus lands
       // on.** MapLibre gives it `tabindex="0"`, `role="region"` and the name
@@ -284,9 +288,16 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
         // TileJSON resolves seconds after the basemap's — hence the guard.
         attached = true;
         created.addLayer(layer);
-        layer.setSignals(useCityScene.getState().signals);
+        const initial = useCityScene.getState();
+        layer.setSignals(initial.signals, initial.sort);
         unsubscribeScene = useCityScene.subscribe((state, previous) => {
-          if (state.signals !== previous.signals) layer.setSignals(state.signals);
+          // The sort is watched alongside the signals because reordering the
+          // field is a rebuild of the same instance buffer, not a re-render:
+          // §5.5's rule is that a filter or an ordering updates a buffer and
+          // never touches a component tree.
+          if (state.signals !== previous.signals || state.sort !== previous.sort) {
+            layer.setSignals(state.signals, state.sort);
+          }
         });
       };
       if (created.isStyleLoaded()) attachSignals();
@@ -354,10 +365,11 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
           mind applied to a renderer: the absence of the archive is not evidence
           the buildings are not there. */}
       {status.kind === 'ready' && skyline !== null && (
-        // Above the signals readout rather than beside it: both are bottom-right
-        // and at the same offset they overlapped, hiding whichever rendered
-        // first.
-        <div className="absolute top-24 right-4 z-20 max-w-sm border border-ink-700 bg-ink-950/90 p-3 backdrop-blur-sm">
+        // Centred at the top, which is the one part of this screen that belongs
+        // to nothing else: the title panel holds the left, the roster and the
+        // counts hold the right rail, and this card has been evicted from both
+        // corners in turn by something that grew.
+        <div className="absolute top-24 left-1/2 z-20 w-[min(28rem,calc(100vw-2rem))] -translate-x-1/2 border border-ink-700 bg-ink-950/90 p-3 backdrop-blur-sm">
           <h2 className="font-mono text-[10px] tracking-[0.16em] text-gold-400 uppercase">
             No skyline
           </h2>

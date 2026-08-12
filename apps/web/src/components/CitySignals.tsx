@@ -17,6 +17,12 @@
  * signals with no explanation is indistinguishable from a bug. §4.8 asks that
  * this be a good screen rather than a placeholder someone tolerates, and the
  * first requirement of a good screen is that it says what it is.
+ *
+ * **It does not position itself.** It sits in the rail `explore/city/page.tsx`
+ * builds, under `CityRoster`, because the two answer one question between them
+ * — what is on the city, and who it belongs to. When this panel placed itself
+ * they were two floating boxes at the same corner, and the taller one covered
+ * the other.
  */
 
 import { useQuery } from '@tanstack/react-query';
@@ -59,10 +65,7 @@ export function CitySignals() {
     // evidence that nobody is hiring. An empty sky with no explanation says
     // exactly that, so the sky says why instead.
     return (
-      <section
-        aria-labelledby="city-signals-heading"
-        className={`absolute right-4 bottom-9 z-20 max-w-sm p-4 ${PANEL}`}
-      >
+      <section aria-labelledby="city-signals-heading" className={`shrink-0 p-4 ${PANEL}`}>
         <h2
           id="city-signals-heading"
           className="font-mono text-[10px] tracking-[0.16em] text-alert-400 uppercase"
@@ -85,10 +88,7 @@ export function CitySignals() {
     // Named so it is a landmark rather than an anonymous box: §5.6 requires a
     // non-3D equivalent for everything the map says, and a screen reader
     // reaching this account of the city is that equivalent.
-    <section
-      aria-labelledby="city-signals-heading"
-      className={`absolute right-4 bottom-9 z-20 max-w-sm p-4 ${PANEL}`}
-    >
+    <section aria-labelledby="city-signals-heading" className={`shrink-0 p-4 ${PANEL}`}>
       <h2
         id="city-signals-heading"
         className="font-mono text-[10px] tracking-[0.16em] text-paper-faint uppercase"
