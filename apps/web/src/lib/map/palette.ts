@@ -13,8 +13,10 @@
  * for the signal colour would be spending the encoding on scenery.
  *
  * `paper-*` is absent for the same reason in reverse — it is the text family,
- * and this style draws no text. The brightest thing on the map is `ink-400`,
- * which is the dimmest shade cleared for a non-text indicator.
+ * and this style draws no text. The brightest thing here is `ink-450`, the top
+ * of the building height ramp, and what stops it going further is ADR 0023's
+ * headroom rule rather than taste: scenery stays at least 40 L\* below
+ * `signal-400`, so a beacon always has somewhere brighter to be.
  */
 
 export const MAP_PALETTE = {
@@ -30,8 +32,17 @@ export const MAP_PALETTE = {
   ink600: '#1d2739',
   /** Major roads, administrative boundaries. */
   ink500: '#2b374d',
-  /** Motorways — the brightest thing on the basemap, and it stops here. */
+  /** Motorways — the brightest thing on the *ground*, and it stops here. */
   ink400: '#4d5f83',
+  /**
+   * The tallest buildings, and the brightest shade on the map.
+   *
+   * Above the old `ink-400` ceiling on purpose: ADR 0023 replaced that cap with
+   * a headroom rule — scenery stays at least 40 L* below `signal-400` — and this
+   * sits at 41.3. Reached only by the handful of towers over 900 feet, which is
+   * what makes it read as a skyline rather than as a brighter map.
+   */
+  ink450: '#56698f',
 
   /** Atmosphere. Never a mark. See `city.md` §3. */
   dusk900: '#180d33',

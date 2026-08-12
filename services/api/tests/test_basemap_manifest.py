@@ -20,6 +20,7 @@ from pathlib import Path
 import pytest
 
 from nightshift.domain.basemap import (
+    ARTIFACTS,
     PMTILES_MAGIC,
     BasemapState,
     ManifestError,
@@ -66,11 +67,54 @@ def manifest_for(path: Path, **overrides: object) -> object:
 # --------------------------------------------------------------------------
 
 
+@pytest.mark.parametrize("artifact", ARTIFACTS)
+def test_every_committed_manifest_loads(artifact: str) -> None:
+    """Both archives, not just the basemap.
+
+    They are separate downloads with separate digests, and a second artifact
+    added without a second manifest is a `make setup` that half works.
+    """
+    manifest = load_manifest(artifact=artifact)
+    assert manifest.filename.endswith(".pmtiles")
+    assert manifest.url.startswith("https://")
+
+
 def test_the_committed_manifest_loads() -> None:
     manifest = load_manifest()
     assert manifest.filename.endswith(".pmtiles")
     assert manifest.url.startswith("https://")
     assert manifest.protomaps_build in manifest.filename
+
+
+def test_an_unknown_artifact_is_refused_rather_than_guessed() -> None:
+    with pytest.raises(ManifestError, match="unknown artifact"):
+        manifest_path("streets")
+
+
+@pytest.mark.parametrize("artifact", ARTIFACTS)
+def test_no_two_artifacts_share_a_cached_filename(artifact: str) -> None:
+    """Distinct names, or one archive silently overwrites the other in the cache."""
+    names = [load_manifest(artifact=name).filename for name in ARTIFACTS]
+    assert len(names) == len(set(names))
+    assert load_manifest(artifact=artifact).filename in names
+
+
+def test_the_buildings_archive_records_what_it_could_not_measure() -> None:
+    """§5.3: a footprint with no height takes a default *and is recorded as having*.
+
+    The manifest carries the census — how many structures there are and how many
+    of them have no measured height — so the number is auditable rather than an
+    impression. A skyline presented as measured, where a fraction of it is a
+    default, is exactly the kind of small lie this project does not keep.
+    """
+    import json
+
+    raw = json.loads(manifest_path("buildings").read_text())
+    total = raw["structures"]
+    missing = raw["structures_without_height"]
+    assert total > 1_000_000, "the whole city, not a borough"
+    assert 0 <= missing < total
+    assert missing / total < 0.01, "if this rises, the skyline is more default than measured"
 
 
 def test_the_committed_manifest_covers_all_five_boroughs() -> None:

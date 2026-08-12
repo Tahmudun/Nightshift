@@ -154,14 +154,23 @@ _REQUIRED_STRINGS = (
 )
 
 
-def manifest_path() -> Path:
-    """`data/basemap.manifest.json`, found relative to this file.
+# The artifacts this product downloads and pins. Both are baked by a maintainer
+# script and published as release assets — see ADR 0022 — and everything in this
+# module works the same way for each. `basemap` is the streets and water,
+# `buildings` is New York's own measured footprints (§5.3).
+ARTIFACTS = ("basemap", "buildings")
+
+
+def manifest_path(artifact: str = "basemap") -> Path:
+    """`data/<artifact>.manifest.json`, found relative to this file.
 
     Not relative to the working directory: the Makefile, the test suite and the
-    bake script all run from different places, and a manifest that resolves
+    bake scripts all run from different places, and a manifest that resolves
     differently depending on who asked is a bug waiting for a Friday.
     """
-    return _repo_root() / "data" / "basemap.manifest.json"
+    if artifact not in ARTIFACTS:
+        raise ManifestError(f"unknown artifact {artifact!r}; expected one of {ARTIFACTS}")
+    return _repo_root() / "data" / f"{artifact}.manifest.json"
 
 
 def _repo_root() -> Path:
@@ -169,9 +178,9 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parents[4]
 
 
-def load_manifest(path: Path | None = None) -> BasemapManifest:
-    """Read and validate the committed manifest."""
-    source = path or manifest_path()
+def load_manifest(path: Path | None = None, *, artifact: str = "basemap") -> BasemapManifest:
+    """Read and validate a committed manifest."""
+    source = path or manifest_path(artifact)
     try:
         raw = json.loads(source.read_text())
     except FileNotFoundError as exc:  # pragma: no cover - repository defect
@@ -252,14 +261,14 @@ def cache_dir() -> Path:
     return Path.home() / ".cache" / "nightshift" / "basemap"
 
 
-def artifact_path(manifest: BasemapManifest | None = None) -> Path:
+def artifact_path(manifest: BasemapManifest) -> Path:
     """The full path to the cached extract.
 
     The filename carries the Protomaps build date, so pointing the manifest at a
     newer bake changes the path too. A cache keyed by content cannot serve a
     stale file that happens to sit at the expected name.
     """
-    return cache_dir() / (manifest or load_manifest()).filename
+    return cache_dir() / manifest.filename
 
 
 def sha256_of(path: Path) -> str:

@@ -46,7 +46,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-import { BASEMAP_BOUNDS, BASEMAP_URL } from '@/lib/basemap';
+import { BASEMAP_BOUNDS, BASEMAP_URL, BUILDINGS_URL } from '@/lib/tiles';
 import { buildDarkStyle } from '@/lib/map/darkStyle';
 
 // MapLibre's own stylesheet, for the attribution control and the canvas
@@ -86,25 +86,27 @@ type Status =
   | { readonly kind: 'unavailable'; readonly detail: string };
 
 /**
- * Ask the tile route for the archive's first sixteen bytes.
+ * Ask the tile route for an archive's first sixteen bytes.
  *
  * Returns the server's own explanation on failure, because the route's 503 body
  * is a sentence written for exactly this moment.
  */
-async function probeArchive(): Promise<string | null> {
+async function probeArchive(url: string, name: string): Promise<string | null> {
   try {
-    const response = await fetch(BASEMAP_URL, { headers: { Range: 'bytes=0-15' } });
+    const response = await fetch(url, { headers: { Range: 'bytes=0-15' } });
     if (response.ok) return null;
     const detail = (await response.text()).trim();
-    return detail || `The basemap route answered ${response.status}.`;
+    return detail || `The ${name} route answered ${response.status}.`;
   } catch (error) {
-    return `Could not reach the basemap route: ${String(error)}`;
+    return `Could not reach the ${name} route: ${String(error)}`;
   }
 }
 
 export function CityMap({ children }: { readonly children?: React.ReactNode }) {
   const container = useRef<HTMLDivElement | null>(null);
   const [status, setStatus] = useState<Status>({ kind: 'loading' });
+  /** The route's explanation for a missing skyline, or null when there is one. */
+  const [skyline, setSkyline] = useState<string | null>(null);
 
   // Stand down the document shell — the centred column, the page padding, the
   // footer — for as long as this map is mounted. The rules live in globals.css
@@ -136,12 +138,21 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
     })();
 
     async function build(): Promise<void> {
-      const problem = await probeArchive();
+      // Two archives, and they fail differently. Without the basemap there is no
+      // map at all and the honest thing is the card. Without the buildings there
+      // is a city with a flat skyline, which is a real map missing a real thing —
+      // so it draws, and says what is missing, rather than hiding New York
+      // behind an error about a file.
+      const [problem, skylineProblem] = await Promise.all([
+        probeArchive(BASEMAP_URL, 'basemap'),
+        probeArchive(BUILDINGS_URL, 'buildings'),
+      ]);
       if (cancelled) return;
       if (problem !== null) {
         setStatus({ kind: 'unavailable', detail: problem });
         return;
       }
+      setSkyline(skylineProblem);
 
       const [maplibregl, pmtiles] = await Promise.all([import('maplibre-gl'), import('pmtiles')]);
       if (cancelled || !container.current) return;
@@ -155,7 +166,7 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
 
       const created = new maplibregl.Map({
         container: container.current,
-        style: buildDarkStyle(),
+        style: buildDarkStyle({ buildings: skylineProblem === null }),
         ...INITIAL,
         // The archive covers New York and nothing else. Panning past its edge
         // would show empty tiles, which reads as a broken map rather than as
@@ -233,6 +244,21 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
           is off on the layer and back on inside each panel, so a gap between
           panels is still a place you can drag the city by. */}
       <div className="pointer-events-none absolute inset-0 z-10">{children}</div>
+
+      {/* A city drawing without its skyline says so, in place, rather than
+          looking like a New York where nothing was ever built. I3's habit of
+          mind applied to a renderer: the absence of the archive is not evidence
+          the buildings are not there. */}
+      {status.kind === 'ready' && skyline !== null && (
+        <div className="absolute right-3 bottom-9 z-20 max-w-sm border border-ink-700 bg-ink-950/90 p-3 backdrop-blur-sm">
+          <h2 className="font-mono text-[10px] tracking-[0.16em] text-gold-400 uppercase">
+            No skyline
+          </h2>
+          <p className="mt-2 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-paper-dim">
+            {skyline}
+          </p>
+        </div>
+      )}
 
       {status.kind !== 'ready' && (
         <div className="absolute inset-0 z-20 grid place-items-center p-6">

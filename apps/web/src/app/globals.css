@@ -34,6 +34,15 @@
      such as a status dot. Text stops at paper-faint. See colour-contrast.test.ts. */
   --color-ink-400: #4d5f83;
 
+  /* The top of the building height ramp, and the brightest shade in the ink
+     family. It exists because ADR 0023 lit the city: the old rule was "nothing
+     on the map is brighter than ink-400", and the rule that replaced it is that
+     scenery stays a stated distance below signal-400 — 41.3 L* here, against a
+     bound of 40. Surfaces only, like the rest of the family; 3.66:1 on ink-950,
+     which is a non-text indicator and not a text colour. Only the tallest
+     towers reach it. See darkStyle.ts HEIGHT_STOPS. */
+  --color-ink-450: #56698f;
+
   /* Cyan / electric blue: the signal. */
   --color-signal-400: #5ce8ff;
   --color-signal-500: #29d3f5;

@@ -28,7 +28,7 @@ LOADENV := set -a && source .env && set +a
         test-e2e check fmt lint typecheck reset-db ingest logs ps clean doctor \
         verify acceptance test-e2e-seeded browsers drift constraints \
         discover registry-validate registry-approve registry-approve-write coverage \
-        worksheets score basemap
+        worksheets score tiles
 
 help: ## Show available targets
 	@echo "Nightshift — make targets"
@@ -58,7 +58,7 @@ $(WEB_DIR)/node_modules/.installed: $(WEB_DIR)/package.json
 	@cd $(WEB_DIR) && npm install --silent --no-audit --no-fund
 	@touch $@
 
-setup: .env $(VENV)/.installed $(WEB_DIR)/node_modules/.installed model basemap ## Install JS + Python deps, fetch the embedding model and basemap, create .env
+setup: .env $(VENV)/.installed $(WEB_DIR)/node_modules/.installed model tiles ## Install JS + Python deps, fetch the embedding model and map tiles, create .env
 	@echo "==> setup complete. next: make demo"
 
 # ~130 MB, downloaded once (AMENDMENTS A5). Kept inside `setup` rather than in
@@ -70,12 +70,13 @@ model: $(VENV)/.installed ## Download the local embedding model
 	print('==> embedding model already present at', cache_dir()) if real_model_available() else \
 	(FastEmbedEmbedder().embed(['warm the cache']), print('==> embedding model ready at', cache_dir()))"
 
-# ~91 MB of NYC vector tiles, downloaded once, for the same reason as the model:
-# `make demo` renders the city with no network at all (city.md §5.2, ADR 0022).
-# Re-running is cheap and makes no request — a cached file that matches the
-# pinned digest is left alone.
-basemap: $(VENV)/.installed ## Download the pinned NYC basemap tiles
-	@$(PY) scripts/fetch_basemap.py
+# Two archives, ~190 MB together, downloaded once for the same reason as the
+# model: `make demo` renders the city with no network at all (city.md §5.2,
+# ADR 0022). The basemap is streets and water; the second is New York's own
+# measured building heights. Re-running is cheap and makes no request — a cached
+# file that matches its pinned digest is left alone.
+tiles: $(VENV)/.installed ## Download the pinned map tile archives
+	@$(PY) scripts/fetch_tiles.py
 
 doctor: ## Check that required tooling is present
 	@$(PYTHON) scripts/doctor.py

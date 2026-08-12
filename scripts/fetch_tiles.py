@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
-"""Put the pinned basemap extract in the local cache, and prove it is the right one.
+"""Put the pinned tile archives in the local cache, and prove they are the right ones.
 
-Run by `make basemap`, which `make setup` depends on. This is the only place in
-the product that downloads the map, and it runs at setup time for the reason
+Run by `make tiles`, which `make setup` depends on. There are two archives — the
+Protomaps basemap and New York's own building footprints — and they are handled
+identically because ADR 0022 gave them the same shape: baked by a maintainer,
+published as a release asset, pinned by digest, downloaded once.
+
+This is the only place in the product that downloads a map, and it runs at setup
+time for the reason
 `CLAUDE.md` §4 gives: **`make demo` must work offline from a clean clone.**
 `make setup` already needs the network to install dependencies; after it, nothing
 does.
@@ -38,6 +43,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "services" / "api"))
 
 from nightshift.domain.basemap import (
+    ARTIFACTS,
     BasemapManifest,
     BasemapState,
     ManifestError,
@@ -47,7 +53,7 @@ from nightshift.domain.basemap import (
     verify,
 )
 
-USER_AGENT = "nightshift-basemap-fetch (+https://github.com/Tahmudun/Nightshift)"
+USER_AGENT = "nightshift-tile-fetch (+https://github.com/Tahmudun/Nightshift)"
 
 
 def ssl_context() -> ssl.SSLContext:
@@ -111,20 +117,10 @@ def download(manifest: BasemapManifest, destination: Path) -> None:
         )
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--check",
-        action="store_true",
-        help="verify the cached artifact and exit; never download",
-    )
-    parser.add_argument(
-        "--quiet", action="store_true", help="say nothing when the cache already verifies"
-    )
-    args = parser.parse_args()
-
+def ensure(artifact: str, *, check_only: bool, quiet: bool) -> None:
+    """Bring one artifact into the cache, or explain why it could not be."""
     try:
-        manifest = load_manifest()
+        manifest = load_manifest(artifact=artifact)
     except ManifestError as exc:
         sys.exit(str(exc))
 
@@ -132,18 +128,18 @@ def main() -> None:
     status = verify(manifest, target)
 
     if status.usable:
-        if not args.quiet:
-            print(f"==> basemap already cached: {status.detail}")
+        if not quiet:
+            print(f"==> {artifact} already cached: {status.detail}")
         return
 
-    if args.check:
-        sys.exit(f"basemap {status.state}: {status.detail}")
+    if check_only:
+        sys.exit(f"{artifact} {status.state}: {status.detail}")
 
     if status.state is not BasemapState.missing:
         # An existing file that fails verification is removed rather than kept.
-        # Leaving it means every future run pays a full 91 MB digest to
-        # rediscover the same problem, and a stale file at the expected path is
-        # the one thing most likely to be silently served to the browser.
+        # Leaving it means every future run pays a full digest to rediscover the
+        # same problem, and a stale file at the expected path is the one thing
+        # most likely to be silently served to the browser.
         print(f"==> discarding an unusable cached file\n    {status.detail}")
         target.unlink(missing_ok=True)
 
@@ -156,13 +152,35 @@ def main() -> None:
     if not verified.usable:
         partial.unlink(missing_ok=True)
         sys.exit(
-            f"the downloaded basemap does not match the manifest, so it was not "
+            f"the downloaded {artifact} does not match the manifest, so it was not "
             f"installed.\n  {verified.detail}"
         )
 
     shutil.move(str(partial), str(target))
-    print(f"==> basemap ready: {target}")
-    print(f"    OpenStreetMap as of {manifest.osm_replication_time}, {manifest.licence}")
+    print(f"==> {artifact} ready: {target}")
+    print(f"    {manifest.licence}")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "artifacts",
+        nargs="*",
+        choices=[*ARTIFACTS, []],
+        help=f"which archives to fetch (default: all of {', '.join(ARTIFACTS)})",
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="verify the cached archives and exit; never download",
+    )
+    parser.add_argument(
+        "--quiet", action="store_true", help="say nothing when the cache already verifies"
+    )
+    args = parser.parse_args()
+
+    for artifact in args.artifacts or ARTIFACTS:
+        ensure(artifact, check_only=args.check, quiet=args.quiet)
 
 
 if __name__ == "__main__":

@@ -13,9 +13,9 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { BASEMAP_URL } from '@/lib/basemap';
+import { BASEMAP_URL, buildingsManifest, BUILDINGS_URL } from '@/lib/tiles';
 
-import { BASEMAP_SOURCE, buildDarkStyle } from './darkStyle';
+import { BASEMAP_SOURCE, BUILDINGS_SOURCE, buildDarkStyle } from './darkStyle';
 import { MAP_PALETTE } from './palette';
 
 const style = buildDarkStyle();
@@ -75,6 +75,12 @@ describe('the style asks nothing of the network', () => {
     expect(source).toMatchObject({ type: 'vector', url: `pmtiles://${BASEMAP_URL}` });
   });
 
+  it('reads the buildings archive the same way, from the same origin', () => {
+    const source = style.sources[BUILDINGS_SOURCE];
+    expect(source).toBeDefined();
+    expect(source).toMatchObject({ type: 'vector', url: `pmtiles://${BUILDINGS_URL}` });
+  });
+
   it('declares no glyphs and no sprite', () => {
     // Both are network calls, and `make demo` runs offline. This is also why
     // there are no labels: a symbol layer without glyphs does not render.
@@ -86,8 +92,16 @@ describe('the style asks nothing of the network', () => {
     expect(style.layers.filter((l) => l.type === 'symbol').map((l) => l.id)).toEqual([]);
   });
 
-  it('names no http URL anywhere', () => {
-    expect(json).not.toMatch(/https?:\/\/(?!www\.openstreetmap\.org)/);
+  it('names no http URL outside an attribution', () => {
+    // Attributions are the one legitimate place: they are licence text rendered
+    // into the corner of the map as a link a person may click, and MapLibre
+    // never fetches them. Everything else — tiles, glyphs, sprites — must be
+    // local, so they are stripped out and the rest is checked.
+    const withoutAttribution = json.replace(/"attribution":"(\\.|[^"\\])*"/g, '""');
+    expect(withoutAttribution).not.toMatch(/https?:\/\//);
+    // …and the stripping must actually be finding something, or this test has
+    // quietly stopped checking anything.
+    expect(json).toMatch(/"attribution":"(?:\\.|[^"\\])*https/);
   });
 });
 
@@ -95,6 +109,7 @@ describe('the basemap never draws a building', () => {
   it('touches no layer of the archive it does not style deliberately', () => {
     const used = new Set(
       style.layers
+        .filter((l) => 'source' in l && l.source === BASEMAP_SOURCE)
         .map((l) => ('source-layer' in l ? l['source-layer'] : undefined))
         .filter((name): name is string => name !== undefined),
     );
@@ -107,28 +122,109 @@ describe('the basemap never draws a building', () => {
     // §5.3 takes heights from NYC Open Data's `height_roof` so the skyline is
     // measured. The archive's `buildings` layer is OSM's guesses, and drawing it
     // would either double-draw against the real extrusion or quietly become it.
+    //
+    // Both archives call the layer `buildings`, which is the whole reason this
+    // test names the *source*: the version that only checked `source-layer`
+    // would have started failing the moment the measured skyline arrived, and
+    // the tempting fix is to delete it.
     const offenders = style.layers.filter(
-      (l) => 'source-layer' in l && l['source-layer'] === 'buildings',
+      (l) =>
+        'source' in l &&
+        l.source === BASEMAP_SOURCE &&
+        'source-layer' in l &&
+        l['source-layer'] === 'buildings',
     );
     expect(offenders.map((l) => l.id)).toEqual([]);
   });
 
-  it('extrudes nothing yet', () => {
-    expect(style.layers.filter((l) => l.type === 'fill-extrusion').map((l) => l.id)).toEqual([]);
+  it('extrudes exactly one layer, from the measured archive', () => {
+    const extrusions = style.layers.filter((l) => l.type === 'fill-extrusion');
+    expect(extrusions.map((l) => l.id)).toEqual(['buildings']);
+    expect(extrusions[0]).toMatchObject({ source: BUILDINGS_SOURCE });
   });
 });
 
-describe('nothing on the basemap is as bright as a job will be', () => {
+describe('the skyline is the measured one, in the units it was measured in', () => {
+  const buildings = layer('buildings') as unknown as { paint: Record<string, unknown> };
+  const height = JSON.stringify(buildings.paint['fill-extrusion-height']);
+
+  it('reads height_roof and nothing else', () => {
+    // `height` and `render_height` are the OSM archive's field names. Reading
+    // one of them here would draw a skyline out of the guessed heights while
+    // looking exactly like this layer.
+    expect(height).toContain('height_roof');
+    expect(height).not.toContain('render_height');
+  });
+
+  it('converts feet to metres exactly once', () => {
+    // The bake keeps the source's own units so that nothing in the pipeline can
+    // apply the factor twice. A city 3.3 times too tall renders perfectly, which
+    // is what makes this worth a test rather than a comment.
+    const factors = height.match(/0\.3048/g) ?? [];
+    expect(factors.length, 'one conversion, at the point of use').toBe(1);
+  });
+
+  it('gives a footprint with no measured height a stated default, not a guess', () => {
+    // §5.3. The default is deliberately unremarkable — a two-storey building —
+    // because the alternative is a plausible skyline built from data nobody
+    // measured. 732 of 1,083,024 structures take it; the count is in the
+    // manifest so the number is auditable rather than an impression.
+    expect(buildingsManifest.structures_without_height).toBeGreaterThan(0);
+    expect(height).toContain('25');
+
+    const stated = buildingsManifest.structures_without_height / buildingsManifest.structures;
+    expect(stated, 'if this rises the skyline is more default than measured').toBeLessThan(0.01);
+  });
+
+  it('drops the source as well as the layer when the archive is absent', () => {
+    // A layer removed but a source kept is the worst of both: MapLibre still
+    // tries to load the archive, still raises `error`, and CityMap still
+    // replaces a perfectly good city with a card about a missing file.
+    const flat = buildDarkStyle({ buildings: false });
+    expect(flat.layers.filter((l) => l.type === 'fill-extrusion')).toEqual([]);
+    expect(flat.sources[BUILDINGS_SOURCE]).toBeUndefined();
+    expect(JSON.stringify(flat)).not.toContain(BUILDINGS_URL);
+
+    // …and the ground is still there. A missing skyline must not take the city
+    // with it.
+    expect(flat.layers.map((l) => l.id)).toContain('earth');
+  });
+
+  it('does not extrude below the zoom the archive carries', () => {
+    // The buildings archive is z13-z16. A layer drawn below its source's minzoom
+    // is not an error and not empty either — MapLibre serves the z13 tile for
+    // the whole viewport, which at z10 is a million footprints in one frame.
+    expect(layer('buildings').minzoom).toBeGreaterThanOrEqual(buildingsManifest.minzoom);
+  });
+});
+
+describe('nothing on the map is as bright as a job will be', () => {
   const CAP = luminance(MAP_PALETTE.ink400);
 
-  it('caps every drawn colour at ink-400', () => {
-    // The brightness budget belongs to the data (§2.2). ink-400 is the dimmest
-    // shade cleared for a non-text indicator and it is where the basemap stops.
-    const drawn = style.layers.flatMap((l) => ('paint' in l ? colours(l.paint) : []));
+  it('caps every colour on the ground at ink-400', () => {
+    // The brightness budget belongs to the data (§2.2), and ADR 0023 spends part
+    // of it on the skyline rather than the ground: buildings may reach ink-450,
+    // everything you look *down* at stops where it always did. A road that crept
+    // up to meet the towers would take the depth cue away from height and give
+    // it to nothing.
+    const drawn = style.layers
+      .filter((l) => !('source' in l) || l.source !== BUILDINGS_SOURCE)
+      .flatMap((l) => ('paint' in l ? colours(l.paint) : []));
     expect(drawn.length, 'the style must actually contain colours').toBeGreaterThan(5);
 
     const tooBright = drawn.filter((hex) => luminance(hex) > CAP + 1e-9);
-    expect(tooBright, 'the basemap may not outshine ink-400').toEqual([]);
+    expect(tooBright, 'the ground may not outshine ink-400').toEqual([]);
+  });
+
+  it('lets the skyline past that cap, and only the skyline', () => {
+    // The other direction of the same rule. If this ever passes trivially —
+    // because the building ramp was flattened back down to ink-400 — the city
+    // has quietly gone back to being unlit and ADR 0023 has been reversed by
+    // accident rather than by decision.
+    const buildings = colours(
+      (layer('buildings') as unknown as { paint: Record<string, unknown> }).paint,
+    );
+    expect(buildings.some((hex) => luminance(hex) > CAP)).toBe(true);
   });
 
   it('keeps the road ramp in order, so a motorway reads as one', () => {

@@ -8,8 +8,11 @@
  * spends its brightness budget on the basemap, which is exactly the budget M4c
  * needs for beacons.
  *
- * So the basemap tops out at `ink-400`, the dimmest shade cleared for a non-text
- * indicator. Nothing here is allowed to be as bright as a job.
+ * So nothing here is allowed to be as bright as a job. That used to be stated as
+ * a hard cap at `ink-400`; ADR 0023 lit the city and replaced the cap with the
+ * rule it stood in for — every colour on this map stays at least 40 L\* below
+ * `signal-400`, so a beacon always has somewhere brighter to be. The ground
+ * still stops at `ink-400`; only the tallest buildings go past it.
  *
  * ## The three ideas taken from the references (§2.1)
  *
@@ -31,11 +34,13 @@
  *
  * ## What is deliberately absent
  *
- * **Buildings.** The archive carries an OSM `buildings` layer and this style
- * does not draw it. §5.3 takes heights from NYC Open Data's `height_roof`
- * precisely so the skyline is measured rather than guessed, and drawing OSM
- * footprints now would either double-draw against that layer or quietly become
- * it. M4b Task 3 adds the real one.
+ * **The archive's own buildings.** It carries an OSM `buildings` layer and this
+ * style does not draw it. Those heights are mostly guesses — OSM records a real
+ * height for a small fraction of buildings and estimates the rest from storey
+ * counts. §5.3 takes heights from NYC Open Data's `height_roof` precisely so the
+ * skyline is measured, and drawing the OSM layer now would either double-draw
+ * against the real extrusion or quietly become it. The measured one is a
+ * separate source, `nyc-buildings`, and it is the last layer in the style.
  *
  * **Text.** Every symbol layer needs a `glyphs` URL, and every glyph URL is a
  * network call — which `make demo` may not make. Self-hosting the font stack is
@@ -55,14 +60,87 @@
  * whose absence would silently blank a layer.
  */
 
-import type { LayerSpecification, StyleSpecification } from 'maplibre-gl';
+import type { ExpressionSpecification, LayerSpecification, StyleSpecification } from 'maplibre-gl';
 
-import { basemapManifest, BASEMAP_URL } from '@/lib/basemap';
+import { basemapManifest, BASEMAP_URL, buildingsManifest, BUILDINGS_URL } from '@/lib/tiles';
 
 import { MAP_PALETTE as C } from './palette';
 
-/** The id every layer draws from, and the id M4c's beacons will sit above. */
+/** The id the ground draws from, and the id M4c's beacons will sit above. */
 export const BASEMAP_SOURCE = 'protomaps';
+
+/** New York's own footprints, at heights the city measured. A separate archive. */
+export const BUILDINGS_SOURCE = 'nyc-buildings';
+
+/**
+ * Feet to metres, applied here and nowhere else.
+ *
+ * The tiles carry `height_roof` in the source's own units, which is feet,
+ * because a conversion done in the bake and again in the style is a factor
+ * applied twice — and a city 3.3 times too tall renders perfectly, which is what
+ * makes that class of bug expensive. One conversion, at the point of use.
+ */
+const FEET_TO_METRES = 0.3048;
+
+/**
+ * What a footprint with no measured height is drawn as, in feet.
+ *
+ * §5.3 asks for a documented default that is *recorded as having been taken*.
+ * This is the documented part; the record is in the manifest, which counts the
+ * structures NYC publishes with no `height_roof` — see `buildingsManifest`, and
+ * `test_the_buildings_archive_records_what_it_could_not_measure`, which fails if
+ * that fraction ever rises past 1%.
+ *
+ * Twenty-five feet is a two-storey building. It is chosen to be *unremarkable
+ * rather than accurate*: the alternative — an average, or a guess from the
+ * footprint's area — produces a plausible skyline out of data nobody measured,
+ * which is exactly the small lie §5.3 is written against. A building at the
+ * default should look like the low-rise it probably is and should never be
+ * mistaken for a tower.
+ */
+const DEFAULT_HEIGHT_FEET = 25;
+
+/**
+ * `height_roof` as a number of feet, with the default substituted for a missing
+ * one.
+ *
+ * Cast because MapLibre's `ExpressionSpecification` is a union of some ninety
+ * tuple shapes and TypeScript will not infer a nested `let` into it. The cast is
+ * on the smallest possible thing — this expression, not the layer — and the
+ * expression itself is asserted in `darkStyle.test.ts`, which reads the built
+ * style rather than trusting the type.
+ */
+const HEIGHT_FEET = [
+  'let',
+  'measured',
+  // The attribute arrives as a string — NYC's GeoJSON export quotes its numbers
+  // and tippecanoe preserves the type it was given. `to-number` with a fallback
+  // covers the quoted number, the null and the empty string in one expression.
+  ['to-number', ['get', 'height_roof'], 0],
+  ['case', ['>', ['var', 'measured'], 0], ['var', 'measured'], DEFAULT_HEIGHT_FEET],
+] as unknown as ExpressionSpecification;
+
+/**
+ * The height ramp, in feet, and the shade each rung is drawn at.
+ *
+ * **Colour carries height, and height is the one thing this layer actually
+ * knows.** ADR 0023 lights the city, which raises the question of what the light
+ * should mean — and the answer that costs nothing and lies about nothing is: how
+ * tall the building is. NYC measured it. A brighter tower against dimmer
+ * low-rise reproduces the reference images' depth read while remaining a
+ * *rendering of the data*, not a decoration applied over it.
+ *
+ * The rungs are the city's own shape rather than an even ramp: most of New York
+ * is under 60 feet, so an even ramp would render almost everything at the bottom
+ * shade and waste the range on the handful of towers.
+ */
+const HEIGHT_STOPS: ReadonlyArray<readonly [feet: number, colour: string]> = [
+  [0, C.ink800],
+  [40, C.ink700],
+  [120, C.ink600],
+  [400, C.ink500],
+  [900, C.ink450],
+];
 
 /** Water, in every form the archive labels it across the harbour and the parks. */
 const WATER_KINDS = [
@@ -229,13 +307,89 @@ function roadLayers(): LayerSpecification[] {
 }
 
 /**
+ * New York, extruded to the heights the city measured.
+ *
+ * **Why this is one layer and not two.** The reference images read as edge-lit
+ * masses, and the obvious way to build that is a fill plus an outline. MapLibre
+ * has no outline for an extrusion — a `line` layer on the same footprints draws
+ * on the ground, under the building, where it is invisible. What it does have is
+ * `fill-extrusion-vertical-gradient`, which darkens each wall toward its base;
+ * against a lit sky that produces the same read, one layer, no second pass over
+ * a million footprints. The remaining half of §2.1's treatment — window speckle
+ * — needs a texture, a texture needs a sprite, and a sprite is a network call
+ * this style has spent two tasks refusing. It belongs to the Three.js layer, and
+ * it is listed under "Not real yet" rather than left as something to rediscover.
+ *
+ * **Nothing here is data-driven by anything but height.** Not by `feature_code`,
+ * not by age, not by whether a company sits inside it. A hiring building is
+ * distinguished by a beam (ADR 0023), and a beam is M4c's job; a building that
+ * changed colour when a job appeared would spend the encoding twice and would
+ * still be invisible at ten-in-fifty-thousand.
+ */
+function buildingLayer(): LayerSpecification {
+  return {
+    id: 'buildings',
+    type: 'fill-extrusion',
+    source: BUILDINGS_SOURCE,
+    'source-layer': 'buildings',
+    // The archive starts at z13 and MapLibre overzooms above z16, which for an
+    // extrusion is exactly right: the geometry is the same, only the detail
+    // budget changes. Below z13 the whole city is a texture and drawing a
+    // million footprints into it costs frames for nothing.
+    minzoom: 13,
+    paint: {
+      'fill-extrusion-height': [
+        'interpolate',
+        ['linear'],
+        ['zoom'],
+        // Buildings grow out of the ground as they come into view, over a single
+        // zoom level. Popping a skyline into existence at z13 reads as a bug;
+        // this reads as approach. It is also a real perf lever — at z13 the
+        // extrusions are near zero height and cheap to rasterise.
+        13,
+        0,
+        14,
+        ['*', HEIGHT_FEET, FEET_TO_METRES],
+      ],
+      'fill-extrusion-base': 0,
+      'fill-extrusion-color': [
+        'interpolate',
+        ['linear'],
+        HEIGHT_FEET,
+        ...HEIGHT_STOPS.flatMap(([feet, colour]) => [feet, colour]),
+      ],
+      // Opaque, so the depth buffer sorts the city correctly. A translucent
+      // extrusion layer lets the streets show through the towers, which at 76°
+      // of pitch is most of the frame.
+      'fill-extrusion-opacity': 1,
+      'fill-extrusion-vertical-gradient': true,
+    },
+  } as LayerSpecification;
+}
+
+/**
  * The whole style, as a value.
  *
  * A function rather than a constant so it stays cheap to test and impossible to
  * mutate by accident — MapLibre takes ownership of the object it is handed and
  * a shared constant would be modified in place by the first `setPaintProperty`.
  */
-export function buildDarkStyle(): StyleSpecification {
+export interface DarkStyleOptions {
+  /**
+   * Draw the measured skyline. Default true.
+   *
+   * False when the buildings archive is not on this machine — `make setup`
+   * fetches both, so this is the clean-clone case and the half-finished-setup
+   * case. It omits the source as well as the layer, because a source MapLibre
+   * cannot load raises an `error` event, and this component treats an error as
+   * "the map is broken" and replaces a perfectly good city with a card. A city
+   * with no skyline is a worse map and a true one; a card over a city that
+   * renders is neither.
+   */
+  readonly buildings?: boolean;
+}
+
+export function buildDarkStyle({ buildings = true }: DarkStyleOptions = {}): StyleSpecification {
   return {
     version: 8,
     name: 'Nightshift — dark city',
@@ -247,6 +401,17 @@ export function buildDarkStyle(): StyleSpecification {
         url: `pmtiles://${BASEMAP_URL}`,
         attribution: basemapManifest.attribution,
       },
+      // A second archive, and a second attribution — NYC Open Data's terms ask
+      // for one, and MapLibre shows whatever its sources declare.
+      ...(buildings
+        ? {
+            [BUILDINGS_SOURCE]: {
+              type: 'vector' as const,
+              url: `pmtiles://${BUILDINGS_URL}`,
+              attribution: buildingsManifest.attribution,
+            },
+          }
+        : {}),
     },
     // The reference images' violet field, and the only place it is permitted.
     sky: {
@@ -312,6 +477,8 @@ export function buildDarkStyle(): StyleSpecification {
           'line-opacity': 0.6,
         },
       },
+      // Last, so the city occludes the ground it stands on.
+      ...(buildings ? [buildingLayer()] : []),
     ],
   } as StyleSpecification;
 }

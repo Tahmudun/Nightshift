@@ -135,7 +135,7 @@ jobs:
       - name: Fetch the embedding model
         run: make model
 
-      - name: Cache the basemap
+      - name: Cache the map tiles
         # ~91 MB of NYC vector tiles (ADR 0022), cached for the same reason as
         # the model above: without it,
         # test_the_downloaded_artifact_matches_the_manifest *skips*, and the one
@@ -146,10 +146,10 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/nightshift/basemap
-          key: basemap-${{ hashFiles('data/basemap.manifest.json') }}
+          key: tiles-${{ hashFiles('data/basemap.manifest.json', 'data/buildings.manifest.json') }}
 
-      - name: Fetch the basemap
-        run: make basemap
+      - name: Fetch the map tiles
+        run: make tiles
 
       - name: Unit tests
         # Coverage is measured and reported from M0 but does not gate until M3.

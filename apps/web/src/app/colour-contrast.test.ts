@@ -95,6 +95,16 @@ describe('surface shades stay out of the text ramp', () => {
     expect(contrast(token('ink-400'), token('ink-950'))).toBeGreaterThanOrEqual(3);
   });
 
+  it('ink-450 clears 3:1 too, and still is not text', () => {
+    // The tallest rung of the building height ramp (ADR 0023). Brighter than
+    // ink-400, which used to be the map's ceiling — so it is worth stating that
+    // it did not cross into the text ramp on the way up. The other half of its
+    // bound, that it stays 40 L* below signal-400, is in darkStyle.test.ts where
+    // the layers that use it live.
+    expect(contrast(token('ink-450'), token('ink-950'))).toBeGreaterThanOrEqual(3);
+    expect(contrast(token('ink-450'), token('ink-950'))).toBeLessThan(4.5);
+  });
+
   it('ink-500 is too dark for either purpose, which is why it is borders only', () => {
     // Asserting the *known-bad* value documents why the token is restricted. If
     // someone lightens ink-500 to make it usable as text, this fails and points
@@ -111,7 +121,7 @@ describe('the source no longer uses surface shades as text', () => {
     const offenders: string[] = [];
     for (const file of files) {
       const source = readFileSync(join(SRC, file), 'utf8');
-      if (/text-ink-(400|500|600|700|800|900|950)\b/.test(source)) {
+      if (/text-ink-(400|450|500|600|700|800|900|950)\b/.test(source)) {
         offenders.push(file);
       }
     }

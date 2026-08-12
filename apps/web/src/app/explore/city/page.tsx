@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 import { CityMap } from '@/components/CityMap';
-import { basemapManifest } from '@/lib/basemap';
+import { basemapManifest, buildingsManifest } from '@/lib/tiles';
 
 /**
  * The city, at M4b: New York with no jobs on it.
@@ -60,7 +60,21 @@ export default function CityPage() {
           <dt className="text-paper-faint">World as of</dt>
           <dd className="text-paper-dim">{basemapManifest.osm_replication_time}</dd>
           <dt className="text-paper-faint">Buildings</dt>
-          <dd className="text-paper-dim">Not drawn yet — waiting on measured heights</dd>
+          <dd className="text-paper-dim">
+            {buildingsManifest.structures.toLocaleString('en-US')} structures, NYC Open Data{' '}
+            {buildingsManifest.protomaps_build}
+          </dd>
+          {/* §5.3: a footprint with no measured height takes a documented
+              default *and is recorded as having taken it*. This is the record,
+              on the page rather than in a comment, because a skyline presented
+              as measured where part of it is a default is the kind of small lie
+              this project does not keep a category of. */}
+          <dt className="text-paper-faint">Heights</dt>
+          <dd className="text-paper-dim">
+            Measured roof heights, in feet.{' '}
+            {buildingsManifest.structures_without_height.toLocaleString('en-US')} have none recorded
+            and are drawn at a default 25 ft.
+          </dd>
         </dl>
       </section>
     </CityMap>
