@@ -137,12 +137,30 @@ that passed just as happily against `min`, because every seeded job has exactly
 one record; it now builds a second board's record so the aggregate has something
 to choose between.
 
+**Three existing browser tests failed, correctly, and were rewritten rather than
+relaxed.** "Every unresolved role reaches the instance buffer" stopped being
+true the moment the archive toggle became real: one seeded role is rejected, so
+the endpoint returns 31 and the city draws 30. The tests now read
+`/applications` and subtract what §6 hides, which states the rule instead of
+contradicting it — and still catches a beacon that fails to reach the buffer,
+which is what they were for. The roster's per-employer count moved with them,
+because the roster reads the same filtered list.
+
+**A false alarm worth writing down: 1 failure and 21 errors that were nobody's
+defect.** The Python suite was run while the seeded Playwright suite was
+running against the same Postgres. Re-run alone: **1,940 passed, 0 failed**.
+The seeded browser suite in that same window reported "14 did not run" and took
+11.3 minutes; alone it is 5.4 minutes and complete. Neither suite is isolated
+from the other's database, and nothing warns you — the failures name real tests
+and look exactly like a regression. Run them one at a time.
+
 **Evidence.** 187 unit tests in `lib/city` (up from 107), 43 web test files /
-618 tests green, 1,583 Python tests green, `make lint` and `make typecheck`
-clean, 24 offline browser tests green, and 28 seeded browser tests — four of
-them new and covering the marks reaching the GPU path, the archive toggle
-moving the *buffer*, reduced motion zeroing the pulses in the instance data
-rather than behind a uniform, and the legend listing its undrawable rows.
+618 tests green, **1,940 Python tests green** (run alone), `make lint` and
+`make typecheck` clean, 24 offline browser tests green, and **83 seeded browser
+tests green, 1 skipped** — four of them new and covering the marks reaching the
+GPU path, the archive toggle moving the *buffer* rather than only a list,
+reduced motion zeroing the pulses in the instance data rather than behind a
+uniform, and the legend listing its undrawable rows.
 
 **Eight mutations, each shown to turn a named assertion red:**
 

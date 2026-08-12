@@ -26,7 +26,42 @@ const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000';
 
 interface Signals {
   readonly counts: { building: number; area: number; unresolved: number; total: number };
-  readonly signals: readonly { readonly placement: { readonly kind: string } }[];
+  readonly signals: readonly {
+    readonly job_id: string;
+    readonly company_name: string;
+    readonly placement: { readonly kind: string };
+  }[];
+}
+
+/** How many unresolved roles the city should actually be drawing right now. */
+async function expectedBeacons(): Promise<number> {
+  const [body, archived] = await Promise.all([signalsFromApi(), archivedJobIds()]);
+  return body.signals.filter(
+    (signal) => signal.placement.kind === 'unresolved' && !archived.has(signal.job_id),
+  ).length;
+}
+
+/**
+ * The roles §6 keeps off the city: rejected, withdrawn, or a closed
+ * application.
+ *
+ * Subtracted from the endpoint's own counts by every assertion below that
+ * compares the corpus against the buffer. Task 5 made the archive toggle real
+ * and default-off, so "every role the API returned is drawn" stopped being
+ * true — correctly. Reading the applications here rather than hard-coding a
+ * number keeps these tests tracking the seed rather than a snapshot of it.
+ */
+async function archivedJobIds(): Promise<ReadonlySet<string>> {
+  const response = await fetch(`${API}/applications?archived=true`);
+  expect(response.ok, `GET ${API}/applications failed — is the API running?`).toBe(true);
+  const body = (await response.json()) as {
+    items: readonly { current_stage: string; job: { id: string } }[];
+  };
+  return new Set(
+    body.items
+      .filter((item) => ['rejected', 'withdrawn', 'closed'].includes(item.current_stage))
+      .map((item) => item.job.id),
+  );
 }
 
 async function signalsFromApi(): Promise<Signals> {
@@ -67,19 +102,23 @@ async function cityHasSignals(page: Page) {
 }
 
 test('every unresolved role reaches the instance buffer', async ({ page }) => {
-  const expected = await signalsFromApi();
+  // Every one the archive toggle is not hiding, since Task 5: §6 keeps
+  // rejections off the skyline by default, so the endpoint's own total is no
+  // longer the number that should be drawn.
+  const expected = await expectedBeacons();
   await openCity(page);
 
   // Read from the renderer, not from the DOM. A count in the overlay would
   // prove the fetch worked; this is the only number that proves Three.js
   // received them.
   await cityHasSignals(page);
-  expect(
-    await page.evaluate(
-      (key) => window[key as typeof CITY_DEBUG_KEY]!.signals.drawn,
-      CITY_DEBUG_KEY,
-    ),
-  ).toBe(expected.counts.unresolved);
+  await expect
+    .poll(
+      () =>
+        page.evaluate((key) => window[key as typeof CITY_DEBUG_KEY]!.signals.drawn, CITY_DEBUG_KEY),
+      { timeout: 15_000, message: 'the buffer never settled at the visible corpus' },
+    )
+    .toBe(expected);
 });
 
 test('the layer is a custom 3d layer in the map’s own style', async ({ page }) => {
@@ -150,11 +189,13 @@ test('nothing on the city claims a precision the corpus does not have (I1)', asy
 
   await openCity(page);
   await cityHasSignals(page);
-  const placed = await page.evaluate(
-    (key) => window[key as typeof CITY_DEBUG_KEY]!.signals.drawn,
-    CITY_DEBUG_KEY,
-  );
-  expect(placed).toBe(expected.counts.unresolved);
+  await expect
+    .poll(
+      () =>
+        page.evaluate((key) => window[key as typeof CITY_DEBUG_KEY]!.signals.drawn, CITY_DEBUG_KEY),
+      { timeout: 15_000 },
+    )
+    .toBe(await expectedBeacons());
 });
 
 /**
@@ -169,13 +210,14 @@ test('nothing on the city claims a precision the corpus does not have (I1)', asy
 
 /** The employers the API says are hiring, in the order the default sort uses. */
 async function employersFromApi(): Promise<Map<string, number>> {
-  const body = await signalsFromApi();
+  const [body, archived] = await Promise.all([signalsFromApi(), archivedJobIds()]);
   const counts = new Map<string, number>();
-  for (const signal of body.signals as readonly {
-    company_name: string;
-    placement: { kind: string };
-  }[]) {
+  for (const signal of body.signals) {
     if (signal.placement.kind !== 'unresolved') continue;
+    // The roster reads the same filtered list the renderer does — that shared
+    // filter is what §5.6's "the list and the map cannot disagree" means once
+    // §6's archive toggle exists.
+    if (archived.has(signal.job_id)) continue;
     counts.set(signal.company_name, (counts.get(signal.company_name) ?? 0) + 1);
   }
   return counts;
