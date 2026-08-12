@@ -1,17 +1,21 @@
 'use client';
 
 /**
- * Who is hiring, in what order you asked for, and a way to reach each of them.
+ * Who is hiring, in what order you asked for, and a way to reach every role.
  *
  * This is the half of `city.md` §4.8 that the beacons cannot be: *"a legible,
  * navigable, sortable field of signals"*. The plates in the scene say which
  * column is which; this says what the whole field contains, lets a person
- * choose how it is ordered, and flies the camera to any column in it.
+ * choose how it is ordered, flies the camera to any column in it, and — since
+ * Task 4 — opens any individual role.
  *
  * **It is also the field's non-3D equivalent, which §5.6 requires.** Every
- * employer on the map is a row here, reachable by tab and readable by a screen
- * reader, and the counts are text rather than a shape in a WebGL buffer. A
- * person who cannot use the canvas loses the view, not the information.
+ * employer on the map is a row here and every beacon is a row inside that,
+ * reachable by tab and readable by a screen reader. Selecting a role from this
+ * list and selecting the same role by clicking its beacon are the same action
+ * on the same piece of state; there is no path through the canvas that does not
+ * have one through here. A person who cannot use the canvas loses the view, not
+ * the information.
  *
  * **It renders no map and holds no map state.** It reads the same store the
  * renderer reads and calls one method on the camera. Changing the sort writes
@@ -20,13 +24,12 @@
  * nothing else (§5.5, `CLAUDE.md` §8).
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { MAX_LABELS } from '@/lib/city/labelAtlas';
-import { lngLatFromScene } from '@/lib/city/mercator';
+import { focusColumn } from '@/lib/city/focus';
 import { useCityScene } from '@/lib/city/scene';
 import { arrangeUnresolved, FIELD_SORTS, type FieldSort } from '@/lib/city/unresolvedField';
-import { INITIAL_POSE } from '@/lib/map/camera';
 
 const PANEL = 'pointer-events-auto border border-ink-700/80 bg-ink-950/70 backdrop-blur-md';
 
@@ -44,58 +47,70 @@ const SORT_LABELS: Record<FieldSort, { readonly label: string; readonly means: s
   newest: { label: 'Newest', means: 'The employer whose newest role we saw most recently, first.' },
 };
 
-/**
- * The zoom a column is read from.
- *
- * Lower than `focusOn`'s own default, which is set for a single building. A
- * column is 620 m from its neighbours and this field is kilometres wide, so
- * arriving at street zoom puts one stack of diamonds across the whole window
- * with nothing around it to say where you are.
- */
-const COLUMN_ZOOM = 14;
-
-/**
- * How much of each edge does not count as on screen.
- *
- * Wider than `focusOn`'s own default, and the reason is this panel. The rail
- * is 21rem, which is about a quarter of a laptop window, so a column drawn
- * behind it satisfies the default 18% margin while being completely invisible
- * — the camera then declines to move because the thing you asked for is
- * already "visible", and clicking a row appears to do nothing.
- */
-const COLUMN_MARGIN = 0.3;
-
 export function CityRoster() {
   const signals = useCityScene((state) => state.signals);
   const status = useCityScene((state) => state.status);
   const sort = useCityScene((state) => state.sort);
   const setSort = useCityScene((state) => state.setSort);
   const camera = useCityScene((state) => state.camera);
+  const selected = useCityScene((state) => state.selected);
+  const select = useCityScene((state) => state.select);
 
   /** Which column the camera was last sent to. Navigation, not selection. */
   const [visited, setVisited] = useState<string | null>(null);
+  /** Which employer's roles are showing. One at a time; the rail is 21rem wide. */
+  const [opened, setOpened] = useState<string | null>(null);
 
   // The same pure function the renderer calls, with the same arguments, so the
-  // list and the field cannot disagree about what is in the city or what order
-  // it is in. Memoised because it runs over the whole corpus and this
-  // component re-renders on every sort change.
+  // list and the field cannot disagree about what is in the city, what order it
+  // is in, or which beacon a row belongs to. Memoised because it runs over the
+  // whole corpus and this component re-renders on every sort change.
   const { columns } = useMemo(() => arrangeUnresolved(signals, sort), [signals, sort]);
 
-  const unlabelled = Math.max(0, columns.length - MAX_LABELS);
+  /** Titles for the ids the field hands back. The field owns order, not text. */
+  const titles = useMemo(
+    () => new Map(signals.map((signal) => [signal.job_id, signal.title])),
+    [signals],
+  );
+
+  const employerOf = useMemo(
+    () => new Map(signals.map((signal) => [signal.job_id, signal.company_id])),
+    [signals],
+  );
+  const selectedEmployer = selected === null ? null : (employerOf.get(selected) ?? null);
+
+  /**
+   * A selection made anywhere opens the employer it belongs to.
+   *
+   * This is the list half of list↔map sync, and it is the half that is easy to
+   * skip: without it, clicking a beacon highlights a row that is inside a
+   * collapsed group, so the list silently disagrees with the map about what is
+   * being shown. The person can still collapse it afterwards — this fires on a
+   * *change* of employer, not on every render.
+   */
+  useEffect(() => {
+    if (selectedEmployer !== null) setOpened(selectedEmployer);
+  }, [selectedEmployer]);
+
+  /**
+   * And scroll it into view, because opening a group off-screen is not showing
+   * it. `block: 'nearest'` moves the minimum and does nothing when the row is
+   * already visible, so a selection made *in* this list does not jump.
+   */
+  const selectedRow = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (selected !== null) selectedRow.current?.scrollIntoView({ block: 'nearest' });
+  }, [selected]);
 
   if (status.kind !== 'ready' || columns.length === 0) return null;
 
-  const roles = columns.reduce((sum, column) => sum + column.roles, 0);
+  const unlabelled = Math.max(0, columns.length - MAX_LABELS);
+  const roles = columns.reduce((sum, column) => sum + column.jobIds.length, 0);
 
-  function focus(x: number, y: number, companyId: string): void {
+  function open(companyId: string, x: number, y: number): void {
     setVisited(companyId);
-    // The anchor is the pose the scene is laid out around — the same one the
-    // signal layer is constructed with. Reading it from anywhere else would be
-    // a second definition of where the field is.
-    camera?.focusOn(lngLatFromScene(INITIAL_POSE.center, x, y), {
-      zoom: COLUMN_ZOOM,
-      margin: COLUMN_MARGIN,
-    });
+    setOpened((current) => (current === companyId ? null : companyId));
+    focusColumn(camera, x, y);
   }
 
   return (
@@ -146,32 +161,74 @@ export function CityRoster() {
       </div>
 
       <ul>
-        {columns.map((column, index) => (
-          <li key={column.companyId}>
-            <button
-              type="button"
-              onClick={() => focus(column.x, column.y, column.companyId)}
-              aria-current={visited === column.companyId ? 'location' : undefined}
-              disabled={camera === null}
-              className={`flex w-full items-baseline gap-3 border-b border-ink-800/70 px-4 py-2 text-left transition-colors hover:bg-ink-800/50 disabled:cursor-not-allowed disabled:opacity-60 ${
-                visited === column.companyId ? 'bg-ink-800/60' : ''
-              }`}
-            >
-              {/* The row's rank under the chosen order — "the third-largest
-                  employer", not "the third column from the left". The field is
-                  in three dimensions and the camera turns, so left-to-right on
-                  screen reverses with the bearing and no number could track
-                  it. */}
-              <span className="w-6 shrink-0 font-mono text-[10px] text-paper-faint tabular-nums">
-                {index + 1}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-[13px] text-paper">{column.name}</span>
-              <span className="shrink-0 font-mono text-[11px] text-signal-400 tabular-nums">
-                {column.roles}
-              </span>
-            </button>
-          </li>
-        ))}
+        {columns.map((column, index) => {
+          const isOpen = opened === column.companyId;
+          return (
+            <li key={column.companyId}>
+              <button
+                type="button"
+                onClick={() => open(column.companyId, column.x, column.y)}
+                aria-expanded={isOpen}
+                aria-current={visited === column.companyId ? 'location' : undefined}
+                disabled={camera === null}
+                className={`flex w-full items-baseline gap-3 border-b border-ink-800/70 px-4 py-2 text-left transition-colors hover:bg-ink-800/50 disabled:cursor-not-allowed disabled:opacity-60 ${
+                  visited === column.companyId ? 'bg-ink-800/60' : ''
+                }`}
+              >
+                {/* The row's rank under the chosen order — "the third-largest
+                    employer", not "the third column from the left". The field is
+                    in three dimensions and the camera turns, so left-to-right on
+                    screen reverses with the bearing and no number could track
+                    it. */}
+                <span className="w-6 shrink-0 font-mono text-[10px] text-paper-faint tabular-nums">
+                  {index + 1}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-[13px] text-paper">
+                  {column.name}
+                </span>
+                <span className="shrink-0 font-mono text-[11px] text-signal-400 tabular-nums">
+                  {column.jobIds.length}
+                </span>
+              </button>
+
+              {isOpen && (
+                // Top of the list is the top of the stack in the scene, so the
+                // reading order matches what a person is looking at rather than
+                // the buffer's own bottom-up order.
+                <ul className="border-b border-ink-800/70 bg-ink-900/40">
+                  {[...column.jobIds].reverse().map((jobId) => {
+                    const isSelected = jobId === selected;
+                    return (
+                      <li key={jobId}>
+                        <button
+                          type="button"
+                          ref={isSelected ? selectedRow : undefined}
+                          onClick={() => select(isSelected ? null : jobId)}
+                          aria-current={isSelected ? 'true' : undefined}
+                          className={`flex w-full items-baseline gap-2 py-1.5 pr-4 pl-10 text-left text-[12px] transition-colors hover:bg-ink-800/60 ${
+                            isSelected
+                              ? 'bg-signal-900/60 text-signal-400'
+                              : 'text-paper-dim hover:text-paper'
+                          }`}
+                        >
+                          <span
+                            aria-hidden="true"
+                            className={`shrink-0 font-mono text-[10px] ${
+                              isSelected ? 'text-signal-400' : 'text-paper-faint'
+                            }`}
+                          >
+                            {isSelected ? '◆' : '◇'}
+                          </span>
+                          <span className="min-w-0 flex-1">{titles.get(jobId) ?? jobId}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </li>
+          );
+        })}
       </ul>
 
       {unlabelled > 0 && (

@@ -16,23 +16,11 @@ import Link from 'next/link';
 
 import { ConfidenceLadder } from './ConfidenceLadder';
 import { SaveJobButton } from './SaveJobButton';
+// Shared with the city's detail panel, which describes the same role in the
+// same words. Two copies of this table is how a list and a map start to
+// disagree about a job.
+import { EMPLOYMENT_LABELS, REMOTE_LABELS } from '@/lib/jobLabels';
 import type { JobSummary } from '@/lib/schemas';
-
-const EMPLOYMENT_LABELS: Record<JobSummary['employment_type'], string> = {
-  full_time: 'Full time',
-  part_time: 'Part time',
-  internship: 'Internship',
-  contract: 'Contract',
-  temporary: 'Temporary',
-  unknown: 'Type not stated',
-};
-
-const REMOTE_LABELS: Record<JobSummary['remote_policy'], string> = {
-  on_site: 'On site',
-  hybrid: 'Hybrid',
-  remote: 'Remote',
-  unknown: 'Policy not stated',
-};
 
 function formatDate(iso: string | null): string {
   if (iso === null) return '—';

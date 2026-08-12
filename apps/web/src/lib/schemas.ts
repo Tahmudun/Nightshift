@@ -44,8 +44,10 @@ export const employmentTypeSchema = z.enum([
   'temporary',
   'unknown',
 ]);
+export type EmploymentType = z.infer<typeof employmentTypeSchema>;
 
 export const remotePolicySchema = z.enum(['on_site', 'hybrid', 'remote', 'unknown']);
+export type RemotePolicy = z.infer<typeof remotePolicySchema>;
 
 export const jobLocationSchema = z
   .object({

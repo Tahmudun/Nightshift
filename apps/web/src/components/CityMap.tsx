@@ -287,6 +287,7 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
         created.addLayer(layer);
         const initial = useCityScene.getState();
         layer.setSignals(initial.signals, initial.sort);
+        layer.setSelected(initial.selected);
         unsubscribeScene = useCityScene.subscribe((state, previous) => {
           // The sort is watched alongside the signals because reordering the
           // field is a rebuild of the same instance buffer, not a re-render:
@@ -295,10 +296,54 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
           if (state.signals !== previous.signals || state.sort !== previous.sort) {
             layer.setSignals(state.signals, state.sort);
           }
+          // The reticle is the same story one object down: a selection made in
+          // the roster moves one mesh, and no component that owns a WebGL
+          // context re-renders. This is also the seam that makes the list and
+          // the map incapable of disagreeing — both read this one value.
+          if (state.selected !== previous.selected) layer.setSelected(state.selected);
         });
       };
       if (created.isStyleLoaded()) attachSignals();
       else created.on('styledata', attachSignals);
+
+      // **Picking, and why it is not `queryRenderedFeatures`.** The beacons are
+      // Three.js instances inside a custom layer, so MapLibre's feature index
+      // has never heard of them — no pose returns one. M4b separately measured
+      // the whole-viewport query returning *zero* at this city's opening pitch
+      // with thirty thousand building features drawn on screen. The pick is a
+      // raycast against the same matrix the layer drew with; see `pick.ts`.
+      const pickAt = (point: { readonly x: number; readonly y: number }): string | null => {
+        const canvas = created.getCanvas();
+        return layer.pick(point, { width: canvas.clientWidth, height: canvas.clientHeight });
+      };
+
+      // A click on empty sky clears the selection — the same gesture as escape
+      // and as the panel's close button. Leaving a selection standing after a
+      // click that hit nothing makes the reticle look stuck.
+      //
+      // A drag does not reach this. MapLibre's own event handler suppresses
+      // `click` when the pointer moved further than `clickTolerance` between
+      // press and release, so panning the city does not put the selection
+      // down. Checked in the library rather than assumed, because the failure
+      // — losing your selection every time you move the map — would be blamed
+      // on almost anything else.
+      created.on('click', (event: { readonly point: { x: number; y: number } }) => {
+        if (cancelled) return;
+        useCityScene.getState().select(pickAt(event.point));
+      });
+
+      // The cursor is the only thing on this canvas that says a beacon is
+      // clickable at all. Nothing about a floating diamond announces it, and
+      // §5.6's non-3D equivalent — the roster — is not a reason for the 3D path
+      // to be undiscoverable.
+      created.on('mousemove', (event: { readonly point: { x: number; y: number } }) => {
+        // Not while the map is moving: MapLibre puts `grabbing` on the canvas
+        // container during a drag, and a `pointer` set here on the canvas
+        // itself would win over it — so dragging the city across a beacon
+        // would flicker between two cursors that mean different things.
+        if (cancelled || created.isMoving()) return;
+        created.getCanvas().style.cursor = pickAt(event.point) === null ? '' : 'pointer';
+      });
 
       // Outside production only, and compiled out inside it — see `map/debug`.
       // The acceptance suite reads the camera from here because the pose lives

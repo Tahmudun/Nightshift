@@ -20,3 +20,15 @@ import '@testing-library/jest-dom/vitest';
  * test already makes better.
  */
 HTMLCanvasElement.prototype.getContext = (() => null) as unknown as HTMLCanvasElement['getContext'];
+
+/**
+ * jsdom has no layout, so it has no `scrollIntoView` either.
+ *
+ * Unlike `getContext` this is not a capability a real browser can be without —
+ * it is on every engine — so guarding the call in product code would be dead
+ * code shipped to defend against a test environment. A no-op here is the
+ * honest stand-in: there is no scrolling to do because there is nothing laid
+ * out to scroll. That the panel and the selected row actually come into view is
+ * a claim for `city.spec.ts`, where there is a viewport.
+ */
+Element.prototype.scrollIntoView = function scrollIntoView(): void {};

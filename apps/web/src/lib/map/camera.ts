@@ -607,9 +607,14 @@ export class CameraController {
         break;
       case 'Escape':
         // Escape means stop, at every level of this product. Here it ends an
-        // orbit; in M4c it will also clear the selection, and the ordering is
-        // deliberate — the camera stops first so the user is looking at a still
-        // frame by the time anything else happens.
+        // orbit and halts any animation. `CityDetail` listens on `document`
+        // for the same key and clears the selection, and the ordering is
+        // deliberate rather than incidental: this listener is on the map's own
+        // container, so it runs first as the event bubbles, and the person is
+        // looking at a still frame by the time the panel closes.
+        //
+        // `preventDefault` below marks the event handled without stopping it
+        // propagating, which is what lets both happen.
         this.stop();
         break;
       default:
@@ -767,7 +772,7 @@ export const KEYBOARD_HELP: readonly { readonly keys: string; readonly does: str
   { keys: 'Shift ↑ ↓', does: 'Tilt' },
   { keys: '+ −', does: 'Zoom' },
   { keys: '0', does: 'Reset the view' },
-  { keys: 'Esc', does: 'Stop the camera' },
+  { keys: 'Esc', does: 'Stop the camera, then clear the selection' },
 ];
 
 /** Also the DURATION and STEP tables, for the tests that pin them. */

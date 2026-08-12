@@ -18,12 +18,15 @@
  * they sit.
  *
  * The order is deliberate: the controls first, because they are the smallest
- * and the most used; the roster next, taking the slack and scrolling inside
- * itself; the counts last, pinned to the bottom, because they are a summary of
- * everything above them.
+ * and the most used; the selected role next, because it is what the person
+ * just asked for and it is absent most of the time; then the roster, and the
+ * counts last, because they are a summary of everything above them.
  */
 
+import { Suspense } from 'react';
+
 import { CameraControls } from '@/components/CameraControls';
+import { CityDetail } from '@/components/CityDetail';
 import { CityRoster } from '@/components/CityRoster';
 import { CitySignals } from '@/components/CitySignals';
 import { useCityScene } from '@/lib/city/scene';
@@ -50,6 +53,14 @@ export function CityRail() {
     // instead of to a two-row window onto a three-row list.
     <div className="pointer-events-none absolute top-24 right-4 bottom-9 z-20 flex w-[21rem] max-w-[calc(100vw-2rem)] flex-col items-stretch gap-3 overflow-y-auto">
       {mapReady && <CameraControls />}
+      {/* `CityDetail` reads the selection out of the URL with
+          `useSearchParams`, which `next build` refuses to prerender without a
+          boundary. The fallback is nothing on purpose: the panel is absent
+          whenever no role is selected, so a placeholder would be a box that
+          appears for one frame on every load and says nothing. */}
+      <Suspense fallback={null}>
+        <CityDetail />
+      </Suspense>
       <CityRoster />
       <CitySignals />
     </div>

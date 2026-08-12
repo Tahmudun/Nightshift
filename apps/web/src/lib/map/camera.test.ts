@@ -375,7 +375,7 @@ describe('the keyboard', () => {
       'Tilt',
       'Zoom',
       'Reset the view',
-      'Stop the camera',
+      'Stop the camera, then clear the selection',
     ]);
   });
 });
