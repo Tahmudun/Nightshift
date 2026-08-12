@@ -191,10 +191,44 @@ function beamFor(signal: CitySignal, context: TreatmentContext): TreatmentBeam {
   return match.fraction >= EXCEPTIONAL_FRACTION ? 'match' : 'none';
 }
 
+/**
+ * The corpus with the archived roles taken out, unless they were asked for.
+ *
+ * §6 puts rejection "behind a toggle that is off by default", and this is that
+ * toggle — one function, called wherever the field is built, so the map, the
+ * roster and the detail panel cannot disagree about what is on the city. §5.6
+ * makes that agreement an acceptance criterion rather than a nicety.
+ *
+ * A role with no treatment yet is *never* hidden. The applications fetch lands
+ * after the corpus does, and a filter that read "no treatment" as "archived"
+ * would blank the city for a frame on every load.
+ */
+export function visibleSignals(
+  signals: readonly CitySignal[],
+  treatments: ReadonlyMap<string, SignalTreatment>,
+  showArchived: boolean,
+): readonly CitySignal[] {
+  if (showArchived) return signals;
+  return signals.filter((signal) => treatments.get(signal.job_id)?.track !== 'archived');
+}
+
+/**
+ * How many roles the toggle is currently hiding.
+ *
+ * Exposed because a field that silently shrinks is a field nobody can trust:
+ * the roster's count and the city's count both come from `visibleSignals`, so
+ * the number missing between them has to be sayable somewhere on screen.
+ */
+export function archivedCount(
+  signals: readonly CitySignal[],
+  treatments: ReadonlyMap<string, SignalTreatment>,
+): number {
+  return signals.filter((signal) => treatments.get(signal.job_id)?.track === 'archived').length;
+}
+
 /** Whether a row of §6 is drawn today, and if not, why not. */
 export type TreatmentStatus =
-  | { readonly kind: 'drawn' }
-  | { readonly kind: 'deferred'; readonly because: string };
+  { readonly kind: 'drawn' } | { readonly kind: 'deferred'; readonly because: string };
 
 /**
  * One row of §6's table, in the form the legend renders.
@@ -252,7 +286,8 @@ export const TREATMENTS: readonly TreatmentRow[] = [
     label: 'Applied',
     swatch: 'signal-400',
     form: 'Solid, fully lit',
-    means: 'You have applied. §6 asks for a solid illuminated building; nothing in this corpus stands on one, so the beacon itself fills in.',
+    means:
+      'You have applied. §6 asks for a solid illuminated building; nothing in this corpus stands on one, so the beacon itself fills in.',
     status: drawn,
   },
   {
@@ -284,7 +319,8 @@ export const TREATMENTS: readonly TreatmentRow[] = [
     label: 'Rejected or withdrawn',
     swatch: 'ink-450',
     form: 'Dim, neutral, hidden by default',
-    means: 'Off the skyline unless you ask for it. Accumulating rejections across the city makes this tool worse to open over exactly the weeks it is needed most.',
+    means:
+      'Off the skyline unless you ask for it. Accumulating rejections across the city makes this tool worse to open over exactly the weeks it is needed most.',
     status: drawn,
   },
   {
@@ -292,7 +328,8 @@ export const TREATMENTS: readonly TreatmentRow[] = [
     label: 'Stale or unverified',
     swatch: null,
     form: 'Reduced opacity',
-    means: 'A statement about our own knowledge, not about the employer: the listing has not been re-checked recently. The panel gives the date. A source going quiet never closes a listing (I3).',
+    means:
+      'A statement about our own knowledge, not about the employer: the listing has not been re-checked recently. The panel gives the date. A source going quiet never closes a listing (I3).',
     status: drawn,
   },
   {
@@ -300,7 +337,8 @@ export const TREATMENTS: readonly TreatmentRow[] = [
     label: 'No confirmed address',
     swatch: 'signal-400',
     form: 'Floating, connected to nothing',
-    means: 'The position encodes the employer and nothing about New York. On this corpus that is every role — no ATS posting names a street.',
+    means:
+      'The position encodes the employer and nothing about New York. On this corpus that is every role — no ATS posting names a street.',
     status: drawn,
   },
   {

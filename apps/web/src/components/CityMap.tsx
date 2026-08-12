@@ -46,7 +46,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-import { useCityScene } from '@/lib/city/scene';
+import { useCityScene, visibleSignalsOf } from '@/lib/city/scene';
 import { createSignalLayer } from '@/lib/city/signalLayer';
 import { BASEMAP_URL, BUILDINGS_URL } from '@/lib/tiles';
 import type { CameraController } from '@/lib/map/camera';
@@ -122,6 +122,7 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
     let controller: CameraController | null = null;
     let uninstallDebug: (() => void) | null = null;
     let unsubscribeScene: (() => void) | null = null;
+    let unsubscribeCamera: (() => void) | null = null;
 
     void (async () => {
       try {
@@ -286,16 +287,37 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
         attached = true;
         created.addLayer(layer);
         const initial = useCityScene.getState();
-        layer.setSignals(initial.signals, initial.sort);
+        layer.setSignals(visibleSignalsOf(initial), initial.sort);
+        layer.setTreatments(initial.treatments);
         layer.setSelected(initial.selected);
+        // The layer's half of `prefers-reduced-motion`: the camera already
+        // honours it for everything that moves the view, and this is
+        // everything that moves *on* it. Kept in step, because the preference
+        // can be changed while the page is open.
+        layer.setReducedMotion(controller?.reducedMotion ?? false);
+        unsubscribeCamera =
+          controller?.subscribe(() => {
+            layer.setReducedMotion(controller?.reducedMotion ?? false);
+          }) ?? null;
         unsubscribeScene = useCityScene.subscribe((state, previous) => {
           // The sort is watched alongside the signals because reordering the
           // field is a rebuild of the same instance buffer, not a re-render:
           // §5.5's rule is that a filter or an ordering updates a buffer and
-          // never touches a component tree.
-          if (state.signals !== previous.signals || state.sort !== previous.sort) {
-            layer.setSignals(state.signals, state.sort);
+          // never touches a component tree. The archive toggle is watched for
+          // the same reason and is a *filter* of the same kind — §6 keeps
+          // rejections off the city by default.
+          if (
+            state.signals !== previous.signals ||
+            state.sort !== previous.sort ||
+            state.showArchived !== previous.showArchived ||
+            state.treatments !== previous.treatments
+          ) {
+            layer.setSignals(visibleSignalsOf(state), state.sort);
           }
+          // Separate from the field rebuild above: §6's marks change when an
+          // application moves stage, and that must not have to wait for the
+          // corpus to be refetched.
+          if (state.treatments !== previous.treatments) layer.setTreatments(state.treatments);
           // The reticle is the same story one object down: a selection made in
           // the roster moves one mesh, and no component that owns a WebGL
           // context re-renders. This is also the seam that makes the list and
@@ -358,6 +380,7 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
     return () => {
       cancelled = true;
       unsubscribeScene?.();
+      unsubscribeCamera?.();
       uninstallDebug?.();
       controller?.destroy();
       // `map.remove()` calls `onRemove` on every layer, which is where the

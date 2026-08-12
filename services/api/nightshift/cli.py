@@ -22,6 +22,7 @@ import asyncio
 import json
 import sys
 import uuid
+from datetime import datetime
 from pathlib import Path
 
 from sqlalchemy import func, select
@@ -34,6 +35,8 @@ from nightshift.adapters.http import PoliteClient
 from nightshift.adapters.lever import LeverAdapter
 from nightshift.config import get_settings
 from nightshift.db.base import (
+    ApplicationStage,
+    EventActor,
     JobStatus,
     LocationConfidence,
     ProficiencyLevel,
@@ -53,6 +56,7 @@ from nightshift.db.models import (
 )
 from nightshift.db.session import dispose_engine, session_scope
 from nightshift.db.types import utcnow
+from nightshift.domain.applications import change_stage, save_job
 from nightshift.domain.ingestion import get_or_create_source, ingest_boards
 from nightshift.domain.matching import recompute_pending
 from nightshift.domain.polling import (
@@ -309,6 +313,67 @@ async def seed_demo_profile(session: AsyncSession, user_id: uuid.UUID) -> str:
     )
 
 
+#: The stages the seeded applications sit at, in the order they are dealt out
+#: across the corpus — one per role, cycling.
+#:
+#: `city.md` §6 gives five of these a treatment on the skyline, and until M4c
+#: the seed created no applications at all: every §6 lifecycle row was
+#: unreachable in `make demo` and unassertable in the seeded browser suite,
+#: which made an implemented encoding look like an unimplemented one. The
+#: Makefile's own description of this command has always claimed applications.
+#:
+#: Every stage that draws something is here, `rejected` included — it is the one
+#: §6 hides by default, so without it nothing on the page exercises the toggle.
+_DEMO_STAGES: tuple[ApplicationStage, ...] = (
+    ApplicationStage.SAVED,
+    ApplicationStage.APPLIED,
+    ApplicationStage.INTERVIEW,
+    ApplicationStage.OFFER,
+    ApplicationStage.REJECTED,
+)
+
+
+async def seed_demo_applications(
+    session: AsyncSession, user_id: uuid.UUID, *, now: datetime
+) -> int:
+    """Put one application at each §6 stage, through the real domain path.
+
+    ``save_job`` and ``change_stage`` and nothing else. Inserting `Application`
+    rows directly would be faster and would skip the append-only event trail
+    that M2 built the whole subsystem around — a demo database whose
+    applications have no history is a demo of something this product does not
+    do, which is what I7 forbids.
+
+    Idempotent, like `save_job` itself: re-seeding finds the existing
+    applications and leaves their stages alone rather than writing a second
+    event trail over the first.
+    """
+    jobs = (
+        (await session.execute(select(Job).order_by(Job.title, Job.id).limit(len(_DEMO_STAGES))))
+        .scalars()
+        .all()
+    )
+    if not jobs:
+        return 0
+
+    tracked = 0
+    for job, stage in zip(jobs, _DEMO_STAGES, strict=False):
+        application, created = await save_job(session, user_id=user_id, job_id=job.id, now=now)
+        if not created:
+            continue
+        if stage is not ApplicationStage.SAVED:
+            await change_stage(
+                session,
+                application=application,
+                to_stage=stage,
+                actor=EventActor.USER,
+                now=now,
+                note="Seeded demo data.",
+            )
+        tracked += 1
+    return tracked
+
+
 async def cmd_seed(args: argparse.Namespace) -> int:
     """Load the dev user and the three committed fixture boards.
 
@@ -434,6 +499,14 @@ async def cmd_seed(args: argparse.Namespace) -> int:
             f"  match scores: {report.scored} scored, {report.skipped} skipped "
             f"(ruleset {report.ruleset})"
         )
+
+        # M4c Task 5: one application at each of §6's lifecycle stages, so the
+        # skyline's encoding has something to encode. Without these every mark
+        # in `city.md` §6 is unreachable in `make demo` and unassertable in the
+        # seeded browser suite — an implemented language with nothing speaking
+        # it, which reads exactly like an unimplemented one.
+        tracked = await seed_demo_applications(session, settings.dev_user_id, now=utcnow())
+        print(f"  applications: {tracked} tracked, one at each stage the city draws")
 
     await _print_summary()
 

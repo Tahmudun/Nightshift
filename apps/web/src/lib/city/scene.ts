@@ -30,6 +30,8 @@ import { create } from 'zustand';
 import type { CameraController } from '@/lib/map/camera';
 import type { CitySignal } from '@/lib/schemas';
 
+import type { SignalTreatment } from './treatments';
+import { visibleSignals } from './treatments';
 import type { FieldSort } from './unresolvedField';
 
 /**
@@ -77,12 +79,31 @@ interface CityScene {
    * than by every control that can change a selection.
    */
   readonly selected: string | null;
+  /**
+   * §6 per role: which marks each one carries.
+   *
+   * Here rather than in a component's state because three things read it and
+   * none of them may disagree — the custom layer outside React, the legend's
+   * counts, and the detail panel's sentence about how the selected role is
+   * drawn. It arrives from a different fetch than the signals do and races
+   * with it on every load, which is why both writers are independent.
+   */
+  readonly treatments: ReadonlyMap<string, SignalTreatment>;
+  /**
+   * Are rejected and withdrawn roles on the city? §6 says off by default, and
+   * says why: this tool is opened daily during a search, and accumulating
+   * rejections across the skyline makes it worse to use over exactly the weeks
+   * it is needed most.
+   */
+  readonly showArchived: boolean;
   setSignals(signals: readonly CitySignal[]): void;
   setUnavailable(detail: string): void;
   setSort(sort: FieldSort): void;
   setCamera(camera: CameraController | null): void;
   setMapReady(ready: boolean): void;
   select(jobId: string | null): void;
+  setTreatments(treatments: ReadonlyMap<string, SignalTreatment>): void;
+  setShowArchived(show: boolean): void;
   reset(): void;
 }
 
@@ -93,7 +114,11 @@ export const useCityScene = create<CityScene>((set) => ({
   camera: null,
   mapReady: false,
   selected: null,
+  treatments: new Map(),
+  showArchived: false,
   setSignals: (signals) => set({ signals, status: { kind: 'ready' } }),
+  setTreatments: (treatments) => set({ treatments }),
+  setShowArchived: (showArchived) => set({ showArchived }),
   setUnavailable: (detail) => set({ signals: [], status: { kind: 'unavailable', detail } }),
   setSort: (sort) => set({ sort }),
   setCamera: (camera) => set({ camera }),
@@ -112,3 +137,25 @@ export const useCityScene = create<CityScene>((set) => ({
   // would land on a page whose `?job=` had been quietly deleted.
   reset: () => set({ signals: [], status: { kind: 'loading' }, camera: null, mapReady: false }),
 }));
+
+/**
+ * What is actually on the city: the corpus, minus whatever the archive toggle
+ * is hiding.
+ *
+ * One function, read by the renderer outside React and by every panel inside
+ * it, for the same reason `selected` is one field: §5.6 makes "the list and the
+ * map cannot disagree" an acceptance criterion, and two places each filtering
+ * their own copy is exactly how they come to.
+ *
+ * Not a selector passed to `useCityScene` — it derives a new array, and a
+ * zustand selector returning a fresh array on every call re-renders its
+ * component on every unrelated store write. Callers memoise it against
+ * `signals`, `treatments` and `showArchived`.
+ */
+export function visibleSignalsOf(state: {
+  readonly signals: readonly CitySignal[];
+  readonly treatments: ReadonlyMap<string, SignalTreatment>;
+  readonly showArchived: boolean;
+}): readonly CitySignal[] {
+  return visibleSignals(state.signals, state.treatments, state.showArchived);
+}

@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import { signalFixture } from './signal.fixture';
 import {
+  archivedCount,
   EXCEPTIONAL_FRACTION,
   NEW_WINDOW_DAYS,
   TREATMENTS,
   URGENT_DEADLINE_DAYS,
   treatmentFor,
+  visibleSignals,
   type TreatmentContext,
 } from './treatments';
 
@@ -298,5 +300,38 @@ describe('TREATMENTS — the legend’s own source of truth', () => {
 
   it('names each row exactly once', () => {
     expect(new Set(TREATMENTS.map((row) => row.id)).size).toBe(TREATMENTS.length);
+  });
+});
+
+describe('visibleSignals — the toggle §6 wants off by default', () => {
+  const roles = [
+    signalFixture({ job_id: 'a', title: 'Open role' }),
+    signalFixture({ job_id: 'b', title: 'Rejected role' }),
+  ];
+  const marks = new Map([
+    ['a', treatmentFor(roles[0]!, context())],
+    ['b', treatmentFor(roles[1]!, context({ stages: new Map([['b', 'rejected']]) }))],
+  ]);
+
+  it('keeps an archived role off the city until it is asked for', () => {
+    expect(visibleSignals(roles, marks, false).map((s) => s.job_id)).toEqual(['a']);
+  });
+
+  it('puts it back when it is', () => {
+    expect(visibleSignals(roles, marks, true).map((s) => s.job_id)).toEqual(['a', 'b']);
+  });
+
+  it('counts what it is hiding, so the interface can say so', () => {
+    // A field that silently shrinks is a field a person cannot trust. The
+    // roster's count and the city's count both come from this list, so the
+    // number that is missing has to be sayable somewhere.
+    expect(archivedCount(roles, marks)).toBe(1);
+  });
+
+  it('hides nothing at all before the treatments have loaded', () => {
+    // The applications fetch resolves after the corpus does. A filter that
+    // treated "no treatment yet" as archived would blank the city for a frame
+    // on every load.
+    expect(visibleSignals(roles, new Map(), false)).toHaveLength(2);
   });
 });
