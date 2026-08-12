@@ -86,6 +86,17 @@ between the viewer and the far buildings, never in front of the near ones.
 
 ### 2.2 What to refuse
 
+> **SUPERSEDED by ADR 0023 on 2026-08-12.** The paragraph below was built
+> faithfully in M4b and the result was a city nobody wanted to look at. The
+> ratio is what broke it: tens of thousands of footprints render, and tens will
+> ever be hiring, so a *brightness* difference cannot carry the signal either
+> way round. **The city is now lit, and hiring is carried by a beam** — a column
+> of light off the roof, vertical where the city is horizontal, and moving. That
+> reads at any background brightness because it differs in shape rather than in
+> level. What the paragraph got right is kept and enforced by tests: a job is
+> still the brightest thing on the map, and `dusk-*` still never touches a mark.
+> Read ADR 0023 before changing either.
+
 **Every building glows.** In all four images the whole skyline is lit. That is the
 one thing this city may never do, and not for taste reasons: §9.2 says *"most of the
 city should remain dark so active data can breathe"*, and if every building is lit
@@ -156,6 +167,16 @@ Every `dusk-*` value is added with its assertion in `colour-contrast.test.ts` pe
 `CLAUDE.md` §7 — for `dusk-*` the assertion is the inverse of the usual one: it
 proves the token is **never** used as a text or accent colour, because a token that
 cannot clear AA must not be able to reach text.
+
+> **Amended by ADR 0023.** The ring-fence stands and is now what makes the whole
+> design work: a magenta *sky* is only compatible with magenta *meaning something*
+> because dusk can never reach a mark. What changed is how that is checked. The
+> first version enforced it with a proxy — every dusk shade below 3:1, too dark to
+> be text — and that proxy also kept the sky too dark to be a sky. It is replaced
+> by the two structural checks that test the actual rule (no source file uses a
+> `dusk-*` utility; no map layer paints with one), plus one number that matters:
+> every dusk shade stays under a third of `signal-400`'s luminance, so a job always
+> outshines the weather.
 
 ---
 

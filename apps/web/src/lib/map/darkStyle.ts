@@ -253,10 +253,14 @@ export function buildDarkStyle(): StyleSpecification {
       'sky-color': C.dusk900,
       'horizon-color': C.dusk300,
       'fog-color': C.dusk500,
-      'sky-horizon-blend': 0.6,
-      'horizon-fog-blend': 0.5,
-      'fog-ground-blend': 0.6,
-      'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 4, 0.9, 12, 0.6, 16, 0.2],
+      // A wide, soft transition rather than a hard band: the glow should look
+      // like distance, not like a stripe someone drew across the horizon.
+      'sky-horizon-blend': 0.8,
+      'horizon-fog-blend': 0.7,
+      'fog-ground-blend': 0.75,
+      // Haze thins as you descend into the streets. At city zooms you are
+      // inside the weather; from above you are looking through it.
+      'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 4, 1, 12, 0.85, 16, 0.45],
     },
     layers: [
       {

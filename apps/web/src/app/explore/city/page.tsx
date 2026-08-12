@@ -15,70 +15,54 @@ import { basemapManifest } from '@/lib/basemap';
  * The page says so on screen, in the same words. A map that looks finished and
  * is empty is indistinguishable from a map that is broken, and the person
  * looking at it should not have to guess which one this is.
+ *
+ * Everything here is an overlay. The map is fixed to the viewport and this page
+ * contributes no document flow at all, so there is nothing to scroll and the
+ * city is the whole surface.
  */
 export const metadata = {
   title: 'The city — Nightshift',
 };
 
+/** Shared panel treatment: readable over a moving image, without a hard box. */
+const PANEL = 'pointer-events-auto border border-ink-700/80 bg-ink-950/70 backdrop-blur-md';
+
 export default function CityPage() {
   return (
-    <div className="space-y-6">
-      <section>
-        <h1 className="text-[22px] font-medium tracking-tight text-paper">The city</h1>
-        <p className="mt-1 max-w-2xl text-[14px] leading-relaxed text-paper-dim">
+    <CityMap>
+      {/* Top left, clear of the header. What this is, and what it is not. */}
+      <section className={`absolute top-24 left-4 max-w-sm p-4 sm:left-6 ${PANEL}`}>
+        <h1 className="text-[18px] font-medium tracking-tight text-paper">The city</h1>
+        <p className="mt-1.5 text-[13px] leading-relaxed text-paper-dim">
           New York, drawn from a tile archive on this machine. No network, no key, no tile server.{' '}
-          <span className="text-paper">There are no jobs on it yet</span> — the signal layer is the
-          next milestone, and until a company address has been confirmed there is nothing this map
-          is permitted to place on a building.
-        </p>
-      </section>
-
-      <CityMap />
-
-      <section className="border border-ink-700 bg-ink-900/40 p-5">
-        <h2 className="font-mono text-[10px] uppercase tracking-[0.16em] text-paper-faint">
-          What you are looking at
-        </h2>
-        <dl className="mt-3 grid gap-x-8 gap-y-2 font-mono text-[11px] sm:grid-cols-2">
-          <div className="flex justify-between gap-4 border-b border-ink-800 pb-1">
-            <dt className="text-paper-faint">Tiles</dt>
-            <dd className="text-paper-dim">Protomaps build {basemapManifest.protomaps_build}</dd>
-          </div>
-          <div className="flex justify-between gap-4 border-b border-ink-800 pb-1">
-            <dt className="text-paper-faint">OpenStreetMap as of</dt>
-            <dd className="text-paper-dim">{basemapManifest.osm_replication_time}</dd>
-          </div>
-          <div className="flex justify-between gap-4 border-b border-ink-800 pb-1">
-            <dt className="text-paper-faint">Detail to zoom</dt>
-            <dd className="text-paper-dim">{basemapManifest.maxzoom}</dd>
-          </div>
-          <div className="flex justify-between gap-4 border-b border-ink-800 pb-1">
-            <dt className="text-paper-faint">Licence</dt>
-            <dd className="text-paper-dim">{basemapManifest.licence}</dd>
-          </div>
-        </dl>
-        <p className="mt-3 max-w-2xl text-[13px] leading-relaxed text-paper-dim">
-          Buildings are not drawn yet. The archive carries OpenStreetMap&rsquo;s own footprints with
-          guessed heights; New York publishes measured ones, and the skyline waits for those rather
-          than settling for the guess.
-        </p>
-      </section>
-
-      <section className="border border-ink-700 bg-ink-900/40 p-5">
-        <h2 className="font-mono text-[10px] uppercase tracking-[0.16em] text-paper-faint">
-          The list is the full product
-        </h2>
-        <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-paper-dim">
-          Every role is reachable without this page, and always will be. The map is a second view of
-          the list, never a replacement for it.
+          <span className="text-paper">There are no roles on it yet</span> — until a company address
+          has been confirmed, there is nothing this map is permitted to place on a building.
         </p>
         <Link
           href="/explore"
-          className="mt-3 inline-block border border-ink-700 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-signal-400 hover:border-signal-400"
+          className="mt-3 inline-block border border-ink-700 px-3 py-1.5 font-mono text-[10px] tracking-[0.14em] text-signal-400 uppercase hover:border-signal-400"
         >
           Back to the list
         </Link>
       </section>
-    </div>
+
+      {/* Bottom left, out of the way of the attribution control. Provenance:
+          how old the world in these tiles is, and who it belongs to. */}
+      <section
+        className={`absolute bottom-4 left-4 hidden max-w-md p-4 sm:left-6 sm:block ${PANEL}`}
+      >
+        <h2 className="font-mono text-[10px] tracking-[0.16em] text-paper-faint uppercase">
+          What you are looking at
+        </h2>
+        <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 font-mono text-[11px]">
+          <dt className="text-paper-faint">Tiles</dt>
+          <dd className="text-paper-dim">Protomaps build {basemapManifest.protomaps_build}</dd>
+          <dt className="text-paper-faint">World as of</dt>
+          <dd className="text-paper-dim">{basemapManifest.osm_replication_time}</dd>
+          <dt className="text-paper-faint">Buildings</dt>
+          <dd className="text-paper-dim">Not drawn yet — waiting on measured heights</dd>
+        </dl>
+      </section>
+    </CityMap>
   );
 }

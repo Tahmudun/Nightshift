@@ -127,22 +127,27 @@ describe('the source no longer uses surface shades as text', () => {
  * `city.md` §3 is explicit that it is atmosphere only: never a data mark, never
  * a building, never a selection state, never text. The reason is not taste. The
  * stylesheet's oldest rule is that magenta means "something is wrong and you can
- * act on it", and a violet that can appear on a mark makes that rule
- * unreadable.
+ * act on it", and a violet that can appear on a mark makes that rule unreadable.
  *
- * So the test proves two things a comment cannot. That every dusk shade is far
- * too dark to be text at all — a token that cannot clear AA must not be able to
- * reach text — and that no component has actually reached for one.
+ * **The first version of this suite enforced that by keeping every dusk shade
+ * below 3:1 — too dark to be text at all.** It worked, and it was the wrong
+ * tool: it also kept the sky too dark to be a sky, which is most of why the
+ * first city looked like nothing. ADR 0023 replaced the proxy with the rule it
+ * was standing in for. What stops dusk becoming a mark is that no source file
+ * uses it as one and no map layer paints with it, and both of those are checked
+ * directly below. Given that, the only number left is the one that actually
+ * matters.
  */
 describe('dusk is atmosphere and can never become a mark', () => {
   const DUSK = ['dusk-900', 'dusk-700', 'dusk-500', 'dusk-300'] as const;
 
   for (const name of DUSK) {
-    it(`${name} is below 3:1 on ink-950, so it cannot carry text or a state`, () => {
-      // Asserting the known-bad value, in the style of the ink-500 test above.
-      // Lightening a dusk shade until it *could* be read as a mark fails here
-      // and points at §3 rather than silently widening what violet means.
-      expect(contrast(token(name), token('ink-950'))).toBeLessThan(3);
+    it(`${name} stays well clear of the signal colour, so weather never outshines a job`, () => {
+      // The city may be lit; a job must still be the brightest thing on it.
+      // `signal-400` is the cyan a beacon is drawn in, and this is the gap
+      // ADR 0023 keeps in exchange for letting the sky be bright.
+      const beacon = luminance(token('signal-400'));
+      expect(luminance(token(name))).toBeLessThan(beacon / 3);
     });
   }
 

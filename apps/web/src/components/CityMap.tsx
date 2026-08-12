@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * New York, dark, from a file on this machine.
+ * New York, dark, from a file on this machine — and filling the window.
  *
  * The component's whole job is lifecycle: create one map, hand it the style,
  * and take it down completely. Everything about how the city *looks* is in
@@ -10,7 +10,13 @@
  * an anti-pattern in `CLAUDE.md` §8, and the way to not write one is to keep
  * the style out of it from the first commit.
  *
- * Three things here are deliberate rather than incidental.
+ * **The map is the page, not a panel on it.** The canvas is fixed to the
+ * viewport and everything else floats above it, including the app header, which
+ * is translucent and lets the city show through. The first version put the city
+ * in a 70vh box on a scrolling document and it read as a widget — which is what
+ * it was. §9 asks for an immersive interface and a boxed map cannot be one.
+ * Overlays are passed in as `children` so their positioning lives here, in the
+ * one file that knows where the canvas is.
  *
  * **MapLibre is imported inside the effect**, not at module scope. It touches
  * `window` and it is roughly 800 KB; a static import would break server
@@ -30,8 +36,7 @@
  * that response's own text, which was written to name the command that fixes
  * it. Letting MapLibre discover the problem instead produces a blank canvas and
  * a decoding error from inside pmtiles.js, which is the failure `city.md` §5.2
- * spent an ADR avoiding. It would be a waste to write that message and then not
- * show it to anybody.
+ * spent an ADR avoiding.
  *
  * **Teardown removes the map.** `map.remove()` releases the WebGL context, and
  * a context leaked per navigation reaches the browser's limit — around sixteen
@@ -49,19 +54,29 @@ import { buildDarkStyle } from '@/lib/map/darkStyle';
 // *library* is still loaded lazily below, which is the part that costs 800 KB.
 import 'maplibre-gl/dist/maplibre-gl.css';
 
-/** Midtown, looking downtown. A starting view, not yet a camera — that is Task 4. */
+/**
+ * Chelsea, looking down the island, tilted far enough to put the horizon on
+ * screen.
+ *
+ * The pitch is the whole point of these numbers. At the 55° the first version
+ * used, the frame is entirely ground: the sky, the horizon glow and the haze
+ * between the viewer and the far city — the `dusk-*` atmosphere, which is where
+ * most of the reference images' feeling actually lives — were all built,
+ * shipped, and permanently off the top of the screen. A camera that never looks
+ * up cannot show a skyline, which is a problem worth fixing before there is a
+ * skyline to show.
+ */
 const INITIAL = {
-  center: [-73.9855, 40.7484] as [number, number],
-  zoom: 12.5,
-  pitch: 55,
-  bearing: -17.5,
+  center: [-73.9903, 40.7449] as [number, number],
+  zoom: 13.6,
+  pitch: 76,
+  bearing: 202,
 } as const;
 
 /**
  * `addProtocol` writes into a module-global registry and registering twice is a
  * silent overwrite rather than an error, so the guard has to live out here —
- * component state would re-register on every mount. MapLibre v6 exposes no way
- * to ask whether a protocol is already registered.
+ * component state would re-register on every mount.
  */
 let protocolRegistered = false;
 
@@ -87,14 +102,24 @@ async function probeArchive(): Promise<string | null> {
   }
 }
 
-export function CityMap() {
+export function CityMap({ children }: { readonly children?: React.ReactNode }) {
   const container = useRef<HTMLDivElement | null>(null);
   const [status, setStatus] = useState<Status>({ kind: 'loading' });
 
+  // Stand down the document shell — the centred column, the page padding, the
+  // footer — for as long as this map is mounted. The rules live in globals.css
+  // beside the shell they modify; this only flips the switch, and it flips it
+  // back on unmount so navigating away does not leave the rest of the product
+  // unable to scroll.
   useEffect(() => {
-    // React 18+ mounts effects twice in development. `cancelled` keeps the
-    // second mount from adopting a map the first one is still building, which
-    // would leak the first context for the life of the page.
+    document.documentElement.setAttribute('data-immersive', '');
+    return () => document.documentElement.removeAttribute('data-immersive');
+  }, []);
+
+  useEffect(() => {
+    // React mounts effects twice in development. `cancelled` keeps the second
+    // mount from adopting a map the first one is still building, which would
+    // leak the first WebGL context for the life of the page.
     let cancelled = false;
     let map: { remove: () => void } | null = null;
 
@@ -104,11 +129,9 @@ export function CityMap() {
       } catch (error) {
         // An exception during setup — an invalid style, a renderer that will
         // not construct — otherwise leaves the spinner turning forever, which
-        // is the least informative failure this component can produce. It
-        // looks exactly like a slow load.
-        if (!cancelled) {
-          setStatus({ kind: 'unavailable', detail: String(error) });
-        }
+        // is the least informative failure this component can produce. It looks
+        // exactly like a slow load.
+        if (!cancelled) setStatus({ kind: 'unavailable', detail: String(error) });
       }
     })();
 
@@ -141,13 +164,30 @@ export function CityMap() {
           [BASEMAP_BOUNDS.west, BASEMAP_BOUNDS.south],
           [BASEMAP_BOUNDS.east, BASEMAP_BOUNDS.north],
         ],
-        maxPitch: 75,
-        // The city is the point; MapLibre's default control set is not.
+        // Past about 78° the ground plane approaches edge-on and the tile
+        // budget explodes for a view of almost nothing. The sky is already
+        // fully in frame well before that.
+        maxPitch: 78,
         attributionControl: { compact: true },
       });
 
-      created.on('load', () => {
-        if (!cancelled) setStatus({ kind: 'ready' });
+      // Ready means "the style is applied and a frame has painted" — nothing
+      // about tiles.
+      //
+      // Both of MapLibre's obvious signals are wrong here, for the same reason.
+      // `load` and `isStyleLoaded()` each wait for every source in the viewport
+      // to finish loading, and this viewport reaches past the edge of a
+      // city-sized archive: at high pitch you are looking at New Jersey, New
+      // York's archive has no tiles there, and the source never reports itself
+      // loaded. Both were observed never firing. The card would then sit over a
+      // perfectly good city forever.
+      //
+      // What the card covers is an unpainted canvas, so a painted frame is the
+      // honest thing to wait for.
+      created.once('styledata', () => {
+        created.once('render', () => {
+          if (!cancelled) setStatus({ kind: 'ready' });
+        });
       });
       created.on('error', (event: { error?: { message?: string } }) => {
         if (cancelled) return;
@@ -171,26 +211,39 @@ export function CityMap() {
   }, []);
 
   return (
-    <div className="relative h-[70vh] min-h-[420px] w-full border border-ink-700 bg-ink-950">
+    <div className="fixed inset-0 z-0 bg-ink-950">
       <div
         ref={container}
-        // MapLibre owns everything inside this node, so React must never try to
-        // reconcile its children.
-        className="absolute inset-0"
+        // Sized with `h-full w-full`, not `absolute inset-0`, and that is not a
+        // style preference. MapLibre's own stylesheet sets
+        // `.maplibregl-map { position: relative }`, it is imported after
+        // globals.css, and it therefore beats Tailwind's `absolute` on equal
+        // specificity — which silently drops `inset-0` and leaves the container
+        // at its content height. The canvas rendered 300px tall for the whole
+        // of Task 2 because of this, inside a box that hid it.
+        //
+        // MapLibre also owns everything inside this node, so React must never
+        // try to reconcile its children.
+        className="h-full w-full"
         role="application"
-        aria-label="New York City map. Every role on this map is also in the list below."
+        aria-label="New York City map. Every role on this map is also in the list view."
       />
 
+      {/* Overlays sit above the canvas and below the app header. `pointer-events`
+          is off on the layer and back on inside each panel, so a gap between
+          panels is still a place you can drag the city by. */}
+      <div className="pointer-events-none absolute inset-0 z-10">{children}</div>
+
       {status.kind !== 'ready' && (
-        <div className="pointer-events-none absolute inset-0 grid place-items-center p-6">
-          <div className="pointer-events-auto max-w-lg border border-ink-700 bg-ink-950/90 p-5">
+        <div className="absolute inset-0 z-20 grid place-items-center p-6">
+          <div className="max-w-lg border border-ink-700 bg-ink-950/90 p-5 backdrop-blur-sm">
             {status.kind === 'loading' ? (
-              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-paper-faint">
+              <p className="font-mono text-[10px] tracking-[0.16em] text-paper-faint uppercase">
                 Drawing the city…
               </p>
             ) : (
               <>
-                <h2 className="font-mono text-[10px] uppercase tracking-[0.16em] text-alert-400">
+                <h2 className="font-mono text-[10px] tracking-[0.16em] text-alert-400 uppercase">
                   The map cannot be drawn
                 </h2>
                 <p className="mt-2 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-paper-dim">

@@ -34,10 +34,10 @@ export const MAP_PALETTE = {
   ink400: '#4d5f83',
 
   /** Atmosphere. Never a mark. See `city.md` §3. */
-  dusk900: '#100a1f',
-  dusk700: '#1d1038',
-  dusk500: '#2f1a52',
-  dusk300: '#4a2a72',
+  dusk900: '#180d33',
+  dusk700: '#2d1263',
+  dusk500: '#5a1d94',
+  dusk300: '#a63398',
 } as const;
 
 export type MapPalette = typeof MAP_PALETTE;
