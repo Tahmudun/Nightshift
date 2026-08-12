@@ -118,3 +118,59 @@ describe('the source no longer uses surface shades as text', () => {
     expect(offenders, 'use paper-faint for the dimmest text').toEqual([]);
   });
 });
+
+/**
+ * `dusk-*` is the one family whose assertion runs the other way.
+ *
+ * Every other token here is checked for being *readable enough*. Dusk exists to
+ * carry the reference images' violet field — sky, haze, horizon glow, fog — and
+ * `city.md` §3 is explicit that it is atmosphere only: never a data mark, never
+ * a building, never a selection state, never text. The reason is not taste. The
+ * stylesheet's oldest rule is that magenta means "something is wrong and you can
+ * act on it", and a violet that can appear on a mark makes that rule
+ * unreadable.
+ *
+ * So the test proves two things a comment cannot. That every dusk shade is far
+ * too dark to be text at all — a token that cannot clear AA must not be able to
+ * reach text — and that no component has actually reached for one.
+ */
+describe('dusk is atmosphere and can never become a mark', () => {
+  const DUSK = ['dusk-900', 'dusk-700', 'dusk-500', 'dusk-300'] as const;
+
+  for (const name of DUSK) {
+    it(`${name} is below 3:1 on ink-950, so it cannot carry text or a state`, () => {
+      // Asserting the known-bad value, in the style of the ink-500 test above.
+      // Lightening a dusk shade until it *could* be read as a mark fails here
+      // and points at §3 rather than silently widening what violet means.
+      expect(contrast(token(name), token('ink-950'))).toBeLessThan(3);
+    });
+  }
+
+  it('rises monotonically from the upper sky to the horizon', () => {
+    // The family is a gradient, not four independent colours: dusk-900 is the
+    // top of the sky and dusk-300 the glow at the horizon. Reordering them
+    // would invert the sky.
+    // DUSK is declared darkest-first, so this reads straight down the family.
+    const ordered = DUSK.map((name) => luminance(token(name)));
+    for (let i = 1; i < ordered.length; i += 1) {
+      expect(ordered[i]!).toBeGreaterThan(ordered[i - 1]!);
+    }
+  });
+
+  it('no component uses a dusk shade for text, a border, or a fill', () => {
+    const files = globSync('**/*.{tsx,ts}', { cwd: SRC });
+    expect(files.length, 'the glob must actually find components').toBeGreaterThan(5);
+
+    const offenders: string[] = [];
+    for (const file of files) {
+      // The map style is the one legitimate consumer, and it reads the tokens
+      // for sky and fog. Everything else is a Tailwind utility, and there is no
+      // legitimate `text-dusk-*` or `border-dusk-*` anywhere.
+      const source = readFileSync(join(SRC, file), 'utf8');
+      if (/\b(text|border|ring|from|via|to|fill|stroke|decoration)-dusk-\d{3}\b/.test(source)) {
+        offenders.push(file);
+      }
+    }
+    expect(offenders, 'dusk is sky and fog only — see city.md §3').toEqual([]);
+  });
+});

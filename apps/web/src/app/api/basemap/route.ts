@@ -20,7 +20,8 @@ import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { Readable } from 'node:stream';
 
-import { basemapManifest, basemapPath } from '@/lib/basemap';
+import { basemapManifest } from '@/lib/basemap';
+import { basemapPath } from '@/lib/basemap.server';
 import { parseByteRange } from '@/lib/byteRange';
 
 // The archive is on local disk, outside the build. Rendering this route ahead

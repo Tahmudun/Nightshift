@@ -48,6 +48,25 @@
   /* Sparse gold — urgency only. Unused in M0; nothing is urgent yet. */
   --color-gold-400: #ffcf5c;
 
+  /* Atmosphere, and nothing else. city.md §3.
+   *
+   * The reference images for the city are violet: sky, haze, horizon glow. The
+   * rule above says magenta is never decorative, and those images use magenta
+   * decoratively as half the light in frame. Taken literally they would require
+   * magenta to mean nothing, costing the product four milestones of established
+   * encoding.
+   *
+   * The resolution is that the purple lives in the air, not on the objects. A
+   * dusk shade may be the sky, the fog, the haze behind the skyline. It may
+   * never be a data mark, a building, a selection state, or text — and every
+   * one of these is deliberately far below 4.5:1 on ink-950, so a token that
+   * reached text would be caught by the same test that protects the text ramp.
+   * colour-contrast.test.ts asserts that unsuitability rather than assuming it. */
+  --color-dusk-900: #100a1f;
+  --color-dusk-700: #1d1038;
+  --color-dusk-500: #2f1a52;
+  --color-dusk-300: #4a2a72;
+
   /* Thin white highlights. Exactly three text weights, and every one of them is
      readable: 17.7:1, 8.1:1, 5.4:1 against ink-950. paper-faint was #5d6e88
      (3.89:1) and failed WCAG AA for the 9-11px labels it is used on, so it was

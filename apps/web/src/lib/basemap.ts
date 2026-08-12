@@ -11,14 +11,12 @@
  * the bundler resolve the path once, at build time, and typechecks the shape
  * for free.
  *
- * Only the cache directory is runtime state, because that genuinely varies per
- * machine. `NIGHTSHIFT_BASEMAP_DIR` is read by the Python side too — one
- * setting, two runtimes, so moving the cache cannot leave `make basemap`
- * finding it and the browser not.
+ * **Nothing here may import a node module.** The map component is a client
+ * component and it needs the bounds and the URL, so a single `node:path` import
+ * in this file fails the build with a stack trace that names webpack rather
+ * than the cause. Anything that touches the filesystem lives in
+ * `basemap.server.ts`, which only the route handler imports.
  */
-
-import { homedir } from 'node:os';
-import path from 'node:path';
 
 // Reaches out of `apps/web`, which nothing else here does. The manifest lives
 // at the repository root because both toolchains read it — Python writes it,
@@ -51,17 +49,21 @@ export const basemapManifest: BasemapManifest = {
   bbox: [bbox[0] ?? 0, bbox[1] ?? 0, bbox[2] ?? 0, bbox[3] ?? 0],
 };
 
-/** The directory `make basemap` downloads into. */
-export function basemapCacheDir(): string {
-  const override = process.env.NIGHTSHIFT_BASEMAP_DIR;
-  if (override) return override;
-  return path.join(homedir(), '.cache', 'nightshift', 'basemap');
-}
-
-/** The full path to the archive this build expects. */
-export function basemapPath(): string {
-  return path.join(basemapCacheDir(), basemapManifest.filename);
-}
+/**
+ * The archive's bounds, named.
+ *
+ * `bbox` is `[west, south, east, north]` and every consumer wants a different
+ * pair of them in a different order — MapLibre's `maxBounds` wants
+ * `[[w, s], [e, n]]`, a camera limit wants them one at a time. Indexing into a
+ * four-element array at each call site is how a north/south swap gets written,
+ * and a swapped bound is a map of nowhere that still renders.
+ */
+export const BASEMAP_BOUNDS = {
+  west: basemapManifest.bbox[0],
+  south: basemapManifest.bbox[1],
+  east: basemapManifest.bbox[2],
+  north: basemapManifest.bbox[3],
+} as const;
 
 /**
  * The URL the map style points at.
