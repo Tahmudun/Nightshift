@@ -23,7 +23,8 @@
 **M3d: COMPLETE, reviewed, CI-green at `ade217b`, merged to `main` as PR #14 (`7b480e9`). `main` green after the merge.**
 **M3: CLOSED. All six acceptance criteria walked with evidence — see "M3 acceptance" below. Two of the six carry a stated limit rather than a clean pass.**
 **M4a: COMPLETE, CI-green, merged to `main` as PR #15 (`3a68bad`). All five CI jobs passed.**
-**M4b: IN PROGRESS on `m4b-dark-city`, draft PR #16, CI green. Tasks 1 (the artifact and its route, ADR 0022) and 2 (MapLibre and the dark style) done. New York renders, offline, with no jobs on it.**
+**M4b: IN PROGRESS on `m4b-dark-city`, draft PR #16. Tasks 1 (the artifact and its route, ADR 0022), 2 (MapLibre and the dark style) and 3 (fullscreen, the sky, and the lights coming on — ADR 0023) done. New York renders offline, full-window, under a violet horizon, with no jobs on it.**
+**ADR 0023 reversed `city.md` §2.2 on the human's call: the city is lit, and hiring is carried by a beam rather than by being the only thing bright.**
 **Current milestone: M4 — the living city, and the shippable checkpoint (A15).**
 **The finding that shaped the milestone: no ATS posting names a street. 0 of 247, 139 distinct location strings, 10 fields, three providers. A job can never place itself on a building, so every building comes from an address a human confirmed.**
 **Task 11 measured the embedding proposal path and declined to ship it — ADR 0018.**
@@ -35,10 +36,16 @@
 
 ## Next exact action
 
-### M4b Task 3 — NYC's own footprints, at heights somebody measured.
+### M4b Task 4 — NYC's own footprints, at heights somebody measured, lit.
 
-Tasks 1 and 2 are done: **New York renders, dark, offline, at
-`/explore/city`.** No buildings and no job data.
+Tasks 1-3 are done: **New York renders full-window and offline at
+`/explore/city`, under a violet horizon.** No buildings and no job data.
+
+**The look is now settled and it changed** — ADR 0023. The city is lit rather
+than dark, so the extrusion this task builds is edge-lit with a window speckle
+rather than a black mass. A hiring building will be distinguished by a **beam**,
+not by being brighter, because tens of thousands of footprints render and tens
+will ever be hiring; the tests that keep that honest are already in place.
 
 **Next:** NYC Open Data Building Footprints — dataset `5zhs-2jue`, located
 during Task 1 and carrying `bin`, `height_roof`, `ground_elevation`,
