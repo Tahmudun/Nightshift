@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import type { CitySignal } from '@/lib/schemas';
 
 import { MAX_LABELS } from './labelAtlas';
+import { signalFixture } from './signal.fixture';
 import {
   anchorTransform,
   createSignalLayer,
@@ -31,28 +32,12 @@ import { COMPANIES_PER_ROW } from './unresolvedField';
 const ANCHOR = [-73.98, 40.75] as const;
 
 function signal(jobId: string, companyId = 'company-a', companyName = 'Alloy'): CitySignal {
-  return {
+  return signalFixture({
     job_id: jobId,
     title: `Role ${jobId}`,
     company_id: companyId,
     company_name: companyName,
-    employment_type: 'full_time',
-    remote_policy: 'on_site',
-    status: 'open',
-    first_seen_at: '2026-01-01T00:00:00Z',
-    placement: {
-      kind: 'unresolved',
-      latitude: null,
-      longitude: null,
-      building_id: null,
-      location_confidence: 'city_only',
-      resolution_method: 'source_text_parse',
-      stated: 'New York, NY',
-      inherited: false,
-      office_label: null,
-      office_address: null,
-    },
-  } as CitySignal;
+  });
 }
 
 describe('createSignalLayer', () => {

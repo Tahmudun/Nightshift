@@ -14,7 +14,10 @@ dropping the sentence.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from datetime import datetime
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
@@ -28,7 +31,7 @@ from nightshift.api.schemas import (
     PlacementOut,
 )
 from nightshift.db.base import JobStatus
-from nightshift.db.models import Job
+from nightshift.db.models import Job, JobSourceLink, SourceJobRecord
 from nightshift.db.session import get_db_session
 from nightshift.domain.placement import (
     Placement,
@@ -66,6 +69,30 @@ def _to_placement(placement: Placement) -> PlacementOut:
         office_label=placement.office_label,
         office_address=placement.office_address,
     )
+
+
+async def _last_verified(
+    session: AsyncSession, job_ids: Sequence[UUID]
+) -> dict[UUID, datetime | None]:
+    """When each job's own posting was last checked, for the jobs where it was.
+
+    One grouped query rather than a relationship per job, for the same reason
+    ``primary_offices`` is one lookup: this runs over the whole corpus at once.
+
+    ``max`` across a job's source records is the meaningful aggregate — a role
+    merged from three boards is as verified as its most recently verified
+    record. Jobs absent from the result have never been verified at all, and the
+    caller's ``.get`` turns that into ``None`` rather than into a date.
+    """
+    if not job_ids:
+        return {}
+    rows = await session.execute(
+        select(JobSourceLink.job_id, func.max(SourceJobRecord.last_verified_at))
+        .join(SourceJobRecord, SourceJobRecord.id == JobSourceLink.source_job_record_id)
+        .where(JobSourceLink.job_id.in_(job_ids))
+        .group_by(JobSourceLink.job_id)
+    )
+    return dict(rows.all())  # type: ignore[arg-type]
 
 
 @router.get("/signals", response_model=CitySignalsOut)
@@ -107,6 +134,7 @@ async def city_signals(
     )
 
     offices = await primary_offices(session, [job.company_id for job in jobs])
+    verified = await _last_verified(session, [job.id for job in jobs])
 
     counts = PlacementCounts(total=len(jobs))
     signals: list[CitySignalOut] = []
@@ -129,6 +157,9 @@ async def city_signals(
                 remote_policy=job.remote_policy,
                 status=job.status,
                 first_seen_at=job.first_seen_at,
+                last_seen_at=job.last_seen_at,
+                last_verified_at=verified.get(job.id),
+                application_deadline=job.application_deadline,
                 placement=_to_placement(placement),
             )
         )

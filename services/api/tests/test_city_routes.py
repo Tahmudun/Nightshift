@@ -21,7 +21,7 @@ from sqlalchemy.orm import selectinload
 
 from nightshift.api.main import create_app
 from nightshift.db.base import JobStatus, LocationConfidence, RemotePolicy, ResolutionMethod
-from nightshift.db.models import Company, CompanyLocation, Job
+from nightshift.db.models import Company, CompanyLocation, Job, JobSourceLink, SourceJobRecord
 from nightshift.db.session import get_db_session
 from tests.conftest import requires_db
 from tests.test_routes import _seed_alloy_board
@@ -237,3 +237,148 @@ async def test_the_route_does_not_write_the_inheritance_back(
     for row in job.locations:
         assert row.latitude is None
         assert row.location_confidence is not LocationConfidence.VERIFIED
+
+
+async def _records_of(session: AsyncSession, job: Job) -> list[SourceJobRecord]:
+    """Every raw record behind one canonical job. Asserted non-empty, because a
+    job with no records would make each test below pass without testing."""
+    records = list(
+        (
+            await session.execute(
+                select(SourceJobRecord)
+                .join(JobSourceLink, JobSourceLink.source_job_record_id == SourceJobRecord.id)
+                .where(JobSourceLink.job_id == job.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert records, "this job has no source record — the assertions below would be vacuous"
+    return records
+
+
+async def _second_record(
+    session: AsyncSession,
+    job: Job,
+    like: SourceJobRecord,
+    *,
+    last_verified_at: datetime,
+) -> SourceJobRecord:
+    """A second board describing the same role, linked to the same canonical job.
+
+    Which is what a merge produces, and what makes an aggregate over a job's
+    records mean anything at all.
+    """
+    record = SourceJobRecord(
+        source_id=like.source_id,
+        source_job_id=f"{like.source_job_id}-second-board",
+        source_company_key=like.source_company_key,
+        raw_payload=like.raw_payload,
+        first_seen_at=like.first_seen_at,
+        last_seen_at=like.last_seen_at,
+        last_verified_at=last_verified_at,
+    )
+    session.add(record)
+    await session.flush()
+    session.add(
+        JobSourceLink(
+            job_id=job.id,
+            source_job_record_id=record.id,
+            match_confidence=0.99,
+            link_reason="test fixture: the same role on a second board",
+        )
+    )
+    await session.flush()
+    return record
+
+
+async def test_a_signal_carries_when_it_was_last_seen_on_its_board(
+    seeded_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """`city.md` §6 dims a stale role and asks the panel to say *how* stale.
+
+    "Reduced opacity + an explicit 'last verified N days ago'" is one row of the
+    table, and the second half of it cannot be drawn from anything already on
+    this payload: ``first_seen_at`` is when ingestion *first* saw the role, and
+    a dimmed beacon with no date on it is the glitch this row exists to refuse.
+    """
+    seen = datetime(2026, 7, 30, 12, 0, tzinfo=UTC)
+    job = (await db_session.execute(select(Job).limit(1))).scalar_one()
+    job.status = JobStatus.POSSIBLY_STALE
+    job.last_seen_at = seen
+    await db_session.flush()
+
+    body = (await seeded_client.get("/city/signals")).json()
+
+    signal = next(s for s in body["signals"] if s["job_id"] == str(job.id))
+    assert signal["status"] == "possibly_stale"
+    assert datetime.fromisoformat(signal["last_seen_at"]) == seen
+
+
+async def test_an_unverified_role_says_null_rather_than_falling_back(
+    seeded_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """Two different observations, and the payload keeps them apart.
+
+    ``source_job_records.last_verified_at`` is the stronger of the two — "we
+    refetched its content and read it", against ``last_seen_at``'s "the board
+    listed it" — and ADR 0007's phase-2 polling means an unchanged posting is
+    deliberately never refetched, so a long-open role can be listed daily and
+    verified months ago. Falling back to ``last_seen_at`` here would let the
+    panel print "verified" about a posting nobody has read since spring, which
+    is I3's failure mode wearing a timestamp.
+    """
+    job = (await db_session.execute(select(Job).limit(1))).scalar_one()
+    records = await _records_of(db_session, job)
+    for record in records:
+        record.last_verified_at = None
+    await db_session.flush()
+
+    body = (await seeded_client.get("/city/signals")).json()
+
+    signal = next(s for s in body["signals"] if s["job_id"] == str(job.id))
+    assert signal["last_verified_at"] is None
+    assert signal["last_seen_at"] is not None
+
+
+async def test_a_verified_source_record_reaches_the_signal(
+    seeded_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """And when the stronger check *has* run, the map says so.
+
+    The column is on the source record rather than on the canonical job, so a
+    role merged from three boards is as verified as its most recently verified
+    record — ``max`` rather than "whichever row the query happened to return".
+    """
+    verified = datetime(2026, 8, 9, 9, 30, tzinfo=UTC)
+    job = (await db_session.execute(select(Job).limit(1))).scalar_one()
+    records = await _records_of(db_session, job)
+    for record in records:
+        record.last_verified_at = datetime(2026, 7, 1, tzinfo=UTC)
+    # A *second* board describing the same role, verified more recently. Without
+    # it every seeded job has exactly one record, `max` has nothing to choose
+    # between, and this test passes just as happily against `min` — which is
+    # how it was first written and how the vacuum was found.
+    await _second_record(db_session, job, records[0], last_verified_at=verified)
+    await db_session.flush()
+
+    body = (await seeded_client.get("/city/signals")).json()
+
+    signal = next(s for s in body["signals"] if s["job_id"] == str(job.id))
+    assert datetime.fromisoformat(signal["last_verified_at"]) == verified
+
+
+async def test_a_signal_carries_its_deadline_when_the_posting_named_one(
+    seeded_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """Gold is "exceptional match **or urgent deadline**" (§6), and the second
+    half of that has never reached the map. It is one column on ``jobs``."""
+    closes = datetime(2026, 8, 20, 12, 0, tzinfo=UTC)
+    job = (await db_session.execute(select(Job).limit(1))).scalar_one()
+    job.application_deadline = closes
+    await db_session.flush()
+
+    body = (await seeded_client.get("/city/signals")).json()
+
+    signal = next(s for s in body["signals"] if s["job_id"] == str(job.id))
+    assert datetime.fromisoformat(signal["application_deadline"]) == closes

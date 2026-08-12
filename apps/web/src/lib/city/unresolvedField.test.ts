@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { CitySignal } from '@/lib/schemas';
 
+import { signalFixture } from './signal.fixture';
 import {
   arrangeUnresolved,
   COMPANIES_PER_ROW,
@@ -12,30 +13,7 @@ import {
   ROLE_SPACING,
 } from './unresolvedField';
 
-function signal(overrides: Partial<CitySignal> & Pick<CitySignal, 'job_id'>): CitySignal {
-  return {
-    title: 'Software Engineer',
-    company_id: 'company-a',
-    company_name: 'Alloy',
-    employment_type: 'full_time',
-    remote_policy: 'on_site',
-    status: 'open',
-    first_seen_at: '2026-01-01T00:00:00Z',
-    placement: {
-      kind: 'unresolved',
-      latitude: null,
-      longitude: null,
-      building_id: null,
-      location_confidence: 'city_only',
-      resolution_method: 'source_text_parse',
-      stated: 'New York, NY',
-      inherited: false,
-      office_label: null,
-      office_address: null,
-    },
-    ...overrides,
-  } as CitySignal;
-}
+const signal = signalFixture;
 
 describe('arrangeUnresolved', () => {
   it('places every unresolved role and nothing else', () => {

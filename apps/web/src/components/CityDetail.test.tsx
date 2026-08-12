@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CityDetail, daysSince } from './CityDetail';
 import { useCityScene } from '@/lib/city/scene';
+import { signalFixture } from '@/lib/city/signal.fixture';
 import type { CitySignal } from '@/lib/schemas';
 
 /**
@@ -31,29 +32,15 @@ const JOB = '3f9a1c22-9b4e-4c7a-9f1d-2b6e5a8c0d31';
 const OTHER = '11111111-2222-4333-8444-555555555555';
 
 function signal(overrides: Partial<CitySignal> = {}): CitySignal {
-  return {
+  return signalFixture({
     job_id: JOB,
     title: 'Infrastructure Engineer',
     company_id: '99999999-8888-4777-8666-555555555555',
-    company_name: 'Alloy',
     employment_type: 'internship',
     remote_policy: 'hybrid',
-    status: 'open',
     first_seen_at: new Date(Date.now() - 3 * 86_400_000).toISOString(),
-    placement: {
-      kind: 'unresolved',
-      latitude: null,
-      longitude: null,
-      building_id: null,
-      location_confidence: 'city_only',
-      resolution_method: 'source_text_parse',
-      stated: 'New York, NY',
-      inherited: false,
-      office_label: null,
-      office_address: null,
-    },
     ...overrides,
-  } as CitySignal;
+  });
 }
 
 function show(): void {

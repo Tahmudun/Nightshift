@@ -1257,6 +1257,27 @@ class CitySignalOut(BaseModel):
     #: field ``posted_at`` would turn "we noticed this on Tuesday" into "this
     #: was posted on Tuesday", which is a claim nobody measured.
     first_seen_at: datetime
+    #: When ingestion last found this role listed on its employer's board.
+    #: `city.md` §6 dims a stale or unverified role and requires the panel to say
+    #: *how* stale — "reduced opacity + an explicit 'last verified N days ago'",
+    #: because a dimmed thing with no explanation reads as a rendering fault.
+    last_seen_at: datetime
+    #: The stronger observation, and a different one:
+    #: ``source_job_records.last_verified_at`` means "we refetched its content
+    #: and read it", against ``last_seen_at``'s "the board listed it". Under ADR
+    #: 0007's phase-2 polling an unchanged posting is deliberately never
+    #: refetched, so these two dates diverge by design and a role can be listed
+    #: daily while its text was last read months ago. Kept apart rather than
+    #: collapsed, so the panel can say which of the two it is showing instead of
+    #: promoting the weaker one by giving it the stronger one's name. ``None``
+    #: when no record behind this role has ever been read; a role merged from
+    #: several boards carries the most recent of its records'.
+    last_verified_at: datetime | None
+    #: Gold in §6 is "exceptional match **or urgent deadline**", and this is the
+    #: second half. Almost always ``None`` — few ATS postings publish a closing
+    #: date — which is why the legend counts how many roles actually carry one
+    #: rather than implying the treatment is live.
+    application_deadline: datetime | None
     placement: PlacementOut
 
 

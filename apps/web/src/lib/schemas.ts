@@ -1227,6 +1227,21 @@ export const citySignalSchema = z.object({
   // `CitySignalOut`. It is here so the field can be ordered by recency, which
   // §4.8's "sortable" needs and nothing else on this model can produce.
   first_seen_at: z.string().datetime({ offset: true }),
+  /**
+   * The two observations §6 keeps apart, and the reason the stale treatment can
+   * say more than "dim".
+   *
+   * `last_seen_at` is "the board listed it"; `last_verified_at` is the stronger
+   * "we refetched its content and read it", and is null when no source record
+   * behind this role has ever been read. ADR 0007's phase-2 polling never
+   * refetches an unchanged posting, so the two diverge by design — a role can
+   * be listed daily while its text was last read months ago. Collapsing them
+   * into one date would let the panel print "verified" about the weaker fact.
+   */
+  last_seen_at: z.string().datetime({ offset: true }),
+  last_verified_at: z.string().datetime({ offset: true }).nullable(),
+  /** The second half of §6's gold. Null on almost every posting. */
+  application_deadline: z.string().datetime({ offset: true }).nullable(),
   placement: placementSchema,
 });
 export type CitySignal = z.infer<typeof citySignalSchema>;
