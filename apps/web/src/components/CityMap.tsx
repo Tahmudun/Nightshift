@@ -194,11 +194,17 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
       // perfectly good city forever.
       //
       // What the card covers is an unpainted canvas, so a painted frame is the
-      // honest thing to wait for.
-      created.once('styledata', () => {
-        created.once('render', () => {
-          if (!cancelled) setStatus({ kind: 'ready' });
-        });
+      // honest thing to wait for — and it is the *only* thing waited for.
+      //
+      // This was `once('styledata')` wrapping `once('render')`, and the second
+      // archive broke it. The buildings TileJSON resolves seconds after the
+      // basemap's, so `styledata` now arrives long after New York is on screen;
+      // the nested listener then waits for the *next* frame, which on an idle
+      // map may be a long way off. Measured: the card sat over a fully drawn
+      // city for more than ten seconds. A style that has not been applied cannot
+      // produce a painted frame anyway, so the outer wait was buying nothing.
+      created.once('render', () => {
+        if (!cancelled) setStatus({ kind: 'ready' });
       });
       created.on('error', (event: { error?: { message?: string } }) => {
         if (cancelled) return;
