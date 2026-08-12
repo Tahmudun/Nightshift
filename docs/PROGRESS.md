@@ -23,7 +23,8 @@
 **M3d: COMPLETE, reviewed, CI-green at `ade217b`, merged to `main` as PR #14 (`7b480e9`). `main` green after the merge.**
 **M3: CLOSED. All six acceptance criteria walked with evidence — see "M3 acceptance" below. Two of the six carry a stated limit rather than a clean pass.**
 **M4a: COMPLETE, CI-green, merged to `main` as PR #15 (`3a68bad`). All five CI jobs passed.**
-**M4b: IN PROGRESS on `m4b-dark-city`, draft PR #16. Tasks 1 (the artifact and its route, ADR 0022), 2 (MapLibre and the dark style), 3 (fullscreen, the sky, and the lights coming on — ADR 0023), 4 (New York's own measured skyline) and 5 (the camera controller and its gesture surface) done. New York renders offline, full-window, under a violet horizon, 1,083,024 structures at heights the city measured, with no jobs on it — and it can be driven by mouse, trackpad, keyboard and a control panel.**
+**M4b: all six tasks done on `m4b-dark-city`, draft PR #16. Tasks 1 (the artifact and its route, ADR 0022), 2 (MapLibre and the dark style), 3 (fullscreen, the sky, and the lights coming on — ADR 0023), 4 (New York's own measured skyline), 5 (the camera controller and its gesture surface) and 6 (the acceptance walk, in a browser) done. New York renders offline, full-window, under a violet horizon, 1,083,024 structures at heights the city measured, with no jobs on it — and it can be driven by mouse, trackpad, touch, keyboard and a control panel.**
+**M4b's three criteria are walked with evidence from a real browser — 19 new tests in `apps/web/e2e/city.spec.ts`, each one shown able to fail. Two carry a stated limit: no physical touch device, and no Safari.** See "M4b acceptance" below, and `docs/reviews/milestone-4b-review.md`, which found two defects the first draft of the walk had passed over.
 **The buildings artifact is published**: release `buildings-20260812`, 109,555,308 bytes, the size the manifest pins. Verified the clean-clone path by deleting the local copy and re-fetching it from the public URL — it downloads and clears its digest, so `make setup` gets the skyline anywhere.
 **ADR 0023 reversed `city.md` §2.2 on the human's call: the city is lit, and hiring is carried by a beam rather than by being the only thing bright.**
 **Current milestone: M4 — the living city, and the shippable checkpoint (A15).**
@@ -37,21 +38,47 @@
 
 ## Next exact action
 
-### M4b Task 6 — the acceptance walk.
+### M4b is walked and reviewed. Next: M4c — the signal layer.
 
-Tasks 1-5 are done: **New York renders full-window, offline, with its own
-skyline and a camera you can drive** at `/explore/city`. 1,083,024 structures at
-the heights the city measured. No job data — that is M4c.
+**M4b's three criteria are met, with two limits stated rather than papered
+over.** The evidence is in "M4b acceptance" below, and it comes from Chromium
+driving the real map rather than from jsdom driving a fake one: 19 tests in
+`apps/web/e2e/city.spec.ts`, run by `make test-e2e` and by `make acceptance`,
+each shown able to fail by breaking the thing it names.
 
-**Next:** walk M4b's three acceptance criteria one at a time and record the
-evidence here, in the shape `CLAUDE.md` §5 asks for. They are: NYC renders dark,
-extruded and offline in `make demo`; every gesture in §9.3 works on trackpad and
-touch; every animation is interruptible. The first and third have evidence
-already — the third has 37 unit tests and a hand check — and the second is the
-one that needs an honest answer, because **touch has not been tested on a touch
-device.** MapLibre's touch handlers are enabled and unit-tested as enabled,
-which is not the same claim as "pinch and rotate work on a phone", and the
-difference between those two sentences is exactly what I6 is about.
+**The review is written: `docs/reviews/milestone-4b-review.md`.** It found two
+defects that this walk's first draft had passed over — a test that stayed green
+with the mechanism it names deleted, and a map whose accessible name was the
+word "Map" — and both are fixed. §2 of that file has them in full.
+
+**Next, in order:**
+
+1. **`make acceptance` end to end.** Run and green as far as `make test-e2e`;
+   the rest is **blocked on a wedged Docker daemon**, not on the code. See "The
+   machine ran out of disk" below — this is an environment problem with a
+   one-line fix a human has to perform.
+2. **M4c — the signal layer.** `city.md` §7: Three.js in MapLibre's context,
+   instanced beacons, the confidence treatments of §6, the unresolved layer as a
+   real view, selection synced to the URL, list↔map sync, the legend. It is not
+   blocked by `data/company-locations.yaml` still being blank — §4.8 designs the
+   unresolved layer as the *default* view rather than the sad one, so the first
+   honest render of M4c is every role in that layer and none on a building.
+
+**One finding from the walk changes how M4c should be written**, and it is worth
+reading before that task starts rather than after: MapLibre's whole-viewport
+`queryRenderedFeatures` returns **zero** at the pitch this city opens at, while
+thirty thousand building features are loaded and visibly drawn. Measured:
+
+| Pose | Viewport query | Box below the horizon | Features in the source |
+|---|---|---|---|
+| z13.6, pitch 76 (the opening view) | **0** | 1,599 | 30,573 |
+| z15, pitch 76 | **0** | 351 | 18,533 |
+| z13.6, pitch 0 | 9,225 | — | 38,408 |
+
+The viewport rect at 76° is mostly sky, and the corners above the horizon have
+no ground to unproject onto. M4c needs picking and list↔map sync, and the
+obvious implementation of *"which roles are on screen"* is a viewport query —
+which will answer nothing, silently, in the view the product opens in.
 
 **The release is published and the pin resolves.** `buildings-20260812`, 104 MB,
 109,555,308 bytes. Checked the way that actually proves something rather than
@@ -109,6 +136,158 @@ which §4.8 designs as the default view rather than the sad one.
 
 **Q2 (deployment target) is the only open question that blocks anything**, and
 only M4d.
+
+---
+
+## M4b acceptance — the three criteria, walked
+
+`city.md` §7: *"NYC renders dark, extruded and offline in `make demo`; every
+gesture in §9.3 works on trackpad and touch; every animation is interruptible;
+no job data is on screen yet."*
+
+Walked on 2026-08-12 at the tip of `m4b-dark-city`. **All three pass. Two carry
+a limit that is stated below rather than buried**, and both are the same limit
+wearing different clothes: this walk had one machine, and that machine has no
+touchscreen and no Safari.
+
+**The instrument is new, and it had to be.** Every criterion here is a claim
+about a renderer and a pointing device. `camera.test.ts` has 37 tests and
+`CameraControls.test.tsx` 7, and all 44 drive a *fake* map in jsdom with no GPU:
+they prove the controller calls `panBy` when an arrow key arrives. They cannot
+prove that pressing an arrow key moves New York. So M4b's evidence is
+`apps/web/e2e/city.spec.ts` — 19 tests, real Chromium, the real archives, no API
+and no network — reading the camera through a debug handle that exists outside
+production builds only (`apps/web/src/lib/map/debug.ts`, and the guard is the
+whole design of that file).
+
+**Every test in it was shown able to fail.** A gesture test that passes without
+the gesture is not evidence, and one of them was not evidence until it was
+fixed — see criterion 3.
+
+### 1. NYC renders dark, extruded and offline — PASS
+
+| Claim | Evidence |
+|---|---|
+| Offline | Every request the page makes is recorded and matched by scheme and host. **Zero off-machine requests**, and `blob:` is excluded by scheme rather than by pattern so a real host cannot hide behind one. Both archives were fetched from `/api/tiles/*` — a Next route reading a file from `~/.cache` |
+| No API | The suite runs in `playwright.config.ts`, which starts the web server and nothing else. The city page draws while the same run's shell tests assert "api unreachable" is on screen |
+| Extruded | The `buildings` layer is a `fill-extrusion` at runtime, not only in the style file, and **1,599 building features are rendered** in the frame at the opening pose |
+| Dark | `docs/reviews/milestone-4b-opening-view.png`, 1600×900, captured from this suite twenty seconds after load. Read by eye. The measured tokens are unchanged: ground L\* 8.3, low-rise 26.1, tower faces 37.4, sky 34.1 |
+| Drawing, not stalled | Two canvas screenshots either side of a camera move differ. A black rectangle is identical to a black rectangle; two different frames is weak evidence of beauty and strong evidence of drawing |
+| In `make demo` | `make test-e2e` runs this suite and is green (23 tests, 2.3 min), and **`make acceptance` now runs it too** — before the API starts, which is not an ordering accident. `make demo` itself ends in a foreground server with no exit code, which is what `acceptance` exists to stand in for |
+
+**The count is 1,599 rather than "all of them", and asking for the whole
+viewport would have given zero.** That finding is at the top of this file,
+because it is a trap set for M4c rather than a quirk of a test.
+
+### 2. Every gesture in §9.3 works on trackpad and touch — PASS, with the hardware limit stated
+
+Twelve tests, one per behaviour, each asserting the pose actually changed the
+way the gesture means:
+
+| §9.3 asks for | How it is driven | Shown able to fail by |
+|---|---|---|
+| Mouse pan | `mouse.down` → move → `up`; centre moves, bearing and zoom do not | `dragPan.disable()` → red |
+| Mouse orbit | Right-drag; bearing changes | — |
+| Wheel zoom | `mouse.wheel`; zoom rises | `scrollZoom.disable()` → red |
+| Trackpad pinch zoom | **CDP `Input.dispatchMouseEvent` with ctrl held** — every browser reports a trackpad pinch as ctrl+wheel, and Playwright's `mouse.wheel` cannot set a modifier | `scrollZoom.disable()` → red |
+| Touch pan | CDP `Input.dispatchTouchEvent`, one finger | `dragPan.disable()` → red |
+| Touch pinch | Two fingers spreading | `touchZoomRotate.disable()` → red |
+| Touch rotate | Two fingers swept around their midpoint at fixed separation | `touchZoomRotate.disable()` → red |
+| Double-click focus | Pitch and bearing preserved to a degree, centre closer to the clicked coordinate than it started | — |
+| Keyboard navigation | Arrow pans **up the screen** at bearing 202°, Shift+arrows rotate and tilt, `+`/`-` zoom, `0` returns to the opening pose | — |
+| Bounds and pitch limits | A `flyTo` past both is clamped | — |
+| Keyboard *reachability* | Tab from the top of the document, no click anywhere: the canvas takes focus in five stops, announces itself, shows a focus ring, and steers | Added by the review, which found the label was on a node nothing can focus |
+| Reduced motion | Criterion 3 |
+
+Touch goes through CDP rather than Playwright's `touchscreen`, which taps with
+one finger and cannot express any gesture that matters here. `dispatchTouchEvent`
+is the same entry point the browser uses for a real finger, so MapLibre receives
+trusted events indistinguishable from hardware.
+
+**The limit, stated: this is desktop Chromium with touch emulation, not a
+phone.** What it therefore cannot catch is a mobile browser's own pan-and-zoom
+handling fighting the map's, which is a named M4 risk and stays open. What it
+does close is the weaker claim that stood before today — *"the touch handlers
+are enabled"*, asserted by a unit test against a fake map — which is not the
+same sentence as *"pinch and rotate work"*, and the distance between those two
+sentences is exactly what I6 is about.
+
+**Second limit: trackpad *rotation* is untested.** §9.3 says "where supported",
+and it is supported only via `gesturestart`/`gesturechange`, which are Safari
+events that do not exist in Chromium. The controller handles them and has jsdom
+tests for the handlers; no browser has ever delivered one. Recorded here rather
+than counted as covered.
+
+### 3. Every animation is interruptible — PASS, and the first version of this test was not evidence
+
+| Animation | Interrupted by | Result |
+|---|---|---|
+| `flyTo`, 8s | A mouse-down on the map | Stops where it is, `isMoving()` false, `camera.animating` false, position unchanged a second later, and nowhere near the target |
+| `flyTo`, 8s | `Escape` | Same |
+| Orbit | Any input | Bearing frozen, and the panel's button stops claiming the camera is turning |
+| Everything | `prefers-reduced-motion` | No orbit button at all, and an 8-second `flyTo` lands in under 150 ms — a jump, not a journey |
+
+**The finding that matters is what the first version of this test did not
+catch.** Stubbing `#handleUserInput` to do nothing left the fly-to test *green*:
+MapLibre's own drag handler stops an in-flight camera the moment you grab the
+map, so the criterion was being met by the library while the test claimed to be
+watching the controller. `camera.animating` is the controller's own record of a
+move it started, nothing else clears it, and asserting it turns the test red
+again. One line — and without it, this row of the walk would have been a
+sentence about code that was not running.
+
+**A second trap, in the tooling rather than the product.** Playwright's
+documented `test.use({ reducedMotion: 'reduce' })` **does not reach the page** on
+this version: `matchMedia('(prefers-reduced-motion: reduce)').matches` stays
+false and the controller builds itself with the preference off.
+`page.emulateMedia()` before navigation works. A reduced-motion test written the
+documented way exercises the ordinary camera while claiming to exercise the
+reduced one — it fails only because these assertions happen to be written the
+way round that notices.
+
+### 4. No job data is on screen yet — PASS
+
+Asserted, not assumed: the page says *"There are no roles on it yet"* in the
+browser. There is no jobs source, no beacon layer and no query for one — M4c.
+
+### What the walk cost, and one thing it changed
+
+`city.spec.ts` runs in 2.3 minutes with the shell suite, and **`workers` is now
+capped at 2 in `playwright.config.ts`**. At Playwright's default of four, two
+tests failed on this 8-core machine — a mouse-drag pan, and an unrelated
+*navigation* test in `shell.spec.ts` — because four workers each rasterising a
+million footprints with no GPU is four workers fighting over one CPU. Neither
+failure had anything to do with the code under test. A suite that fails that way
+teaches people to re-run it rather than read it, which is worse than a slow
+suite.
+
+CI gets the same suite: the `e2e` job now restores the tile cache and fetches
+the archives, because with the tile route answering 503 the page shows its
+"cannot be drawn" card, which is correct behaviour and proves nothing about M4b.
+Its budget went from 15 to 25 minutes.
+
+### The machine ran out of disk, and Docker has not recovered
+
+Recorded because it blocks a green `make acceptance` and because it will look
+like a code failure to whoever hits it next.
+
+Mid-session the volume reached 100% (234 MB free of 233 GB) — the tool harness
+itself started failing to write. `npm cache clean --force` freed 2.3 GB and the
+session continued, but **the Docker daemon was already wedged**: `docker ps`
+hangs indefinitely, so `make up` never returns and `make acceptance` cannot get
+past its first line. Nothing in this repo caused it and nothing in this repo can
+fix it: it wants Docker Desktop restarted by a human, and probably a look at
+where the other 200 GB went.
+
+**What is wedged is the daemon's API, not the containers.** Worth knowing before
+anyone reads a skipped test as a passing one: Postgres and Redis kept serving on
+their published ports throughout, and the full Python suite run afterwards was
+**1,906 passed, nothing skipped** — every database-backed test included. So the
+loss is `docker compose`, which means `make up`, `make reset-db` and therefore
+`make acceptance`; it is not the loss of a database.
+
+Everything M4b claims was verified without any of it. The city needs no
+database.
 
 ---
 
@@ -6002,12 +6181,12 @@ wrong: ML frameworks (JAX, LangChain, HuggingFace, DSPy), accelerators (CUDA, RO
 | The 2,605-token figure | Not re-measured by M1c and never claimed by it. The committed slice is **400 rows → 23 tokens**, the alphabetical head of one provider (`0g`…`abridge`). Common Crawl's index 504s at `limit=6000`, so a full harvest needs paging that does not exist | M1d |
 | ~~Discovered boards in the registry~~ | **19 promoted in M1d** (`d3738b6`), on the human's decision. 4 boards → 23, 171 insertions and 0 deletions, nothing lost or modified. Two `Abridge` candidates and two `empty` boards remain withheld for individual review under ADR 0005 | Done |
 | Ashby's `address.postalAddress` | Still deliberately unread by `AshbyAdapter.normalize`, and **M4a closed the question in the opposite direction to the one this row expected**. It was waiting for geocoding to exist; the census then showed the field carries `addressLocality`/`addressRegion`/`addressCountry` and **never `streetAddress`**, on any posting, from any employer. So reading it would upgrade nothing — it resolves to the same city name the free-text string already gives | Not a gap. Closed by measurement at **M4a** |
-| 3D city, map, MapLibre, Three.js | **The basemap and the skyline render; nothing else does.** `/explore/city` draws New York offline from two local archives on `maplibre-gl@5.24.0` — streets, water, and 1,083,024 extruded structures at measured heights. No camera controller, no Three.js, no job data — and the page says so on screen, because a map that looks finished and is empty is indistinguishable from one that is broken | Buildings **done, M4b Task 4**; camera **M4b Task 5**; signal layer **M4c** |
+| 3D city, map, MapLibre, Three.js | **The city renders and can be driven; nothing is on it.** `/explore/city` draws New York offline from two local archives on `maplibre-gl@5.24.0` — streets, water, and 1,083,024 extruded structures at measured heights — with the full §9.3 gesture surface, a keyboard, and a control panel, all proved in a browser by `e2e/city.spec.ts`. **No Three.js and no job data**, and the page says so on screen, because a map that looks finished and is empty is indistinguishable from one that is broken. **This row said "no camera controller" for two days after the controller shipped** — the sixth time a list here has quietly stopped describing the thing it names, and again in the same direction | Buildings **done, M4b Task 4**; camera **done, M4b Task 5**; signal layer **M4c** |
 | Window speckle on buildings | Not built. §2.1's treatment is edge light *plus* lit windows; the extrusion delivers the first via `fill-extrusion-vertical-gradient` and a height-driven colour ramp. The speckle needs a texture, a texture needs a sprite, and a sprite is a network call this style has spent three tasks refusing | The Three.js layer — **M5**, not scheduled sooner |
 | ~~The published buildings artifact~~ | **Published 2026-08-12** as release `buildings-20260812`, 109,555,308 bytes — the size the manifest pins. Proved by deleting the local copy and re-fetching from the public URL, which is the clean-clone path, digest and all. The optional/required split built while it was unpublished stays: a re-bake reopens the same window every time, and `make tiles-strict` in CI is what closes it | Done |
 | Map labels — neighbourhood and street names | **Not drawn, and not an oversight.** Every symbol layer needs a `glyphs` URL and every glyph URL is a network call, which `make demo` may not make. Self-hosting the font stack is a second baked artifact on the ADR 0022 pattern; it buys neighbourhood names, which are not in M4b's acceptance. The style declares no `glyphs` and a test asserts it stays that way | Unscheduled. Needs a second baked artifact or a decision to accept a network call |
-| Basemap tiles | **Real, pinned and verified.** 95,348,122 bytes of NYC vector tiles, Protomaps build `20260810`, downloaded once by `make setup` and checked against a committed sha256 before it is installed. Served over byte ranges by `/api/basemap`. **Not a mock and not a stopgap** — this is the permanent offline tile source (ADR 0022). The one thing it is not yet is *drawn* | Done at **M4b Task 1** |
-| NYC building footprints | Not downloaded, not in PostGIS, no tile pipeline. A4 names the dataset and the approach (load once, filter to rendered boroughs, bake tiles, never query per frame). The dataset was located during M4b Task 1 — NYC Open Data `5zhs-2jue`, carrying `bin`, `height_roof`, `ground_elevation` — and nothing has loaded it. Note the Protomaps archive carries its own OSM `buildings` layer, which **must not be extruded**: those are guessed heights, and §5.3 uses `height_roof` precisely so the skyline is measured | **M4b Task 3** |
+| Basemap tiles | **Real, pinned, verified and drawn.** 95,348,122 bytes of NYC vector tiles, Protomaps build `20260810`, downloaded once by `make setup` and checked against a committed sha256 before it is installed. Served over byte ranges by `/api/tiles/basemap`, and on screen since Task 2 — this row's "the one thing it is not yet is *drawn*" was three tasks out of date. **Not a mock and not a stopgap**: the permanent offline tile source (ADR 0022) | Done at **M4b Task 1**, drawn at **Task 2** |
+| NYC building footprints | **Loaded, baked and drawn.** NYC Open Data `5zhs-2jue` → 1,083,024 structures at measured `height_roof`, baked into `nyc-buildings-20260812.pmtiles` and published as a release asset on the ADR 0022 pattern. 732 have no recorded height, take a documented 25 ft default, and **are counted on screen**. Never queried per frame; never in PostGIS, which A4's approach does not need. The Protomaps archive's own OSM `buildings` layer still **must not be extruded** — those are guessed heights — and the test that guards it matches on the *source*, not the layer name, because both archives call their layer `buildings` | Done at **M4b Task 4** |
 | Auth | None. Single seeded `dev_user`, id in config (A3). Every user-owned table will still carry a real `user_id` FK from its first migration | M5 |
 | Live polling of Lever/Ashby | **Fixed in M1d.** `ADAPTERS` in `domain/polling.py` covers all three providers, `sync_board_poll_state` gives every pollable registry board a schedule, and `nightshift poll --ats lever --token alloy` works. `active` in the registry now means what an operator would assume. **Caveat:** only `greenhouse:datadog` has actually been polled live end to end. Lever and Ashby were measured serving `304` during design, but their conditional path has been exercised only against fixtures | Polled path proven on one provider; the other two are wired and fixture-tested |
 
