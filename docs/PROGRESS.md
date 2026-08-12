@@ -45,7 +45,15 @@
 
 ## Next exact action
 
-### M4b and M4c are merged. Next: M4d — measured, accessible, shipped.
+### M4d is under way on `m4d-measured`, draft PR #17. Task 1 is done; next is Task 2.
+
+**Task 1 — the frame timer — is done and the desktop criterion is met with
+numbers**: p50 16.6–16.7 ms in every scenario at both 200 and 5,000 roles on
+an Intel Iris Plus 645, 0–3% of frames missing the next refresh. See "M4d
+Task 1" below for the tables, the method, the one 191.7 ms hitch it found,
+and the defect it found **in the instrument** before it found anything in the
+city. **Next: Task 2, the adaptive quality tiers**, judged against those
+numbers.
 
 **PR #16 is in `main` (`dfd4973`), all five CI jobs green at `7dfdaef` and green again on `main` after the merge.** M4a,
 M4b and M4c are closed. `city.md` §7's remaining slice is the last one in this
