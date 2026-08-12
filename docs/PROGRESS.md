@@ -51,33 +51,38 @@
 M4b and M4c are closed. `city.md` §7's remaining slice is the last one in this
 milestone, and it is the one that turns impressions into numbers.
 
-**M4d's deliverables**, from `city.md` §7 and `CLAUDE.md` §6:
+**M4d's tasks, in order.** Deliverables from `city.md` §7 and `CLAUDE.md` §6.
 
-1. **Frame-time instrumentation, and recorded metrics.** The acceptance
+1. **Frame-time instrumentation, and a machine that admits what it is.** The
    criterion is *"60fps desktop and 30fps mobile are numbers in `PROGRESS.md`
-   rather than impressions"*. The trap is already visible from here: the
-   machine that runs the browser suite is headless Chromium with no GPU, so a
-   number measured there is a number about ANGLE on a CPU. Whatever this
-   measures has to be honest about what it measured — the M4c review's finding
-   in a new coat.
-2. **Adaptive quality tiers.** And the place they first pay for themselves is
-   the limit M4c recorded: the field is legible at 31 roles and not at 5,000
-   (`docs/reviews/milestone-4c-review.md` §4.1). Level-of-detail on the name
-   plates, a camera that can frame the whole field, and clustering.
-3. **Reduced motion end to end.** The camera and the layer both honour it
-   today, asserted from the instance data rather than from a flag. What is not
-   yet walked is the whole page under the preference — panels, transitions,
-   the roster's fly-to.
-4. **A keyboard path to every map action.** Most of it exists (the camera's
-   keyboard surface, the roster, the sort radio group, selection without the
-   canvas). This is the audit that says *every*, and names what is missing.
-5. **Automated accessibility tests** — A14 puts them here, and they do not
-   exist. This is the largest genuinely-absent piece.
-6. **The M4 review, the deploy, and the case study.** **Q2 blocks the deploy
-   and nothing else**: a paid target (~$5–10/month) ends M4d with a live link,
+   rather than impressions"*, and the trap is visible before a line is written:
+   the browser suite runs headless Chromium with **no GPU**, so a number
+   measured there is a number about ANGLE on a CPU. Any frame timer that cannot
+   report *which renderer produced the frames* is an instrument that will
+   eventually publish a software-rasteriser number as a desktop claim. That is
+   M4c's finding in a new coat, and it decides the shape of this task: measure
+   frame intervals, and record the unmasked renderer string beside every
+   measurement.
+2. **Adaptive quality tiers** — Ultra / High / Balanced / Battery saver, over
+   pixel ratio, animation density and label detail (§5.5). Chosen from what
+   Task 1 measures, overridable by hand, and **named on screen**: a tier that
+   silently downgrades the city is a city quietly lying about what it can do.
+3. **The field at scale**, which is the limit M4c recorded rather than fixed
+   (`docs/reviews/milestone-4c-review.md` §4.1): legible at 31 roles, not at
+   5,000. Level-of-detail on the name plates, a camera that can frame the whole
+   field, clustering. Third rather than first because the right fix depends on
+   Task 1's numbers.
+4. **Reduced motion, end to end.** The camera and the layer both honour it and
+   both are asserted from data rather than a flag. What is not walked is the
+   rest of the page — panels, transitions, the roster's fly-to.
+5. **A keyboard path to every map action.** Most exists; this is the audit that
+   earns the word *every*, and names what is missing rather than implying it is
+   complete.
+6. **Automated accessibility tests** (A14). The largest genuinely-absent piece.
+7. **The M4 review, the deploy, and the case study.** **Q2 blocks the deploy and
+   nothing else**: a paid target (~$5–10/month) ends M4d with a live link;
    local-only ends it with a recorded walkthrough and A9's $0 target held
-   literally. It is the only open question that blocks anything, and an ADR
-   gets written either way.
+   literally. An ADR gets written either way.
 
 **Start by branching off `main`** — `m4d-measured` or similar — and by reading
 `docs/architecture/city.md` §7's M4d entry and §8's deferred list before
