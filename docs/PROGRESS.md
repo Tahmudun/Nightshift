@@ -23,17 +23,18 @@
 **M3d: COMPLETE, reviewed, CI-green at `ade217b`, merged to `main` as PR #14 (`7b480e9`). `main` green after the merge.**
 **M3: CLOSED. All six acceptance criteria walked with evidence — see "M3 acceptance" below. Two of the six carry a stated limit rather than a clean pass.**
 **M4a: COMPLETE, CI-green, merged to `main` as PR #15 (`3a68bad`). All five CI jobs passed.**
-**M4b: all six tasks done on `m4b-dark-city`, draft PR #16. Tasks 1 (the artifact and its route, ADR 0022), 2 (MapLibre and the dark style), 3 (fullscreen, the sky, and the lights coming on — ADR 0023), 4 (New York's own measured skyline), 5 (the camera controller and its gesture surface) and 6 (the acceptance walk, in a browser) done. New York renders offline, full-window, under a violet horizon, 1,083,024 structures at heights the city measured, with no jobs on it — and it can be driven by mouse, trackpad, touch, keyboard and a control panel.**
+**M4b: COMPLETE, reviewed, CI-green at `7dfdaef`, merged to `main` as PR #16 (`dfd4973`) together with M4c.** All six tasks done on `m4b-dark-city`. Tasks 1 (the artifact and its route, ADR 0022), 2 (MapLibre and the dark style), 3 (fullscreen, the sky, and the lights coming on — ADR 0023), 4 (New York's own measured skyline), 5 (the camera controller and its gesture surface) and 6 (the acceptance walk, in a browser) done. New York renders offline, full-window, under a violet horizon, 1,083,024 structures at heights the city measured, with no jobs on it — and it can be driven by mouse, trackpad, touch, keyboard and a control panel.**
 **M4b's three criteria are walked with evidence from a real browser — 19 new tests in `apps/web/e2e/city.spec.ts`, each one shown able to fail. Two carry a stated limit: no physical touch device, and no Safari.** See "M4b acceptance" below, and `docs/reviews/milestone-4b-review.md`, which found two defects the first draft of the walk had passed over.
 **The buildings artifact is published**: release `buildings-20260812`, 109,555,308 bytes, the size the manifest pins. Verified the clean-clone path by deleting the local copy and re-fetching it from the public URL — it downloads and clears its digest, so `make setup` gets the skyline anywhere.
 **ADR 0023 reversed `city.md` §2.2 on the human's call: the city is lit, and hiring is carried by a beam rather than by being the only thing bright.**
 **M4b's acceptance chain is fully green.** It was run step by step against still-serving containers while Docker's daemon was wedged — `migrate`, `drift`, `seed`, `test-e2e` (24 passed), `verify` and `test-e2e-seeded` (56 passed, 1 skipped) — leaving only container *startup* unproven. **That gap is now closed**: on 2026-08-12 Docker was force-quit and relaunched, the containers were removed outright with `docker compose down`, and `make up` created both from scratch to healthy with exit 0.
-**M4c is COMPLETE — all six tasks, all seven of `city.md` §7's deliverables, and its three acceptance claims walked in a browser.** See "M4c acceptance" below and `docs/reviews/milestone-4c-review.md`. Task 6 built the instrument the seeded corpus could not be: `apps/web/e2e/city-acceptance.spec.ts` serves a corpus this repo *chooses* — a fabricated placement, five thousand roles, a role at a confirmed building — against the real map, the real archives and the real instance buffers, with no API. It found three defects on its first run, all fixed: a page that counted roles the renderer does not draw and never said so (I7 in the form it actually arrives in), two ceilings coupled only by a comment (`MAX_BEACONS` vs `MAX_SIGNALS` — raise the API's and the surplus vanishes silently), and a `WebGLRenderer` whose compiled programs outlived the layer. **The milestone's lesson: a corpus that cannot produce a failure cannot test the guard against it.**
+**M4c: COMPLETE, reviewed, CI-green at `7dfdaef`, merged to `main` as PR #16 (`dfd4973`).** All six tasks, all seven of `city.md` §7's deliverables, and its three acceptance claims walked in a browser.** See "M4c acceptance" below and `docs/reviews/milestone-4c-review.md`. Task 6 built the instrument the seeded corpus could not be: `apps/web/e2e/city-acceptance.spec.ts` serves a corpus this repo *chooses* — a fabricated placement, five thousand roles, a role at a confirmed building — against the real map, the real archives and the real instance buffers, with no API. It found three defects on its first run, all fixed: a page that counted roles the renderer does not draw and never said so (I7 in the form it actually arrives in), two ceilings coupled only by a comment (`MAX_BEACONS` vs `MAX_SIGNALS` — raise the API's and the surplus vanishes silently), and a `WebGLRenderer` whose compiled programs outlived the layer. **The milestone's lesson: a corpus that cannot produce a failure cannot test the guard against it.**
 **The scale claim is an equality, not a bound.** 100 roles → 5,000 roles at a fixed 20 employers: **364 DOM elements before, 364 after**, 5,000 of 5,000 in the buffer, one canvas, one custom layer. One `<span hidden />` per role turns 364 into 5,264 and the test red. `docs/reviews/milestone-4c-scale.png` is the 5,000-role city — and it is also the evidence for the one limit this review records rather than fixes: **the field is legible at 31 roles and not at 5,000**, which is deferred to M4d beside the adaptive quality tiers it belongs with.
 **M4c Task 5 is done: the city speaks §6, and says what it is saying.** The table is one pure function (`treatments.ts`), the beacons carry per-instance colour, strength and pulse rate through a shader, four instanced meshes draw the marks §6 puts *on* a body, and an in-interface legend documents all thirteen rows — including the four that are not drawn, each with its reason. ADR 0028. `docs/reviews/milestone-4c-treatments.png` is the screenshot. Three defects were found by looking rather than by a test: a closed torus whose rotation was invisible by construction, a spin folded into the billboard that rolled every arc out of the camera plane, and a saved outline drawn cyan — which is exactly what ADR 0027's standing instruction ruled out.
 **M4c: Tasks 1, 2, 3 and 4 are done. The placement join and `GET /city/signals` (ADR 0024, which resolves a real conflict between I1 and `city.md` §4.4 rather than papering over it), the Three.js signal layer in MapLibre's own context (ADR 0025), and the field made legible, navigable and sortable. New York now has every open role floating above it, untethered, and none on a building — see `docs/reviews/milestone-4c-signals.png` and `docs/reviews/milestone-4c-roster.png`. Task 4 then made a role reachable: picking by raycast against the frame's own matrix, a reticle, a detail panel, and one selection shared by the list and the map (ADR 0027) — `docs/reviews/milestone-4c-selection.png`.**
 **Docker's daemon is no longer wedged.** It was force-quit and relaunched on 2026-08-12. `make up` was then run **from cold** — containers removed with `docker compose down` first — and created both from scratch to healthy, exit 0. **That closes the last open step in M4b's acceptance chain**; container startup is now proven rather than assumed. The seeded corpus survived and matches what this file records: 31 canonical jobs, 62 `job_locations`, 44 `city_only` + 18 `remote`, 0 mappable.
-**Current milestone: M4 — the living city, and the shippable checkpoint (A15).**
+**Current milestone: M4 — the living city, and the shippable checkpoint (A15). M4a, M4b and M4c are closed and on `main`; M4d is what remains.**
+**PR #16 was the largest thing this project has merged — 43 commits, 106 files, ~20,700 lines, two milestones — because M4b and M4c are one renderer and merging a map with nothing on it would have been merging half of it.**
 **The finding that shaped the milestone: no ATS posting names a street. 0 of 247, 139 distinct location strings, 10 fields, three providers. A job can never place itself on a building, so every building comes from an address a human confirmed.**
 **Task 11 measured the embedding proposal path and declined to ship it — ADR 0018.**
 **Task 12 gave the seed a reader to be about, and found three false claims on the page — ADR 0019.**
@@ -44,42 +45,43 @@
 
 ## Next exact action
 
-### M4c is done, walked and reviewed. Next: get the branch green in CI and merged, then M4d.
+### M4b and M4c are merged. Next: M4d — measured, accessible, shipped.
 
-**All six M4c tasks are complete**, all seven of `city.md` §7's M4c deliverables
-exist, and the three acceptance claims are walked with evidence — see "M4c
-acceptance" below and `docs/reviews/milestone-4c-review.md`.
+**PR #16 is in `main` (`dfd4973`), all five CI jobs green at `7dfdaef` and green again on `main` after the merge.** M4a,
+M4b and M4c are closed. `city.md` §7's remaining slice is the last one in this
+milestone, and it is the one that turns impressions into numbers.
 
-1. ~~**Task 2 — one WebGL context.**~~ **Done.** See below.
-2. ~~**Task 3 — the unresolved field as a good screen.**~~ **Done.** See below.
-3. ~~**Task 4 — selection.**~~ **Done.** See below. §4.8's four verbs are met:
-   a role can now be found, inspected, saved and applied to from the city.
-4. ~~**Task 5 — the §6 treatments and the in-interface legend.**~~ **Done.**
-   See below, and ADR 0028.
-5. ~~**Task 6 — the acceptance walk, then the review.**~~ **Done.** See below.
+**M4d's deliverables**, from `city.md` §7 and `CLAUDE.md` §6:
 
-**The next actions, in order.**
+1. **Frame-time instrumentation, and recorded metrics.** The acceptance
+   criterion is *"60fps desktop and 30fps mobile are numbers in `PROGRESS.md`
+   rather than impressions"*. The trap is already visible from here: the
+   machine that runs the browser suite is headless Chromium with no GPU, so a
+   number measured there is a number about ANGLE on a CPU. Whatever this
+   measures has to be honest about what it measured — the M4c review's finding
+   in a new coat.
+2. **Adaptive quality tiers.** And the place they first pay for themselves is
+   the limit M4c recorded: the field is legible at 31 roles and not at 5,000
+   (`docs/reviews/milestone-4c-review.md` §4.1). Level-of-detail on the name
+   plates, a camera that can frame the whole field, and clustering.
+3. **Reduced motion end to end.** The camera and the layer both honour it
+   today, asserted from the instance data rather than from a flag. What is not
+   yet walked is the whole page under the preference — panels, transitions,
+   the roster's fly-to.
+4. **A keyboard path to every map action.** Most of it exists (the camera's
+   keyboard surface, the roster, the sort radio group, selection without the
+   canvas). This is the audit that says *every*, and names what is missing.
+5. **Automated accessibility tests** — A14 puts them here, and they do not
+   exist. This is the largest genuinely-absent piece.
+6. **The M4 review, the deploy, and the case study.** **Q2 blocks the deploy
+   and nothing else**: a paid target (~$5–10/month) ends M4d with a live link,
+   local-only ends it with a recorded walkthrough and A9's $0 target held
+   literally. It is the only open question that blocks anything, and an ADR
+   gets written either way.
 
-1. **Merge PR #16.** Done except the merge itself: the branch is pushed, PR #16
-   is out of draft, retitled *"M4b + M4c — the dark city, and the signals on
-   it"* with a description covering both milestones, and **all five CI jobs are
-   green** at `27a68fc` — python, web, e2e (which runs the new acceptance spec
-   and the seeded suite in CI), migrations up/down/up with no drift, and the
-   secret scan. `mergeStateStatus` is CLEAN. **43 commits, 106 files, ~20,700
-   lines**, carrying two milestones because they are one renderer. Awaiting the
-   human's look before it goes into `main` — this is the branch A15 calls the
-   portfolio checkpoint, and it is the largest thing this project has merged.
-2. **M4d — measured, accessible, shipped.** Frame-time instrumentation and
-   recorded metrics, adaptive quality tiers, reduced motion end to end, a
-   keyboard path to every map action, automated accessibility tests (A14), the
-   M4 review, the deploy and the case study. **Q2 (the deployment target) blocks
-   the last of those and nothing else**, and it is the only open question that
-   blocks anything.
-3. **Two things this review deferred *into* M4d**, both recorded in
-   `docs/reviews/milestone-4c-review.md` §4: the field stops being legible
-   somewhere between 31 roles and 5,000, and a treatment change writes the
-   instance buffer twice. Both want a frame-time number before they want a fix,
-   and M4d is where the numbers come from.
+**Start by branching off `main`** — `m4d-measured` or similar — and by reading
+`docs/architecture/city.md` §7's M4d entry and §8's deferred list before
+writing code.
 
 ---
 
