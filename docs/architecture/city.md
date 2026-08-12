@@ -609,6 +609,16 @@ Two standing rules apply to every row. Colour never carries a meaning alone (§1
 deliverable, not a note: these meanings are documented **in the interface**, on a
 legend the user can open, not only in this file.
 
+**One mark on the city is deliberately *not* in this table, and it arrived in
+M4c Task 4: the selection reticle** (ADR 0027). Every row above encodes a state
+of a *role*; selection encodes a state of the *interface* — which role the
+detail panel is currently describing — so it is drawn as a different kind of
+thing, a white ring in the air around the beacon rather than a treatment of the
+beacon's body. It matters here because §6's white is already spent on *saved*,
+as a thin outline on that body. The two must stay distinguishable at a glance
+when Task 5 draws this table; if they do not, the reticle changes shape. This
+table is the spec and the reticle is not.
+
 ---
 
 ## 7. The slice plan

@@ -28,7 +28,7 @@
 **The buildings artifact is published**: release `buildings-20260812`, 109,555,308 bytes, the size the manifest pins. Verified the clean-clone path by deleting the local copy and re-fetching it from the public URL — it downloads and clears its digest, so `make setup` gets the skyline anywhere.
 **ADR 0023 reversed `city.md` §2.2 on the human's call: the city is lit, and hiring is carried by a beam rather than by being the only thing bright.**
 **M4b's acceptance chain is fully green.** It was run step by step against still-serving containers while Docker's daemon was wedged — `migrate`, `drift`, `seed`, `test-e2e` (24 passed), `verify` and `test-e2e-seeded` (56 passed, 1 skipped) — leaving only container *startup* unproven. **That gap is now closed**: on 2026-08-12 Docker was force-quit and relaunched, the containers were removed outright with `docker compose down`, and `make up` created both from scratch to healthy with exit 0.
-**M4c: Tasks 1, 2 and 3 are done. The placement join and `GET /city/signals` (ADR 0024, which resolves a real conflict between I1 and `city.md` §4.4 rather than papering over it), the Three.js signal layer in MapLibre's own context (ADR 0025), and the field made legible, navigable and sortable. New York now has every open role floating above it, untethered, and none on a building — see `docs/reviews/milestone-4c-signals.png` and `docs/reviews/milestone-4c-roster.png`.**
+**M4c: Tasks 1, 2, 3 and 4 are done. The placement join and `GET /city/signals` (ADR 0024, which resolves a real conflict between I1 and `city.md` §4.4 rather than papering over it), the Three.js signal layer in MapLibre's own context (ADR 0025), and the field made legible, navigable and sortable. New York now has every open role floating above it, untethered, and none on a building — see `docs/reviews/milestone-4c-signals.png` and `docs/reviews/milestone-4c-roster.png`. Task 4 then made a role reachable: picking by raycast against the frame's own matrix, a reticle, a detail panel, and one selection shared by the list and the map (ADR 0027) — `docs/reviews/milestone-4c-selection.png`.**
 **Docker's daemon is no longer wedged.** It was force-quit and relaunched on 2026-08-12. `make up` was then run **from cold** — containers removed with `docker compose down` first — and created both from scratch to healthy, exit 0. **That closes the last open step in M4b's acceptance chain**; container startup is now proven rather than assumed. The seeded corpus survived and matches what this file records: 31 canonical jobs, 62 `job_locations`, 44 `city_only` + 18 `remote`, 0 mappable.
 **Current milestone: M4 — the living city, and the shippable checkpoint (A15).**
 **The finding that shaped the milestone: no ATS posting names a street. 0 of 247, 139 distinct location strings, 10 fields, three providers. A job can never place itself on a building, so every building comes from an address a human confirmed.**
@@ -41,7 +41,7 @@
 
 ## Next exact action
 
-### M4c Tasks 1–3 are done. Next: Task 4 — selection.
+### M4c Tasks 1–4 are done. Next: Task 5 — the §6 treatments and the legend.
 
 **The remaining M4c tasks, in order.** `city.md` §7 asks for: Three.js in
 MapLibre's context; instanced beacons; the confidence treatments of §6; the
@@ -50,21 +50,127 @@ in-interface legend.
 
 1. ~~**Task 2 — one WebGL context.**~~ **Done.** See below.
 2. ~~**Task 3 — the unresolved field as a good screen.**~~ **Done.** See below.
-3. **Task 4 — selection.** Picking, the URL, the detail panel, the keyboard path,
-   list↔map sync. **Read the `queryRenderedFeatures` finding below before
-   writing this**; the obvious implementation answers zero. Note the beacons are
-   *not* MapLibre features at all — they are Three.js instances in a custom
-   layer, so `queryRenderedFeatures` cannot see them under any pose and picking
-   needs a raycast against the same matrix the layer draws with.
-   **Task 3 deliberately stopped short of this.** §4.8's sentence has four verbs
-   — a role must be *inspected, saved and applied to* as well as found — and
-   Task 3 delivered finding it. The roster reaches an employer; it does not yet
-   open a role. That is this task, and it is the last thing standing between
-   §4.8 and being met in full.
+3. ~~**Task 4 — selection.**~~ **Done.** See below. §4.8's four verbs are met:
+   a role can now be found, inspected, saved and applied to from the city.
 4. **Task 5 — the §6 treatments and the in-interface legend.** PRODUCT-SPEC
    §4.3's last line is a deliverable: these meanings are documented in the
    interface, not only in `city.md`.
+   **Read ADR 0027's last consequence before starting.** Selection is drawn as
+   a white ring in the air around a beacon, and §6 gives white to *saved* as a
+   thin outline on a beacon's body. Those two have to stay distinguishable at a
+   glance; if they stop being so, the reticle changes shape rather than the
+   saved treatment changing colour — §6 is the spec and the reticle is not.
 5. **Task 6 — the acceptance walk in a browser, then the M4c review.**
+
+**Task 4, done: a role can be reached, and it says what its position means.**
+`docs/reviews/milestone-4c-selection.png` is the screenshot. Five things
+arrived:
+
+| Piece | Where |
+|---|---|
+| **Picking** — a raycast that inverts the matrix the last frame drew with | `lib/city/pick.ts` |
+| **The reticle** — a camera-facing white ring around the selected beacon | `lib/city/selectionMesh.ts` |
+| **One shared selection** — `selected` in the scene store, read by the layer outside React and by every panel inside it | `lib/city/scene.ts` |
+| **The detail panel, and the only place the URL is written** | `components/CityDetail.tsx` |
+| **Roles in the roster** — every employer opens into its stack, and the selected row is marked | `components/CityRoster.tsx` |
+
+**`queryRenderedFeatures` was never an option, for two separate reasons.** The
+beacons are Three.js instances in a custom layer, so MapLibre's feature index
+has never heard of them — no pose returns one. And M4b measured the
+whole-viewport form returning zero at this city's opening pitch even for the
+30,573 building features that *were* loaded and drawn. Both failures are
+silent. So the layer keeps the composed `mainMatrix · anchorTransform` from its
+last `render` and picking inverts it. Recomputing a projection from the map's
+pose instead would be a second implementation of MapLibre's camera, free to
+disagree with the first by a few pixels near the horizon — a bug that reads as
+"clicking sometimes selects the wrong role".
+
+**Three traps, all of which produce a plausible wrong answer rather than
+nothing.**
+
+*three caches the bounding sphere and gates every raycast on it.* A field that
+*grows* keeps a sphere too small to admit its new columns, so picking silently
+stops working for exactly the employers that just arrived. `setSignals` nulls
+it. `pick.test.ts` demonstrates the trap in five lines rather than describing
+it.
+
+*A sort moves every beacon under the reticle.* A mark written once at selection
+time stays at the old coordinates and ends up ringing whichever employer now
+stands there — right role selected, wrong beacon marked. The reticle is
+re-placed on every buffer rewrite, and `selectionAt` is exposed so a test can
+see the difference rather than just that a mark exists.
+
+*Two effects syncing a URL and a store ping-pong.* The store→URL effect closes
+over the selection from the render **before** the URL→store effect adopted a
+deep link, so `?job=…` is adopted and then immediately rewritten away. The link
+works for one frame and destroys itself. One effect, one `agreed` ref, and the
+direction decided by which side changed.
+
+**The reticle is deliberately not one of §6's marks, and that is a product
+decision rather than a rendering one.** §6's table encodes *states of a role* —
+white is saved, gold is an exceptional match, green is an offer. Selection is a
+state of the *interface*: which role the panel is describing. Colouring the
+beacon would make the city claim something about the job that is not true, and
+every colour in the palette is already spoken for. A ring in the air around the
+beacon is a cursor, the way a marquee around an icon is not a claim about the
+file. ADR 0027.
+
+**A drag does not clear the selection**, and that was checked in MapLibre's
+source rather than assumed: its event handler suppresses `click` when the
+pointer moves further than `clickTolerance` between press and release. The
+failure it would have caused — losing your selection every time you move the
+map — would have been blamed on almost anything else.
+
+**Two defects found while writing this, one in the product's tests and one in
+mine.**
+
+*A green assertion that compared unrelated numbers.* `reordering the field
+changes the order and not the roles` returned the per-column role counts
+**sorted**, then indexed that sorted array by a name's position — so the
+"tallest first" check compared each employer's position against somebody else's
+height. It could only pass or fail by accident. Found while replacing
+`FieldColumn.roles` with `jobIds`; the counts are now parallel to the names.
+
+*A test that clicked a pixel no mouse can reach.* The empty-sky test verified
+the pixel picked nothing and clicked it, and failed — (30, 130) is inside the
+title card, so the click never got to the map. That is Task 3's occlusion bug
+arriving in the test rather than in the product. The scan now requires
+`document.elementFromPoint` to be the canvas, and a new browser test clicks
+every rail control **with a role selected**, which the existing occlusion test
+could not see: the detail panel is the fourth panel in that rail and it is
+absent unless something is selected.
+
+**Two small things that turned out to be dead or wrong.** `writeRotation()` in
+the reticle's `moveTo` looked prudent and could not be made to fail — the layer
+orients the ring on attach and on every move, so it is always already facing
+the camera by the time anything is selected. It is gone. And `selectionHref`
+now `append`s rather than `set`s the parameter: `set` papered over a broken
+filter by silently collapsing a duplicate, which left the test that says a
+selection replaces rather than doubles with nothing to catch.
+
+**Evidence.** 107 unit tests in `lib/city` (up from 66), 23 component tests
+across `CityDetail` and `CityRoster`, and 24 seeded browser tests in
+`e2e-seeded/city.spec.ts` (up from 13). Full suite green on 2026-08-12:
+`make check` (1,936 Python, 518 web, format, lint, typecheck), `make test-e2e`
+(24 passed), and the seeded browser suite (22 passed before the rail test, 24
+after).
+
+**Twelve mutations, each shown to turn a named assertion red:**
+
+| Mutation | Test that went red |
+|---|---|
+| `ndcFromPointer`'s y flip removed | five, across the ray maths and the layer's own pick |
+| ray direction negated | points away from the viewer rather than towards them |
+| `mesh.boundingSphere = null` deleted | can still pick the roles that arrived after the last pick |
+| `placeReticle()` dropped from `setSignals` | moves the reticle when a sort moves the field under it |
+| reticle `BEARING_SIGN` flipped | turns to the camera, in the direction a rotating map actually turns |
+| the `key !== SELECTION_PARAM` filter removed | three of `selectionHref`'s assertions |
+| the deep-link adopt's `return` removed | does not immediately delete the deep link it just adopted |
+| the map's `click` handler emptied | clicking a beacon selects the role it draws; clicking empty sky puts it down |
+| `layer.setSelected` dropped from the store subscription | the reticle moves with the field when the ordering changes |
+| the escape listener removed | escape clears the selection, and the URL with it |
+| every other query parameter dropped | a selection keeps the query it was made under |
+| the detail panel given `absolute inset-0` | the rail is still usable with a role selected |
 
 **Task 3, done: the field is legible, navigable and sortable.**
 `docs/reviews/milestone-4c-roster.png` is the screenshot. Three things arrived:
