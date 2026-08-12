@@ -490,6 +490,33 @@ A building's appearance is dark mass plus edge light, per §2.1. Height comes fr
 as having taken it, because a wrong building height is a small lie and this project
 does not keep a category of small lies.
 
+**Built in M4b Task 4, with three corrections to the paragraph above.**
+
+*PostGIS is not in the path.* The bake goes GeoJSON export → tippecanoe →
+pmtiles, as a maintainer script publishing a pinned artifact (ADR 0022). A
+database in the middle would be a second copy of a static file that changes
+quarterly, and nothing would ever query it.
+
+*Nothing is filtered to "the boroughs rendered".* All five are rendered, and the
+tempting economy — dropping `feature_code` 5110, 213,470 garages and sheds
+averaging eleven feet — was declined. Excluding a fifth of the city's structures
+to save download is an editorial claim about what counts as a building;
+tippecanoe already drops them at the zooms where they would be noise. The one
+exclusion is the fourteen structures the city records as demolished, because
+those are not there.
+
+*"Dark mass plus edge light" is now ADR 0023's lit city*, and MapLibre has no
+outline for an extrusion — a line layer on the same footprints draws on the
+ground, underneath the building. The read comes from
+`fill-extrusion-vertical-gradient` plus a height-driven colour ramp instead. The
+window speckle §2.1 also asks for needs a texture, a texture needs a sprite, and
+a sprite is a network call; it is deferred to the Three.js layer and listed under
+"Not real yet".
+
+The documented default is **25 ft**, chosen to be unremarkable rather than
+accurate: an average or an area-derived guess produces a plausible skyline out of
+data nobody measured. 732 of 1,083,024 structures take it.
+
 ### 5.4 The camera
 
 A dedicated controller with no React in it, wrapping MapLibre's camera rather than

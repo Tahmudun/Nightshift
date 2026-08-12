@@ -5,6 +5,15 @@
 - **Milestone:** M4b (Task 1)
 - **Relates to:** `city.md` §5.2; AMENDMENTS A4 and A9; `CLAUDE.md` §4 (`make demo` is offline) and §8 (first-party sources, no speculative dependencies)
 
+> **Since accepted — M4b Task 4 renamed the machinery, not the decision.** This
+> shape turned out to be worth reusing immediately: NYC's building footprints
+> are a second artifact handled identically. So `make basemap` is now
+> `make tiles` and fetches both, `scripts/fetch_basemap.py` is
+> `scripts/fetch_tiles.py`, and the route named below at `/api/basemap` is now
+> `/api/tiles/[artifact]` — one handler, because the archives differ in nothing
+> it cares about. Everything this ADR decided still holds; read the old names as
+> the new ones.
+
 ## Context
 
 A4 names the tile source as "OpenFreeMap or self-hosted Protomaps" and does not

@@ -23,48 +23,51 @@
 **M3d: COMPLETE, reviewed, CI-green at `ade217b`, merged to `main` as PR #14 (`7b480e9`). `main` green after the merge.**
 **M3: CLOSED. All six acceptance criteria walked with evidence — see "M3 acceptance" below. Two of the six carry a stated limit rather than a clean pass.**
 **M4a: COMPLETE, CI-green, merged to `main` as PR #15 (`3a68bad`). All five CI jobs passed.**
-**M4b: IN PROGRESS on `m4b-dark-city`, draft PR #16. Tasks 1 (the artifact and its route, ADR 0022), 2 (MapLibre and the dark style) and 3 (fullscreen, the sky, and the lights coming on — ADR 0023) done. New York renders offline, full-window, under a violet horizon, with no jobs on it.**
+**M4b: IN PROGRESS on `m4b-dark-city`, draft PR #16. Tasks 1 (the artifact and its route, ADR 0022), 2 (MapLibre and the dark style), 3 (fullscreen, the sky, and the lights coming on — ADR 0023) and 4 (New York's own measured skyline) done. New York renders offline, full-window, under a violet horizon, 1,083,024 structures at heights the city measured, with no jobs on it.**
+**The buildings artifact is baked and committed but NOT PUBLISHED.** `data/buildings.manifest.json` names a GitHub release asset that does not exist yet, so `make tiles` works on this machine and on no other. Publishing it is a human action — see "Open, with the human" below.
 **ADR 0023 reversed `city.md` §2.2 on the human's call: the city is lit, and hiring is carried by a beam rather than by being the only thing bright.**
 **Current milestone: M4 — the living city, and the shippable checkpoint (A15).**
 **The finding that shaped the milestone: no ATS posting names a street. 0 of 247, 139 distinct location strings, 10 fields, three providers. A job can never place itself on a building, so every building comes from an address a human confirmed.**
 **Task 11 measured the embedding proposal path and declined to ship it — ADR 0018.**
 **Task 12 gave the seed a reader to be about, and found three false claims on the page — ADR 0019.**
-**Last updated: 2026-08-11**
+**Last updated: 2026-08-12**
 
 ---
 
 
 ## Next exact action
 
-### M4b Task 4 — NYC's own footprints, at heights somebody measured, lit.
+### M4b Task 5 — the camera controller.
 
-Tasks 1-3 are done: **New York renders full-window and offline at
-`/explore/city`, under a violet horizon.** No buildings and no job data.
+Tasks 1-4 are done: **New York renders full-window, offline, with its own
+skyline** at `/explore/city`. 1,083,024 structures at the heights the city
+measured. No job data — that is M4c.
 
-**The look is now settled and it changed** — ADR 0023. The city is lit rather
-than dark, so the extrusion this task builds is edge-lit with a window speckle
-rather than a black mass. A hiring building will be distinguished by a **beam**,
-not by being brighter, because tens of thousands of footprints render and tens
-will ever be hiring; the tests that keep that honest are already in place.
+**Next:** the camera controller and its full gesture surface. Pinch, orbit,
+rotate and pan on trackpad and touch; every animation interruptible; and
+`prefers-reduced-motion` honoured **at the controller** rather than at each call
+site, because a rule enforced per call site is a rule that is one new call site
+away from being broken. Then Task 6, the M4b acceptance walk.
 
-**Next:** NYC Open Data Building Footprints — dataset `5zhs-2jue`, located
-during Task 1 and carrying `bin`, `height_roof`, `ground_elevation`,
-`construction_year` and `last_status_type` — loaded once into PostGIS, filtered
-to the rendered boroughs, and out to a `fill-extrusion` layer. Per §5.3 a
-footprint with no height takes a documented default **and is recorded as having
-taken it**, because a wrong building height is a small lie and this project does
-not keep a category of small lies.
+**Open, with the human, and it blocks other machines:** the buildings archive is
+baked, verified and committed as a manifest — but the release it names does not
+exist. The bake printed the command:
 
-Then Task 4 (the camera controller and its full gesture surface, every animation
-interruptible, `prefers-reduced-motion` honoured at the controller rather than
-per call site) and Task 5 (the M4b acceptance walk).
+```
+gh release create buildings-20260812 data/cache/nyc-buildings-20260812.pmtiles \
+  --title "NYC building footprints — 20260812" \
+  --notes "NYC Open Data 5zhs-2jue. NYC Open Data terms of use — public domain, attribution requested."
+```
 
-**Still no job data on screen.** That is M4c.
+104 MB, to a public repository, so it is a human's call rather than mine. Until
+it runs, `make setup` fetches the skyline on this machine only; anywhere else the
+map draws New York flat and says so in the corner rather than failing.
 
-**Open, with the human:** whether the basemap is too dark to read on a real
-display. The measurements say the layers separate correctly — median pixel L*
-5.6, roads at L* 40, brightest pixel exactly `ink-400` — and a screenshot codec
-is a bad judge of near-black. Left as it is pending a look.
+**Also open, unchanged:** whether the basemap is too dark to read on a real
+display. Measured again with buildings on it — ground L\* 8.3, low-rise L\* 26.1,
+tower faces L\* 37.4, sky L\* 34.1 — so the skyline now carries the read that the
+roads were carrying alone, and this may have answered itself. Still wants a look
+on a real display.
 
 Four things carry in from M4a and Tasks 1-2:
 
@@ -81,6 +84,10 @@ Four things carry in from M4a and Tasks 1-2:
   archive carries one, and it is OSM's height guesses. §5.3 uses NYC Open Data's
   `heightroof` precisely so the skyline is measured rather than estimated, and a
   wrong building height is a small lie this project does not keep a category of.
+  Both archives call their layer `buildings`, so the test that guards this names
+  the **source** — the version that matched on `source-layer` alone started
+  failing the moment the real skyline arrived, and the tempting fix is to delete
+  it.
 - **Nominatim is still unbuilt** and stays deferred. Rung 1 is the only rung
   that can produce a building, and rungs 2–3 produce `approximate` points the
   office loader refuses by design.
@@ -92,6 +99,88 @@ which §4.8 designs as the default view rather than the sad one.
 
 **Q2 (deployment target) is the only open question that blocks anything**, and
 only M4d.
+
+---
+
+### M4b Task 4 — the skyline, and three silent failures on the way to it.
+
+**New York has its own skyline.** 1,083,024 structures from NYC Open Data
+`5zhs-2jue`, cut to `z13-z16` by `scripts/bake_buildings.py`, 104 MB, pinned by
+digest exactly like the basemap — ADR 0022's shape, second artifact. `make
+basemap` is now **`make tiles`** and fetches both; `/api/basemap` is now
+`/api/tiles/[artifact]` and serves both from the one handler.
+
+**Heights stay in feet all the way to the style.** The tiles carry the source's
+own numbers and the conversion to metres happens once, in the paint expression.
+A factor applied twice renders a city 3.3 times too tall and looks perfectly
+fine doing it, so there is a test that counts the number of `0.3048`s in the
+layer and requires exactly one.
+
+**732 of 1,083,024 structures have no measured height** — 0.068%. They are drawn
+at a stated 25 ft, and the count is in the manifest, in a Python test that fails
+if the fraction passes 1%, in a TypeScript test, and on the page itself. §5.3
+asks for a default that is *recorded as having been taken*; four places record
+it.
+
+**Colour carries height, because height is the one thing this layer knows.**
+`ink-800` at ground level up to a new `ink-450` for the towers over 900 ft. That
+token is above the old `ink-400` ceiling deliberately: ADR 0023 replaced the cap
+with a headroom rule, and `ink-450` sits 41.3 L\* below `signal-400` against a
+bound of 40. The ground still stops at `ink-400`, and a test now runs that rule
+in **both** directions — the ground may not brighten, and the skyline may not
+flatten back down, because a ramp quietly reduced to one shade would reverse
+ADR 0023 by accident rather than by decision.
+
+Measured on screen rather than asserted from the tokens: ground L\* 8.3,
+low-rise L\* 26.1, tower faces L\* 37.4, sky L\* 34.1. Against `signal-400` at
+L\* 85.6 the beacon headroom is real and not just declared. Worth recording that
+a first look at the screenshot read the buildings as near-white and wrong; the
+zoom tool auto-exposes, and the eye reads a dark surround as brightness. The
+numbers came from sampling the actual frame.
+
+**Three failures, all silent, all worth the record.**
+
+**The bake had been hung for seventy minutes doing nothing.** `bake()` accepted a
+`source` path and never put it in the command, so tippecanoe fell back to reading
+GeoJSON from standard input — which was a socket nothing would ever write to. No
+error, no output, 0.09 seconds of CPU across seventy minutes of wall clock, and
+scratch files at zero bytes. It would have waited forever. The fix passes the
+path *and* passes `stdin=DEVNULL`, so the same mistake becomes an immediate
+error rather than a hang.
+
+**The demolition filter was filtering nothing.** `--feature-filter` runs *after*
+`--include` prunes attributes, so a filter naming `last_status_type` — which
+`--include` had already deleted — matched nothing and kept every demolished
+structure. It announced itself only as `Warning: attribute not found for
+comparison`, printed into the middle of a progress bar. Proved both directions
+on a three-feature fixture before re-baking: with the attribute included, a
+`Demolition` feature drops and a feature genuinely *missing* the field is still
+kept. That second half matters and is not incidental — absence of evidence is
+not evidence the building is gone.
+
+**An em dash 500'd every buildings tile.** HTTP header values are byte strings
+and `new Response` throws on anything above 0xFF. The NYC licence contains an em
+dash, so the `x-attribution` header threw on every *successful* tile — while
+both failure paths, which carry no such header, passed their tests. Caught only
+because the route test was parameterised over both archives rather than written
+once for the basemap. The licence is percent-encoded now rather than stripped:
+deleting characters from a licence to fit a transport constraint is the wrong
+trade.
+
+**And one that was not silent: the loading card sat over a drawn city for ten
+seconds.** "Ready" was `once('styledata')` wrapping `once('render')`. The second
+archive resolves its TileJSON seconds after the first, so `styledata` now
+arrives long after New York is on screen, and the nested listener then waits for
+the *next* frame on a map that may be idle. A style that has not been applied
+cannot paint a frame anyway, so the outer wait was buying nothing. Keyed off the
+first painted frame now.
+
+**A missing skyline is not a broken map.** If the buildings archive is absent —
+a clean clone, or a `make setup` that half ran — the style is built without the
+source *and* without the layer, the city draws flat, and a panel in the corner
+says so in the route's own words. Dropping only the layer would leave MapLibre
+loading a source it cannot reach, raising `error`, and replacing a perfectly good
+New York with a card about a file.
 
 ---
 
@@ -5801,7 +5890,9 @@ wrong: ML frameworks (JAX, LangChain, HuggingFace, DSPy), accelerators (CUDA, RO
 | The 2,605-token figure | Not re-measured by M1c and never claimed by it. The committed slice is **400 rows → 23 tokens**, the alphabetical head of one provider (`0g`…`abridge`). Common Crawl's index 504s at `limit=6000`, so a full harvest needs paging that does not exist | M1d |
 | ~~Discovered boards in the registry~~ | **19 promoted in M1d** (`d3738b6`), on the human's decision. 4 boards → 23, 171 insertions and 0 deletions, nothing lost or modified. Two `Abridge` candidates and two `empty` boards remain withheld for individual review under ADR 0005 | Done |
 | Ashby's `address.postalAddress` | Still deliberately unread by `AshbyAdapter.normalize`, and **M4a closed the question in the opposite direction to the one this row expected**. It was waiting for geocoding to exist; the census then showed the field carries `addressLocality`/`addressRegion`/`addressCountry` and **never `streetAddress`**, on any posting, from any employer. So reading it would upgrade nothing — it resolves to the same city name the free-text string already gives | Not a gap. Closed by measurement at **M4a** |
-| 3D city, map, MapLibre, Three.js | **The basemap renders; nothing else does.** `/explore/city` draws New York dark and offline from the local archive, on `maplibre-gl@5.24.0`. No buildings, no camera controller, no Three.js, no job data — and the page says so on screen, because a map that looks finished and is empty is indistinguishable from one that is broken | Buildings **M4b Task 3**, camera **M4b Task 4**, signal layer **M4c** |
+| 3D city, map, MapLibre, Three.js | **The basemap and the skyline render; nothing else does.** `/explore/city` draws New York offline from two local archives on `maplibre-gl@5.24.0` — streets, water, and 1,083,024 extruded structures at measured heights. No camera controller, no Three.js, no job data — and the page says so on screen, because a map that looks finished and is empty is indistinguishable from one that is broken | Buildings **done, M4b Task 4**; camera **M4b Task 5**; signal layer **M4c** |
+| Window speckle on buildings | Not built. §2.1's treatment is edge light *plus* lit windows; the extrusion delivers the first via `fill-extrusion-vertical-gradient` and a height-driven colour ramp. The speckle needs a texture, a texture needs a sprite, and a sprite is a network call this style has spent three tasks refusing | The Three.js layer — **M5**, not scheduled sooner |
+| The published buildings artifact | **Baked, verified, committed as a manifest — and not published.** `data/buildings.manifest.json` names a GitHub release asset that does not exist, so `make tiles` finds the skyline on the machine that baked it and nowhere else. Elsewhere the map draws New York flat and names the missing archive in the corner. The `gh release create` command is in PROGRESS's "Next exact action" | One human command, unscheduled |
 | Map labels — neighbourhood and street names | **Not drawn, and not an oversight.** Every symbol layer needs a `glyphs` URL and every glyph URL is a network call, which `make demo` may not make. Self-hosting the font stack is a second baked artifact on the ADR 0022 pattern; it buys neighbourhood names, which are not in M4b's acceptance. The style declares no `glyphs` and a test asserts it stays that way | Unscheduled. Needs a second baked artifact or a decision to accept a network call |
 | Basemap tiles | **Real, pinned and verified.** 95,348,122 bytes of NYC vector tiles, Protomaps build `20260810`, downloaded once by `make setup` and checked against a committed sha256 before it is installed. Served over byte ranges by `/api/basemap`. **Not a mock and not a stopgap** — this is the permanent offline tile source (ADR 0022). The one thing it is not yet is *drawn* | Done at **M4b Task 1** |
 | NYC building footprints | Not downloaded, not in PostGIS, no tile pipeline. A4 names the dataset and the approach (load once, filter to rendered boroughs, bake tiles, never query per frame). The dataset was located during M4b Task 1 — NYC Open Data `5zhs-2jue`, carrying `bin`, `height_roof`, `ground_elevation` — and nothing has loaded it. Note the Protomaps archive carries its own OSM `buildings` layer, which **must not be extruded**: those are guessed heights, and §5.3 uses `height_roof` precisely so the skyline is measured | **M4b Task 3** |
