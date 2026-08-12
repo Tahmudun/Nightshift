@@ -27,6 +27,8 @@
 **M4b's three criteria are walked with evidence from a real browser — 19 new tests in `apps/web/e2e/city.spec.ts`, each one shown able to fail. Two carry a stated limit: no physical touch device, and no Safari.** See "M4b acceptance" below, and `docs/reviews/milestone-4b-review.md`, which found two defects the first draft of the walk had passed over.
 **The buildings artifact is published**: release `buildings-20260812`, 109,555,308 bytes, the size the manifest pins. Verified the clean-clone path by deleting the local copy and re-fetching it from the public URL — it downloads and clears its digest, so `make setup` gets the skyline anywhere.
 **ADR 0023 reversed `city.md` §2.2 on the human's call: the city is lit, and hiring is carried by a beam rather than by being the only thing bright.**
+**M4b's acceptance chain is green except for `make up`.** Docker's daemon is still wedged, so `docker compose` cannot run — but its containers never stopped serving, so `migrate`, `drift`, `seed`, `test-e2e` (24 passed), `verify` and `test-e2e-seeded` (56 passed, 1 skipped) were all run in order and all passed. What is unproven is container *startup*, not the stack.
+**M4c is started. Task 1 is done: the placement join, `GET /city/signals`, and ADR 0024 — which resolves a real conflict between I1 and `city.md` §4.4 rather than papering over it.**
 **Current milestone: M4 — the living city, and the shippable checkpoint (A15).**
 **The finding that shaped the milestone: no ATS posting names a street. 0 of 247, 139 distinct location strings, 10 fields, three providers. A job can never place itself on a building, so every building comes from an address a human confirmed.**
 **Task 11 measured the embedding proposal path and declined to ship it — ADR 0018.**
@@ -38,7 +40,59 @@
 
 ## Next exact action
 
-### M4b is walked and reviewed. Next: M4c — the signal layer.
+### M4c Task 1 is done. Next: Task 2 — Three.js in MapLibre's context.
+
+**The remaining M4c tasks, in order.** `city.md` §7 asks for: Three.js in
+MapLibre's context; instanced beacons; the confidence treatments of §6; the
+unresolved layer as a real view; selection synced to the URL; list↔map sync; the
+in-interface legend.
+
+1. **Task 2 — one WebGL context.** A Three.js custom layer taking MapLibre's
+   projection matrix each frame, with the ADR §5.1 calls "the single most
+   consequential technical decision in M4". One geometry, N transforms; React
+   never drives the render loop; Zustand holds scene state and the loop reads it.
+2. **Task 3 — the unresolved layer as a good screen.** §4.8: untethered floating
+   signals, arranged by company then role family, never by a spatial guess. On
+   this corpus this is *the* view, not the fallback, and today it is the only one
+   with anything in it.
+3. **Task 4 — selection.** Picking, the URL, the detail panel, the keyboard path,
+   list↔map sync. **Read the `queryRenderedFeatures` finding below before
+   writing this**; the obvious implementation answers zero.
+4. **Task 5 — the §6 treatments and the in-interface legend.** PRODUCT-SPEC
+   §4.3's last line is a deliverable: these meanings are documented in the
+   interface, not only in `city.md`.
+5. **Task 6 — the acceptance walk in a browser, then the M4c review.**
+
+**Task 1, done:** `services/api/nightshift/domain/placement.py` decides where a
+role is drawn; `GET /city/signals` serves it; `placementSchema` in the browser
+refuses to draw what it should not. 24 Python tests and 6 web ones. The
+assertion that matters most is the boring one — with no confirmed office in the
+database, **every role comes back unresolved**, which is the honest render of
+this corpus today.
+
+**ADR 0024 exists because Task 1 hit a real contradiction, not a design gap.**
+I1 says a job whose location text is "New York, NY" does not get placed on a
+building; §4.1 measured that *every* posting in this corpus says exactly that.
+Read strictly, no role may ever stand on a building and the skyline stays dark
+permanently. The resolution: a role is drawn at its employer's **confirmed**
+office — traceable to a street address a human signed for, enforced below the
+code by `ck_company_locations_verified_requires_a_street_address` — and
+`inherited`, `office_label` and `stated` travel with the coordinate so that
+"this posting named no address; its employer's office is here" can never be
+flattened into "this role's location is verified". One rule in it is a product
+judgement rather than I1: a fully-remote role is not placed at its employer's
+office, because the coordinate would be true and the sentence on screen would
+not be.
+
+**One defect found on the way, and it had been latent for a milestone.**
+`ResolutionMethod` gained `company_office` in M4a; the browser's copy in
+`schemas.ts` did not. Nothing failed because nothing had ever sent the value —
+`/city/signals` is the first endpoint that emits it, and it would have met a Zod
+refusal to parse, i.e. a blank city page. `test_enum_parity.py` exists to catch
+exactly this and did not, because that enum was not in its list. Nor were the
+four other oldest enums in the product. All six are now.
+
+### M4b is walked and reviewed.
 
 **M4b's three criteria are met, with two limits stated rather than papered
 over.** The evidence is in "M4b acceptance" below, and it comes from Chromium
@@ -51,18 +105,42 @@ defects that this walk's first draft had passed over — a test that stayed gree
 with the mechanism it names deleted, and a map whose accessible name was the
 word "Map" — and both are fixed. §2 of that file has them in full.
 
-**Next, in order:**
+**The acceptance chain has now been run, and every step of it that does not need
+`docker compose` is green.** Docker's daemon is still wedged — `docker ps` hangs
+— but the containers it started never stopped serving, so the chain was run
+step by step against them:
 
-1. **`make acceptance` end to end.** Run and green as far as `make test-e2e`;
-   the rest is **blocked on a wedged Docker daemon**, not on the code. See "The
-   machine ran out of disk" below — this is an environment problem with a
-   one-line fix a human has to perform.
-2. **M4c — the signal layer.** `city.md` §7: Three.js in MapLibre's context,
-   instanced beacons, the confidence treatments of §6, the unresolved layer as a
-   real view, selection synced to the URL, list↔map sync, the legend. It is not
-   blocked by `data/company-locations.yaml` still being blank — §4.8 designs the
-   unresolved layer as the *default* view rather than the sad one, so the first
-   honest render of M4c is every role in that layer and none on a building.
+| Step | Result |
+|---|---|
+| `make up` | **Not run.** `docker compose` hangs on the wedged daemon |
+| `make migrate` | green |
+| `make drift` | green — no model/migration drift |
+| `make seed` | green — 62 jobs, 44 `city_only`, 18 `remote`, 0 mappable |
+| `make test-e2e` | green — 24 passed, 3.5 min |
+| `make verify` | green |
+| `make test-e2e-seeded` | green — 56 passed, 1 skipped, 3.0 min |
+
+So what remains unproven is **container startup**, not the stack, and not
+anything in this repository. It still wants Docker Desktop restarted by a human.
+
+**Two tests failed on the way and neither was a regression — the instrument was
+wrong, and it is fixed.** `make acceptance` went red on the wheel zoom and the
+trackpad pinch, with `zoom` at exactly its opening value, and both passed on
+their own seconds later. MapLibre's scroll zoom is animated and driven by
+`requestAnimationFrame`, headless Chromium has no GPU, and two workers
+rasterising a million footprints between them can starve rAF for longer than the
+800 ms the assertion allowed. The event had arrived; the frame that would have
+acted on it had not.
+
+Seven gesture assertions now **poll for the pose they are waiting for** rather
+than sleeping and looking once. Verified they can still fail: with
+`scrollZoom.disable()` both zoom tests go red, they just spend twenty seconds
+finding out. Separately, both Playwright configs get a fifteen-second assertion
+budget, after a *navigation* test failed waiting five seconds for a heading
+while the other worker drew New York — `next dev` compiles a route on first
+request, and that compile is not five seconds on a busy machine. **Capping
+workers at two was not enough on its own**, and one worker is not the same thing
+as an idle machine.
 
 **One finding from the walk changes how M4c should be written**, and it is worth
 reading before that task starts rather than after: MapLibre's whole-viewport
@@ -261,6 +339,12 @@ failure had anything to do with the code under test. A suite that fails that way
 teaches people to re-run it rather than read it, which is worse than a slow
 suite.
 
+**Capping workers was necessary and not sufficient**, which the first real
+`make acceptance` run then demonstrated — see "The acceptance chain has now been
+run" above. The durable fix was to stop measuring time at all: seven gesture
+assertions poll for the pose they are waiting for, and both configs allow
+fifteen seconds for a web assertion instead of five.
+
 CI gets the same suite: the `e2e` job now restores the tile cache and fetches
 the archives, because with the tile route answering 503 the page shows its
 "cannot be drawn" card, which is correct behaviour and proves nothing about M4b.
@@ -288,6 +372,64 @@ loss is `docker compose`, which means `make up`, `make reset-db` and therefore
 
 Everything M4b claims was verified without any of it. The city needs no
 database.
+
+**Still true on 2026-08-12 after the disk recovered** (19 GB free): `docker ps`
+still hangs. But the containers are still up, so the whole of `make acceptance`
+except `make up` has now been run against them and is green — the table above
+has each step. The daemon still wants restarting by a human; nothing else does.
+
+---
+
+### M4c Task 1 — the placement join, and the contradiction it walked into
+
+**Built:** `services/api/nightshift/domain/placement.py`, `GET /city/signals`,
+`placementSchema` and `fetchCitySignals` in the browser, ADR 0024. 24 Python
+tests, 6 web tests.
+
+`office_loading.py` deferred this join to M4c in as many words — "the
+inheritance is a read-time join, and `COMPANY_OFFICE` is what that join reports
+rather than something stored… **M4c builds it**, next to the renderer that needs
+it." It is built the way that file promised: nothing is written back, so
+`job_locations` still holds what the posting said and a corrected office strands
+no stale coordinate.
+
+**The contradiction.** I1 says a job whose location text is "New York, NY" does
+not get placed on a building. §4.1 measured that every posting in this corpus
+says exactly that — 0 of 247 name a street. §4.4 says jobs inherit their
+employer's building. These are not two rules about different cases that happen
+to overlap; they are two rules about the same case, and they disagree. Read
+strictly, I1 means the skyline can never light no matter how many addresses a
+human types.
+
+ADR 0024 resolves it rather than choosing a side by feel: I1 prohibits
+*fabrication*, and an inherited placement is not one — its coordinate traces to
+a street address a human signed for by name, and the inference on top of it
+("this role is at that office") is labelled in the data, in the payload and in
+the interface at every point the coordinate appears. `location_confidence`
+describes the coordinate; `inherited` describes the claim; they are two fields
+because they are two sentences.
+
+**What the code enforces beyond what the tests check.**
+`Placement.__post_init__` refuses an impossible placement outright — unresolved
+with coordinates, a building below `verified`, an approximate point carrying a
+BIN. A test only covers the cases it thought of; this runs on every placement
+the API serialises.
+
+**Three rules worth knowing before Task 2 draws any of this:**
+
+- **A verified office is a building; an approximate one is an area, never a
+  point** (§6). A BIN on an approximate row is not a promotion and is dropped.
+- **A fully-remote role is not placed at its employer's office.** This does not
+  follow from I1 — the coordinate would be true. It follows from what the
+  drawing *says*. Hybrid roles are placed, because hybrid means partly there.
+- **What the posting said beats what its employer's office says**, even when the
+  office is more precise. The other order would silently upgrade a posting's own
+  approximate claim into a building by way of a different row.
+
+**Today the endpoint returns every role unresolved**, and the test that asserts
+so is the one that matters most in the file. `data/company-locations.yaml` is
+still blank, which is a correct answer and not a blocker: §4.8 designs the
+unresolved layer as the default view.
 
 ---
 
@@ -6181,7 +6323,8 @@ wrong: ML frameworks (JAX, LangChain, HuggingFace, DSPy), accelerators (CUDA, RO
 | The 2,605-token figure | Not re-measured by M1c and never claimed by it. The committed slice is **400 rows → 23 tokens**, the alphabetical head of one provider (`0g`…`abridge`). Common Crawl's index 504s at `limit=6000`, so a full harvest needs paging that does not exist | M1d |
 | ~~Discovered boards in the registry~~ | **19 promoted in M1d** (`d3738b6`), on the human's decision. 4 boards → 23, 171 insertions and 0 deletions, nothing lost or modified. Two `Abridge` candidates and two `empty` boards remain withheld for individual review under ADR 0005 | Done |
 | Ashby's `address.postalAddress` | Still deliberately unread by `AshbyAdapter.normalize`, and **M4a closed the question in the opposite direction to the one this row expected**. It was waiting for geocoding to exist; the census then showed the field carries `addressLocality`/`addressRegion`/`addressCountry` and **never `streetAddress`**, on any posting, from any employer. So reading it would upgrade nothing — it resolves to the same city name the free-text string already gives | Not a gap. Closed by measurement at **M4a** |
-| 3D city, map, MapLibre, Three.js | **The city renders and can be driven; nothing is on it.** `/explore/city` draws New York offline from two local archives on `maplibre-gl@5.24.0` — streets, water, and 1,083,024 extruded structures at measured heights — with the full §9.3 gesture surface, a keyboard, and a control panel, all proved in a browser by `e2e/city.spec.ts`. **No Three.js and no job data**, and the page says so on screen, because a map that looks finished and is empty is indistinguishable from one that is broken. **This row said "no camera controller" for two days after the controller shipped** — the sixth time a list here has quietly stopped describing the thing it names, and again in the same direction | Buildings **done, M4b Task 4**; camera **done, M4b Task 5**; signal layer **M4c** |
+| 3D city, map, MapLibre, Three.js | **The city renders and can be driven; nothing is on it.** `/explore/city` draws New York offline from two local archives on `maplibre-gl@5.24.0` — streets, water, and 1,083,024 extruded structures at measured heights — with the full §9.3 gesture surface, a keyboard, and a control panel, all proved in a browser by `e2e/city.spec.ts`. **No Three.js and no job data**, and the page says so on screen, because a map that looks finished and is empty is indistinguishable from one that is broken. **This row said "no camera controller" for two days after the controller shipped** — the sixth time a list here has quietly stopped describing the thing it names, and again in the same direction | Buildings **done, M4b Task 4**; camera **done, M4b Task 5**; signal layer **M4c**, whose data path is done (Task 1) and whose renderer is not |
+| The signal layer's renderer | **The data exists and nothing draws it.** `GET /city/signals` resolves every role's placement (M4c Task 1, ADR 0024) and `placementSchema` will refuse to parse one it should not draw, but there is no Three.js layer, no beacon and no legend — `/explore/city` still says on screen that there are no roles on it. The endpoint is not wired to any page, deliberately: a map that fetched signals and drew none would look broken | **M4c Task 2** |
 | Window speckle on buildings | Not built. §2.1's treatment is edge light *plus* lit windows; the extrusion delivers the first via `fill-extrusion-vertical-gradient` and a height-driven colour ramp. The speckle needs a texture, a texture needs a sprite, and a sprite is a network call this style has spent three tasks refusing | The Three.js layer — **M5**, not scheduled sooner |
 | ~~The published buildings artifact~~ | **Published 2026-08-12** as release `buildings-20260812`, 109,555,308 bytes — the size the manifest pins. Proved by deleting the local copy and re-fetching from the public URL, which is the clean-clone path, digest and all. The optional/required split built while it was unpublished stays: a re-bake reopens the same window every time, and `make tiles-strict` in CI is what closes it | Done |
 | Map labels — neighbourhood and street names | **Not drawn, and not an oversight.** Every symbol layer needs a `glyphs` URL and every glyph URL is a network call, which `make demo` may not make. Self-hosting the font stack is a second baked artifact on the ADR 0022 pattern; it buys neighbourhood names, which are not in M4b's acceptance. The style declares no `glyphs` and a test asserts it stays that way | Unscheduled. Needs a second baked artifact or a decision to accept a network call |
