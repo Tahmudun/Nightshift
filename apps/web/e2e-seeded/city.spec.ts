@@ -867,3 +867,79 @@ test('the legend documents every row of §6, including the ones it cannot draw',
   await expect(page.getByText('Approximate location')).toBeVisible();
   await expect(page.getByText(/Not drawn on this city/).first()).toBeVisible();
 });
+
+/**
+ * The hardest edge of "the list and the map cannot disagree", and the one Task
+ * 5 created.
+ *
+ * §6 keeps rejected and withdrawn roles off the city by default. That gives the
+ * interface a state it did not have before: a role that is **selected and not
+ * drawn** — reachable by a link somebody sent you, or by rejecting a role while
+ * its panel is open. Three things could disagree about it and each would be a
+ * different bug. The panel could describe a role as though it were on screen.
+ * The reticle could be left ringing whichever beacon now stands where that role
+ * used to. The toggle could put the beacon back without the reticle following
+ * it.
+ *
+ * All three are one assertion here because they are one piece of state: the
+ * panel, the roster and the layer all read `selected` and all filter through
+ * `visibleSignalsOf`.
+ */
+async function archivedJobId(): Promise<string> {
+  const archived = await archivedJobIds();
+  const [first] = [...archived];
+  expect(first, 'the seed has no archived application — §6 has nothing to hide').toBeDefined();
+  return first!;
+}
+
+test('a selected role that §6 is hiding says so, and the reticle is not on somebody else', async ({
+  page,
+}) => {
+  const jobId = await archivedJobId();
+
+  await page.goto(`/explore/city?job=${jobId}`);
+  await expect(page.getByRole('button', { name: 'Reset view' })).toBeVisible({ timeout: 60_000 });
+  await cityHasSignals(page);
+
+  // The panel opens, and it is the panel for that role — not the "not on this
+  // city" card, which would be the wrong sentence: the role is in the corpus.
+  const panel = page.getByTestId('city-detail');
+  await expect(panel).toBeVisible({ timeout: 15_000 });
+  await expect(panel).toContainText(/hidden unless you ask for it/i);
+
+  // Selected, and deliberately unmarked. A reticle drawn at the origin, or left
+  // on the beacon that now occupies that place in the field, is a right answer
+  // in the panel and a wrong one on the canvas.
+  await expect
+    .poll(async () => (await selectionState(page)).selected, { timeout: 15_000 })
+    .toBe(jobId);
+  expect((await selectionState(page)).at).toBeNull();
+
+  const hidden = await marksOnCity(page);
+  expect(await drawnJobIds(page)).not.toContain(jobId);
+
+  // Ask for it, and both sides move together.
+  await page.getByRole('button', { name: /what the marks mean/i }).click();
+  await page.getByRole('checkbox', { name: /rejected and withdrawn/i }).check();
+
+  await expect
+    .poll(async () => (await marksOnCity(page)).drawn, { timeout: 15_000 })
+    .toBe(hidden.drawn + 1);
+  expect(await drawnJobIds(page)).toContain(jobId);
+  await expect
+    .poll(async () => (await selectionState(page)).at, { timeout: 15_000 })
+    .not.toBeNull();
+});
+
+/** Every role the instance buffer is currently holding, by id. */
+async function drawnJobIds(page: Page): Promise<string[]> {
+  return page.evaluate((key) => {
+    const signals = window[key as typeof CITY_DEBUG_KEY]!.signals;
+    const ids: string[] = [];
+    for (let i = 0; i < signals.drawn; i += 1) {
+      const id = signals.jobAt(i);
+      if (id !== null) ids.push(id);
+    }
+    return ids;
+  }, CITY_DEBUG_KEY);
+}
