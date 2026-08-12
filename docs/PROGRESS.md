@@ -22,8 +22,9 @@
 **Q5 (relevance ratings): ANSWERED 2026-08-10. Thirty rated, profile filled — 12 good / 11 acceptable / 7 poor. M3d has a held-out set.**
 **M3d: COMPLETE, reviewed, CI-green at `ade217b`, merged to `main` as PR #14 (`7b480e9`). `main` green after the merge.**
 **M3: CLOSED. All six acceptance criteria walked with evidence — see "M3 acceptance" below. Two of the six carry a stated limit rather than a clean pass.**
-**M4a: COMPLETE — five tasks, seven commits on `m4a-geo-spine`. `make acceptance` exit 0 (160 verify checks, 56 seeded browser tests). Opened as draft PR #15 at task 1, per the practice change M3d earned.**
-**Current milestone: M4 — the living city, and the shippable checkpoint (A15). M4a done; M4b next.**
+**M4a: COMPLETE, CI-green, merged to `main` as PR #15 (`3a68bad`). All five CI jobs passed.**
+**M4b: IN PROGRESS on `m4b-dark-city`. Task 1 (the basemap artifact and its route) done — ADR 0022.**
+**Current milestone: M4 — the living city, and the shippable checkpoint (A15).**
 **The finding that shaped the milestone: no ATS posting names a street. 0 of 247, 139 distinct location strings, 10 fields, three providers. A job can never place itself on a building, so every building comes from an address a human confirmed.**
 **Task 11 measured the embedding proposal path and declined to ship it — ADR 0018.**
 **Task 12 gave the seed a reader to be about, and found three false claims on the page — ADR 0019.**
@@ -34,26 +35,34 @@
 
 ## Next exact action
 
-### M4a is COMPLETE. Next: M4b — the basemap, and the first thing you can see.
+### M4b Task 2 — MapLibre on the page, and the dark style it draws with.
 
-Five tasks, seven commits, on `m4a-geo-spine`. **`make acceptance` exit 0: 160
-verify checks and 56 seeded browser tests.**
+Task 1 put the tiles on disk and behind a URL. Nothing renders them yet.
 
-M4b, per `city.md` §7: the pmtiles pipeline and its `make setup` cache; NYC
-building footprints into PostGIS and out to vector tiles; MapLibre with a
-hand-written dark style; extrusion at real heights; the camera controller and
-its full gesture surface; the `dusk-*` atmosphere tokens. **No job data on
-screen** — that is M4c.
+**Next:** add `maplibre-gl` and `pmtiles` to `apps/web`, register the pmtiles
+protocol against `BASEMAP_URL`, and write the dark style by hand — water, earth,
+landcover, landuse, roads, boundaries, places, from the nine layers the archive
+carries. Then the `dusk-*` atmosphere tokens (`city.md` §3), each with its
+contrast assertion in `colour-contrast.test.ts` per `CLAUDE.md` §7.
 
-Two things carry into it from M4a:
+Then Task 3 (NYC footprints into PostGIS and out to an extrusion layer, joined
+on BIN), Task 4 (the camera controller and its full gesture surface), Task 5
+(the M4b acceptance walk).
+
+**Still no job data on screen.** That is M4c.
+
+Three things carry in from M4a and Task 1:
 
 - **The BIN join is a key, not a computation.** `company_locations.building_id`
-  holds NYC's Building Identification Number, returned free by GeoSearch. M4b's
+  holds NYC's Building Identification Number, returned free by GeoSearch. The
   extrusion layer joins on it; point-in-polygon is the fallback, not the path.
+- **The basemap's own `buildings` layer must not be extruded.** The Protomaps
+  archive carries one, and it is OSM's height guesses. §5.3 uses NYC Open Data's
+  `heightroof` precisely so the skyline is measured rather than estimated, and a
+  wrong building height is a small lie this project does not keep a category of.
 - **Nominatim is still unbuilt** and stays deferred. Rung 1 is the only rung
   that can produce a building, and rungs 2–3 produce `approximate` points the
-  office loader refuses by design. Nothing needs them until something wants an
-  approximate placement, and nothing does yet.
+  office loader refuses by design.
 
 **`data/company-locations.yaml` is with the human and blocks nothing.** Nine NYC
 registry companies, `street_address` blank, and blank is a correct answer.
@@ -62,6 +71,94 @@ which §4.8 designs as the default view rather than the sad one.
 
 **Q2 (deployment target) is the only open question that blocks anything**, and
 only M4d.
+
+---
+
+### M4b Task 1 — the basemap artifact, and the week-long shelf life nobody planned for.
+
+`city.md` §5.2 had already chosen self-hosted Protomaps over OpenFreeMap, and
+the reason was `CLAUDE.md` §4 rather than anything about tiles: **`make demo`
+works offline from a clean clone**, and a hosted tile service is a network call
+on every pan. What §5.2 did not know is what happens when you try to implement
+its one-sentence plan.
+
+The obvious build is for `make setup` to cut the NYC box out of Protomaps' daily
+planet build itself. No hosting, no artifact, always current. Measured on
+2026-08-11:
+
+| Build | Age | Result |
+|---|---|---|
+| `20260811`, `20260810`, `20260809` | 0–2 days | 206 |
+| `20260804` | 7 days | **404** |
+| `20260801`, `20260706` | 10 days, 5 weeks | **404** |
+
+**Retention is about a week**, which kills setup-time extraction twice. It
+expires — a pinned `--build` 404s at `make setup` on a clean clone, the exact
+scenario §4 protects hardest. And before it expires it is not reproducible:
+"whatever is current" hands two clones two different maps, with nothing to
+checksum, so §5.2's *"the download is checksummed"* was unimplementable rather
+than merely unimplemented.
+
+So: **bake once, publish, pin by digest.** ADR 0022.
+`scripts/bake_basemap.py` cuts the bbox over HTTP range requests — 100 MB
+transferred against a planet file of several hundred gigabytes, in **eight
+seconds** — and writes `data/basemap.manifest.json` from measurements of the
+result rather than from its own arguments. The artifact is a GitHub release
+asset on this repository: free, no key, stable URL, and independent of Q2.
+
+**The artifact:** build `20260810`, basemap v4.15.1, OpenStreetMap as of
+`2026-08-10T04:00:00Z`, the full five-borough bbox, zoom 0–15, **95,348,122
+bytes**. Two size decisions have committed tests rather than comments — the bbox
+is New York's own bounds (a test asserts each edge, because a tighter box
+renders a city with part of New York simply absent) and z15 costs 91 MB against
+z14's 28 MB and z13's 11 MB, which buys the street-level view §2.1 is built
+around.
+
+**The verification is most of the code, and the reason is that the dangerous
+failure is a *plausible* file rather than a corrupt one.** An expired URL or a
+captive portal returns an HTML error page with a 200; `curl` writes 400 bytes of
+`<!doctype html>` under a `.pmtiles` name; every careless check passes and the
+map goes blank with a decoding error from inside pmtiles.js. So the check is
+layered and each layer is a named state carrying its own sentence:
+
+| State | Caught by | Because the fix differs |
+|---|---|---|
+| `missing` | `exists()` | The expected state on a clean clone, not an error. Names `make basemap` |
+| `not_pmtiles` | magic bytes | You downloaded an error page. The message quotes what it actually starts with |
+| `wrong_spec_version` | the version byte | A real archive this build cannot read. Re-bake |
+| `wrong_size` | `stat` | An interrupted download |
+| `digest_mismatch` | sha256 | Right length, right format, wrong bytes |
+
+That is invariant I3's distinction one subsystem over — "I could not check" and
+"it is wrong" are different answers. Nothing is installed until it verifies: the
+download lands on a `.partial` name and is moved into place only after, so a bad
+fetch can never *become* the map.
+
+**The route (`/api/basemap`) serves it over byte ranges**, from Next rather than
+FastAPI so the degraded path (`make test-e2e`, no API behind it) still draws a
+city — §5.6 requires that path to stay usable. A missing archive answers **503
+naming `make setup`, not 404**, because pmtiles.js reads a 404's HTML body as an
+archive header. A server that ignored `Range` would still "work" and send 91 MB
+per tile, which is why the range parser is its own tested module: 27 cases, and
+the distinction it exists to keep is malformed (ignore, serve the file) versus
+unsatisfiable (416).
+
+**Evidence.** 60 Python tests, 39 web tests (27 parser, 12 route). The route was
+also driven against the real 91 MB archive through `next start`: HEAD reports
+95,348,122; `bytes=0-6` returns 206 and the seven bytes `PMTiles`; a range past
+the end returns 416. `make basemap` took 4.6 s cold and 0.55 s cached.
+
+**CI caches the archive and runs `make basemap`.** Without it,
+`test_the_downloaded_artifact_matches_the_manifest` skips and the one end-to-end
+claim — that the pinned digest is what the release actually serves — is checked
+nowhere. Same argument the embedding model's cache comment already makes.
+
+**One thing found while writing it:** `urlopen` fails with
+`CERTIFICATE_VERIFY_FAILED` on a Python built against macOS' system OpenSSL,
+which reads like a network problem and is not one. The fetcher builds its
+context from `certifi` and **never falls back to an unverified one** — an
+unauthenticated 91 MB download is exactly the substitution the rest of the
+module exists to prevent.
 
 ---
 
@@ -5602,8 +5699,8 @@ rather than from memory, because the commit message for this work says 36 and is
 wrong: ML frameworks (JAX, LangChain, HuggingFace, DSPy), accelerators (CUDA, ROCm, Triton, SYCL), HDLs (Verilog, VHDL, SystemVerilog), Windows/network/security administration (Active Directory, SIEM, EDR, SSO, MFA, VPN, DNS, TCP/IP, PowerShell, Windows, macOS, firewalls), and business systems (Salesforce, Google Sheets, Microsoft 365). Recall moved 0.459 → 0.861. **What is deliberately still absent**: structural engineering codes (ACI 318, ASCE 7, IBC, IFC, AISC, FM Global), treasury systems (Kyriba, GTreasury, Trovata, TMS), accounting standards (US GAAP, IFRS), and words too ordinary to match safely (`Word`, `MS Office`). Those are real requirements of real postings in the corpus and are not software skills — adding them would raise recall by teaching the product a domain it does not serve | Closed as vocabulary work. The residual absences are a scope decision, revisited only if the product's scope changes |
 | Eligibility answer key (`tests/fixtures/eligibility/labels.yaml`) | **Filled in, and model-labeled rather than human-verified.** All 60 postings × 9 fields were labeled 2026-08-04 by a browser-side Claude reading the recorded excerpts, with the web explicitly off — the grader compares against text the extractor also sees, so a label sourced from outside that text marks a correct extractor wrong. Audited on install: 0 of 199 named technologies absent from the posting text, and no sponsorship, graduation-window, internship or years claim unsupported by the text. Two `+equivalent` calls read an escape hatch worded without the word "equivalent" (`akunacapital/8035515`, `openai/8fb1615c…`) and are the entries most likely to be wrong. Not spot-checked by a human | Human spot-check of ~10 entries, unscheduled |
 | `FixtureGreenhouseAdapter` (`cli.py`) | Subclasses the real adapter, overrides only `fetch_board` to read a committed JSON file. Constructed with no HTTP client, so it cannot make a request. Attributed to source `greenhouse_fixture` with `source_type='fixture'`, badged **"committed fixture"** in the Operate UI. ADR 0004 | Permanent — this is the offline demo path, not a stopgap |
-| Geocoding | **Does not exist.** No coordinate has ever been written. Every location is `city_only`, `remote`, or `unknown`; `mappable_locations` reads 0 and the UI says "nothing geocoded yet". **This row said "Real at M1" for four milestones and was wrong every time** — M1 closed, M2 closed, M3 closed, and no geocoder was built. It is the first slice of M4 because the city cannot open without it (`city.md` §4) | **M4a**, NYC GeoSearch per A4 |
-| `company_locations` table and `data/company-locations.yaml` | **Neither exists**, though §6.6 specifies the table. M4a Task 1 measured why this matters: no ATS posting in 247 names a street, so a job can never place itself on a building and **every building in the city has to come from a curated, human-confirmed company address**. The design is `city.md` §4.4; **Q7** asks how many addresses the human wants to enter. Until the file has rows, the honest render is 247 floating signals over an unlit skyline | **M4a** for the table, the geocoder and the promotion path; the row count is Q7's answer |
+| Geocoding | **Built in M4a and correct to say so.** `domain/geocoding.py` behind a Protocol, the NYC GeoSearch adapter with committed fixtures, the permanent cache that refuses to store an outage, and the office loader. **What is still true: no coordinate has been written**, because the worksheet below is blank — not because the geocoder is missing. `mappable_locations` reads 0 and the page now says *"no posting states a street"* rather than *"nothing geocoded yet"*, which is the difference between a property of the data and a missing feature. Rungs 2–3 (Nominatim, neighbourhood centroids) are still unbuilt and stay deferred: they produce `approximate` points the office loader refuses by design | Done at **M4a**. Coordinates appear when the worksheet has a row |
+| `company_locations` table and `data/company-locations.yaml` | **Both exist as of M4a.** The table, its migration and its constraints are in; the worksheet ships pre-filled with the nine NYC registry companies and every `street_address` **blank**, which is a correct answer rather than a gap (Q7 answered: "as many as you'd like"). `read_worksheet` refuses four kinds of entry, the sharpest being an address that names no street — somebody typing here is asserting *an office is at this address*, and a weaker version of that assertion is not what they meant. Until a row is filled, the honest render is every job in the unresolved layer | Table and promotion path **done at M4a**. The row count is the human's, and blocks nothing |
 | Street-level placement of any job | **Impossible from this data, and now measured rather than assumed.** 0 of 247 postings, 139 distinct location strings, 10 fields, 3 providers. Reproduce with `./.venv/bin/python scripts/census_location_text.py`, which refuses to print a count until it has proved on that run that it can see a real address | Not a gap — a property of ATS data. Named on `/analyze/coverage` at **M4a** |
 | Dedupe similarity threshold | **Real, thinly calibrated, and now with one real-world data point.** `SIMILARITY_THRESHOLD = 0.85` was derived from three labelled pairs. M1d's live Datadog poll merged two genuine postings on `similar_description` at **0.864** — the first evidence from outside the labelled set, and it landed close to the line. One observation is not a calibration and nothing was changed on the strength of it, but it is the first sign the number is doing real work at a real boundary. Re-derive as the fixture set grows | Unscheduled; revisit when more live boards are polled |
 | ~~Merge concurrency~~ | **Fixed in M1d** (`408c768`). The defect was reproduced before being fixed — Postgres reported a real `DeadlockDetectedError` between two workers merging the same pair in opposite directions. Both rows are now locked in primary-key order, as two statements rather than one `IN` clause, because a single statement's lock acquisition follows the query plan rather than the sort. Mutation-checked: the caller's order deadlocks on 3 of 3 runs; the fix passed 8 consecutive | Done |
@@ -5619,9 +5716,10 @@ wrong: ML frameworks (JAX, LangChain, HuggingFace, DSPy), accelerators (CUDA, RO
 | Discovery beyond Ashby | `PROVIDER_PATTERNS` includes both Greenhouse board domains and the code paths work, but **no Greenhouse crawl fixture is recorded**, so `make discover --provider greenhouse` has never run against real data. Greenhouse *validation* is tested, on the recorded `6sense` board | M1d |
 | The 2,605-token figure | Not re-measured by M1c and never claimed by it. The committed slice is **400 rows → 23 tokens**, the alphabetical head of one provider (`0g`…`abridge`). Common Crawl's index 504s at `limit=6000`, so a full harvest needs paging that does not exist | M1d |
 | ~~Discovered boards in the registry~~ | **19 promoted in M1d** (`d3738b6`), on the human's decision. 4 boards → 23, 171 insertions and 0 deletions, nothing lost or modified. Two `Abridge` candidates and two `empty` boards remain withheld for individual review under ADR 0005 | Done |
-| Ashby's `address.postalAddress` | Structured (`addressLocality`/`addressRegion`/`addressCountry`), recorded verbatim in every raw payload, and better geocoding input than the free-text `location`/`secondaryLocations` strings — but deliberately unread by `AshbyAdapter.normalize`. Feeding a second location source into `job_locations` before geocoding has its own fixtures would mean two code paths writing the same table. The condition it was waiting on is what M4a builds | **M4a**, at the geocoding stage |
-| 3D city, map, MapLibre, Three.js | Not started, not scaffolded, no dependency added. Explore is a list and says so. Designed in `city.md`; deliberately **not** the first slice of M4, because a renderer over zero coordinates has nothing it is permitted to draw | Basemap and camera **M4b**, signal layer **M4c** |
-| NYC building footprints | Not downloaded, not in PostGIS, no tile pipeline. A4 names the dataset and the approach (load once, filter to rendered boroughs, bake tiles, never query per frame) and nothing has acted on it | **M4b** |
+| Ashby's `address.postalAddress` | Still deliberately unread by `AshbyAdapter.normalize`, and **M4a closed the question in the opposite direction to the one this row expected**. It was waiting for geocoding to exist; the census then showed the field carries `addressLocality`/`addressRegion`/`addressCountry` and **never `streetAddress`**, on any posting, from any employer. So reading it would upgrade nothing — it resolves to the same city name the free-text string already gives | Not a gap. Closed by measurement at **M4a** |
+| 3D city, map, MapLibre, Three.js | **Nothing renders yet.** No `maplibre-gl` dependency, no map component, no camera; Explore is a list and says so. M4b Task 1 built only the layer underneath — the tiles are on disk and behind `/api/basemap`, and nothing draws them | Basemap on screen **M4b Task 2**, signal layer **M4c** |
+| Basemap tiles | **Real, pinned and verified.** 95,348,122 bytes of NYC vector tiles, Protomaps build `20260810`, downloaded once by `make setup` and checked against a committed sha256 before it is installed. Served over byte ranges by `/api/basemap`. **Not a mock and not a stopgap** — this is the permanent offline tile source (ADR 0022). The one thing it is not yet is *drawn* | Done at **M4b Task 1** |
+| NYC building footprints | Not downloaded, not in PostGIS, no tile pipeline. A4 names the dataset and the approach (load once, filter to rendered boroughs, bake tiles, never query per frame). The dataset was located during M4b Task 1 — NYC Open Data `5zhs-2jue`, carrying `bin`, `height_roof`, `ground_elevation` — and nothing has loaded it. Note the Protomaps archive carries its own OSM `buildings` layer, which **must not be extruded**: those are guessed heights, and §5.3 uses `height_roof` precisely so the skyline is measured | **M4b Task 3** |
 | Auth | None. Single seeded `dev_user`, id in config (A3). Every user-owned table will still carry a real `user_id` FK from its first migration | M5 |
 | Live polling of Lever/Ashby | **Fixed in M1d.** `ADAPTERS` in `domain/polling.py` covers all three providers, `sync_board_poll_state` gives every pollable registry board a schedule, and `nightshift poll --ats lever --token alloy` works. `active` in the registry now means what an operator would assume. **Caveat:** only `greenhouse:datadog` has actually been polled live end to end. Lever and Ashby were measured serving `304` during design, but their conditional path has been exercised only against fixtures | Polled path proven on one provider; the other two are wired and fixture-tested |
 

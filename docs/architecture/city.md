@@ -447,6 +447,15 @@ download is checksummed, its absence is a clear error message naming the command
 fix it rather than a broken map, and `docs/architecture/costs.md` gets its row: zero
 dollars, no key, one cached artifact.
 
+> **Built, with one correction — see ADR 0022.** The paragraph above says
+> "downloads it once" and leaves *from where* unstated, which turned out to be the
+> hard part. Protomaps keeps a dated daily planet build for **about a week**
+> (`20260804` was already a 404 on 2026-08-11), so extracting at setup time both
+> expires and, until it does, hands two clones two different maps — leaving nothing
+> to checksum. The extract is therefore baked once by a maintainer script, published
+> as a release asset on this repository, and pinned by digest in
+> `data/basemap.manifest.json`. Everything else in this section stands.
+
 ### 5.3 Buildings
 
 NYC Open Data Building Footprints, which carry per-building roof height and ground
