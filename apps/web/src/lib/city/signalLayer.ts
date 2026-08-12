@@ -696,6 +696,18 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       for (const kind of MARK_KINDS) marks[kind].dispose();
       labels.dispose();
       reticle.dispose();
+      // The geometries and materials above are this layer's; the compiled
+      // programs and render lists behind them are the *renderer's*, and nulling
+      // the reference leaves them on the GPU. It is a bounded leak today
+      // because nothing removes this layer without destroying the map, and a
+      // destroyed map takes its context with it — but "the only caller happens
+      // to make this harmless" is not a property to leave undocumented in the
+      // one place `city.md` §5.1 gave a second library a share of somebody
+      // else's context.
+      //
+      // `dispose()` and not `forceContextLoss()`: the context belongs to
+      // MapLibre, which is still drawing New York with it.
+      renderer?.dispose();
       renderer = null;
       map = null;
       columns = [];

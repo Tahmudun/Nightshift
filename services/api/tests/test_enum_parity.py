@@ -61,6 +61,10 @@ from nightshift.domain.placement import PlacementKind
 from nightshift.domain.queue import QueueSectionKey
 
 SCHEMAS_TS = Path(__file__).resolve().parents[3] / "apps" / "web" / "src" / "lib" / "schemas.ts"
+CITY_ROUTES_PY = Path(__file__).resolve().parents[1] / "nightshift" / "api" / "routes" / "city.py"
+BEACON_TS = (
+    Path(__file__).resolve().parents[3] / "apps" / "web" / "src" / "lib" / "city" / "beacon.ts"
+)
 JOB_ELIGIBILITY_TSX = (
     Path(__file__).resolve().parents[3]
     / "apps"
@@ -316,3 +320,33 @@ def test_every_match_component_is_scored_by_a_column_of_its_own() -> None:
     assert set(pairs) == {m.value for m in MatchComponent}
     columns = set(MatchResult.__table__.columns.keys())
     assert set(pairs.values()) <= columns, sorted(set(pairs.values()) - columns)
+
+
+def test_the_browser_allocates_room_for_every_signal_the_api_can_send() -> None:
+    """`MAX_BEACONS` against `MAX_SIGNALS`, which is the same boundary as the
+    enums above and fails more quietly than any of them.
+
+    The instance buffer is allocated once at `MAX_BEACONS` and `setSignals`
+    clamps to it with a `Math.min`. If the API's ceiling is ever raised past the
+    renderer's — a one-line change on the Python side, made for a good reason,
+    with every test in both suites still green — the extra roles are dropped on
+    the floor. Nothing throws, no count on the page disagrees with itself, and
+    the `truncated` banner stays off because the *API* did not truncate. The
+    city simply stops drawing some of the corpus.
+
+    `beacon.ts` already claims the two match, in a comment. This is the claim
+    with something behind it.
+    """
+    signals = re.search(
+        r"^MAX_SIGNALS = ([\d_]+)", CITY_ROUTES_PY.read_text(encoding="utf-8"), re.M
+    )
+    beacons = re.search(
+        r"^export const MAX_BEACONS = ([\d_]+);", BEACON_TS.read_text(encoding="utf-8"), re.M
+    )
+    assert signals is not None, "MAX_SIGNALS is no longer a module-level literal in city.py"
+    assert beacons is not None, "MAX_BEACONS is no longer a module-level literal in beacon.ts"
+
+    assert int(beacons.group(1).replace("_", "")) >= int(signals.group(1).replace("_", "")), (
+        "the API can return more signals than the renderer has room for, and the "
+        "surplus is dropped silently — raise MAX_BEACONS or lower MAX_SIGNALS"
+    )
