@@ -8,13 +8,16 @@ import type { CitySignal } from '@/lib/schemas';
 
 import { MAX_LABELS } from './labelAtlas';
 import { signalFixture } from './signal.fixture';
+import { ARCHIVED_COLOR, BEACON_RADIUS, DIM_FACTOR, MAX_BEACONS, SIGNAL_COLOR } from './beacon';
 import {
   anchorTransform,
   createSignalLayer,
-  MAX_BEACONS,
-  SIGNAL_COLOR,
+  OFFER_COLOR,
   SIGNAL_LAYER_ID,
+  URGENT_COLOR,
 } from './signalLayer';
+import { SELECTION_COLOR, SELECTION_INNER_RADIUS } from './selectionMesh';
+import { treatmentFor, type SignalTreatment, type TreatmentContext } from './treatments';
 import { COMPANIES_PER_ROW } from './unresolvedField';
 
 /**
@@ -407,5 +410,258 @@ describe('selection', () => {
     const index = layer.drawn - 1;
     const pixel = pixelOf(composed, [last.x, last.y, layer.altitudeOf(index)!]);
     expect(layer.pick(pixel, VIEWPORT)).toBe(layer.jobAt(index));
+  });
+});
+
+describe('the §6 treatments, as buffers', () => {
+  /** Everything untouched: the state a cold load is in. */
+  const PLAIN: TreatmentContext = { stages: new Map(), matches: new Map(), now: Date.now() };
+
+  /** The treatment map the layer takes, built from the same table the legend reads. */
+  function treatments(
+    signals: readonly CitySignal[],
+    context: TreatmentContext = PLAIN,
+  ): ReadonlyMap<string, SignalTreatment> {
+    return new Map(signals.map((s) => [s.job_id, treatmentFor(s, context)]));
+  }
+
+  it('draws an untouched role plain: no marks at all', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    const corpus = [signal('a')];
+
+    layer.setSignals(corpus);
+    layer.setTreatments(treatments(corpus));
+
+    expect(layer.marks).toEqual({ outline: 0, core: 0, ring: 0, beam: 0 });
+    expect(layer.tintAt(0)).toBe(SIGNAL_COLOR);
+  });
+
+  it('outlines a saved role, and puts the outline on that role’s own beacon', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    const corpus = [signal('a1', 'alloy', 'Alloy'), signal('r1', 'ramp', 'Ramp')];
+
+    layer.setSignals(corpus);
+    layer.setTreatments(
+      treatments(corpus, { ...PLAIN, stages: new Map([['r1', 'saved' as const]]) }),
+    );
+
+    expect(layer.marks.outline).toBe(1);
+    // Ramp's column, not Alloy's: a mark on the wrong beacon is the failure
+    // that looks most like a working feature.
+    expect(layer.markAt('outline', 0)?.[0]).toBeCloseTo(layer.columns[1]!.x);
+  });
+
+  it('draws the saved outline in §6’s white, not in the signal colour', () => {
+    // ADR 0027 left a standing instruction about this exact line: the reticle
+    // and the saved outline are both white, and if they stop being
+    // distinguishable **the reticle changes shape — §6 is the spec and the
+    // reticle is not**. The first draft of this task drew the outline in cyan
+    // instead, which is the one resolution that note rules out.
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    const corpus = [signal('a')];
+
+    layer.setSignals(corpus);
+    layer.setTreatments(
+      treatments(corpus, { ...PLAIN, stages: new Map([['a', 'saved' as const]]) }),
+    );
+
+    expect(layer.markTintAt('outline', 0)).toBe(SELECTION_COLOR);
+  });
+
+  it('keeps the outline on the body and the reticle in the air around it', () => {
+    // What makes two white marks legible as different things: one is a
+    // wireframe on the beacon itself, the other an annulus clear of it.
+    expect(BEACON_RADIUS * 1.34).toBeLessThan(SELECTION_INNER_RADIUS);
+  });
+
+  it('gives an offer a core in the green nothing else uses', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    const corpus = [signal('a')];
+
+    layer.setSignals(corpus);
+    layer.setTreatments(
+      treatments(corpus, { ...PLAIN, stages: new Map([['a', 'offer' as const]]) }),
+    );
+
+    expect(layer.marks.core).toBe(1);
+    expect(layer.markTintAt('core', 0)).toBe(OFFER_COLOR);
+  });
+
+  it('gives an applied role a core in the signal colour, not the offer colour', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    const corpus = [signal('a')];
+
+    layer.setSignals(corpus);
+    layer.setTreatments(
+      treatments(corpus, { ...PLAIN, stages: new Map([['a', 'applied' as const]]) }),
+    );
+
+    expect(layer.markTintAt('core', 0)).toBe(SIGNAL_COLOR);
+  });
+
+  it('rings a role that is mid-process', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    const corpus = [signal('a')];
+
+    layer.setSignals(corpus);
+    layer.setTreatments(
+      treatments(corpus, { ...PLAIN, stages: new Map([['a', 'interview' as const]]) }),
+    );
+
+    expect(layer.marks.ring).toBe(1);
+  });
+
+  it('beams a role whose deadline is inside the window', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    const corpus = [
+      { ...signal('a'), application_deadline: new Date(Date.now() + 86_400_000).toISOString() },
+    ];
+
+    layer.setSignals(corpus);
+    layer.setTreatments(treatments(corpus));
+
+    expect(layer.marks.beam).toBe(1);
+    expect(layer.markTintAt('beam', 0)).toBe(URGENT_COLOR);
+  });
+
+  it('dims a stale role without changing its colour', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    // Both at the same employer, so they differ in nothing but their status —
+    // the first version of this compared a role's alpha against itself divided
+    // by the dim factor, which is true for every positive number and could not
+    // have failed.
+    const corpus = [
+      signal('a1', 'alloy', 'Alloy'),
+      { ...signal('a2', 'alloy', 'Alloy'), status: 'possibly_stale' as const },
+    ];
+
+    layer.setSignals(corpus);
+    layer.setTreatments(treatments(corpus));
+
+    // Field order inside a column is by title, and `Role a1` sorts before
+    // `Role a2`, so instance 1 is the stale one.
+    expect(layer.tintAt(1)).toBe(SIGNAL_COLOR);
+    expect(layer.alphaAt(1)).toBeCloseTo(layer.alphaAt(0)! * DIM_FACTOR);
+  });
+
+  it('draws an archived role in a neutral shade rather than an alarming one', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    const corpus = [signal('a')];
+
+    layer.setSignals(corpus);
+    layer.setTreatments(
+      treatments(corpus, { ...PLAIN, stages: new Map([['a', 'rejected' as const]]) }),
+    );
+
+    expect(layer.tintAt(0)).toBe(ARCHIVED_COLOR);
+  });
+
+  it('pulses a role first seen this morning, and swells it besides', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    const corpus = [{ ...signal('a'), first_seen_at: new Date().toISOString() }];
+
+    layer.setSignals(corpus);
+    layer.setTreatments(treatments(corpus));
+
+    expect(layer.pulseAt(0)).toBeGreaterThan(0);
+    expect(layer.scaleAt(0)).toBeGreaterThan(1);
+    expect(layer.animating).toBe(true);
+  });
+
+  it('moves every mark when a sort moves the field under it', () => {
+    // The reticle's trap, one mesh over: a mark written once at the moment a
+    // role was saved stays at the old coordinates through the next sort and
+    // ends up decorating a different employer's role.
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    const corpus = [
+      signal('a1', 'alloy', 'Alloy'),
+      signal('r1', 'ramp', 'Ramp'),
+      signal('r2', 'ramp', 'Ramp'),
+    ];
+    const marks = treatments(corpus, { ...PLAIN, stages: new Map([['a1', 'saved' as const]]) });
+
+    layer.setSignals(corpus, 'company');
+    layer.setTreatments(marks);
+    const alphabetical = layer.markAt('outline', 0);
+
+    layer.setSignals(corpus, 'openings');
+
+    // Alloy has one opening and Ramp two, so 'openings' puts Ramp first and
+    // Alloy's saved role moves a whole column.
+    expect(layer.markAt('outline', 0)).not.toEqual(alphabetical);
+    expect(layer.markAt('outline', 0)?.[0]).toBeCloseTo(layer.columns[1]!.x);
+  });
+
+  it('draws no mark for a role that is not in the field', () => {
+    // Honest rather than parked at the origin: a treatment can name a role a
+    // later poll removed, and a mark at 0,0 would decorate whatever stands
+    // there.
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    const corpus = [signal('a')];
+
+    layer.setSignals(corpus);
+    layer.setTreatments(
+      new Map([
+        [
+          'ghost',
+          { track: 'saved', pulse: 'none', beam: 'none', dimmed: false } as SignalTreatment,
+        ],
+      ]),
+    );
+
+    expect(layer.marks.outline).toBe(0);
+  });
+
+  it('stops every animation under reduced motion, and keeps the size that carried it', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    const corpus = [{ ...signal('a'), first_seen_at: new Date().toISOString() }];
+
+    layer.setSignals(corpus);
+    layer.setTreatments(treatments(corpus));
+    layer.setReducedMotion(true);
+
+    expect(layer.pulseAt(0)).toBe(0);
+    expect(layer.animating).toBe(false);
+    // The treatment does not disappear for the people who asked for less
+    // motion — it stops moving.
+    expect(layer.scaleAt(0)).toBeGreaterThan(1);
+  });
+
+  it('keeps its marks when the treatments arrive before the signals do', () => {
+    // Two fetches race on every load. Whichever lands second must produce the
+    // same city, or a mark is missing until something else happens to redraw.
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    const corpus = [signal('a')];
+
+    layer.setTreatments(
+      treatments(corpus, { ...PLAIN, stages: new Map([['a', 'offer' as const]]) }),
+    );
+    layer.setSignals(corpus);
+
+    expect(layer.marks.core).toBe(1);
+  });
+});
+
+describe('the two rows that share one mesh', () => {
+  const PLAIN_CTX: TreatmentContext = { stages: new Map(), matches: new Map(), now: Date.now() };
+
+  function draw(stage: 'applied' | 'offer') {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    const corpus = [signal('a')];
+    layer.setSignals(corpus);
+    layer.setTreatments(
+      new Map([['a', treatmentFor(corpus[0]!, { ...PLAIN_CTX, stages: new Map([['a', stage]]) })]]),
+    );
+    return layer;
+  }
+
+  it('fills an applied beacon and leaves an offer’s core soft', () => {
+    // §6's words for the two: "solid illuminated" against "soft green core".
+    // They share a mesh, so the only thing keeping them apart is the pair of
+    // per-instance values — at one size and one colour they would be the same
+    // mark meaning two different things.
+    expect(draw('applied').markScaleAt('core', 0)!).toBeGreaterThan(
+      draw('offer').markScaleAt('core', 0)!,
+    );
   });
 });

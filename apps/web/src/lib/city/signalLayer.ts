@@ -37,26 +37,27 @@ import type {
   CustomRenderMethodInput,
   Map as MapLibreMap,
 } from 'maplibre-gl';
-import {
-  AdditiveBlending,
-  Camera,
-  Color,
-  InstancedMesh,
-  Matrix4,
-  MeshBasicMaterial,
-  OctahedronGeometry,
-  Object3D,
-  Scene,
-  Vector3,
-  WebGLRenderer,
-} from 'three';
+import { Camera, Matrix4, Scene, Vector3, WebGLRenderer } from 'three';
 
 import type { CitySignal } from '@/lib/schemas';
 
+import {
+  ARCHIVED_COLOR,
+  BEACON_RADIUS,
+  createBeaconMesh,
+  DIM_FACTOR,
+  MAX_BEACONS,
+  NEW_SCALE,
+  PULSE_HZ,
+  SIGNAL_COLOR,
+  type Beacon,
+} from './beacon';
 import { createLabelMesh } from './labelMesh';
+import { createMarkMesh, MARK_KINDS, type Mark, type MarkKind } from './markMesh';
 import { mercatorFromLngLat, metreInMercatorUnits } from './mercator';
 import { pickInstance, sceneRayFromPointer, type PointerPoint, type Viewport } from './pick';
 import { createSelectionMesh } from './selectionMesh';
+import type { SignalTreatment } from './treatments';
 import {
   arrangeUnresolved,
   type FieldColumn,
@@ -67,51 +68,70 @@ import {
 /** The layer's id in the style, and the handle every test reaches for. */
 export const SIGNAL_LAYER_ID = 'nightshift-signals';
 
-/**
- * `signal-400`, the cyan the whole encoding is built on.
- *
- * Duplicated out of `globals.css` for the same reason `MAP_PALETTE` is — a
- * WebGL material cannot read a CSS custom property — and checked against the
- * stylesheet by `signalLayer.test.ts` rather than hoped for.
- */
-export const SIGNAL_COLOR = '#5ce8ff';
+// Re-exported rather than moved-and-forgotten: these lived here for two tasks
+// and `beacon.ts` is where they belong now, but every caller that had the old
+// import is still right about what it wanted.
+export { BEACON_RADIUS, MAX_BEACONS, SIGNAL_COLOR };
 
 /**
- * Half-height of one beacon in metres.
+ * `verdant-400` — an offer, and nothing else in the product (§6).
  *
- * Exported so the selection reticle's radii can be asserted against it rather
- * than against a number somebody copied — a ring drawn inside the beacon is a
- * ring nobody can see.
- *
- * Large, and deliberately: these are read from a camera kilometres away at a
- * 76° pitch, where a marker sized like a map pin is a single pixel. This is
- * roughly a twelve-storey building, which is the smallest thing that reads at
- * this range at all.
+ * Duplicated out of `globals.css` for the same reason the cyan is, and checked
+ * against the stylesheet rather than hoped for.
  */
-export const BEACON_RADIUS = 34;
+export const OFFER_COLOR = '#5cf0a8';
+
+/** `gold-400` — an exceptional match or an urgent deadline. */
+export const URGENT_COLOR = '#ffcf5c';
 
 /**
- * The most beacons this layer will allocate room for.
+ * `paper` — a saved role's thin outline, and §6's word for it is *white*.
  *
- * An `InstancedMesh` allocates its buffers once at its declared count, so this
- * is a real ceiling rather than a hint. It matches `MAX_SIGNALS` on the API,
- * which is the most the endpoint will ever send.
+ * This is the same value the selection reticle uses, and that collision is
+ * deliberate rather than overlooked: ADR 0027 left a standing instruction that
+ * if the two stop being distinguishable, **the reticle changes shape — §6 is
+ * the spec and the reticle is not**. They are distinguishable by what they are
+ * rather than by colour. The outline is a wireframe on the beacon's own body at
+ * 46 m; the reticle is a camera-facing annulus in the air around it at 62–78 m,
+ * touching nothing. One is a property of the role, the other is a cursor.
+ *
+ * The first draft of this drew the outline in cyan, which would have been the
+ * one thing that note rules out.
  */
-export const MAX_BEACONS = 5_000;
+export const SAVED_COLOR = '#eaf1fa';
+
+/**
+ * How much of the beacon's body an applied role's core fills.
+ *
+ * The core geometry is 0.46 of the body, so this brings it to roughly
+ * three-quarters — filled, not decorated. An offer keeps the default 1, which
+ * is §6's word for it: a *soft* core.
+ */
+const APPLIED_CORE_SCALE = 1.6;
+
+/**
+ * How many marks the layer allocates room for, per kind.
+ *
+ * Far below `MAX_BEACONS`, and on purpose: these decorate roles you have a
+ * relationship with or that the ranker singled out. A person with five hundred
+ * live applications has a different problem than this ceiling.
+ */
+export const MAX_MARKS = 500;
+
+/**
+ * How fast the assessment/interview ring turns, in full turns per second.
+ *
+ * Slow — one turn every six seconds. §6 asks for a rotating ring because there
+ * is something outstanding between you and that employer, which is a state to
+ * notice rather than to be hurried by, and a fast spinner reads as a loading
+ * indicator.
+ */
+const RING_TURNS_PER_SECOND = 1 / 6;
 
 export interface SignalLayerOptions {
   /** Scene origin. Everything is metres from here. */
   readonly anchor: readonly [number, number];
 }
-
-/**
- * Deliberately absent: a `reducedMotion` flag.
- *
- * Nothing in this layer animates yet, so a knob honouring the preference would
- * be a knob that does nothing — a setting that looks like a feature, which is
- * what I7 is about. It arrives with the §6 pulses that need it, and the camera
- * controller already honours the preference for everything that moves today.
- */
 
 /**
  * What the layer exposes beyond MapLibre's own interface.
@@ -128,8 +148,49 @@ export interface SignalLayer extends CustomLayerInterface {
    * after — see `arrangeUnresolved`.
    */
   setSignals(signals: readonly CitySignal[], sort?: FieldSort): void;
+  /**
+   * Apply §6's encoding: which role carries which mark, colour and pulse.
+   *
+   * Separate from `setSignals` because the two arrive from different fetches
+   * and race on every load — the corpus from `/city/signals`, the treatments
+   * from the applications and the ranked list. Either order has to produce the
+   * same city, so both write to the same closure and rebuild from whatever is
+   * known. A treatment naming a role that is not in the field draws nothing
+   * rather than a mark at the origin.
+   */
+  setTreatments(treatments: ReadonlyMap<string, SignalTreatment>): void;
+  /**
+   * Stop everything that moves, and keep everything it was carrying.
+   *
+   * The pulse is §6's mark for *new*, so switching it off cannot be allowed to
+   * delete that state — a new role stays drawn larger (`NEW_SCALE`) and is
+   * still named in the roster and the legend. This is the whole of the layer's
+   * `prefers-reduced-motion` handling; the camera holds its own.
+   */
+  setReducedMotion(reduced: boolean): void;
   /** How many beacons the last `setSignals` actually drew. */
   readonly drawn: number;
+  /** How many of each §6 mark are on the city. */
+  readonly marks: Readonly<Record<MarkKind, number>>;
+  /** Where one mark is, in scene metres, or null if it is not drawn. */
+  markAt(kind: MarkKind, index: number): readonly [number, number, number] | null;
+  /** What colour one mark is drawn in, or null. */
+  markTintAt(kind: MarkKind, index: number): string | null;
+  /** What size multiplier one mark is drawn at, or null. */
+  markScaleAt(kind: MarkKind, index: number): number | null;
+  /** The colour, strength, pulse and size the beacon buffer holds, per instance. */
+  tintAt(index: number): string | null;
+  alphaAt(index: number): number | null;
+  pulseAt(index: number): number | null;
+  scaleAt(index: number): number | null;
+  /**
+   * Is anything on the city moving?
+   *
+   * What decides whether `render` asks for another frame. Unconditional
+   * repainting is how a map pins a core at 60fps with nothing changing; never
+   * repainting is how a pulse freezes mid-breath.
+   */
+  readonly animating: boolean;
   /** The columns as laid out, in order: what the roster panel navigates by. */
   readonly columns: readonly FieldColumn[];
   /** How many employers have a name plate. */
@@ -209,27 +270,18 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
   const camera = new Camera();
   const transform = anchorTransform(options.anchor);
 
-  // One geometry, one material, one mesh, N transforms — §5.5. An octahedron
-  // reads as a signal rather than as a pin, and eight faces is cheap enough
-  // that the instance count is what costs, not the geometry.
-  const geometry = new OctahedronGeometry(BEACON_RADIUS, 0);
-  const material = new MeshBasicMaterial({
-    color: new Color(SIGNAL_COLOR),
-    transparent: true,
-    opacity: 0.85,
-    // Additive, so overlapping beacons brighten instead of flattening into one
-    // silhouette — a stack of roles at one employer should read as a stack.
-    blending: AdditiveBlending,
-    // Written depth from an additive, transparent mesh occludes the beacons
-    // behind it with an invisible surface. Reading depth is still on, which is
-    // the half that matters: a building in front of a beacon still hides it.
-    depthWrite: false,
-  });
+  // The bodies. One geometry, one material, one mesh, N transforms — §5.5.
+  const beacons = createBeaconMesh(MAX_BEACONS);
+  scene.add(beacons.mesh);
 
-  const mesh = new InstancedMesh(geometry, material, MAX_BEACONS);
-  mesh.frustumCulled = false;
-  mesh.count = 0;
-  scene.add(mesh);
+  // The four shapes §6 puts *on* a body, one instanced mesh each.
+  const marks: Record<MarkKind, ReturnType<typeof createMarkMesh>> = {
+    outline: createMarkMesh({ kind: 'outline', capacity: MAX_MARKS }),
+    core: createMarkMesh({ kind: 'core', capacity: MAX_MARKS }),
+    ring: createMarkMesh({ kind: 'ring', capacity: MAX_MARKS }),
+    beam: createMarkMesh({ kind: 'beam', capacity: MAX_MARKS }),
+  };
+  for (const kind of MARK_KINDS) scene.add(marks[kind].mesh);
 
   // The plates live in the same scene as the beacons so they share the depth
   // buffer this layer exists to share (§5.1) — a name behind a tower is hidden
@@ -250,6 +302,11 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
   /** Where each drawn role is, in the buffer's own order. Index ↔ instance. */
   let placements: readonly FieldPlacement[] = [];
   let selected: string | null = null;
+  /** §6, per role. Empty until the applications and the ranking have landed. */
+  let treatments: ReadonlyMap<string, SignalTreatment> = new Map();
+  let reducedMotion = false;
+  /** The clock the pulses run on. Seconds since the first animated frame. */
+  let clockStartedAt: number | null = null;
   /**
    * The matrix the last frame drew with: scene metres straight to clip space.
    *
@@ -259,7 +316,79 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
    */
   let projection: Matrix4 | null = null;
 
-  const scratch = new Object3D();
+  /**
+   * §6, applied to the buffers.
+   *
+   * Everything the city encodes about a role is decided here, from the field's
+   * placements and the treatment table, and written in one pass. Called by both
+   * setters rather than by each of them doing half, because the two fetches
+   * behind them race on every load: whichever lands second must produce exactly
+   * the same city as the other order would have.
+   *
+   * A treatment naming a role that is not in the field contributes nothing. It
+   * happens honestly — a poll removes a role while an application still refers
+   * to it — and the alternative is a mark parked at the origin, decorating
+   * whichever employer's column happens to stand there.
+   */
+  function writeTreatments(): void {
+    const bodies: Beacon[] = [];
+    const byKind: Record<MarkKind, Mark[]> = { outline: [], core: [], ring: [], beam: [] };
+
+    for (const placement of placements) {
+      const treatment = treatments.get(placement.jobId);
+      const archived = treatment?.track === 'archived';
+      const pulse = reducedMotion ? 0 : PULSE_HZ[treatment?.pulse ?? 'none'];
+
+      bodies.push({
+        x: placement.x,
+        y: placement.y,
+        z: placement.altitude,
+        tint: archived ? ARCHIVED_COLOR : SIGNAL_COLOR,
+        // Applied and after are drawn at full strength; an untouched role sits
+        // just below it, and an archived one well below both. Dimming for
+        // staleness multiplies whatever that came to, because "we have not
+        // re-checked this listing" is a fact about a role at any stage.
+        alpha: strengthOf(treatment),
+        pulse,
+        // The size stays even with the pulse switched off, which is what keeps
+        // "new" legible under `prefers-reduced-motion`.
+        scale: treatment?.pulse !== undefined && treatment.pulse !== 'none' ? NEW_SCALE : 1,
+      });
+
+      if (treatment === undefined) continue;
+      const at = { x: placement.x, y: placement.y, z: placement.altitude };
+      if (treatment.track === 'saved') byKind.outline.push({ ...at, tint: SAVED_COLOR });
+      // §6 asks an applied role to be "solid illuminated". Nothing here stands
+      // on a building to illuminate, so the beacon itself fills in: a core at
+      // most of the body's own radius, which reads as solid matter rather than
+      // as more glow. At the small default size it read as nothing at all.
+      if (treatment.track === 'applied') {
+        byKind.core.push({ ...at, tint: SIGNAL_COLOR, scale: APPLIED_CORE_SCALE });
+      }
+      if (treatment.track === 'in_process') byKind.ring.push({ ...at, tint: SIGNAL_COLOR });
+      if (treatment.track === 'offer') byKind.core.push({ ...at, tint: OFFER_COLOR });
+      if (treatment.beam !== 'none') byKind.beam.push({ ...at, tint: URGENT_COLOR });
+    }
+
+    beacons.set(bodies);
+    for (const kind of MARK_KINDS) marks[kind].set(byKind[kind]);
+    drawn = beacons.drawn;
+  }
+
+  /** How bright a role's body is, before its pulse. */
+  function strengthOf(treatment: SignalTreatment | undefined): number {
+    if (treatment === undefined) return 0.85;
+    if (treatment.track === 'archived') return 0.3;
+    // §6 asks an applied role to be "solid illuminated". Nothing in this corpus
+    // stands on a building to illuminate, so the body itself goes to full.
+    const base =
+      treatment.track === 'applied' ||
+      treatment.track === 'in_process' ||
+      treatment.track === 'offer'
+        ? 1
+        : 0.85;
+    return treatment.dimmed ? base * DIM_FACTOR : base;
+  }
 
   /**
    * Turn the plates and the reticle to face wherever the camera now is.
@@ -272,6 +401,35 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
     if (!map) return;
     labels.orient(map.getBearing(), map.getPitch());
     reticle.orient(map.getBearing(), map.getPitch());
+    orientMarks();
+  }
+
+  /**
+   * Face every mark at the camera, and spin the ring.
+   *
+   * The ring's rotation is §6's "rotating ring / orbiting arcs" and is the one
+   * mark whose *motion* is the encoding, so it stops entirely under reduced
+   * motion — a still ring is still a ring, and the roster says "interview"
+   * beside it either way.
+   */
+  function orientMarks(): void {
+    const bearing = map?.getBearing() ?? 0;
+    const pitch = map?.getPitch() ?? 0;
+    const spin =
+      reducedMotion || clockStartedAt === null
+        ? 0
+        : elapsed() * RING_TURNS_PER_SECOND * Math.PI * 2;
+    for (const kind of MARK_KINDS) {
+      // Only the ring turns. A beam that spun would wobble, and an outline is
+      // symmetrical enough that spinning it would just cost matrix writes.
+      marks[kind].orient(kind === 'ring' ? spin : 0, bearing, pitch);
+    }
+  }
+
+  /** Seconds since the first animated frame. */
+  function elapsed(): number {
+    if (clockStartedAt === null) return 0;
+    return (performance.now() - clockStartedAt) / 1000;
   }
 
   /**
@@ -301,12 +459,50 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
     },
 
     altitudeOf(index) {
-      if (index < 0 || index >= drawn) return null;
-      const matrix = new Matrix4();
-      mesh.getMatrixAt(index, matrix);
-      // Element 14 of a column-major 4×4 is the z translation, and the scene's
-      // z is metres above the anchor's ground plane.
-      return matrix.elements[14] ?? null;
+      return beacons.altitudeAt(index);
+    },
+
+    get marks() {
+      return {
+        outline: marks.outline.drawn,
+        core: marks.core.drawn,
+        ring: marks.ring.drawn,
+        beam: marks.beam.drawn,
+      };
+    },
+
+    markAt(kind, index) {
+      return marks[kind].positionAt(index);
+    },
+
+    markTintAt(kind, index) {
+      return marks[kind].tintAt(index);
+    },
+
+    markScaleAt(kind, index) {
+      return marks[kind].scaleAt(index);
+    },
+
+    tintAt(index) {
+      return beacons.tintAt(index);
+    },
+
+    alphaAt(index) {
+      return beacons.alphaAt(index);
+    },
+
+    pulseAt(index) {
+      return beacons.pulseAt(index);
+    },
+
+    scaleAt(index) {
+      return beacons.scaleAt(index);
+    },
+
+    get animating() {
+      // The ring turns as long as one is drawn, so either is enough to keep
+      // asking for frames — and under reduced motion neither ever does.
+      return !reducedMotion && (beacons.animating || marks.ring.drawn > 0);
     },
 
     get columns() {
@@ -346,7 +542,7 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       if (projection === null) return null;
       const ray = sceneRayFromPointer(projection, point, viewport);
       if (ray === null) return null;
-      const index = pickInstance(mesh, ray);
+      const index = pickInstance(beacons.mesh, ray);
       if (index === null) return null;
       return placements[index]?.jobId ?? null;
     },
@@ -366,22 +562,11 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       // role that was never drawn, for a click that hit the beacon after it.
       placements = field.placements.slice(0, count);
 
-      for (let i = 0; i < count; i += 1) {
-        const placement = field.placements[i];
-        if (!placement) break;
-        scratch.position.set(placement.x, placement.y, placement.altitude);
-        scratch.updateMatrix();
-        mesh.setMatrixAt(i, scratch.matrix);
-      }
-
-      mesh.count = count;
-      mesh.instanceMatrix.needsUpdate = true;
-      // three caches the bounding sphere on first raycast and gates every later
-      // one on it, so a field that grows keeps a sphere too small to admit its
-      // new columns — and picking silently stops working for exactly the
-      // employers that just arrived. `pick.test.ts` demonstrates it.
-      mesh.boundingSphere = null;
-      drawn = count;
+      // Every body and every mark, from the field and §6's table. The marks
+      // are rewritten here and not only in `setTreatments` because a sort
+      // moves the whole field under them — the reticle's trap, four meshes
+      // over.
+      writeTreatments();
 
       // The selected role has moved, if it is still here at all: every sort
       // reorders the field and a poll can remove a role outright.
@@ -394,6 +579,27 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       // opening pose is 76° — would show its names lying flat over the city.
       faceCamera();
 
+      map?.triggerRepaint();
+    },
+
+    setTreatments(next) {
+      treatments = next;
+      writeTreatments();
+      // The ring's spin needs a clock the moment one exists; without this the
+      // first ring stands still until the map is moved.
+      if (layer.animating && clockStartedAt === null) clockStartedAt = performance.now();
+      map?.triggerRepaint();
+    },
+
+    setReducedMotion(reduced) {
+      if (reduced === reducedMotion) return;
+      reducedMotion = reduced;
+      // Rewritten rather than flagged: the pulse rates live in the instance
+      // buffer, so honouring the preference means writing zeroes into it. A
+      // uniform would have been one line and would have left the *data* saying
+      // the city is animating while the shader quietly ignored it.
+      writeTreatments();
+      orientMarks();
       map?.triggerRepaint();
     },
 
@@ -453,7 +659,13 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       // second one from the map's pose — see the head of `pick.ts`.
       projection = camera.projectionMatrix;
 
-      if (!renderer || mesh.count === 0) return;
+      if (!renderer || drawn === 0) return;
+
+      if (layer.animating) {
+        if (clockStartedAt === null) clockStartedAt = performance.now();
+        beacons.tick(elapsed());
+        orientMarks();
+      }
 
       // Three and MapLibre each cache what they believe the GL state to be, and
       // they are both wrong after the other has drawn. This is the line whose
@@ -462,10 +674,13 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       renderer.resetState();
       renderer.render(scene, camera);
 
-      // Deliberately *not* an unconditional `triggerRepaint()`. Nothing in this
-      // layer animates yet, so asking for the next frame here would hold a core
-      // at 60fps to redraw an identical image. When the §6 pulses arrive they
-      // ask for their own frames, and under reduced motion they never will.
+      // Deliberately *not* unconditional. A `triggerRepaint()` on every frame
+      // is how every Three-in-MapLibre example animates, and it is also how a
+      // map pins a core at 60fps forever with nothing moving on it. The next
+      // frame is asked for only while something is actually moving — a pulse
+      // or a ring — and under `prefers-reduced-motion` nothing ever is, so the
+      // city goes completely still rather than animating invisibly.
+      if (layer.animating) map?.triggerRepaint();
     },
 
     onRemove(removedMap) {
@@ -477,17 +692,18 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       // Every one of these leaks GPU memory that outlives the page's own
       // teardown, and a context reaching the browser's limit fails to create
       // the *next* map with an error naming none of this.
-      geometry.dispose();
-      material.dispose();
-      mesh.dispose();
+      beacons.dispose();
+      for (const kind of MARK_KINDS) marks[kind].dispose();
       labels.dispose();
       reticle.dispose();
       renderer = null;
       map = null;
       columns = [];
       placements = [];
+      treatments = new Map();
       selected = null;
       projection = null;
+      clockStartedAt = null;
     },
   };
 
