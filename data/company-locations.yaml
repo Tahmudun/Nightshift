@@ -41,16 +41,45 @@
 # building is worse than no building: it looks exactly as confident as a right
 # one, and nothing downstream can tell them apart. If you are unsure, leave it
 # blank and the job still shows up — just not on a building.
+#
+# WHERE TO START
+#
+# Three companies have postings in the seeded database right now — **Datadog**,
+# **Ramp** and **Alloy** — so those are the three whose addresses change what
+# `make demo` puts on screen. Every other row loads correctly and reports
+# `not ingested`, meaning the address is recorded and waiting for that board to
+# be polled. Nothing is lost by filling one in early.
+#
+# HOW TO LOAD IT
+#
+#     make offices
+#
+# Reads this file, refuses the entries that cannot support themselves, geocodes
+# the rest through NYC GeoSearch, and writes `company_locations`. It needs
+# `OUTBOUND_HTTP_ENABLED=true` because geocoding is a real network call; the
+# result is cached permanently, so `make demo` stays offline afterwards.
 
 # Who is vouching for these addresses. Stamped onto every row this file loads,
 # so `company_locations.confirmed_by` says something true.
 confirmed_by: Tahmudun
 
-# The nine companies in data/board-registry.yaml whose postings parse to NYC.
-# `nyc_presence` is derived from posting text, so some of these may turn out to
-# have no NYC office at all — that is a real finding and a blank entry records
-# it correctly.
+# Every company in data/board-registry.yaml, in two groups.
+#
+# The first nine are the boards whose postings parse to NYC (`nyc_presence:
+# true` in the registry). `nyc_presence` is derived from posting text, so some
+# of these may turn out to have no NYC office at all — that is a real finding
+# and a blank entry records it correctly.
+#
+# The remaining fourteen are registry boards with no NYC signal in their
+# postings. They are listed rather than omitted because the registry is the set
+# of employers this product can see, and a company being absent from this file
+# is indistinguishable from a company nobody has checked. `city` and `state`
+# are left blank on those rather than pre-filled with "New York" — a prefilled
+# locality on a company headquartered in Oslo is a small lie that would send a
+# geocoder looking in the wrong place.
 offices:
+
+  # -- Registry boards whose postings name New York -------------------------
   - company: Datadog
     label: New York HQ
     street_address:
@@ -138,5 +167,160 @@ offices:
     state: NY
     postal_code:
     country: USA
+    is_primary: true
+    confirmed_on:
+
+  # -- Registry boards with no NYC signal in their postings -----------------
+  #
+  # Blank is the expected answer for most of these, and blank is correct. If one
+  # of them does have a New York office, fill in `street_address`, `city: New
+  # York` and `state: NY` — the registry's `nyc_presence` flag reads posting
+  # text and posting text is not a company directory.
+  #
+  # An office outside the five boroughs cannot be loaded today: NYC GeoSearch is
+  # the only geocoder wired up and its whole corpus is New York City, so a
+  # London or Oslo address is reported `unresolved` rather than placed. That is
+  # the honest outcome and not a bug to work around — the city this product
+  # draws is New York.
+
+  # Seeded: `make seed` loads Alloy's committed Lever board, so an address here
+  # changes what `make demo` shows. Its postings are DC, Denver and Vancouver.
+  - company: Alloy
+    label: Primary office
+    street_address:
+    city:
+    state:
+    postal_code:
+    country:
+    is_primary: true
+    confirmed_on:
+
+  - company: 0g Labs
+    label: Primary office
+    street_address:
+    city:
+    state:
+    postal_code:
+    country:
+    is_primary: true
+    confirmed_on:
+
+  - company: 10x Team
+    label: Primary office
+    street_address:
+    city:
+    state:
+    postal_code:
+    country:
+    is_primary: true
+    confirmed_on:
+
+  - company: 1X
+    label: Primary office
+    street_address:
+    city:
+    state:
+    postal_code:
+    country:
+    is_primary: true
+    confirmed_on:
+
+  - company: 1bios
+    label: Primary office
+    street_address:
+    city:
+    state:
+    postal_code:
+    country:
+    is_primary: true
+    confirmed_on:
+
+  - company: 1mind
+    label: Primary office
+    street_address:
+    city:
+    state:
+    postal_code:
+    country:
+    is_primary: true
+    confirmed_on:
+
+  - company: 42dot
+    label: Primary office
+    street_address:
+    city:
+    state:
+    postal_code:
+    country:
+    is_primary: true
+    confirmed_on:
+
+  - company: 5Blue Software
+    label: Primary office
+    street_address:
+    city:
+    state:
+    postal_code:
+    country:
+    is_primary: true
+    confirmed_on:
+
+  - company: 8Fleet Inc.
+    label: Primary office
+    street_address:
+    city:
+    state:
+    postal_code:
+    country:
+    is_primary: true
+    confirmed_on:
+
+  - company: 8VC
+    label: Primary office
+    street_address:
+    city:
+    state:
+    postal_code:
+    country:
+    is_primary: true
+    confirmed_on:
+
+  - company: 9 Mothers
+    label: Primary office
+    street_address:
+    city:
+    state:
+    postal_code:
+    country:
+    is_primary: true
+    confirmed_on:
+
+  - company: A Place for Mom
+    label: Primary office
+    street_address:
+    city:
+    state:
+    postal_code:
+    country:
+    is_primary: true
+    confirmed_on:
+
+  - company: A.Team
+    label: Primary office
+    street_address:
+    city:
+    state:
+    postal_code:
+    country:
+    is_primary: true
+    confirmed_on:
+
+  - company: Abound
+    label: Primary office
+    street_address:
+    city:
+    state:
+    postal_code:
+    country:
     is_primary: true
     confirmed_on:

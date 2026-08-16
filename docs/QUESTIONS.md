@@ -15,9 +15,25 @@ until the city needs a building
 them relatively fast."**
 
 Which answers the scope question by removing it, so the shape was mine to pick.
-`data/company-locations.yaml` ships as a **worksheet**, pre-filled with the nine
-registry companies whose postings parse to NYC, with `street_address` blank. Same
-pattern that answered Q5, which worked.
+`data/company-locations.yaml` ships as a **worksheet** with `street_address`
+blank. Same pattern that answered Q5, which worked.
+
+**Updated 2026-08-16 (M4e Task 1), and the update is a correction of my own
+work.** The worksheet was pre-filled with the nine registry companies whose
+postings parse to NYC. It now carries **all 23 registry boards**: `nyc_presence`
+is derived from posting text, and posting text is not a company directory — a
+board whose postings all say "Remote" can still be run out of an office on
+Lafayette Street. The other fourteen have `city` and `state` left blank rather
+than pre-filled with "New York", so nothing prompts an address in a city the
+company may not be in.
+
+**And the file now leads somewhere.** `read_worksheet` and `load_offices` were
+complete and tested from M4a/M4b, and nothing outside the test suite called
+either of them — so the answer above could not have changed a single pixel no
+matter how many addresses were typed. `make offices` is the caller, added
+2026-08-16 and verified live end to end (Datadog → `620 8th Ave` → `verified`,
+BIN 1087186). The remaining gap is the renderer: a `building` placement is still
+not drawn, which is M4e Task 6.
 
 Two things written into the file rather than assumed:
 

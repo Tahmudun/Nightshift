@@ -38,28 +38,59 @@
 **The finding that shaped the milestone: no ATS posting names a street. 0 of 247, 139 distinct location strings, 10 fields, three providers. A job can never place itself on a building, so every building comes from an address a human confirmed.**
 **Task 11 measured the embedding proposal path and declined to ship it — ADR 0018.**
 **Task 12 gave the seed a reader to be about, and found three false claims on the page — ADR 0019.**
-**Last updated: 2026-08-12**
+**M4e — the synthwave city — is sequenced ahead of M4d Tasks 2–7, on the human's call.** The city renders, is honest and is measured, and does not look like the thing it was specified to look like. One of the reference images filed at `docs/design/references/` on 2026-08-11 was handed back on 2026-08-13 with the note that the vision has not been met — **the target was recorded correctly and the implementation did not reach it.** Task 1 (the worksheet and its loader) is done; see "M4e Task 1" below.
+**Last updated: 2026-08-16**
 
 ---
 
 
 ## Next exact action
 
-### M4d is under way on `m4d-measured`, draft PR #17. Task 1 is done; next is Task 2.
+### M4e — the synthwave city — is under way on `m4d-measured`, draft PR #17. Task 1 is done; next is Task 2.
 
-**Task 1 — the frame timer — is done and the desktop criterion is met with
-numbers**: p50 16.6–16.7 ms in every scenario at both 200 and 5,000 roles on
-an Intel Iris Plus 645, 0–3% of frames missing the next refresh. See "M4d
-Task 1" below for the tables, the method, the one 191.7 ms hitch it found,
-and the defect it found **in the instrument** before it found anything in the
-city. **Next: Task 2, the adaptive quality tiers**, judged against those
-numbers.
+**M4d Task 1 (the frame timer) is done and M4d Tasks 2–7 are deliberately
+paused.** The overhaul below changes what a frame costs, so tuning the adaptive
+quality tiers and the field-at-scale fix against the grey renderer would mean
+measuring twice and believing the wrong number. The frame timer stays the
+instrument every M4e task reports against.
+
+**M4e Task 1 — the worksheet, and the loader that was never wired up — is
+done.** `data/company-locations.yaml` covers all 23 registry boards, and
+`make offices` runs it. See "M4e Task 1" below. **Next: Task 2, the `neon-*`
+palette and the two assertions that made the city grey.**
+
+**The M4e task order**, from the slice plan:
+
+1. ~~**The worksheet and its loader.**~~ **Done.** First because the human is
+   typing addresses now and the file they type into must lead somewhere.
+2. **A `neon-*` palette family**, and replacing the two `darkStyle.test.ts`
+   assertions that turn "the city stays grey" into a build failure.
+3. **A sky, not a rectangle** — a custom layer with a gradient, a starfield, and
+   a sun fixed due west over the Hudson.
+4. **The ground** — neon streets at graded intensity, a glowing shoreline.
+5. **The buildings** — near-black saturated mass, window speckle from a
+   same-origin baked sprite, neon crowns via a second extrusion layer.
+6. **The hiring building** — `arrangeOnBuildings`, a BIN-filtered extrusion
+   layer, roof beacons. Depends on Task 1 having placed an office.
+7. **Bloom**, behind the quality tier, measured before and after.
+8. **The documents that said not to do this** — ADR 0029 and the rewrites it
+   forces in `city.md` §2.2/§3/§5.3 and `docs/design/references/README.md`.
+9. **Addresses without typing** — `make propose-offices`, OSM proposes and a
+   human confirms. May slip past this slice; if it does, this file says so
+   rather than implying the pipeline exists.
+
+**M4d Task 1's numbers, which still stand**: p50 16.6–16.7 ms in every scenario
+at both 200 and 5,000 roles on an Intel Iris Plus 645, 0–3% of frames missing
+the next refresh. See "M4d Task 1" below for the tables, the method, the one
+191.7 ms hitch it found, and the defect it found **in the instrument** before it
+found anything in the city.
 
 **PR #16 is in `main` (`dfd4973`), all five CI jobs green at `7dfdaef` and green again on `main` after the merge.** M4a,
 M4b and M4c are closed. `city.md` §7's remaining slice is the last one in this
 milestone, and it is the one that turns impressions into numbers.
 
-**M4d's tasks, in order.** Deliverables from `city.md` §7 and `CLAUDE.md` §6.
+**M4d's tasks, in order. Tasks 2–7 resume after M4e.** Deliverables from
+`city.md` §7 and `CLAUDE.md` §6.
 
 1. ~~**Frame-time instrumentation, and a machine that admits what it is.**~~ **Done** — see "M4d Task 1" below. The criterion is met on this machine at both 200 and 5,000 roles, and the first run caught the instrument itself reporting a 60fps city as missing half its frames.
 2. **Adaptive quality tiers** — Ultra / High / Balanced / Battery saver, over
@@ -617,13 +648,123 @@ Four things carry in from M4a and Tasks 1-2:
   that can produce a building, and rungs 2–3 produce `approximate` points the
   office loader refuses by design.
 
-**`data/company-locations.yaml` is with the human and blocks nothing.** Nine NYC
-registry companies, `street_address` blank, and blank is a correct answer.
-Until a row is filled the honest render is every job in the unresolved layer,
-which §4.8 designs as the default view rather than the sad one.
+**`data/company-locations.yaml` is with the human and blocks nothing.** All 23
+registry boards as of M4e Task 1, `street_address` blank, and blank is a correct
+answer. Until a row is filled the honest render is every job in the unresolved
+layer, which §4.8 designs as the default view rather than the sad one. **It now
+leads somewhere**: `make offices` reads it, geocodes it and writes
+`company_locations` — which was true of nothing before 2026-08-16.
 
 **Q2 (deployment target) is the only open question that blocks anything**, and
 only M4d.
+
+---
+
+## M4e Task 1 — the worksheet, and the loader that was never wired up
+
+**Done 2026-08-16.** The promotion path in `city.md` §4.4 has four steps between
+a human typing an address and a beacon standing on a roof. Steps 1 and 3 shipped
+in M4a, `read_worksheet` and `load_offices` shipped tested in M4b — and
+**nothing outside the test suite called either of them.** The worksheet was a
+file you could fill in that led nowhere.
+
+That is the finding worth keeping, because it is I7's shape without a mock in
+sight: two complete modules, two green test files, a documented design, and a
+subsystem that could not run. From the outside it read exactly like a working
+feature. `docs/QUESTIONS.md` Q7 asked the human how many addresses to curate,
+and the honest answer at the time was that **no number would have changed a
+single pixel.**
+
+**What landed:**
+
+| Piece | Where |
+|---|---|
+| The worksheet, widened from 9 entries to all **23** registry boards | `data/company-locations.yaml` |
+| `nightshift offices` — read, refuse, geocode, write, report per row | `services/api/nightshift/cli.py` |
+| `make offices` | `Makefile` |
+| The two files held equal in both directions | `tests/test_company_locations_worksheet.py` |
+| The command's own tests — five, offline, no database | `tests/test_offices_command.py` |
+
+`read_worksheet` and `load_offices` were **not** rewritten. They were correct;
+the wiring around them was what was missing.
+
+**The 23 are two groups, and the second is the change of mind.** The file held
+only the nine boards whose *posting text* parses to NYC. `nyc_presence` is
+derived from posting text, and posting text is not a company directory — a board
+whose postings all say "Remote" can still be run out of an office on Lafayette
+Street. The other fourteen are listed with `city` and `state` left **blank**
+rather than pre-filled with "New York", because a prefilled locality on a
+company headquartered in Oslo is a small lie that would send the geocoder
+looking in the wrong place.
+
+**Three properties, each one a decision:**
+
+- **A human runs it; it is never scheduled, and it is in neither `make demo` nor
+  `make acceptance`.** Geocoding is a live request to
+  `geosearch.planninglabs.nyc`, gated on `OUTBOUND_HTTP_ENABLED` exactly as
+  `ingest` and `poll` are. `CachingGeocoder` writes every answer to
+  `geocode_cache`, so an address is requested once ever and the buildings it
+  placed survive into an offline `make demo` — ADR 0022's guarantee for tiles,
+  applied to addresses.
+- **The network gate is checked lazily**, only when an entry actually names an
+  address. The committed file is all-blank today, so `make offices` on a clean
+  clone reports what it is asking for and exits 0 with no database and no
+  network. A command that demanded both before it could tell you the file is
+  empty would be unusable for the first thing anybody uses it for.
+- **A refusal exits 1; an unresolved address exits 0.** A refused entry is a
+  defect in a file a person wrote — an address with no date, a "New York, NY"
+  that names no street — and the exit code is what makes it as loud as a failing
+  test. An unresolved one is the world answering. Most of the registry has no NYC
+  office; conflating the two would make the command red by default and therefore
+  ignored.
+
+**Verified end to end against the live geocoder**, on a scratch worksheet, one
+run:
+
+```
+  placed on a building
+    Datadog                  620 8th Ave  ->  verified, BIN 1087186
+  address recorded but the company has no jobs yet (board not polled)
+    1Password, 1X
+  refused — fix these in the worksheet
+    Stripe    'New York, NY' names no street, so it cannot reach `verified`…
+    Ramp      an address with no `confirmed_on` date is a claim with no age…
+  blank (1) — a correct answer; these jobs stay unplaced
+    Abound
+```
+
+One HTTP request was made, for Datadog. `load_offices` looks the company up
+*before* it geocodes, so the two not-yet-ingested rows cost nothing. **The
+scratch row was deleted afterwards** — the address is the human's to confirm,
+and a verification run must not leave a `confirmed_by` behind naming nobody
+real.
+
+**The BIN question is settled, and Task 6 depends on it.** A probe against the
+live buildings archive at the opening pose returned **3,110 of 3,110 rendered
+features carrying a `bin`**; the property set is `feature_code`, `height_roof`,
+`last_status_type`, `bin`. So the hiring-building layer can filter on the real
+footprint rather than fall back to a column at a coordinate. Two details that
+each cost a debugging session:
+
+- **`bin` is a string** (`"1086193"`), as is `height_roof` (`"339.64"`). A
+  MapLibre filter must compare string literals or wrap in `['to-number', …]` the
+  way `HEIGHT_FEET` already does.
+- The first probe returned **0 features** — at pitch 76 a whole-viewport
+  `queryRenderedFeatures` returns nothing while 30,000 features are loaded and
+  visibly drawn, because the corners above the horizon unproject onto no ground.
+  `e2e/city.spec.ts:143-160` had already written this down and it caught me
+  anyway. Query a box below the horizon.
+
+**Not verified**: whether BIN 1087186 in particular is present in the baked
+archive. GeoSearch and the NYC footprint dataset share the identifier, but
+whether that specific building survived the extract is a Task 6 check, not a
+Task 1 claim.
+
+**`make check`**: lint and typecheck green; 1943 Python tests passed with one
+error, `test_closure_pipeline.py::test_three_misses_makes_a_job_stale_not_closed`
+— a `TRUNCATE` deadlock against the live dev stack sharing the same Postgres,
+which is the trap this file already records. Re-run alone: **11 passed.** Web
+unit tests green.
 
 ---
 
@@ -6932,7 +7073,7 @@ wrong: ML frameworks (JAX, LangChain, HuggingFace, DSPy), accelerators (CUDA, RO
 | Eligibility answer key (`tests/fixtures/eligibility/labels.yaml`) | **Filled in, and model-labeled rather than human-verified.** All 60 postings × 9 fields were labeled 2026-08-04 by a browser-side Claude reading the recorded excerpts, with the web explicitly off — the grader compares against text the extractor also sees, so a label sourced from outside that text marks a correct extractor wrong. Audited on install: 0 of 199 named technologies absent from the posting text, and no sponsorship, graduation-window, internship or years claim unsupported by the text. Two `+equivalent` calls read an escape hatch worded without the word "equivalent" (`akunacapital/8035515`, `openai/8fb1615c…`) and are the entries most likely to be wrong. Not spot-checked by a human | Human spot-check of ~10 entries, unscheduled |
 | `FixtureGreenhouseAdapter` (`cli.py`) | Subclasses the real adapter, overrides only `fetch_board` to read a committed JSON file. Constructed with no HTTP client, so it cannot make a request. Attributed to source `greenhouse_fixture` with `source_type='fixture'`, badged **"committed fixture"** in the Operate UI. ADR 0004 | Permanent — this is the offline demo path, not a stopgap |
 | Geocoding | **Built in M4a and correct to say so.** `domain/geocoding.py` behind a Protocol, the NYC GeoSearch adapter with committed fixtures, the permanent cache that refuses to store an outage, and the office loader. **What is still true: no coordinate has been written**, because the worksheet below is blank — not because the geocoder is missing. `mappable_locations` reads 0 and the page now says *"no posting states a street"* rather than *"nothing geocoded yet"*, which is the difference between a property of the data and a missing feature. Rungs 2–3 (Nominatim, neighbourhood centroids) are still unbuilt and stay deferred: they produce `approximate` points the office loader refuses by design | Done at **M4a**. Coordinates appear when the worksheet has a row |
-| `company_locations` table and `data/company-locations.yaml` | **Both exist as of M4a.** The table, its migration and its constraints are in; the worksheet ships pre-filled with the nine NYC registry companies and every `street_address` **blank**, which is a correct answer rather than a gap (Q7 answered: "as many as you'd like"). `read_worksheet` refuses four kinds of entry, the sharpest being an address that names no street — somebody typing here is asserting *an office is at this address*, and a weaker version of that assertion is not what they meant. Until a row is filled, the honest render is every job in the unresolved layer | Table and promotion path **done at M4a**. The row count is the human's, and blocks nothing |
+| `company_locations` table and `data/company-locations.yaml` | **Table, worksheet and loader all exist and are now connected.** The table, its migration and its constraints landed at M4a; `read_worksheet` and `load_offices` at M4a/M4b; **`make offices`, the thing that calls them, at M4e Task 1 on 2026-08-16** — until then the worksheet led nowhere and no number of typed addresses could have changed a pixel. The file now covers all **23** registry boards with every `street_address` **blank**, which is a correct answer rather than a gap (Q7 answered: "as many as you'd like"). `read_worksheet` refuses four kinds of entry, the sharpest being an address that names no street — somebody typing here is asserting *an office is at this address*, and a weaker version of that assertion is not what they meant. Until a row is filled, the honest render is every job in the unresolved layer | Table and promotion path **done**; end to end, verified live (Datadog → BIN 1087186). **The renderer still cannot draw a `building` placement — that is M4e Task 6.** The row count is the human's |
 | Street-level placement of any job | **Impossible from this data, and now measured rather than assumed.** 0 of 247 postings, 139 distinct location strings, 10 fields, 3 providers. Reproduce with `./.venv/bin/python scripts/census_location_text.py`, which refuses to print a count until it has proved on that run that it can see a real address | Not a gap — a property of ATS data. Named on `/analyze/coverage` at **M4a** |
 | Dedupe similarity threshold | **Real, thinly calibrated, and now with one real-world data point.** `SIMILARITY_THRESHOLD = 0.85` was derived from three labelled pairs. M1d's live Datadog poll merged two genuine postings on `similar_description` at **0.864** — the first evidence from outside the labelled set, and it landed close to the line. One observation is not a calibration and nothing was changed on the strength of it, but it is the first sign the number is doing real work at a real boundary. Re-derive as the fixture set grows | Unscheduled; revisit when more live boards are polled |
 | ~~Merge concurrency~~ | **Fixed in M1d** (`408c768`). The defect was reproduced before being fixed — Postgres reported a real `DeadlockDetectedError` between two workers merging the same pair in opposite directions. Both rows are now locked in primary-key order, as two statements rather than one `IN` clause, because a single statement's lock acquisition follows the query plan rather than the sort. Mutation-checked: the caller's order deadlocks on 3 of 3 runs; the fix passed 8 consecutive | Done |

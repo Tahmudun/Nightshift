@@ -15,9 +15,8 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
-import pytest
-
 from nightshift.domain.company_locations import read_worksheet
+from nightshift.domain.registry import get_registry
 
 WORKSHEET = Path(__file__).parent.parent.parent.parent / "data" / "company-locations.yaml"
 
@@ -214,7 +213,7 @@ def test_the_committed_worksheet_parses() -> None:
     """A worksheet that had silently stopped parsing would look identical to one
     nobody had filled in yet — both produce zero offices."""
     reading = read_worksheet(WORKSHEET.read_text())
-    assert reading.total == 9, reading.summary()
+    assert reading.total == len(get_registry().boards), reading.summary()
     assert reading.problems == [], reading.summary()
 
 
@@ -228,11 +227,35 @@ def test_the_committed_worksheet_names_who_is_vouching() -> None:
     assert not any("confirmed_by" in p.reason for p in reading.problems), reading.summary()
 
 
-@pytest.mark.parametrize("company", ["Datadog", "Ramp", "Stripe", "1Password"])
-def test_the_registry_nyc_companies_have_a_row_to_fill(company: str) -> None:
-    """The worksheet is generated from the registry's `nyc_presence` boards. If
-    a company is added there and not here, its jobs can never reach a building
-    and nothing would say why."""
+def _named_in_worksheet() -> set[str]:
     reading = read_worksheet(WORKSHEET.read_text())
-    named = {e.company for e in reading.entries} | set(reading.blank)
-    assert company in named
+    return (
+        {e.company for e in reading.entries}
+        | set(reading.blank)
+        | {p.company for p in reading.problems}
+    )
+
+
+def test_every_registry_board_has_a_row_to_fill() -> None:
+    """The registry is the set of employers this product can see. A company in
+    it with no row here can never reach a building, and nothing would say why —
+    the absence is indistinguishable from a company somebody checked and found
+    had no NYC office.
+
+    Held over the whole registry rather than the `nyc_presence` subset, which is
+    what this asserted until 2026-08-16. `nyc_presence` is derived from posting
+    text, and posting text is not a company directory: a board whose postings
+    all say "Remote" can still be run out of an office on Lafayette Street.
+    """
+    missing = {board.company for board in get_registry().boards} - _named_in_worksheet()
+    assert not missing, f"in data/board-registry.yaml but not in the worksheet: {sorted(missing)}"
+
+
+def test_the_worksheet_names_no_company_the_registry_does_not() -> None:
+    """The other direction, and the one that rots quietly. `load_offices` looks
+    a company up and never creates one, so a row naming an employer no board
+    belongs to is reported `not ingested` forever — a line in the report that
+    can never turn green and that nobody can act on.
+    """
+    unknown = _named_in_worksheet() - {board.company for board in get_registry().boards}
+    assert not unknown, f"in the worksheet but not in data/board-registry.yaml: {sorted(unknown)}"

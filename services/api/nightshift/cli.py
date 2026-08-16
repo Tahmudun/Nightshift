@@ -1,4 +1,4 @@
-"""Operational CLI: ``seed``, ``ingest``, ``enqueue``, ``stats``.
+"""Operational CLI: ``seed``, ``ingest``, ``offices``, ``enqueue``, ``stats``.
 
 The distinction between ``seed`` and ``ingest`` is the important thing in this
 module, and it is a direct application of I7.
@@ -30,6 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from nightshift.adapters.ashby import AshbyAdapter
 from nightshift.adapters.base import BoardRef, FetchOutcome, RawJob
+from nightshift.adapters.geosearch import NycGeoSearchGeocoder
 from nightshift.adapters.greenhouse import GreenhouseAdapter
 from nightshift.adapters.http import PoliteClient
 from nightshift.adapters.lever import LeverAdapter
@@ -46,6 +47,7 @@ from nightshift.db.base import (
 )
 from nightshift.db.models import (
     Company,
+    CompanyLocation,
     Job,
     JobLocation,
     Source,
@@ -57,8 +59,12 @@ from nightshift.db.models import (
 from nightshift.db.session import dispose_engine, session_scope
 from nightshift.db.types import utcnow
 from nightshift.domain.applications import change_stage, save_job
+from nightshift.domain.companies import normalize_company_name
+from nightshift.domain.company_locations import DEFAULT_WORKSHEET_PATH, read_worksheet
+from nightshift.domain.geocode_cache import CachingGeocoder
 from nightshift.domain.ingestion import get_or_create_source, ingest_boards
 from nightshift.domain.matching import recompute_pending
+from nightshift.domain.office_loading import LoadReport, load_offices
 from nightshift.domain.polling import (
     ADAPTERS,
     adapter_for,
@@ -721,8 +727,147 @@ async def cmd_poll(args: argparse.Namespace) -> int:
     return 0
 
 
+async def cmd_offices(args: argparse.Namespace) -> int:
+    """Load `data/company-locations.yaml` into `company_locations`.
+
+    The last two steps of the promotion path in `city.md` §4.4, which existed as
+    tested functions with no caller until now. A human writes a street address
+    into the worksheet; this reads it, refuses what cannot support itself, walks
+    the geocoding ladder, and writes the rows that reach `verified`. It is the
+    only way a coordinate a person vouched for enters this product.
+
+    **Run by a human, never scheduled.** Geocoding is a real request to
+    `geosearch.planninglabs.nyc`, so this is gated on `OUTBOUND_HTTP_ENABLED`
+    exactly like `ingest` and `poll`. The gate is checked only when there is
+    something to geocode: an all-blank worksheet is the starting state and
+    reporting on it must not require the network, or a fresh clone could not run
+    this command to find out what it is being asked to fill in.
+
+    `CachingGeocoder` wraps the rung, so every address is requested once ever.
+    After a run the answers live in `geocode_cache` and `make demo` stays
+    offline, which is the property ADR 0022 protects for tiles and this protects
+    for addresses.
+
+    **Exit code separates the two kinds of failure.** A *refused* entry is a
+    defect in the file — an address with no date, a "New York, NY" that names no
+    street — and the human has to fix it, so it exits 1 and `make offices` goes
+    red. An *unresolved* entry is the world answering: the address is outside
+    NYC GeoSearch's corpus, or names a place it does not know. That is a real
+    finding, not a mistake, and it exits 0.
+    """
+    path = Path(args.worksheet) if args.worksheet else DEFAULT_WORKSHEET_PATH
+    try:
+        source = path.read_text()
+    except OSError as exc:
+        print(f"error: cannot read worksheet at {path}: {exc}", file=sys.stderr)
+        return 1
+
+    reading = read_worksheet(source)
+    print(f"  {path}")
+    print(f"  {reading.summary()}")
+
+    if not reading.entries:
+        # Nothing to geocode. Report what the file said and stop — no session,
+        # no network, no ladder.
+        report = LoadReport(
+            blank=list(reading.blank),
+            refused=[(p.company, p.reason) for p in reading.problems],
+        )
+        _print_office_report(report, placed_rows=[])
+        return 1 if report.refused else 0
+
+    settings = get_settings()
+    if not settings.outbound_http_enabled:
+        print(
+            f"\nerror: {len(reading.entries)} entr(ies) name an address, and geocoding "
+            "one is a network call.\n"
+            "       Set OUTBOUND_HTTP_ENABLED=true in .env to run them through NYC "
+            "GeoSearch.\n"
+            "       (Answers are cached permanently, so `make demo` stays offline "
+            "afterwards.)",
+            file=sys.stderr,
+        )
+        return 1
+
+    async with PoliteClient() as client, session_scope() as session:
+        ladder = (CachingGeocoder(NycGeoSearchGeocoder(client), session),)
+        report = await load_offices(session, reading, ladder)
+        placed_rows = await _placed_rows(session, report)
+        _print_office_report(report, placed_rows=placed_rows)
+
+    return 1 if report.refused else 0
+
+
+async def _placed_rows(
+    session: AsyncSession, report: LoadReport
+) -> list[tuple[str, CompanyLocation]]:
+    """Read back what was actually written, rather than reprinting the input.
+
+    `LoadReport.placed` carries company names and nothing else, and a command
+    that echoed the address it was handed would look identical whether the row
+    reached the database or not. I6 wants evidence: the confidence and the BIN
+    below are the columns the renderer will read, straight out of the table.
+    """
+    if not report.placed:
+        return []
+    # Matched on `normalized_name`, the same key `load_offices` looked the
+    # company up by. `report.placed` holds the name as the worksheet spells it,
+    # and "8Fleet Inc." and "8fleet inc" are one employer to this database.
+    normalized = [normalize_company_name(name) for name in report.placed]
+    rows = (
+        (
+            await session.execute(
+                select(Company.canonical_name, CompanyLocation)
+                .join(CompanyLocation, CompanyLocation.company_id == Company.id)
+                .where(Company.normalized_name.in_(normalized))
+                .order_by(Company.canonical_name, CompanyLocation.label)
+            )
+        )
+        .tuples()
+        .all()
+    )
+    return [(name, row) for name, row in rows]
+
+
+def _print_office_report(
+    report: LoadReport, *, placed_rows: list[tuple[str, CompanyLocation]]
+) -> None:
+    """One line per company, grouped by what happened to it."""
+    print()
+    if placed_rows:
+        print("  placed on a building")
+        for name, row in placed_rows:
+            bin_text = f"BIN {row.building_id}" if row.building_id else "no BIN returned"
+            print(
+                f"    {name:<24} {row.street_address}"
+                f"  ->  {row.location_confidence.value}, {bin_text}"
+            )
+
+    if report.unresolved:
+        print("  address given, no building found")
+        for name, reason in report.unresolved:
+            print(f"    {name:<24} {reason}")
+
+    if report.unknown_company:
+        print("  address recorded but the company has no jobs yet (board not polled)")
+        for name in report.unknown_company:
+            print(f"    {name}")
+
+    if report.refused:
+        print("  refused — fix these in the worksheet")
+        for name, reason in report.refused:
+            print(f"    {name:<24} {reason}")
+
+    if report.blank:
+        print(f"  blank ({len(report.blank)}) — a correct answer; these jobs stay unplaced")
+        print(f"    {', '.join(report.blank)}")
+
+    print(f"\n  {report.summary()}")
+
+
 COMMANDS = {
     "seed": cmd_seed,
+    "offices": cmd_offices,
     "score": cmd_score,
     "ingest": cmd_ingest,
     "poll": cmd_poll,
@@ -735,6 +880,14 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="nightshift", description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("seed", help="load dev user + committed fixture board (offline)")
+    offices = subparsers.add_parser(
+        "offices", help="load data/company-locations.yaml into company_locations"
+    )
+    offices.add_argument(
+        "--worksheet",
+        default=None,
+        help="worksheet file (default: data/company-locations.yaml)",
+    )
     subparsers.add_parser("score", help="score every pair due at the current ruleset version")
     subparsers.add_parser("ingest", help="poll live boards from the registry")
     poll = subparsers.add_parser(

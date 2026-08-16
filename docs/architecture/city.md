@@ -374,6 +374,40 @@ somewhere else.
 the ceiling on lit buildings is a number of addresses somebody types, and that is
 their time rather than my engineering decision.
 
+**How it runs: `make offices`.** Added 2026-08-16, and the reason it had to be is
+worth recording. `read_worksheet` and `load_offices` shipped in M4a and M4b, both
+complete and both tested — and **nothing outside the test suite called either of
+them**. The worksheet was a file you could fill in that led nowhere, so the answer
+to Q7 could not have changed a single pixel no matter how many addresses were typed
+into it. A subsystem is not built until something runs it; two green test files and
+a documented design read exactly like a working feature from the outside, which is
+the shape of the failure I7 names.
+
+The command reads the worksheet, refuses what §4.4 says it must, walks the §4.3
+ladder over the survivors, and writes `company_locations`. Three properties matter:
+
+- **A human runs it. It is never scheduled and is in neither `demo` nor
+  `acceptance`.** Geocoding is a live request to `geosearch.planninglabs.nyc`, so
+  it is gated on `OUTBOUND_HTTP_ENABLED` exactly as `ingest` and `poll` are.
+  `CachingGeocoder` writes every answer to `geocode_cache`, so an address is
+  requested once ever and the buildings it placed survive into an offline
+  `make demo` — the same guarantee ADR 0022 gives tiles, applied to addresses.
+- **The network gate is checked lazily**, only when an entry actually names an
+  address. An all-blank worksheet is the starting state, and a command that
+  demanded outbound HTTP before it could tell you the file is empty would be
+  unusable for the first thing anybody uses it for.
+- **A refusal exits 1; an unresolved address exits 0.** A refused entry is a
+  defect in a file a person wrote and they have to go fix it. An unresolved one
+  is the world answering: the address is outside GeoSearch's corpus, or names
+  somewhere it does not know. Most of the registry has no NYC office and that is
+  a finding, not a mistake — conflating the two would make the command red by
+  default and therefore ignored.
+
+Verified end to end on 2026-08-16 against the live geocoder: `Datadog`,
+`620 8th Ave, New York, NY, 10018` → `verified`, **BIN 1087186**, one HTTP request,
+one row. The row was deleted afterwards; the address is the human's to confirm and
+a scratch run must not leave a `confirmed_by` behind that names nobody real.
+
 ### 4.5 Ashby's structured address, read for tidiness rather than precision
 
 `address.postalAddress` is recorded verbatim in every Ashby payload and deliberately

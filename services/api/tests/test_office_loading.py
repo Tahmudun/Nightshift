@@ -22,6 +22,7 @@ from nightshift.domain.geocoding import (
     Unresolved,
 )
 from nightshift.domain.office_loading import load_offices
+from nightshift.domain.registry import get_registry
 from tests.conftest import requires_db
 
 pytestmark = [requires_db, pytest.mark.asyncio(loop_scope="session")]
@@ -197,9 +198,15 @@ async def test_the_committed_worksheet_places_nothing_yet(db_session: AsyncSessi
     path = Path(__file__).parent.parent.parent.parent / "data" / "company-locations.yaml"
     report = await load_offices(db_session, read_worksheet(path.read_text()), (_Rung(_verified()),))
 
+    # Counted against the registry rather than pinned to a literal. The two
+    # files are held equal by `test_company_locations_worksheet.py`, and a
+    # number written here as well would have to be edited by hand every time a
+    # board is promoted — which is how a test starts failing for a reason that
+    # is not a defect.
+    expected = len(get_registry().boards)
     assert report.placed == []
-    assert report.considered == 9
-    assert len(report.blank) == 9
+    assert report.considered == expected
+    assert len(report.blank) == expected
 
 
 # --------------------------------------------------------------------------
