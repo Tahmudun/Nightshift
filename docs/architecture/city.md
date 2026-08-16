@@ -97,6 +97,17 @@ between the viewer and the far buildings, never in front of the near ones.
 > still the brightest thing on the map, and `dusk-*` still never touches a mark.
 > Read ADR 0023 before changing either.
 
+> **The rest of this rule fell on 2026-08-16 — ADR 0029.** ADR 0023 reversed
+> half of it and the other half is what kept the city grey for two more
+> milestones. The paragraph below is left as written because the argument in it
+> is still correct about its *aim* and instructive about its method: it
+> protected a real constraint through a proxy — a token that happened to be dim
+> — and then the proxy became the design. `ink-450`, a desaturated blue-grey,
+> ended up the brightest pixel on the map. **The city is neon now**, in a
+> `neon-*` family that carries no meaning, and what protects the encoding is a
+> stated margin — city < hiring building < open role, held by test at both ends
+> and with a floor so it cannot be satisfied by darkness. Read ADR 0029 first.
+
 **Every building glows.** In all four images the whole skyline is lit. That is the
 one thing this city may never do, and not for taste reasons: §9.2 says *"most of the
 city should remain dark so active data can breathe"*, and if every building is lit
@@ -109,6 +120,18 @@ references, especially at the current corpus size, and that is correct rather th
 shortfall. A skyline with nine lit buildings is telling you there are nine employers
 with open roles in view. A skyline with four hundred lit buildings is telling you
 nothing.
+
+**What replaces it.** The scenery is lit and carries nothing; the *marks* carry
+everything, and they differ from the scenery in hue and shape rather than only
+in level. Concretely, and each one is asserted rather than intended:
+
+- Streets, rail, the shoreline and the rooflines of buildings over 400 feet draw
+  in `neon-*`, an electric indigo at hue ~252 that means nothing at all.
+- A hiring building is `alert-400` magenta — 81° of hue away, and 8 L\* brighter.
+- An open role is `signal-400` cyan, 22 L\* brighter than that, and it moves.
+- Everything in the style stays at least 20 L\* below `signal-400`, and something
+  in it must exceed 50 L\* or the suite fails — which is the assertion that would
+  have caught the grey city if it had existed.
 
 **Heavy bloom.** PRODUCT-SPEC §4.2's avoid-list names excessive bloom and hard-to-read glowing
 text explicitly. The references are bloom-heavy because they are stills; on a

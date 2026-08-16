@@ -54,22 +54,50 @@ quality tiers and the field-at-scale fix against the grey renderer would mean
 measuring twice and believing the wrong number. The frame timer stays the
 instrument every M4e task reports against.
 
-**M4e Task 1 — the worksheet, and the loader that was never wired up — is
-done.** `data/company-locations.yaml` covers all 23 registry boards, and
-`make offices` runs it. See "M4e Task 1" below. **Next: Task 2, the `neon-*`
-palette and the two assertions that made the city grey.**
+**M4e Tasks 1, 2, 4 and 5 are done. Next is Task 3 (the sky) or Task 6 (the
+hiring building).**
+
+- **Task 1 — the worksheet, and the loader that was never wired up.**
+  `data/company-locations.yaml` covers all 23 registry boards, and `make offices`
+  runs it, verified live against NYC GeoSearch. See "M4e Task 1" below.
+- **Tasks 2, 4, 5 — the city is neon.** ADR 0029. A `neon-*` family that carries
+  no meaning; the two assertions that made the city grey replaced by the rule
+  they stood in for, plus the floor that never existed; the road ramp and the
+  shoreline lit; the building mass dropped four shades with the light moved to
+  the roofline. Screenshots: `docs/reviews/milestone-4e-ground.png`,
+  `milestone-4e-buildings.png`.
+- **Task 3 — the sky — is not done, and `sky-horizon-blend` 0.8 → 0.55 is an
+  improvement rather than the fix.** Two things were measured while tuning it,
+  and neither can be solved from MapLibre's `sky` block: **more sky needs more
+  pitch and pitch is capped at 78** (at 70 the horizon leaves the viewport
+  entirely), and **the hard edge under the sky is far ground that fog does not
+  reach** — `fog-ground-blend` and `horizon-fog-blend` swept 0 → 0.85 with no
+  movement, and recolouring `background` did not move it either, because the
+  band is drawn ground rather than void. The horizon glow, the synthwave sun and
+  the starfield need a custom layer.
+- **Task 6 — the hiring building — is unblocked by Task 1 and blocked by the
+  human.** The pipeline runs end to end; what it needs is a street address in
+  the worksheet. Zero are filled.
 
 **The M4e task order**, from the slice plan:
 
-1. ~~**The worksheet and its loader.**~~ **Done.** First because the human is
-   typing addresses now and the file they type into must lead somewhere.
-2. **A `neon-*` palette family**, and replacing the two `darkStyle.test.ts`
-   assertions that turn "the city stays grey" into a build failure.
+1. ~~**The worksheet and its loader.**~~ **Done** (`3c25704`). First because the
+   human is typing addresses now and the file they type into must lead somewhere.
+2. ~~**A `neon-*` palette family**, and replacing the two `darkStyle.test.ts`
+   assertions that turn "the city stays grey" into a build failure.~~ **Done**
+   (`c8b9e0d`). ADR 0029.
 3. **A sky, not a rectangle** — a custom layer with a gradient, a starfield, and
-   a sun fixed due west over the Hudson.
-4. **The ground** — neon streets at graded intensity, a glowing shoreline.
-5. **The buildings** — near-black saturated mass, window speckle from a
-   same-origin baked sprite, neon crowns via a second extrusion layer.
+   a sun fixed due west over the Hudson. **Not done**; the two constraints
+   measured while trying are above and in `darkStyle.ts`'s `sky` block.
+4. ~~**The ground** — neon streets at graded intensity, a glowing shoreline.~~
+   **Done** (`c8b9e0d`).
+5. ~~**The buildings** — near-black saturated mass, neon crowns via a second
+   extrusion layer.~~ **Done** (`1413c02`). **Window speckle was not built and is
+   not currently planned**: `fill-extrusion-pattern` overrides
+   `fill-extrusion-color`, so a patterned layer cannot also carry the height
+   ramp, and the edge-lit read the references are actually built from came from
+   the crown instead. If it is revisited it needs a same-origin baked sprite on
+   the ADR 0022 pattern, or the offline guarantee goes.
 6. **The hiring building** — `arrangeOnBuildings`, a BIN-filtered extrusion
    layer, roof beacons. Depends on Task 1 having placed an office.
 7. **Bloom**, behind the quality tier, measured before and after.
@@ -657,6 +685,79 @@ leads somewhere**: `make offices` reads it, geocodes it and writes
 
 **Q2 (deployment target) is the only open question that blocks anything**, and
 only M4d.
+
+---
+
+## M4e Tasks 2, 4, 5 — the city is neon, and three wrong diagnoses on the way
+
+**Done 2026-08-16.** ADR 0029. Screenshots: `docs/reviews/milestone-4e-ground.png`
+(the ground), `milestone-4e-buildings.png` (the whole thing).
+
+**What was wrong, and it was not an oversight.** Three documents I wrote forbade
+the look the reference images set, and two assertions in `darkStyle.test.ts`
+turned that into a build failure. The proxy those assertions used — "stay below
+`ink-400`" — became the design, and `ink-450`, a desaturated blue-grey, ended up
+the brightest pixel on the map. On 2026-08-13 the human handed back
+`04-edge-outlined-towers-starfield.jpg`, **byte-for-byte the same file this
+repository filed on 2026-08-11**, saying the vision had not been met. The target
+was recorded correctly and the implementation did not reach it.
+
+**What shipped:**
+
+| Piece | Where |
+|---|---|
+| A `neon-*` family — electric indigo, hue ~252, carrying **no meaning** | `globals.css`, `lib/map/palette.ts` |
+| The road ramp and the shoreline lit; the water fill still `ink-950` | `lib/map/darkStyle.ts` |
+| The building mass dropped `ink-800`→`ink-450` to `ink-950`→`ink-600` | `HEIGHT_STOPS` |
+| `buildings-crown` — a second extrusion lighting the top 7 m of anything over 400 ft | `crownLayer()` |
+| A declared `light`, at `intensity: 0.18` | the style's `light` block |
+| The two grey-enforcing assertions replaced, **and a floor added** | `darkStyle.test.ts`, `palette.test.ts`, `colour-contrast.test.ts` |
+
+**The brightness stack, asserted at both ends**: city (≤55.2 L\*) < hiring
+building (`alert-400`, 63.6) < open role (`signal-400`, 85.6). The margin is 20
+L\* because `alert-400` sits 22.0 below `signal-400` — 20 admits it and admits
+nothing above it.
+
+**The floor is the half that never existed, and it is the finding worth keeping
+from this slice.** Every brightness assertion this suite has ever held is
+satisfied perfectly by a map drawn entirely in `ink-950` — and for four
+milestones a suite of exactly those assertions was green over exactly that city.
+A one-sided bound cannot fail in the direction the product actually went wrong.
+The floor now requires something in the style to exceed 50 L\*. **The first draft
+said 40 and passed on `ink-400` at 40.2** — the exact grey being replaced. It
+would have gone green over the city it was written to catch.
+
+**Three wrong diagnoses, each of which cost a round.**
+
+*A style that omits `light` does not get no light — it gets MapLibre's.* White,
+`intensity: 0.5`, viewport-anchored, added to every extrusion face, setting a
+floor no paint can go below. The ramp was dropped four full shades and the
+towers came back the same pale grey, because what was on screen was mostly the
+light and not the colour. Found by hiding the crown layer and looking at what was
+left. One attempt to tint the light `neon-700` turned the whole city olive —
+roughly the complement of the light colour — so it ships white until that is
+understood rather than worked around.
+
+*A `let`/`var` expression is fine in `paint` and matches everything in a
+`filter`.* The crown filtered on `HEIGHT_FEET`, which wraps the lookup in a
+`let`, and every structure in New York got a neon roof: a sub-threshold building
+still draws its top cap, and with base equal to height that is invisible from the
+side and a solid lit polygon from above. **Nothing errored. It looked
+deliberate.**
+
+*The crown threshold came from a count, after being picked by eye twice and being
+wrong twice.* Of 25,176 footprints at the opening pose: 3,181 over 150 ft, 1,107
+over 250, 408 over 400, 103 over 600; tallest 1,550. At 150 the frame is a carpet
+of lit roofs; at 400 it is Midtown and the Financial District glowing over a dark
+city.
+
+**Not measured yet: what this costs a frame.** The crown is a second full
+extrusion pass, and M4d Task 1's tables were taken against the grey renderer. The
+headed Playwright readout during these screenshots showed 26–30 ms typical at
+1600×1000, but that is a screenshot harness competing with a dev server and is
+**not** the measurement config. Re-running `e2e/city-metrics.spec.ts --headed` at
+200 and 5,000 roles is the next number this milestone owes, and it is the reason
+M4d Tasks 2–7 were paused rather than done first.
 
 ---
 
