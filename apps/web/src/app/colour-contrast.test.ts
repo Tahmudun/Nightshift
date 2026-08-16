@@ -199,3 +199,95 @@ describe('dusk is atmosphere and can never become a mark', () => {
     expect(offenders, 'dusk is sky and fog only — see city.md §3').toEqual([]);
   });
 });
+
+/**
+ * `neon-*` is the second family whose assertions run the other way, and it is
+ * the newer half of the same argument.
+ *
+ * ADR 0029 lit the city: streets, shorelines and rooflines carry light now,
+ * which is what the reference images at `docs/design/references/` have shown
+ * since 2026-08-11 and what four milestones of restraint did not deliver. The
+ * question that restraint was answering is still real — if the scenery lights
+ * up, what colour is it? Every saturated hue in this product already means
+ * something: cyan is an open role, magenta is something you can act on, gold is
+ * urgency, green is an offer, violet is the weather.
+ *
+ * So `neon-*` is a family that means **nothing**. It is infrastructure light:
+ * it says "this is the city" the way a streetlight does, and it may never carry
+ * a state, a status, or a word. Two things enforce that, and neither is a
+ * comment: no source file uses a neon shade as text or a border, and every
+ * shade stays a stated distance below the colour a job is drawn in.
+ */
+describe('neon is the city and can never become a mark', () => {
+  const NEON = ['neon-900', 'neon-700', 'neon-500', 'neon-400'] as const;
+
+  /** CIE L*, the measure the map tests use. See darkStyle.test.ts for why. */
+  function lightness(hex: string): number {
+    const y = luminance(hex);
+    return y <= 0.008856 ? 903.3 * y : 116 * Math.cbrt(y) - 16;
+  }
+
+  it('stays below the hiring building, which stays below an open role', () => {
+    // The whole stack, in one assertion, because it is one claim: the city is
+    // lit, a company that is hiring is brighter than the city, and an open role
+    // is brighter than either. Any pair of these inverting makes the encoding
+    // read backwards while every individual colour still looks right.
+    const city = Math.max(...NEON.map((name) => lightness(token(name))));
+    const hiring = lightness(token('alert-400'));
+    const role = lightness(token('signal-400'));
+
+    expect(city, 'the city may not outshine a hiring building').toBeLessThan(hiring);
+    expect(hiring, 'a hiring building may not outshine an open role').toBeLessThan(role);
+    // …and the margin is stated rather than incidental. 20 L* is what admits
+    // alert-400 at 22.0 and admits nothing above it. Mirrored in
+    // `palette.test.ts`, which holds it over every map colour.
+    expect(role - city).toBeGreaterThan(20);
+  });
+
+  it('is actually neon, and not a fourth shade of ink', () => {
+    // The direction that would never fail on its own. A `neon-*` family defined
+    // as four near-greys satisfies every bound above and leaves the city
+    // exactly as it was — which is the failure ADR 0029 is about, and it went
+    // undetected for four milestones under a suite that only ever checked the
+    // ceiling.
+    for (const name of NEON) {
+      const h = token(name).replace('#', '');
+      const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255) as [
+        number,
+        number,
+        number,
+      ];
+      const saturation = Math.max(r, g, b) - Math.min(r, g, b);
+      expect(saturation, `${name} is too desaturated to read as neon`).toBeGreaterThan(0.25);
+    }
+  });
+
+  it('rises monotonically, because the road ramp reads straight down it', () => {
+    // NEON is declared dimmest-first: road-path, road-minor, road-major,
+    // road-highway. Reordering the family reorders the street hierarchy, and a
+    // city where the footpaths outshine the highways is unreadable in a way no
+    // single colour looks wrong.
+    const ordered = NEON.map((name) => luminance(token(name)));
+    for (let i = 1; i < ordered.length; i += 1) {
+      expect(ordered[i]!).toBeGreaterThan(ordered[i - 1]!);
+    }
+  });
+
+  it('no component uses a neon shade for text, a border, or a fill', () => {
+    // The map style is the only legitimate consumer, and it reads the values
+    // through MAP_PALETTE rather than as Tailwind utilities. There is no
+    // legitimate `text-neon-*` or `border-neon-*` anywhere: a neon that can
+    // appear in the interface is a colour that has started meaning something.
+    const files = globSync('**/*.{tsx,ts}', { cwd: SRC });
+    expect(files.length, 'the glob must actually find components').toBeGreaterThan(5);
+
+    const offenders: string[] = [];
+    for (const file of files) {
+      const source = readFileSync(join(SRC, file), 'utf8');
+      if (/\b(text|border|ring|from|via|to|fill|stroke|decoration)-neon-\d{3}\b/.test(source)) {
+        offenders.push(file);
+      }
+    }
+    expect(offenders, 'neon is the city, not the interface — see ADR 0029').toEqual([]);
+  });
+});

@@ -13,10 +13,16 @@
  * for the signal colour would be spending the encoding on scenery.
  *
  * `paper-*` is absent for the same reason in reverse — it is the text family,
- * and this style draws no text. The brightest thing here is `ink-450`, the top
- * of the building height ramp, and what stops it going further is ADR 0023's
- * headroom rule rather than taste: scenery stays at least 40 L\* below
- * `signal-400`, so a beacon always has somewhere brighter to be.
+ * and this style draws no text.
+ *
+ * What stops the palette climbing is a stated number rather than taste: **every
+ * colour here stays at least 20 L\* below `signal-400`**, so a beacon always has
+ * somewhere brighter to be. The margin is 20 because that is what admits
+ * `alert-400` — the hiring building, the brightest thing the city itself may
+ * draw, at 22.0 below — and nothing above it. ADR 0023 set this rule at 40 when
+ * the only thing testing it was a grey skyline; ADR 0029 lit the city and moved
+ * the number to the one the encoding actually needs. `palette.test.ts` asserts
+ * it over every entry below.
  */
 
 export const MAP_PALETTE = {
@@ -32,15 +38,16 @@ export const MAP_PALETTE = {
   ink600: '#1d2739',
   /** Major roads, administrative boundaries. */
   ink500: '#2b374d',
-  /** Motorways — the brightest thing on the *ground*, and it stops here. */
+  /** Administrative boundaries, rail, and anything structural the neon family
+   *  would over-light. Was the motorway colour until ADR 0029 lit the streets. */
   ink400: '#4d5f83',
   /**
-   * The tallest buildings, and the brightest shade on the map.
+   * The tallest buildings.
    *
    * Above the old `ink-400` ceiling on purpose: ADR 0023 replaced that cap with
-   * a headroom rule — scenery stays at least 40 L* below `signal-400` — and this
-   * sits at 41.3. Reached only by the handful of towers over 900 feet, which is
-   * what makes it read as a skyline rather than as a brighter map.
+   * a headroom rule, and this sits 41.3 L* below `signal-400`. Reached only by
+   * the handful of towers over 900 feet, which is what makes it read as a
+   * skyline rather than as a brighter map.
    */
   ink450: '#56698f',
 
@@ -49,6 +56,24 @@ export const MAP_PALETTE = {
   dusk700: '#2d1263',
   dusk500: '#5a1d94',
   dusk300: '#a63398',
+
+  /**
+   * The city's own light — infrastructure, carrying no meaning. ADR 0029.
+   *
+   * Electric indigo, because every other saturated hue in this product is
+   * spoken for: cyan is a job, magenta is something you can act on, gold is
+   * urgency, green is an offer, and violet is the weather. A lit street has to
+   * be a colour that means nothing, or the encoding pays for the scenery.
+   *
+   * Ordered dimmest-first, and the road ramp reads straight down it:
+   * `road-path` → `road-minor` → `road-major` → `road-highway`. Never darker,
+   * always wider — `darkStyle.test.ts` holds that.
+   */
+  neon900: '#2f2170',
+  neon700: '#4733ad',
+  neon500: '#6547d1',
+  /** The brightest thing the basemap may draw: 55.2 L*, 30.4 below `signal-400`. */
+  neon400: '#8a6bff',
 } as const;
 
 export type MapPalette = typeof MAP_PALETTE;

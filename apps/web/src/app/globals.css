@@ -88,6 +88,40 @@
   --color-dusk-500: #5a1d94;
   --color-dusk-300: #a63398;
 
+  /* The city's own light. Surfaces and lines, never a mark, never text.
+   *
+   * M4e. The city renders, is honest, is measured — and looks like a grey model
+   * of New York rather than the thing it was specified to be. The reason is not
+   * an oversight: `city.md` §2.2 said "every building glows is the one thing
+   * this city may never do", and two assertions in `darkStyle.test.ts` turned
+   * that into a build failure. ADR 0029 reverses it. What is left is the
+   * question that rule was answering, which is real: if the streets and the
+   * rooflines light up, what colour are they?
+   *
+   * Not `signal-*`. Four milestones have established that cyan means a job, and
+   * a cyan street grid spends that.
+   *
+   * Not `dusk-*`. Dusk is atmosphere and may never touch an object (§3), and
+   * that ring-fence is the only reason the sky is allowed to be magenta at all.
+   *
+   * Not `alert-*`. Magenta means "something is wrong and you can act on it",
+   * and it is what a hiring building is drawn in.
+   *
+   * So: a family of its own. Electric indigo, hue ~252 — 64 degrees off the
+   * signal cyan and 81 off the alert magenta, far enough from both that a lit
+   * street can never be mistaken for either. It carries **no meaning**. It says
+   * "this is the city", the way a streetlight does.
+   *
+   * The ceiling is a number rather than a taste: every shade stays at least
+   * 20 L* below `signal-400`, and `neon-400` — the brightest — sits 30.4 below.
+   * The stack, brightest last: city (neon, <=55.2 L*) < hiring building
+   * (alert-400, 63.6) < job beacon (signal-400, 85.6). See darkStyle.test.ts
+   * and colour-contrast.test.ts, which hold all three in place. */
+  --color-neon-900: #2f2170;
+  --color-neon-700: #4733ad;
+  --color-neon-500: #6547d1;
+  --color-neon-400: #8a6bff;
+
   /* Thin white highlights. Exactly three text weights, and every one of them is
      readable: 17.7:1, 8.1:1, 5.4:1 against ink-950. paper-faint was #5d6e88
      (3.89:1) and failed WCAG AA for the 9-11px labels it is used on, so it was

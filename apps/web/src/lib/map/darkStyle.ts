@@ -10,9 +10,15 @@
  *
  * So nothing here is allowed to be as bright as a job. That used to be stated as
  * a hard cap at `ink-400`; ADR 0023 lit the city and replaced the cap with the
- * rule it stood in for — every colour on this map stays at least 40 L\* below
- * `signal-400`, so a beacon always has somewhere brighter to be. The ground
- * still stops at `ink-400`; only the tallest buildings go past it.
+ * rule it stood in for — every colour on this map keeps a stated margin below
+ * `signal-400`, so a beacon always has somewhere brighter to be.
+ *
+ * **ADR 0029 moved that margin to 20 L\* and lit the ground.** The `ink-400` cap
+ * was a proxy for the real rule, and the proxy became the design: `ink-450` at
+ * 44.3 L\* was the brightest pixel on the map and it is a desaturated grey.
+ * Streets, rail and the shoreline now draw in `neon-*` — an electric indigo that
+ * carries no meaning, so a lit city costs the encoding nothing. The stack,
+ * brightest last: **city < hiring building < open role.**
  *
  * ## The three ideas taken from the references (§2.1)
  *
@@ -23,9 +29,11 @@
  * separated enough that a motorway reads as a motorway at a glance — and they
  * are the primary read of the ground rather than a place to hang names.
  *
- * **Light is linear, not surface.** Nothing here is a lit fill. The one bright
- * line is the shoreline, drawn as the outline of the water rather than as a
- * colour on the land.
+ * **Light is linear, not surface.** Nothing here is a lit fill — not one. Every
+ * bright thing on the ground is a line: the street ramp, and the shoreline drawn
+ * as the outline of the water rather than as a colour on the land. That is what
+ * lets the city be neon without becoming uniformly half-lit, which is the state
+ * a beacon has nothing to stand against.
  *
  * **The purple is in the air.** The `sky` block is the whole of the reference
  * images' violet field: a graded dusk overhead, a glow at the horizon, fog
@@ -193,11 +201,17 @@ const GREEN_KINDS = [
  * is that a motorway and a footpath read as different *kinds* of thing rather
  * than as two thicknesses of the same thing.
  *
- * **Importance is carried by weight, not by brightness.** The two busiest
- * classes share `ink-400` and are separated by width: a motorway is four times
- * the line a footpath is. That is §2.1's "light is linear" taken seriously, and
- * it is also what the `ink-400` cap forces — there is no brighter shade to
- * promote a motorway into that would not start competing with a job.
+ * **Importance is carried by weight and by brightness, and the two never
+ * disagree.** Until ADR 0029 it was weight alone: the `ink-400` cap left no
+ * brighter shade to promote a motorway into, so the two busiest classes shared
+ * a colour and were separated only by width. The `neon-*` family gives the ramp
+ * its other half back — never darker, always wider, straight down the family.
+ *
+ * **This is the synthwave grid, and it is not a decoration.** §2.1 says the
+ * street network *is* the grid; Manhattan reads as one because it is one. The
+ * only thing the style was ever missing was the light. Nothing here is
+ * fabricated to produce the look — every line is a road OpenStreetMap recorded,
+ * drawn at the weight its own `kind` earns.
  */
 const ROADS: ReadonlyArray<{
   readonly id: string;
@@ -212,7 +226,7 @@ const ROADS: ReadonlyArray<{
   {
     id: 'road-path',
     kinds: ['path'],
-    color: C.ink600,
+    color: C.neon900,
     minzoom: 14,
     widths: [
       [14, 0.4],
@@ -235,7 +249,7 @@ const ROADS: ReadonlyArray<{
   {
     id: 'road-rail',
     kinds: ['rail'],
-    color: C.ink600,
+    color: C.neon900,
     minzoom: 11,
     widths: [
       [11, 0.5],
@@ -246,7 +260,7 @@ const ROADS: ReadonlyArray<{
   {
     id: 'road-minor',
     kinds: ['minor_road', 'other'],
-    color: C.ink500,
+    color: C.neon700,
     minzoom: 12,
     widths: [
       [12, 0.5],
@@ -257,7 +271,7 @@ const ROADS: ReadonlyArray<{
   {
     id: 'road-major',
     kinds: ['major_road', 'aeroway'],
-    color: C.ink400,
+    color: C.neon500,
     minzoom: 8,
     widths: [
       [8, 0.5],
@@ -269,7 +283,7 @@ const ROADS: ReadonlyArray<{
   {
     id: 'road-highway',
     kinds: ['highway'],
-    color: C.ink400,
+    color: C.neon400,
     minzoom: 5,
     widths: [
       [5, 0.8],
@@ -455,11 +469,18 @@ export function buildDarkStyle({ buildings = true }: DarkStyleOptions = {}): Sty
         'source-layer': 'water',
         filter: ['match', ['get', 'kind'], WATER_KINDS, true, false],
         paint: {
+          // The harbour stays the darkest thing in frame, and that is the
+          // decision rather than an omission. A lit water *fill* would put the
+          // brightest surface in the city under the part of the frame with no
+          // data on it — New York is a harbour city and water is most of the
+          // viewport at the opening pose. The read comes from the edge.
           'fill-color': C.ink950,
-          // The one lit edge on the basemap. §2.1's "light is linear, not
-          // surface" applied to the coast: the harbour reads as an edge rather
-          // than as a lighter shade of anything.
-          'fill-outline-color': C.ink600,
+          // The brightest line on the ground, and the one that costs a single
+          // property. §2.1's "light is linear, not surface" applied to the
+          // coast: the Hudson, the East River and the harbour draw themselves
+          // as glowing edges, which is most of the synthwave read on a real map
+          // of this city. ADR 0029 is what let it climb from `ink-600`.
+          'fill-outline-color': C.neon400,
         },
       },
       ...roadLayers(),
