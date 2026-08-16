@@ -68,7 +68,12 @@
  * whose absence would silently blank a layer.
  */
 
-import type { ExpressionSpecification, LayerSpecification, StyleSpecification } from 'maplibre-gl';
+import type {
+  ExpressionSpecification,
+  FilterSpecification,
+  LayerSpecification,
+  StyleSpecification,
+} from 'maplibre-gl';
 
 import { basemapManifest, BASEMAP_URL, buildingsManifest, BUILDINGS_URL } from '@/lib/tiles';
 
@@ -141,14 +146,76 @@ const HEIGHT_FEET = [
  * The rungs are the city's own shape rather than an even ramp: most of New York
  * is under 60 feet, so an even ramp would render almost everything at the bottom
  * shade and waste the range on the handful of towers.
+ *
+ * **ADR 0029 dropped the whole ramp four shades, and that is the change that
+ * makes the city look like the references rather than like a 3D model of it.**
+ * It used to run `ink-800` → `ink-450`, which put pale blue-grey masses across
+ * most of the frame — the brightest thing on screen, and grey. The references
+ * do the opposite: the mass is near-black and the *edges* carry the light. So
+ * the ramp is now `ink-950` → `ink-600`, a city of silhouettes, and the light
+ * moved to `crownLayer` below. Height still reads, over a narrower range,
+ * against a ground that is finally bright enough to read it against.
  */
 const HEIGHT_STOPS: ReadonlyArray<readonly [feet: number, colour: string]> = [
-  [0, C.ink800],
-  [40, C.ink700],
-  [120, C.ink600],
-  [400, C.ink500],
-  [900, C.ink450],
+  [0, C.ink950],
+  [40, C.ink900],
+  [120, C.ink800],
+  [400, C.ink700],
+  [900, C.ink600],
 ];
+
+/**
+ * How tall a building must be, in feet, before its roofline is lit.
+ *
+ * A crown on everything is a city with a bright fog at head height — most of New
+ * York is under 60 feet, so the band would land in a continuous sheet across the
+ * low-rise and read as haze rather than as a skyline. Gating it concentrates the
+ * neon on the buildings that make the silhouette, which is also what makes the
+ * reference images read: in `04-edge-outlined-towers-starfield` the lit edges
+ * are on towers and the low-rise is a dark mat underneath them.
+ *
+ * **Chosen from a count, after picking it by eye twice and being wrong twice.**
+ * At the opening pose there are 25,176 footprints on screen:
+ *
+ * | threshold | lit   | share |
+ * |-----------|-------|-------|
+ * | >150 ft   | 3,181 | 12.6% |
+ * | >250 ft   | 1,107 |  4.4% |
+ * | >400 ft   |   408 |  1.6% |
+ * | >600 ft   |   103 |  0.4% |
+ *
+ * (Tallest on screen: 1,550 ft.) At 150 the frame reads as a carpet of lit
+ * roofs. At 400 it reads as Midtown and the Financial District glowing over a
+ * dark city, which is both the reference image and the actual place.
+ *
+ * The number also has to leave somewhere for M4e Task 6 to stand. A hiring
+ * building is drawn in `alert-400`, only 8 L* above `neon-400` — so what
+ * separates it is hue and *how much of the building is lit*, not brightness. A
+ * city where one building in eight already glows leaves that nothing to be.
+ */
+const CROWN_MIN_FEET = 400;
+
+/** The lit band at the top of a tower, in metres. Two storeys of light. */
+const CROWN_METRES = 7;
+
+/** `height_roof`, converted. The conversion appears here and is reused, never repeated. */
+const HEIGHT_METRES = ['*', HEIGHT_FEET, FEET_TO_METRES] as unknown as ExpressionSpecification;
+
+/**
+ * How tall the *mass* is drawn, which is the roof minus the crown wherever a
+ * crown is drawn.
+ *
+ * The subtraction is the whole reason the two layers do not z-fight: they meet
+ * at a plane instead of sharing seven metres of wall. Written with `let` so the
+ * feet-to-metres factor appears once — `darkStyle.test.ts` counts it, and a
+ * conversion applied twice renders a city 3.3 times too tall, perfectly.
+ */
+const MASS_HEIGHT_METRES = [
+  'let',
+  'm',
+  HEIGHT_METRES,
+  ['case', ['>', HEIGHT_FEET, CROWN_MIN_FEET], ['-', ['var', 'm'], CROWN_METRES], ['var', 'm']],
+] as unknown as ExpressionSpecification;
 
 /** Water, in every form the archive labels it across the harbour and the parks. */
 const WATER_KINDS = [
@@ -363,7 +430,7 @@ function buildingLayer(): LayerSpecification {
         13,
         0,
         14,
-        ['*', HEIGHT_FEET, FEET_TO_METRES],
+        MASS_HEIGHT_METRES,
       ],
       'fill-extrusion-base': 0,
       'fill-extrusion-color': [
@@ -377,6 +444,73 @@ function buildingLayer(): LayerSpecification {
       // of pitch is most of the frame.
       'fill-extrusion-opacity': 1,
       'fill-extrusion-vertical-gradient': true,
+    },
+  } as LayerSpecification;
+}
+
+/**
+ * The lit roofline. Reference 04's top edge, for one extra layer.
+ *
+ * §5.3 is right that MapLibre has no outline for an extrusion: a `line` layer on
+ * the same footprints draws on the ground, underneath the building, where it is
+ * invisible. What it does have is `fill-extrusion-base`, and a second extrusion
+ * of the same footprints starting a few metres below the roof is a band of light
+ * around the top of every tower — the edge-lit read, from the same geometry, no
+ * texture and no second archive.
+ *
+ * **The two layers stack rather than overlap.** The mass below stops at
+ * `height − CROWN_METRES` wherever a crown is drawn, so the two volumes are
+ * disjoint and share no wall. Overlapping them would mean two coplanar surfaces
+ * at identical depth, which resolves differently per driver and shows up as the
+ * band flickering or mottling as the camera moves — the class of defect that
+ * looks like a GPU problem and is a geometry problem.
+ *
+ * **The crown is not data.** It says nothing a beacon says: not that a company
+ * is here, not that a role is open, not how fresh anything is. It is what a tall
+ * building looks like at night in this city, and `treatments.ts` remains the
+ * only place a mark means something.
+ */
+function crownLayer(): LayerSpecification {
+  return {
+    id: 'buildings-crown',
+    type: 'fill-extrusion',
+    source: BUILDINGS_SOURCE,
+    'source-layer': 'buildings',
+    minzoom: 13,
+    // `['to-number', …]` directly rather than `HEIGHT_FEET`, and the difference
+    // is not style.
+    //
+    // The first version filtered on `HEIGHT_FEET`, which wraps the lookup in a
+    // `let`/`var` pair. In a *paint* expression that is fine; in a **filter** it
+    // silently matched everything, and the result is in
+    // `milestone-4e-buildings.png`: a neon roof on every structure in New York,
+    // because a building below the threshold still drew its top cap — with
+    // base equal to height, a zero-thickness extrusion is invisible from the
+    // side and a solid lit polygon from above. Nothing errored. It looked like
+    // a deliberate design choice.
+    //
+    // Reading the attribute straight also makes the missing-height case read
+    // correctly on its own terms: no `height_roof` resolves to 0 and is
+    // excluded, which is right. `DEFAULT_HEIGHT_FEET` exists so an unmeasured
+    // footprint has a body; it must not be able to earn a crown, because a lit
+    // roofline on a building nobody measured is a claim about the skyline that
+    // the data does not make.
+    filter: [
+      '>',
+      ['to-number', ['get', 'height_roof'], 0],
+      CROWN_MIN_FEET,
+    ] as unknown as FilterSpecification,
+    paint: {
+      // Grows in over the same zoom as the mass it sits on, or the crowns would
+      // appear at z13 floating over buildings of zero height.
+      'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 13, 0, 14, HEIGHT_METRES],
+      'fill-extrusion-base': ['interpolate', ['linear'], ['zoom'], 13, 0, 14, MASS_HEIGHT_METRES],
+      'fill-extrusion-color': C.neon400,
+      'fill-extrusion-opacity': 1,
+      // Off, deliberately. The gradient exists to darken a wall toward its base,
+      // which on a seven-metre band would shade away most of the light this
+      // layer is here to add.
+      'fill-extrusion-vertical-gradient': false,
     },
   } as LayerSpecification;
 }
@@ -427,6 +561,38 @@ export function buildDarkStyle({ buildings = true }: DarkStyleOptions = {}): Sty
           }
         : {}),
     },
+    /**
+     * The light the extrusions are shaded by, declared rather than defaulted.
+     *
+     * **This is what actually made the city grey**, and neither the palette nor
+     * the height ramp was ever going to fix it. MapLibre shades every
+     * `fill-extrusion` face by a global light, and a style that omits the block
+     * gets the default: white, `intensity: 0.5`, anchored to the viewport. That
+     * term is added to the fill, so it sets a floor no colour can go below — the
+     * ramp was dropped four full shades to `ink-950`→`ink-600` and the towers
+     * came back the same pale grey, because what was on screen was mostly the
+     * light and not the paint at all.
+     *
+     * Found by hiding the crown layer and looking at what was left, after two
+     * rounds of correctly reasoning about the wrong component.
+     *
+     * So: dim, and tinted. `intensity` at 0.18 lets the near-black ramp actually
+     * be near-black, which is what turns the mass into the silhouette the
+     * references are built from. The colour is `neon-700` because the light in
+     * those images is coloured — a white key light over a violet city reads as a
+     * grey model of one — and because a light is not a mark: it lands on every
+     * face equally, carries no state, and cannot be mistaken for data.
+     *
+     * `anchor: 'viewport'` keeps the shading stable through a 360° orbit. Anchored
+     * to the map instead, the lit side swings around the towers as the camera
+     * rotates, which reads as the sun racing overhead.
+     */
+    light: {
+      anchor: 'viewport',
+      color: '#ffffff',
+      intensity: 0.18,
+      position: [1.5, 210, 30],
+    },
     // The reference images' violet field, and the only place it is permitted.
     sky: {
       'sky-color': C.dusk900,
@@ -434,9 +600,42 @@ export function buildDarkStyle({ buildings = true }: DarkStyleOptions = {}): Sty
       'fog-color': C.dusk500,
       // A wide, soft transition rather than a hard band: the glow should look
       // like distance, not like a stripe someone drew across the horizon.
-      'sky-horizon-blend': 0.8,
-      'horizon-fog-blend': 0.7,
-      'fog-ground-blend': 0.75,
+      // 0.8 until M4e, and it is what made the sky read as "a neon purple
+      // rectangle placed at the top" rather than as a sky.
+      //
+      // The blend says how far the horizon colour reaches up into the sky
+      // colour, and at 0.8 the magenta reached nearly all of it. At pitch 76
+      // only a shallow strip of sky is in frame at all — the dark `sky-color`
+      // overhead is out of view — so the whole visible band was one flat
+      // horizon magenta with a hard edge where the city started. There was a
+      // gradient; none of it was on screen.
+      //
+      // At 0.55 the magenta is compressed toward the skyline and `dusk-900`
+      // takes over above it, which puts the whole gradient inside the strip a
+      // person is actually looking at. 0.3 goes too far the other way and the
+      // sky reads as black.
+      //
+      // **This is an improvement, not the fix.** Two things were measured while
+      // tuning it and neither can be solved from this block:
+      //
+      //   * **More sky needs more pitch, and pitch is capped at 78.** Higher
+      //     pitch tips the horizon down into frame; at 70 it leaves the top of
+      //     the viewport entirely. So the sky is a shallow strip by
+      //     construction, and `CAMERA_LIMITS.maxPitch` is where it is because
+      //     the tile budget explodes past it, not by preference.
+      //   * **The hard edge under the sky is the far ground, and fog does not
+      //     reach it.** Beyond a few kilometres `earth` renders near-black and
+      //     meets the horizon magenta with no transition, which is what reads
+      //     as "a neon rectangle placed at the top". `fog-ground-blend` and
+      //     `horizon-fog-blend` were swept from 0 to 0.85 and the band did not
+      //     move; recolouring `background` did not move it either, because the
+      //     band is drawn ground rather than void.
+      //
+      // The horizon glow that would actually close that gap — and the sun and
+      // the starfield — belong to a custom layer, which is M4e Task 3.
+      'sky-horizon-blend': 0.55,
+      'horizon-fog-blend': 0.6,
+      'fog-ground-blend': 0.85,
       // Haze thins as you descend into the streets. At city zooms you are
       // inside the weather; from above you are looking through it.
       'atmosphere-blend': ['interpolate', ['linear'], ['zoom'], 4, 1, 12, 0.85, 16, 0.45],
@@ -498,8 +697,9 @@ export function buildDarkStyle({ buildings = true }: DarkStyleOptions = {}): Sty
           'line-opacity': 0.6,
         },
       },
-      // Last, so the city occludes the ground it stands on.
-      ...(buildings ? [buildingLayer()] : []),
+      // Last, so the city occludes the ground it stands on. The crown follows
+      // the mass it sits on top of.
+      ...(buildings ? [buildingLayer(), crownLayer()] : []),
     ],
   } as StyleSpecification;
 }

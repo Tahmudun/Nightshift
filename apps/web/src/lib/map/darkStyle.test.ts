@@ -177,10 +177,42 @@ describe('the basemap never draws a building', () => {
     expect(offenders.map((l) => l.id)).toEqual([]);
   });
 
-  it('extrudes exactly one layer, from the measured archive', () => {
+  it('extrudes exactly these layers, all from the measured archive', () => {
+    // An explicit list rather than a count. `buildings-crown` joined `buildings`
+    // in M4e and a third arrives with the hiring building — the thing worth
+    // pinning is that every extrusion reads the *measured* archive, because one
+    // reading the basemap's OSM heights would draw a guessed skyline while
+    // looking exactly like these.
     const extrusions = style.layers.filter((l) => l.type === 'fill-extrusion');
-    expect(extrusions.map((l) => l.id)).toEqual(['buildings']);
-    expect(extrusions[0]).toMatchObject({ source: BUILDINGS_SOURCE });
+    expect(extrusions.map((l) => l.id)).toEqual(['buildings', 'buildings-crown']);
+    for (const extrusion of extrusions) {
+      expect(extrusion, extrusion.id).toMatchObject({ source: BUILDINGS_SOURCE });
+    }
+  });
+
+  it('stacks the crown on the mass instead of overlapping it', () => {
+    // Two coplanar extrusion walls at identical depth resolve differently per
+    // driver, and the symptom is a band that flickers or mottles as the camera
+    // moves — which reads as a GPU problem and is a geometry problem. The mass
+    // stops where the crown starts, so they share a plane and no volume.
+    const mass = JSON.stringify(
+      (layer('buildings') as unknown as { paint: Record<string, unknown> }).paint[
+        'fill-extrusion-height'
+      ],
+    );
+    const crownBase = JSON.stringify(
+      (layer('buildings-crown') as unknown as { paint: Record<string, unknown> }).paint[
+        'fill-extrusion-base'
+      ],
+    );
+    expect(mass).toBe(crownBase);
+  });
+
+  it('lights only the towers, so the low-rise stays a dark mat', () => {
+    // A crown on everything is a bright fog at head height: most of New York is
+    // under 60 feet, so the band would land in a continuous sheet across the
+    // low-rise and read as haze rather than as a skyline.
+    expect(JSON.stringify(filterOf('buildings-crown'))).toContain('height_roof');
   });
 });
 
