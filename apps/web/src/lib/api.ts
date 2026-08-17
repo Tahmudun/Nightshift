@@ -218,6 +218,29 @@ export function fetchMatches(limit = 100): Promise<MatchRanking> {
   return request(`/matches?limit=${limit}`, matchRankingSchema);
 }
 
+/**
+ * The most this endpoint will return, which is the API's `MAX_LIMIT`.
+ *
+ * Here because a caller asked for 500 and got a 422 on every single page load
+ * for as long as that code existed. Nothing broke visibly: TanStack Query turned
+ * the rejection into an error state, the city read it as "no matches", and every
+ * gold beam silently stopped being drawn. **A ceiling one side does not know is
+ * a ceiling that is enforced by an error nobody reads.**
+ *
+ * `tests/test_match_limit_agrees_across_the_stack.py` holds this equal to
+ * `MAX_LIMIT` in `services/api/nightshift/api/routes/matches.py` in both
+ * directions, for the same reason `MAX_BEACONS` and `MAX_SIGNALS` are held
+ * equal: M4c found those two coupled by nothing but a comment, and a comment
+ * does not fail a build.
+ *
+ * It is a real truncation and worth naming: a corpus larger than this gets
+ * treatments for its top-ranked 200 roles and plain beacons for the rest. That
+ * is the honest degradation — an unranked role is drawn as a role nobody has
+ * scored, which is what it is — and it is the reason the number lives somewhere
+ * visible rather than inline at a call site.
+ */
+export const MATCH_LIMIT = 200;
+
 /** Every employer we have ingested a role from. */
 export function fetchCompanies(q?: string): Promise<CompanyList> {
   const params = new URLSearchParams();

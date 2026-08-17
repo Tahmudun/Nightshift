@@ -21,7 +21,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 
-import { fetchApplications, fetchMatches } from '@/lib/api';
+import { fetchApplications, fetchMatches, MATCH_LIMIT } from '@/lib/api';
 import { useCityScene } from '@/lib/city/scene';
 import { treatmentFor, type MatchStanding, type SignalTreatment } from '@/lib/city/treatments';
 import type { ApplicationStage } from '@/lib/schemas';
@@ -42,11 +42,20 @@ export function useCityTreatments(): void {
     queryFn: () => fetchApplications({ archived: true }),
   });
 
-  // The whole ranked list, for the gold beam. One request for the corpus
-  // rather than one per beacon: `MAX_SIGNALS` is 5,000 and a per-role fetch
-  // would be the one-object-per-job anti-pattern of `CLAUDE.md` §8 in network
-  // form.
-  const matches = useQuery({ queryKey: ['city-matches'], queryFn: () => fetchMatches(500) });
+  // The ranked list, for the gold beam. One request for the corpus rather than
+  // one per beacon: `MAX_SIGNALS` is 5,000 and a per-role fetch would be the
+  // one-object-per-job anti-pattern of `CLAUDE.md` §8 in network form.
+  //
+  // This asked for 500 until 2026-08-17 and the endpoint's ceiling is 200, so
+  // **every city page load 422'd** and every gold beam quietly stopped being
+  // drawn — the failure the paragraph at the head of this file describes as
+  // acceptable ("a beacon with no treatment is a plain beacon") arriving for a
+  // reason that is not acceptable at all: a number this side made up. The
+  // endpoint's own constant is now imported instead of guessed.
+  const matches = useQuery({
+    queryKey: ['city-matches'],
+    queryFn: () => fetchMatches(MATCH_LIMIT),
+  });
 
   const stages = useMemo(() => {
     const byJob = new Map<string, ApplicationStage>();
