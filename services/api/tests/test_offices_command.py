@@ -29,7 +29,7 @@ from pathlib import Path
 import pytest
 
 from nightshift.cli import cmd_offices
-from nightshift.domain.company_locations import DEFAULT_WORKSHEET_PATH
+from nightshift.domain.company_locations import DEFAULT_WORKSHEET_PATH, read_worksheet
 
 _REFUSING = """
 confirmed_by: Tahmudun
@@ -78,14 +78,30 @@ async def test_a_blank_worksheet_needs_neither_network_nor_database(
     assert await cmd_offices(_args(worksheet)) == 0
 
 
-@pytest.mark.asyncio
-async def test_the_committed_worksheet_loads_offline_today(capsys) -> None:  # type: ignore[no-untyped-def]
-    """The committed file ships with every address blank, so `make offices` on a
-    clean clone reports what it is being asked to fill in and exits 0. The day
-    somebody fills one in this stops being an offline command, which is correct
-    and is why the network gate is checked lazily rather than up front."""
-    assert await cmd_offices(_args(None)) == 0
-    assert "blank" in capsys.readouterr().out
+def test_the_committed_worksheet_is_refused_nowhere() -> None:
+    """The real file, read the way the command reads it, with no database and no
+    network.
+
+    **This replaces a test that asserted the committed file loads offline and
+    exits 0**, which was true only while every address was blank. Its own
+    docstring said so: "the day somebody fills one in this stops being an
+    offline command." That day was 2026-08-17, eight addresses arrived, and the
+    command correctly started wanting Postgres and outbound HTTP.
+
+    What survives into the offline suite is the half that does not depend on
+    either: every entry a person hand-wrote is *readable*. A refusal here is a
+    typo in a file with no editor behind it — an address that names no street, a
+    date that is not a date — and catching it in the test suite is cheaper than
+    catching it in a run that has already opened a connection.
+    """
+    reading = read_worksheet(DEFAULT_WORKSHEET_PATH.read_text())
+    assert reading.problems == [], [(p.company, p.reason) for p in reading.problems]
+
+    # Not an assertion about how many are filled — that is the human's and moves
+    # without notice. It is an assertion that reading the file yields something:
+    # a `parents[4]` that lands one directory off returns an empty reading, and
+    # an empty reading is indistinguishable from a worksheet nobody has touched.
+    assert len(reading.entries) + len(reading.blank) > 0
 
 
 @pytest.mark.asyncio
