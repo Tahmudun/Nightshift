@@ -138,6 +138,38 @@ describe('createSignalLayer', () => {
     expect(layer.altitudeOf(0)).toBeCloseTo(226.2 + ROOF_CLEARANCE, 3);
   });
 
+  it('does no work when a roof height arrives that it already had', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    layer.setSignals([onABuilding('placed')]);
+    layer.setRoofHeights(new Map([['1087186', 226.2]]));
+    const before = layer.altitudeOf(0);
+
+    layer.setRoofHeights(new Map([['1087186', 226.2]]));
+
+    // `refreshRoofHeights` runs on every camera settle and the answer is
+    // usually the one it got last time — the tiles under a hiring building do
+    // not change because somebody panned. Without this the whole corpus is
+    // re-laid-out and every instance buffer rewritten on each pan-stop, which
+    // at `MAX_BEACONS` is five thousand transforms to arrive at the identical
+    // city.
+    expect(layer.altitudeOf(0)).toBe(before);
+    expect(layer.layouts).toBe(2);
+  });
+
+  it('lays out again when a roof height actually changes', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    layer.setSignals([onABuilding('placed')]);
+    layer.setRoofHeights(new Map([['1087186', 100]]));
+
+    layer.setRoofHeights(new Map([['1087186', 226.2]]));
+
+    // The guard must compare *values*, not identity. A new Map with the same
+    // contents arrives on every settle, and a reference check would treat each
+    // one as a change — which is the bug this test's sibling describes, kept
+    // alive by a guard that never fires.
+    expect(layer.altitudeOf(0)).toBeCloseTo(226.2 + ROOF_CLEARANCE, 3);
+  });
+
   it('leaves the floating field where it is when a roof height arrives', () => {
     const layer = createSignalLayer({ anchor: ANCHOR });
     layer.setSignals([signal('floating')]);

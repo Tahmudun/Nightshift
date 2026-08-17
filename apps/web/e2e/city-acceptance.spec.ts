@@ -312,14 +312,22 @@ async function elementCount(page: Page): Promise<number> {
  * A placement this renderer cannot draw yet must be *said*, not silently
  * dropped.
  *
- * The corpus has no confirmed office, so `building` and `area` counts are zero
- * today and M4c draws neither — `arrangeUnresolved` takes the unresolved
- * signals and ignores the rest. The moment the first address is curated
- * (`city.md` §4.4, deferred past M4c), that becomes a page reporting "on a
- * building: 1" over a skyline with nothing on it, and the role is gone with no
- * notice. That is I7 in the form it actually arrives in — not a mock presented
- * as working, but a *renderer* presented as complete — and the fix is a
- * sentence rather than a feature.
+ * **The prediction in this comment came true on 2026-08-17 and the test was
+ * rewritten rather than deleted.** It used to read: the corpus has no confirmed
+ * office, so `building` and `area` are zero and M4c draws neither; the moment
+ * the first address is curated this becomes a page reporting "on a building: 1"
+ * over a skyline with nothing on it. The first addresses were curated that
+ * morning, twenty roles reached a building, and the sentence this test guards
+ * was the only thing on the page telling the truth about them.
+ *
+ * M4e Task 6 then built the roofs, so `building` came out of the undrawn set
+ * and **`area` stayed in it** — §6 draws an approximate location as a
+ * translucent radius and nothing draws one yet. The guard is the same and the
+ * set it names is smaller, which is what a shrinking honest gap looks like.
+ *
+ * That is I7 in the form it actually arrives in — not a mock presented as
+ * working, but a *renderer* presented as complete — and the fix is a sentence
+ * rather than a feature.
  */
 test('a role the renderer cannot place yet is counted and named, not quietly dropped', async ({
   page,
@@ -349,13 +357,16 @@ test('a role the renderer cannot place yet is counted and named, not quietly dro
   await openCity(page);
   await cityHasLayer(page);
 
-  // Five drawn, seven in the corpus. The two that are not drawn are the two
-  // this renderer has no treatment for yet.
-  await expect.poll(() => drawn(page), { timeout: 30_000 }).toBe(5);
+  // Six drawn, seven in the corpus: five floating plus the one standing on a
+  // roof. The one that is not drawn is the area, which is the only placement
+  // this renderer still has no treatment for.
+  await expect.poll(() => drawn(page), { timeout: 30_000 }).toBe(6);
 
   const readout = page.getByRole('region', { name: /what is on the city/i });
+  // The floating line counts the field, not the city: five of seven roles are
+  // in it, and the sixth is on a building rather than missing.
   await expect(readout).toContainText('5 of 7');
-  await expect(readout).toContainText(/2 of these are not drawn/i);
+  await expect(readout).toContainText(/1 of these is not drawn/i);
 });
 
 /**

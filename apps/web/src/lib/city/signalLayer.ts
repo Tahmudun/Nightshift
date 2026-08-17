@@ -67,6 +67,23 @@ import {
   type FieldSort,
 } from './unresolvedField';
 
+/**
+ * Do two roof-height lookups say the same thing?
+ *
+ * By value rather than by reference, because `refreshRoofHeights` builds a
+ * fresh `Map` from the same tiles on every camera settle and would otherwise
+ * look like a change every single time.
+ */
+function sameHeights(
+  a: ReadonlyMap<string, number> | undefined,
+  b: ReadonlyMap<string, number>,
+): boolean {
+  if (a === undefined) return false;
+  if (a.size !== b.size) return false;
+  for (const [bin, metres] of b) if (a.get(bin) !== metres) return false;
+  return true;
+}
+
 /** The layer's id in the style, and the handle every test reaches for. */
 export const SIGNAL_LAYER_ID = 'nightshift-signals';
 
@@ -219,6 +236,14 @@ export interface SignalLayer extends CustomLayerInterface {
    * implementation free to disagree with this one.
    */
   readonly buildings: readonly HiringBuilding[];
+  /**
+   * How many times the layout has actually run.
+   *
+   * Exposed for one assertion nothing else can make: a roof height arriving
+   * *unchanged* must not rebuild the city. The effect of the bug is invisible —
+   * the same city, drawn again — so the count is the only evidence there is.
+   */
+  readonly layouts: number;
   /** How many employers have a name plate. */
   readonly labelled: number;
   /** Employers past the atlas ceiling, which have no plate. */
@@ -345,6 +370,8 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
   /** The last corpus and sort, so a roof height can re-run the layout. */
   let lastSignals: readonly CitySignal[] = [];
   let lastSort: FieldSort = 'company';
+  /** How many times the layout has run. Read by one test; see `layouts`. */
+  let layouts = 0;
   /** Where each drawn role is, in the buffer's own order. Index ↔ instance. */
   let placements: readonly FieldPlacement[] = [];
   let selected: string | null = null;
@@ -568,6 +595,10 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       return buildings;
     },
 
+    get layouts() {
+      return layouts;
+    },
+
     get labelled() {
       return labels.drawn;
     },
@@ -631,6 +662,7 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       // one setter over.
       lastSignals = signals;
       lastSort = sort;
+      layouts += 1;
 
       const roofs = arrangeOnBuildings(signals, options.anchor, roofHeights);
       const field = arrangeUnresolved(signals, sort);
@@ -670,6 +702,13 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
     },
 
     setRoofHeights(heights) {
+      // Compared by value, because a fresh `Map` with identical contents is
+      // what arrives on every camera settle — `refreshRoofHeights` re-queries
+      // the same tiles and gets the same answer. A reference check would treat
+      // each one as a change and rebuild the whole corpus on every pan-stop,
+      // which at `MAX_BEACONS` is five thousand transforms to arrive at the
+      // identical city.
+      if (sameHeights(roofHeights, heights)) return;
       roofHeights = heights;
       // Re-runs the whole layout rather than editing altitudes in place. The
       // stacks are the only thing a height can move, but re-arranging is the
