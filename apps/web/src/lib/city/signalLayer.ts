@@ -404,10 +404,19 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       if (treatment === undefined) continue;
       const at = { x: placement.x, y: placement.y, z: placement.altitude };
       if (treatment.track === 'saved') byKind.outline.push({ ...at, tint: SAVED_COLOR });
-      // §6 asks an applied role to be "solid illuminated". Nothing here stands
-      // on a building to illuminate, so the beacon itself fills in: a core at
-      // most of the body's own radius, which reads as solid matter rather than
-      // as more glow. At the small default size it read as nothing at all.
+      // §6 asks an applied role to be "solid illuminated". The beacon's own
+      // body fills instead: a core at most of its radius, which reads as solid
+      // matter rather than as more glow. At the small default size it read as
+      // nothing at all.
+      //
+      // The original reason was that nothing in this corpus stood on a building
+      // to illuminate. Since M4e Task 6 some roles do, and the translation is
+      // kept for a better reason: **an application's state must not be drawn
+      // differently depending on whether the employer published an address.**
+      // Lighting the building for a placed role and filling the beacon for a
+      // floating one would make the same fact about you look like two facts,
+      // and would make the loudest version of it the one that happens to have
+      // a street address.
       if (treatment.track === 'applied') {
         byKind.core.push({ ...at, tint: SIGNAL_COLOR, scale: APPLIED_CORE_SCALE });
       }

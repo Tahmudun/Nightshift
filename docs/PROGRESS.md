@@ -55,9 +55,15 @@ quality tiers and the field-at-scale fix against the grey renderer would mean
 measuring twice and believing the wrong number. The frame timer stays the
 instrument every M4e task reports against.
 
-**M4e Tasks 1, 2, 4 and 5 are done. Next is Task 6 (the hiring building), which
-the human unblocked on 2026-08-17 by filling in the worksheet.** Task 3 (the sky)
-is the other one open.
+**M4e Tasks 1, 2, 4, 5 and 6 are done. Next is Task 3 (the sky)**, then Task 7
+(bloom) and Task 8 (the documents that said not to do this).
+
+**The one thing to look at before picking up Task 3** is
+`docs/reviews/milestone-4e-roofs-close.png`: at street-level zoom a beacon is
+several times the size of the building it stands on. It is fine at the opening
+pose and wrong up close, and it is a tuning decision rather than a bug — the
+beacon has been a fixed 40 m since M4c, which nothing noticed while the whole
+field sat 700 m up and was never approached.
 
 - **Task 1 — the worksheet, and the loader that was never wired up.**
   `data/company-locations.yaml` covers all 23 registry boards, and `make offices`
@@ -79,15 +85,12 @@ is the other one open.
   movement, and recolouring `background` did not move it either, because the
   band is drawn ground rather than void. The horizon glow, the synthwave sun and
   the starfield need a custom layer.
-- **Task 6 — the hiring building — is fully unblocked and is the next task.**
-  The pipeline runs end to end and the worksheet now has addresses in it. Two
-  offices are in `company_locations` with a `verified` coordinate and a real
-  BIN, and **20 of 31 seeded roles resolve to `kind: building`** — every one of
-  which the renderer currently drops on the floor. The map is measurably emptier
-  than it was before the addresses arrived: the floating field fell from 31 to
-  11 and nothing replaced the 20 that left it. **This is the largest gap between
-  what the API knows and what the city shows in the project's history**, and
-  Task 6 closes it.
+- **Task 6 — the hiring building — is done** (`368a2d4`). The 20 placed roles
+  stand on their own roofs, at heights measured off the building tiles: Datadog
+  on 620 8th Avenue at 230.1 m, Ramp on 28 West 23rd Street at 52.5 m. ADR 0023's
+  beam rises from each roof through its stack. See "M4e Task 6" below, including
+  **the defect it found and did not fix** — a beacon is far larger than the
+  building it stands on at street-level zoom.
 
 **The M4e task order**, from the slice plan:
 
@@ -110,8 +113,15 @@ is the other one open.
    ramp, and the edge-lit read the references are actually built from came from
    the crown instead. If it is revisited it needs a same-origin baked sprite on
    the ADR 0022 pattern, or the offline guarantee goes.
-6. **The hiring building** — `arrangeOnBuildings`, a BIN-filtered extrusion
-   layer, roof beacons. Depends on Task 1 having placed an office.
+6. ~~**The hiring building** — `arrangeOnBuildings`, a BIN-filtered extrusion
+   layer, roof beacons.~~ **Done** (`368a2d4`), the day Task 1's worksheet came
+   back filled. **The BIN-filtered extrusion layer was not built and is not
+   planned**: ADR 0023 already decided a hiring building is marked by a *beam*
+   rather than by being brighter, on a ratio argument this milestone did not
+   change — tens of thousands of footprints in view, tens ever hiring, and a
+   brightness difference cannot carry ten in fifty thousand against a lit city.
+   The slice plan asked for both; building both would have spent the encoding
+   twice.
 7. **Bloom**, behind the quality tier, measured before and after.
 8. **The documents that said not to do this** — ADR 0029 and the rewrites it
    forces in `city.md` §2.2/§3/§5.3 and `docs/design/references/README.md`.
@@ -937,6 +947,85 @@ match-based visual treatments silently never apply. TanStack Query swallows it
 into an error state the layer treats as "no matches". Filed as a Task 6
 prerequisite rather than a separate slice — the treatments are what make a roof
 beacon mean something.
+
+---
+
+## M4e Task 6 — the hiring building, and the two tests that had to be rewritten
+
+**Done 2026-08-17** (`368a2d4`), hours after the worksheet came back filled.
+ADR 0030. `GET /city/signals` had been reporting 20 roles on a building and the
+renderer had been drawing none of them.
+
+**`buildingField.ts` is `unresolvedField.ts` with its first rule inverted, and
+the inversion is the whole design.** That module arranges roles with no
+position: every number in it is a layout decision and none is a claim about New
+York. Every number in this one **is** a claim about New York. The ground
+position comes from `placement.latitude` / `placement.longitude` and passes
+through `sceneFromLngLat` unmodified — no nudging apart of overlapping stacks,
+no jitter to make a crowd legible, no snap to a grid. What is chosen is the
+vertical only, and the file says so at the top so the next person to want a
+prettier layout knows which numbers are theirs to move.
+
+| Piece | Where |
+|---|---|
+| `arrangeOnBuildings` — pure, deterministic, 16 tests | `lib/city/buildingField.ts` |
+| `sceneFromLngLat`, the direction a placed role travels | `lib/city/mercator.ts` |
+| `readRoofHeights` — `height_roof` off the loaded tiles | `lib/city/roofHeights.ts` |
+| ADR 0023's beam, one per building, height sized to its stack | `lib/city/roofBeamMesh.ts` |
+| Two fields into one instance buffer, placed roles first | `lib/city/signalLayer.ts` |
+| `setRoofHeights`, and the `idle` listener that feeds it | `components/CityMap.tsx` |
+
+**Verified in a browser against the seeded stack.** Datadog's eight open roles
+stand on 620 8th Avenue at a roof of **230.1 m**; Ramp's eleven stand on 28 West
+23rd Street at **52.5 m**. Both numbers are read off the building archive, not
+assumed — the Flatiron building being a fifth the height of the Times Building
+is the check that says the lookup is real. Screenshots:
+`docs/reviews/milestone-4e-roofs.png`, `milestone-4e-roofs-close.png`.
+
+**The height arrives late and that is designed for rather than worked around.**
+`querySourceFeatures` answers from *loaded* tiles, so a building the camera has
+never been near has no measured roof. `DEFAULT_ROOF_METRES` (250 m) fills in,
+and the substitution moves a marker **up or down its own building** — it can
+never move one off a building, which is the property that keeps a partial
+lookup from touching I1. The default is deliberately high: too low buries a
+beacon inside its tower and hides the role completely, too high briefly
+resembles the floating field, and only one of those two failures is silent.
+
+**Two tests went red because the thing they described started working**, which
+is the second time that happened today (the first was the worksheet's own pair,
+`146dfc9`).
+
+- `signalLayer.test.ts` asserted `drawn === 1` for a corpus of one floating and
+  one placed role — "not yet drawn anywhere, the building treatment is a later
+  task". The corpus had no placed role in it when that was written, so the
+  assertion cost nothing to keep and would have cost a milestone to forget.
+- `CitySignals.test.tsx` asserted that `building + area` roles are named as
+  undrawn. `building` came out of that sum; **`area` stayed**, because removing
+  it would be the same defect pointing the other way — claiming a role is drawn
+  when §6's translucent radius still does not exist.
+
+**A third test was rewritten for a better reason: it could not fail.** The
+building field's "ignores an approximate placement" test passed with the `kind`
+check deleted, because the `area` fixture it used had a null `building_id` and
+the *other* guard caught it. The replacement constructs an area carrying a BIN —
+a payload `placementSchema` rejects and the API cannot send — precisely so the
+guard is exercised. Every guard added in this task was then mutation-checked the
+same way: the kind filter, the determinism sort, the beam's roof offset and the
+instance count reset were each shown able to fail.
+
+**One identity rule worth keeping.** A building with two employers hiring is
+labelled `2 employers`, counted by `company_id` rather than by name. The
+alternative — the first name found — puts "Datadog" over the New York Times
+Building, which asserts an address for the other tenant that nobody made. 620
+8th Avenue is exactly that kind of building, so the case is real rather than
+hypothetical.
+
+**The defect this found and did not fix.** At street-level zoom a beacon is
+several times the size of the building it stands on — `BEACON_RADIUS` has been a
+fixed 40 m since M4c, and nothing noticed while the entire field sat 700 m up
+and was never approached. Standing roles on roofs is what made the camera able
+to get near one. It is fine at the opening pose and wrong up close, it is a
+tuning decision rather than a bug, and it is recorded rather than guessed at.
 
 ---
 
@@ -7247,7 +7336,7 @@ wrong: ML frameworks (JAX, LangChain, HuggingFace, DSPy), accelerators (CUDA, RO
 | Eligibility answer key (`tests/fixtures/eligibility/labels.yaml`) | **Filled in, and model-labeled rather than human-verified.** All 60 postings × 9 fields were labeled 2026-08-04 by a browser-side Claude reading the recorded excerpts, with the web explicitly off — the grader compares against text the extractor also sees, so a label sourced from outside that text marks a correct extractor wrong. Audited on install: 0 of 199 named technologies absent from the posting text, and no sponsorship, graduation-window, internship or years claim unsupported by the text. Two `+equivalent` calls read an escape hatch worded without the word "equivalent" (`akunacapital/8035515`, `openai/8fb1615c…`) and are the entries most likely to be wrong. Not spot-checked by a human | Human spot-check of ~10 entries, unscheduled |
 | `FixtureGreenhouseAdapter` (`cli.py`) | Subclasses the real adapter, overrides only `fetch_board` to read a committed JSON file. Constructed with no HTTP client, so it cannot make a request. Attributed to source `greenhouse_fixture` with `source_type='fixture'`, badged **"committed fixture"** in the Operate UI. ADR 0004 | Permanent — this is the offline demo path, not a stopgap |
 | Geocoding | **Built in M4a and correct to say so.** `domain/geocoding.py` behind a Protocol, the NYC GeoSearch adapter with committed fixtures, the permanent cache that refuses to store an outage, and the office loader. **What is still true: no coordinate has been written**, because the worksheet below is blank — not because the geocoder is missing. `mappable_locations` reads 0 and the page now says *"no posting states a street"* rather than *"nothing geocoded yet"*, which is the difference between a property of the data and a missing feature. Rungs 2–3 (Nominatim, neighbourhood centroids) are still unbuilt and stay deferred: they produce `approximate` points the office loader refuses by design | Done at **M4a**. Coordinates appear when the worksheet has a row |
-| `company_locations` table and `data/company-locations.yaml` | **Table, worksheet and loader all exist and are now connected.** The table, its migration and its constraints landed at M4a; `read_worksheet` and `load_offices` at M4a/M4b; **`make offices`, the thing that calls them, at M4e Task 1 on 2026-08-16** — until then the worksheet led nowhere and no number of typed addresses could have changed a pixel. The file covers all **23** registry boards and **the human filled it in on 2026-08-17**: 8 confirmed addresses, 15 blank, 0 refused (Q7 answered: "as many as you'd like"). `read_worksheet` refuses four kinds of entry, the sharpest being an address that names no street — somebody typing here is asserting *an office is at this address*, and a weaker version of that assertion is not what they meant; the first hand-written file it ever saw tripped none of the four | Table and promotion path **done**; end to end, verified live twice (Datadog → BIN 1087186, Ramp → BIN 1080672). **20 of 31 roles now resolve to `kind: building` and the renderer draws none of them — that is M4e Task 6**, and it is now the largest gap between what the API knows and what the city shows |
+| `company_locations` table and `data/company-locations.yaml` | **Table, worksheet and loader all exist and are now connected.** The table, its migration and its constraints landed at M4a; `read_worksheet` and `load_offices` at M4a/M4b; **`make offices`, the thing that calls them, at M4e Task 1 on 2026-08-16** — until then the worksheet led nowhere and no number of typed addresses could have changed a pixel. The file covers all **23** registry boards and **the human filled it in on 2026-08-17**: 8 confirmed addresses, 15 blank, 0 refused (Q7 answered: "as many as you'd like"). `read_worksheet` refuses four kinds of entry, the sharpest being an address that names no street — somebody typing here is asserting *an office is at this address*, and a weaker version of that assertion is not what they meant; the first hand-written file it ever saw tripped none of the four | Table and promotion path **done**; end to end, verified live twice (Datadog → BIN 1087186, Ramp → BIN 1080672). **20 of 31 roles resolve to `kind: building` and stand on their own roofs** at heights measured off the building archive — M4e Task 6, done the same day (`368a2d4`). The promotion path now runs end to end from a line somebody typed in a YAML file to a beacon on a roof in Manhattan |
 | Street-level placement of any job | **Impossible from this data, and now measured rather than assumed.** 0 of 247 postings, 139 distinct location strings, 10 fields, 3 providers. Reproduce with `./.venv/bin/python scripts/census_location_text.py`, which refuses to print a count until it has proved on that run that it can see a real address | Not a gap — a property of ATS data. Named on `/analyze/coverage` at **M4a** |
 | Dedupe similarity threshold | **Real, thinly calibrated, and now with one real-world data point.** `SIMILARITY_THRESHOLD = 0.85` was derived from three labelled pairs. M1d's live Datadog poll merged two genuine postings on `similar_description` at **0.864** — the first evidence from outside the labelled set, and it landed close to the line. One observation is not a calibration and nothing was changed on the strength of it, but it is the first sign the number is doing real work at a real boundary. Re-derive as the fixture set grows | Unscheduled; revisit when more live boards are polled |
 | ~~Merge concurrency~~ | **Fixed in M1d** (`408c768`). The defect was reproduced before being fixed — Postgres reported a real `DeadlockDetectedError` between two workers merging the same pair in opposite directions. Both rows are now locked in primary-key order, as two statements rather than one `IN` clause, because a single statement's lock acquisition follows the query plan rather than the sort. Mutation-checked: the caller's order deadlocks on 3 of 3 runs; the fix passed 8 consecutive | Done |
@@ -7264,7 +7353,7 @@ wrong: ML frameworks (JAX, LangChain, HuggingFace, DSPy), accelerators (CUDA, RO
 | The 2,605-token figure | Not re-measured by M1c and never claimed by it. The committed slice is **400 rows → 23 tokens**, the alphabetical head of one provider (`0g`…`abridge`). Common Crawl's index 504s at `limit=6000`, so a full harvest needs paging that does not exist | M1d |
 | ~~Discovered boards in the registry~~ | **19 promoted in M1d** (`d3738b6`), on the human's decision. 4 boards → 23, 171 insertions and 0 deletions, nothing lost or modified. Two `Abridge` candidates and two `empty` boards remain withheld for individual review under ADR 0005 | Done |
 | Ashby's `address.postalAddress` | Still deliberately unread by `AshbyAdapter.normalize`, and **M4a closed the question in the opposite direction to the one this row expected**. It was waiting for geocoding to exist; the census then showed the field carries `addressLocality`/`addressRegion`/`addressCountry` and **never `streetAddress`**, on any posting, from any employer. So reading it would upgrade nothing — it resolves to the same city name the free-text string already gives | Not a gap. Closed by measurement at **M4a** |
-| 3D city, map, MapLibre, Three.js | **The city renders, can be driven, and has roles on it.** `/explore/city` draws New York offline from two local archives on `maplibre-gl@5.24.0` — streets, water, and 1,083,024 extruded structures at measured heights — with the full §9.3 gesture surface, a keyboard, and a control panel, all proved in a browser by `e2e/city.spec.ts`. **Three.js and the job data arrived at M4c Tasks 1-2**: every open role is a floating beacon above the skyline and none is on a building, which the page states in those words — a map that looks finished and is empty is indistinguishable from one that is broken. **This row said "no camera controller" for two days after the controller shipped** — the sixth time a list here has quietly stopped describing the thing it names, and again in the same direction | Buildings **done, M4b Task 4**; camera **done, M4b Task 5**; signal layer drawing at **M4c Task 2**; labels, sorting and the roster at **Task 3**; picking, the reticle and the shared selection at **Task 4**; §6's treatments and the in-interface legend at **Task 5**; the acceptance walk at **Task 6**. **M4c is complete.** What remains for M4d: frame-time numbers, adaptive quality tiers and automated accessibility tests |
+| 3D city, map, MapLibre, Three.js | **The city renders, can be driven, and has roles on it.** `/explore/city` draws New York offline from two local archives on `maplibre-gl@5.24.0` — streets, water, and 1,083,024 extruded structures at measured heights — with the full §9.3 gesture surface, a keyboard, and a control panel, all proved in a browser by `e2e/city.spec.ts`. **Three.js and the job data arrived at M4c Tasks 1-2**: every open role was a floating beacon above the skyline and none was on a building, which the page stated in those words — a map that looks finished and is empty is indistinguishable from one that is broken. **Since M4e Task 6 (2026-08-17) a role whose employer has a confirmed address stands on that building's roof**, under a beam, at a roof height read from the archive; the rest still float and the page still says which is which. **This row said "no camera controller" for two days after the controller shipped** — the sixth time a list here has quietly stopped describing the thing it names, and again in the same direction | Buildings **done, M4b Task 4**; camera **done, M4b Task 5**; signal layer drawing at **M4c Task 2**; labels, sorting and the roster at **Task 3**; picking, the reticle and the shared selection at **Task 4**; §6's treatments and the in-interface legend at **Task 5**; the acceptance walk at **Task 6**. **M4c is complete.** What remains for M4d: frame-time numbers, adaptive quality tiers and automated accessibility tests |
 | The signal layer's renderer | **Built and drawing (M4c Task 2).** Three.js in MapLibre's context, one instanced mesh, one draw call, N transforms — every unresolved role is a floating beacon above the skyline, grouped into a column per employer. What is **not** built: labels (a column is an anonymous stack until you know what it is), picking, selection, the §6 treatments and the legend. Nothing is on a building, and nothing may be until an office is confirmed | Tasks 3-5 |
 | Window speckle on buildings | Not built. §2.1's treatment is edge light *plus* lit windows; the extrusion delivers the first via `fill-extrusion-vertical-gradient` and a height-driven colour ramp. The speckle needs a texture, a texture needs a sprite, and a sprite is a network call this style has spent three tasks refusing | The Three.js layer — **M5**, not scheduled sooner |
 | ~~The published buildings artifact~~ | **Published 2026-08-12** as release `buildings-20260812`, 109,555,308 bytes — the size the manifest pins. Proved by deleting the local copy and re-fetching from the public URL, which is the clean-clone path, digest and all. The optional/required split built while it was unpublished stays: a re-bake reopens the same window every time, and `make tiles-strict` in CI is what closes it | Done |

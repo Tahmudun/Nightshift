@@ -510,6 +510,16 @@ language that is load-bearing for an invariant.
 > database (M3b) and is not yet read here. It is not deferred to M5 — it is
 > simply not done, and it is the obvious next refinement of the layout.
 
+> **The counterpart exists as of M4e Task 6 (2026-08-17), and this section is
+> now half of a pair.** `buildingField.ts` arranges the roles that *do* have a
+> confirmed office, and it is this module with rule 1 inverted: there, the
+> ground position is not the renderer's to choose at all. Each field owns its
+> own filter, so a role belongs to exactly one of them and neither can be
+> forgotten by a caller — a role drawn in both would read as two openings.
+> §4.8's argument is unchanged by this. The unresolved field is still the
+> default view rather than the fallback, and on the seeded corpus it still
+> holds 11 of 31 roles.
+
 ---
 
 ## 5. M4b and M4c — how it is rendered
@@ -694,7 +704,7 @@ would shrink every time something was deferred.
 |---|---|
 | New internship / new role | Drawn. Cyan pulse, rapid and slow, plus a size that survives `prefers-reduced-motion` |
 | Saved | Drawn. White wireframe outline on the body |
-| Applied | Drawn, **translated**: nothing here stands on a building, so the beacon's own body fills — a core at three-quarters of its radius, at full strength |
+| Applied | Drawn, **translated**: the beacon's own body fills — a core at three-quarters of its radius, at full strength. The original reason was that nothing stood on a building; since M4e Task 6 some roles do, and the translation is kept for a better one — an application's state must not look different depending on whether the employer published an address |
 | Assessment / interview | Drawn. A turning **arc** — a closed ring is symmetric about its own axis and its rotation is invisible by construction |
 | Exceptional match | Drawn. Gold vertical beam, and only for `eligible` with a non-null fraction (I2, `matching.md` §5.2) |
 | Offer | Drawn. Soft `verdant-400` core |
