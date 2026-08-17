@@ -58,6 +58,8 @@ import { mercatorFromLngLat, metreInMercatorUnits } from './mercator';
 import { pickInstance, sceneRayFromPointer, type PointerPoint, type Viewport } from './pick';
 import { createSelectionMesh } from './selectionMesh';
 import type { SignalTreatment } from './treatments';
+import { arrangeOnBuildings, type HiringBuilding } from './buildingField';
+import { createRoofBeamMesh } from './roofBeamMesh';
 import {
   arrangeUnresolved,
   type FieldColumn,
@@ -149,6 +151,20 @@ export interface SignalLayer extends CustomLayerInterface {
    */
   setSignals(signals: readonly CitySignal[], sort?: FieldSort): void;
   /**
+   * Tell the layer how tall the hiring buildings are, by BIN, in metres.
+   *
+   * Separate from `setSignals` because the two arrive from different places
+   * and in either order: the roles come from `/city/signals` and the heights
+   * come from building tiles the map loads as the camera moves, which on a
+   * still map may be long after. A layer that read heights only at
+   * `setSignals` would strand every stack at `DEFAULT_ROOF_METRES` until
+   * something else happened to re-set the signals.
+   *
+   * It moves markers **up and down their own building** and can move nothing
+   * else. The floating field has no roof to settle onto and is untouched.
+   */
+  setRoofHeights(heights: ReadonlyMap<string, number>): void;
+  /**
    * Apply §6's encoding: which role carries which mark, colour and pulse.
    *
    * Separate from `setSignals` because the two arrive from different fetches
@@ -193,6 +209,16 @@ export interface SignalLayer extends CustomLayerInterface {
   readonly animating: boolean;
   /** The columns as laid out, in order: what the roster panel navigates by. */
   readonly columns: readonly FieldColumn[];
+  /**
+   * The buildings with somebody hiring in them, in the order they were laid
+   * out.
+   *
+   * Exposed for the same reason `columns` is: the beam layer and anything that
+   * flies a camera to a building need the BIN and the position this layout
+   * already computed, and recomputing them elsewhere would be a second
+   * implementation free to disagree with this one.
+   */
+  readonly buildings: readonly HiringBuilding[];
   /** How many employers have a name plate. */
   readonly labelled: number;
   /** Employers past the atlas ceiling, which have no plate. */
@@ -289,6 +315,12 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
   const labels = createLabelMesh();
   scene.add(labels.mesh);
 
+  // The hiring buildings' beams. Added before the reticle and after the marks
+  // so it draws in the same pass; it writes no depth, so its order among the
+  // transparent meshes decides only how it blends, not what hides it.
+  const beams = createRoofBeamMesh();
+  scene.add(beams.mesh);
+
   // The reticle. In the same scene for the same reason the plates are: it
   // shares the depth buffer, so a ring around a role behind a tower is hidden
   // by that tower exactly as the role is.
@@ -299,6 +331,20 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
   let map: MapLibreMap | null = null;
   let drawn = 0;
   let columns: readonly FieldColumn[] = [];
+  /** The buildings with somebody hiring in them, as the last layout found them. */
+  let buildings: readonly HiringBuilding[] = [];
+  /**
+   * Measured roof heights by BIN, as the loaded building tiles report them.
+   *
+   * Empty until something fills it, and a miss is a documented default rather
+   * than an error — see `DEFAULT_ROOF_METRES`. It decides how high a marker
+   * hangs and never where it stands, so a stale or absent height cannot move a
+   * role off its building.
+   */
+  let roofHeights: ReadonlyMap<string, number> | undefined;
+  /** The last corpus and sort, so a roof height can re-run the layout. */
+  let lastSignals: readonly CitySignal[] = [];
+  let lastSort: FieldSort = 'company';
   /** Where each drawn role is, in the buffer's own order. Index ↔ instance. */
   let placements: readonly FieldPlacement[] = [];
   let selected: string | null = null;
@@ -509,6 +555,10 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       return columns;
     },
 
+    get buildings() {
+      return buildings;
+    },
+
     get labelled() {
       return labels.drawn;
     },
@@ -554,13 +604,41 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
     },
 
     setSignals(signals, sort = 'company') {
+      // Two fields, one buffer. `arrangeOnBuildings` takes the roles somebody
+      // confirmed an address for and stands them on it; `arrangeUnresolved`
+      // takes the rest. Each owns its own filter, so a role appears in exactly
+      // one of them — and neither can be forgotten by a caller, which is the
+      // failure that draws a role twice and reads as two openings.
+      //
+      // **Placed roles come first in the buffer**, ahead of the floating field.
+      // Any fixed order would do; what matters is that there *is* one, because
+      // `jobAt`, `pick` and the reticle all index into this array and a buffer
+      // whose order depended on which field happened to be non-empty would put
+      // the reticle on a different role than the one that was clicked.
+      // Kept so a later roof height can re-run this layout without the caller
+      // having to hold the corpus and hand it back. The two inputs arrive from
+      // different fetches in either order and each has to be able to produce
+      // the finished city on its own — the same rule `writeTreatments` follows
+      // one setter over.
+      lastSignals = signals;
+      lastSort = sort;
+
+      const roofs = arrangeOnBuildings(signals, options.anchor, roofHeights);
       const field = arrangeUnresolved(signals, sort);
-      const count = Math.min(field.placements.length, MAX_BEACONS);
+      const all = [...roofs.placements, ...field.placements];
+
+      const count = Math.min(all.length, MAX_BEACONS);
       columns = field.columns;
+      buildings = roofs.buildings;
+      // One beam per hiring building, rewritten with the layout rather than
+      // edited alongside it: a beam left at the last city's coordinates would
+      // stand over a building nobody is hiring in, which is the exact class of
+      // stale-instance bug the reticle and the marks have each paid for once.
+      beams.set(roofs.buildings);
       // Truncated to what is actually in the buffer, so index ↔ instance holds
       // at the ceiling too. Keeping the full list here would let `pick` name a
       // role that was never drawn, for a click that hit the beacon after it.
-      placements = field.placements.slice(0, count);
+      placements = all.slice(0, count);
 
       // Every body and every mark, from the field and §6's table. The marks
       // are rewritten here and not only in `setTreatments` because a sort
@@ -580,6 +658,16 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       faceCamera();
 
       map?.triggerRepaint();
+    },
+
+    setRoofHeights(heights) {
+      roofHeights = heights;
+      // Re-runs the whole layout rather than editing altitudes in place. The
+      // stacks are the only thing a height can move, but re-arranging is the
+      // version that cannot drift from `arrangeOnBuildings` — an in-place edit
+      // would be a second implementation of the same sum, free to disagree
+      // with it the first time the clearance changes.
+      this.setSignals(lastSignals, lastSort);
     },
 
     setTreatments(next) {
@@ -695,6 +783,7 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       beacons.dispose();
       for (const kind of MARK_KINDS) marks[kind].dispose();
       labels.dispose();
+      beams.dispose();
       reticle.dispose();
       // The geometries and materials above are this layer's; the compiled
       // programs and render lists behind them are the *renderer's*, and nulling
@@ -711,6 +800,7 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       renderer = null;
       map = null;
       columns = [];
+      buildings = [];
       placements = [];
       treatments = new Map();
       selected = null;

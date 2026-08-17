@@ -46,6 +46,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+import { readRoofHeights } from '@/lib/city/roofHeights';
 import { useCityScene, visibleSignalsOf } from '@/lib/city/scene';
 import { createSignalLayer } from '@/lib/city/signalLayer';
 import { BASEMAP_URL, BUILDINGS_URL } from '@/lib/tiles';
@@ -54,7 +55,7 @@ import { CAMERA_LIMITS, createCameraController, INITIAL_POSE } from '@/lib/map/c
 import { createFrameTimer, describeRenderer, identifyRenderer } from '@/lib/map/frameTimer';
 import type { DebugMap } from '@/lib/map/debug';
 import { installCityDebug } from '@/lib/map/debug';
-import { buildDarkStyle } from '@/lib/map/darkStyle';
+import { buildDarkStyle, BUILDINGS_SOURCE } from '@/lib/map/darkStyle';
 
 // MapLibre's own stylesheet, for the attribution control and the canvas
 // positioning. A static import so Next can hoist it into the CSS bundle; the
@@ -124,6 +125,7 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
     let uninstallDebug: (() => void) | null = null;
     let unsubscribeScene: (() => void) | null = null;
     let unsubscribeCamera: (() => void) | null = null;
+    let unsubscribeRoofs: (() => void) | null = null;
 
     void (async () => {
       try {
@@ -351,6 +353,31 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
           // the map incapable of disagreeing — both read this one value.
           if (state.selected !== previous.selected) layer.setSelected(state.selected);
         });
+
+        // How tall the hiring buildings are, from the tiles already on screen.
+        //
+        // `querySourceFeatures` answers from *loaded* tiles rather than from
+        // rendered ones, which is what this needs: a building behind the camera
+        // still has a roof, and `queryRenderedFeatures` at this pitch is the
+        // call M4b measured returning zero features over a drawn skyline.
+        //
+        // Bound to `idle` because tiles arrive over several seconds as the
+        // camera moves, and each arrival can carry the one footprint a stack is
+        // waiting on. `idle` fires after a move settles rather than per tile,
+        // so this runs a handful of times rather than a hundred.
+        const refreshRoofHeights = (): void => {
+          const bins = layer.buildings.map((building) => building.buildingId);
+          if (bins.length === 0) return;
+          const features = created.querySourceFeatures(BUILDINGS_SOURCE, {
+            sourceLayer: 'buildings',
+            filter: ['in', ['get', 'bin'], ['literal', bins]],
+          });
+          const heights = readRoofHeights(features);
+          if (heights.size > 0) layer.setRoofHeights(heights);
+        };
+        created.on('idle', refreshRoofHeights);
+        unsubscribeRoofs = () => created.off('idle', refreshRoofHeights);
+        refreshRoofHeights();
       };
       if (created.isStyleLoaded()) attachSignals();
       else created.on('styledata', attachSignals);
@@ -409,6 +436,7 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
       cancelled = true;
       unsubscribeScene?.();
       unsubscribeCamera?.();
+      unsubscribeRoofs?.();
       uninstallDebug?.();
       controller?.destroy();
       // `map.remove()` calls `onRemove` on every layer, which is where the

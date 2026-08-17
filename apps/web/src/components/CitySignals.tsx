@@ -90,18 +90,21 @@ export function CitySignals() {
   /**
    * Roles this renderer has no treatment for yet.
    *
-   * The field draws the unresolved layer and nothing else (§4.8 makes it the
-   * default view rather than the fallback), so a role that reaches a building
-   * or an area is counted two lines above and appears nowhere on the city. It
-   * is zero today — `data/company-locations.yaml` is empty and no posting names
-   * a street — and it stops being zero the first time an address is confirmed.
+   * This was `counts.building + counts.area` for as long as the renderer drew
+   * only the unresolved field, and it did its job: on 2026-08-17 the first
+   * confirmed addresses landed, twenty roles reached a building, and this
+   * sentence was the only thing on the page telling the truth about them. Left
+   * unsaid, that would have been the panel reporting "on a building: 20" over a
+   * skyline with nothing on it — I7's failure mode in the form it actually
+   * arrives in: not a mock presented as working, but a renderer presented as
+   * complete.
    *
-   * Left unsaid, that is this panel reporting "on a building: 1" over a skyline
-   * with nothing on it, and a role gone with no notice. I7's failure mode in
-   * the form it actually arrives in: not a mock presented as working, but a
-   * renderer presented as complete.
+   * `building` came out of the sum when the roofs were built. **`area` stays,
+   * and taking it out would be the same defect pointing the other way** — §6
+   * draws an approximate location as a translucent radius and nothing here
+   * draws one yet, so an `area` role really is counted and not shown.
    */
-  const undrawn = counts.building + counts.area;
+  const undrawn = counts.area;
 
   return (
     // Named so it is a landmark rather than an anonymous box: §5.6 requires a
@@ -147,10 +150,10 @@ export function CitySignals() {
             {undrawn.toLocaleString('en-US')} of these {undrawn === 1 ? 'is' : 'are'} not drawn on
             this map yet
           </span>
-          . A role that has reached a building or an area is counted above, but this city renders
-          the floating field and nothing else so far. {undrawn === 1 ? 'It is' : 'They are'} missing
-          from the sky, not from the corpus — and {undrawn === 1 ? 'it is' : 'they are'} reachable
-          from the job list.
+          . An approximate location is an area rather than a point, and this city draws roofs and
+          the floating field but no areas yet. {undrawn === 1 ? 'It is' : 'They are'} missing from
+          the sky, not from the corpus — and {undrawn === 1 ? 'it is' : 'they are'} reachable from
+          the job list.
         </p>
       )}
       {archived > 0 && (
