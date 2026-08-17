@@ -35,6 +35,26 @@ matter how many addresses were typed. `make offices` is the caller, added
 BIN 1087186). The remaining gap is the renderer: a `building` placement is still
 not drawn, which is M4e Task 6.
 
+**CLOSED 2026-08-17: the worksheet came back filled.** 8 of 23 rows carry a
+confirmed street address, 15 are deliberately blank, and `make offices` refused
+none of them. Two offices are placed on real buildings (Datadog → BIN 1087186,
+Ramp → BIN 1080672) and 20 of 31 seeded roles now resolve to `kind: building`.
+
+**The answer to "how far do you want to take it" turned out to be the wrong
+axis.** The filled rows are not 8 addresses; they are 23 decisions, and the
+blanks carry more information than the fills. Three of them are reasoned refusals
+written into the file — 1Password (remote-first, no street published anywhere),
+A.Team (genuinely NYC, publishes no address), Abound (three conflicting
+headquarters and an acquisition that invalidates some of them). And one is the
+case §4.4 was written for: `jobs.lever.co/alloy` is **Alloy.ai of San Francisco**,
+not the NYC identity-decisioning fintech that shares the name. Searching "Alloy"
+surfaces two real, geocodable Manhattan addresses, both completely wrong for that
+board. The file rejected both and said why.
+
+That is the argument for a human-confirmed file, stated better by the file than
+by the ADR: **the failure mode is not a missing address, it is a confident wrong
+one**, and no automated proposer would have caught the Alloy collision.
+
 Two things written into the file rather than assumed:
 
 - **Blank is a correct answer.** A company with no NYC office, or one whose
