@@ -1020,6 +1020,37 @@ Building, which asserts an address for the other tenant that nobody made. 620
 8th Avenue is exactly that kind of building, so the case is real rather than
 hypothetical.
 
+**The acceptance chain, run after the task and after the fix below** (`6e97690`):
+
+```
+make test-e2e         28 passed, 2 skipped
+make test-e2e-seeded  84 passed, 1 skipped
+make verify           all checks passed
+```
+
+**One defect found by running the chain, and it was mine.**
+`refreshRoofHeights` fires on every camera settle and re-queries the same tiles,
+so it hands the layer a fresh `Map` with identical contents each time —
+and `setRoofHeights` re-ran the whole layout for it. At `MAX_BEACONS` that is
+five thousand transforms to arrive at the identical city, on every pan-stop.
+Compared by value now, and mutation-checked: a reference check turns the new
+test red, which is the version of the fix that looks right and is not. `layouts`
+is exposed on the layer for that one assertion, because the effect is invisible
+by construction — the same city, drawn again — so a count is the only evidence
+available.
+
+**A note on how three of the four first e2e failures were diagnosed, since the
+wrong answer was cheap and available.** The first `make test-e2e` after this task
+failed four tests. One was real (the acceptance test above). The other three
+passed when run alone, and the tempting conclusion was "flaky under load, my
+change is fine". They were a stale `.next` — I had started a second dev server
+against the same directory, which corrupted the build the first one was serving,
+and the page began returning 500 with 404s on its own chunks. Clearing `.next`
+and restarting the dev server made all three pass. **The lesson is the one
+`CLAUDE.md` §4 already records in the other direction**: a server you did not
+start cleanly makes a passing target look broken just as readily as it makes a
+broken one look fine.
+
 **The defect this found and did not fix.** At street-level zoom a beacon is
 several times the size of the building it stands on — `BEACON_RADIUS` has been a
 fixed 40 m since M4c, and nothing noticed while the entire field sat 700 m up
