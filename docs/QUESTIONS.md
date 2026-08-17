@@ -7,6 +7,47 @@ the date, because the reasoning is usually worth more than the decision.
 
 ---
 
+## Q8 — `make check` wipes the offices you typed. Separate test database?
+
+**Raised:** 2026-08-17 (M4e Task 6) · **Type:** engineering, with a cost in your
+time · **Blocking:** no
+
+The Python suite runs against the same Postgres the dev stack uses. This is
+already known — PROGRESS records it as the `TRUNCATE` deadlock trap, where a
+test and a live dev session fight over the same table and one of them hangs.
+Today it did something else: `make check` emptied `company_locations` **and**
+`geocode_cache`, so the city went back to "nothing is on a building yet" hours
+after you filled the worksheet in.
+
+Recovery is one command — `make offices` — and everything came back. Two things
+still make it worth your decision rather than mine:
+
+- **It is silent and it looks like a product state.** The city does not error.
+  It draws the honest empty-city screen, which is a sentence this project
+  deliberately made convincing, and nothing distinguishes it from the true
+  version by looking.
+- **A wiped `geocode_cache` costs the offline guarantee.** ADR 0022's bargain is
+  that an address is geocoded once, ever, and the buildings it placed survive
+  into an offline `make demo`. After a wipe the next `make offices` needs the
+  network again, so `make check` can quietly make a later demo require it.
+
+**Why I have not just done it.** A separate test database is the obvious fix and
+it is not a patch: it changes `make test`, the CI job, `conftest.py`'s session
+fixture, and it retires two documented traps that only exist because the suite
+shares the dev stack. That is an ADR and a migration of the developer workflow,
+and it is the kind of change that is annoying to have done to you mid-milestone
+without being asked. The options, roughly:
+
+- **A second database on the same container** (`nightshift_test`), created by
+  `make up` and used by `pytest`. Cheapest, ~an hour, no new infrastructure.
+- **A throwaway schema per test session.** Cleaner isolation, more machinery.
+- **Leave it and document the recovery.** Free. Costs a rerun of `make offices`
+  after every `make check`, forever, and relies on somebody noticing.
+
+I would take the first. Say the word and it is the next thing I do.
+
+---
+
 ## Q7 — No ATS posting names a street. How many company addresses will you type?
 
 **Raised:** 2026-08-11 (M4a Task 1) · **Type:** product + your time · **Blocking:** no,

@@ -1051,6 +1051,32 @@ and restarting the dev server made all three pass. **The lesson is the one
 start cleanly makes a passing target look broken just as readily as it makes a
 broken one look fine.
 
+**`make check` destroys `make offices`, and this is the session that noticed.**
+After the acceptance chain the city showed "on a building: 0" again.
+`company_locations` was empty and **so was `geocode_cache`**. The Python suite
+runs against the same Postgres the dev stack uses — the fact PROGRESS already
+records as "the `TRUNCATE` deadlock trap" — and the tables it truncates now
+include the two that hold a day of a human's work.
+
+Nothing was lost that could not be rebuilt, and rebuilding took one command
+(`make offices`, back to 20 on a building). But two things make it worth writing
+down rather than shrugging at:
+
+- **The failure is silent and looks like a product state.** The city does not
+  error; it draws the honest "nothing is on a building yet" screen, which is a
+  sentence this project deliberately made convincing. There is no way to tell it
+  from the true version by looking.
+- **`geocode_cache` going with it costs the offline guarantee.** ADR 0022's
+  bargain is that an address is geocoded once ever and the buildings survive into
+  an offline `make demo`. A wiped cache means the next `make offices` needs the
+  network again, so `make check` can quietly make a later demo require it.
+
+**Not fixed here**, because the fix is a separate test database and that is an
+ADR rather than a patch — it changes `make test`, CI, and the two documented
+traps that exist because the suite shares the dev stack. Filed in
+`docs/QUESTIONS.md` as Q8. The recovery in the meantime is one line, and it is
+in the runbook rather than in somebody's memory.
+
 **The defect this found and did not fix.** At street-level zoom a beacon is
 several times the size of the building it stands on — `BEACON_RADIUS` has been a
 fixed 40 m since M4c, and nothing noticed while the entire field sat 700 m up
