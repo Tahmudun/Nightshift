@@ -567,6 +567,19 @@ dollars, no key, one cached artifact.
 
 ### 5.3 Buildings
 
+> **The building *material* below is superseded by ADR 0031 on 2026-08-18.**
+> The geometry pipeline — the pinned tiles, the measured heights, the 25 ft
+> default — stands and is what the replacement is built from. What fell is
+> `fill-extrusion` as the way a tower gets its look: after M4e Tasks 4–5 the
+> human's verdict was "the same old grey buildings with a neon slab placed on
+> top", and it was accurate — the crown is a second extrusion on an unchanged
+> flat-shaded box, and every limit that keeps it that way was measured
+> (`fill-extrusion-pattern` overrides the ramp; no outline for an extrusion;
+> MapLibre's own light on every face). **Buildings are drawn by the Three.js
+> layer** — windows, rim light, gradient and haze in our shader, from the same
+> tiles — and the acceptance test is the human judging screenshots against
+> reference 02. Read ADR 0031 before touching either layer.
+
 NYC Open Data Building Footprints, which carry per-building roof height and ground
 elevation — real extrusion heights for the whole city instead of OSM's guesses.
 Loaded into PostGIS once, filtered to the boroughs rendered, baked into vector tiles

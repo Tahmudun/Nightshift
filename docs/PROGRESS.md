@@ -40,7 +40,19 @@
 **Task 12 gave the seed a reader to be about, and found three false claims on the page — ADR 0019.**
 **M4e — the synthwave city — is sequenced ahead of M4d Tasks 2–7, on the human's call.** The city renders, is honest and is measured, and does not look like the thing it was specified to look like. One of the reference images filed at `docs/design/references/` on 2026-08-11 was handed back on 2026-08-13 with the note that the vision has not been met — **the target was recorded correctly and the implementation did not reach it.** Task 1 (the worksheet and its loader) is done; see "M4e Task 1" below.
 **The worksheet is filled and loaded. Two buildings are placed — Datadog at 620 8th Avenue (BIN 1087186) and Ramp at 28 West 23rd Street (BIN 1080672), both `verified`.** `GET /city/signals` went from 0 on a building / 31 floating to **20 on a building / 11 floating**, and the map draws none of the 20 because the renderer for a `building` placement is M4e Task 6. See "M4e Task 1 — the human filled it in" below.
-**Last updated: 2026-08-17**
+**2026-08-18: a full project audit was delivered and its plan adopted.** The audit's
+three findings: the city's emptiness is a data-supply cap (2 confirmed offices = at
+most 2 buildings that can ever light, and no rendering work moves that number); the
+look is mid-surgery and the undone pieces — sky, bloom, beam shape, building
+material — are the ones that carry the feeling; the matching engine and command
+center are complete, off-vision, and frozen. **ADR 0031 is the consequential
+outcome**: buildings move from MapLibre `fill-extrusion` into the Three.js layer
+(same tiles, our shader — windows, rim light, gradient, haze), and **M4e's
+acceptance test is the human judging screenshots against
+`docs/design/references/02-skyline-grid-plane-light-columns.jpg`** — a standing
+commitment, made in exchange for the human continuing at all. Aesthetic work runs
+screenshot-first; tests pin semantics (ADR 0029's margins), never taste.
+**Last updated: 2026-08-18**
 
 ---
 
@@ -55,8 +67,13 @@ quality tiers and the field-at-scale fix against the grey renderer would mean
 measuring twice and believing the wrong number. The frame timer stays the
 instrument every M4e task reports against.
 
-**M4e Tasks 1, 2, 4, 5 and 6 are done. Next is Task 3 (the sky)**, then Task 7
-(bloom) and Task 8 (the documents that said not to do this).
+**M4e Tasks 1, 2, 4, 5 and 6 are done. Next is Task 3 (the sky)**, then the
+2026-08-18 audit's running order: **Task 10 (the buildings become ours — ADR
+0031), Task 7 (bloom, which now owns the beam redesign), Task 8 (the documents),
+Task 9 (addresses without typing — promoted, no longer allowed to slip).**
+The milestone's acceptance test is the human holding
+`docs/design/references/02-skyline-grid-plane-light-columns.jpg` against a
+screenshot and saying it matches — not a checklist of mine.
 
 **The one thing to look at before picking up Task 3** is
 `docs/reviews/milestone-4e-roofs-close.png`: at street-level zoom a beacon is
@@ -122,12 +139,32 @@ field sat 700 m up and was never approached.
    brightness difference cannot carry ten in fifty thousand against a lit city.
    The slice plan asked for both; building both would have spent the encoding
    twice.
-7. **Bloom**, behind the quality tier, measured before and after.
+7. **Bloom**, behind the quality tier, measured before and after. **This task
+   now owns the beam redesign** (2026-08-18 audit): the diamond stack becomes a
+   narrow soft-edged column of light, intense at the roof and dissipating with
+   height, scale-aware so it belongs to its building at every zoom — which is
+   the fix for the roofs-close defect Task 6 recorded. Bloom and beam shape are
+   tuned together because neither reads right without the other.
 8. **The documents that said not to do this** — ADR 0029 and the rewrites it
-   forces in `city.md` §2.2/§3/§5.3 and `docs/design/references/README.md`.
+   forces in `city.md` §2.2/§3/§5.3 and `docs/design/references/README.md`,
+   plus the two-speed working method ADR 0031 states: screenshot-first for
+   aesthetics, full rigor for data honesty.
 9. **Addresses without typing** — `make propose-offices`, OSM proposes and a
-   human confirms. May slip past this slice; if it does, this file says so
-   rather than implying the pipeline exists.
+   human confirms. **Promoted by the 2026-08-18 audit: this may no longer slip.**
+   It is the first task after the look lands, because the audit's structural
+   finding is that the city is capped at as many lit buildings as there are
+   confirmed offices (currently 2), and no rendering work changes that. It
+   arrives with two companions, sequenced before M4d Tasks 2–7: an ADR putting
+   the approximate-placement question to the human (may a machine-checked but
+   unconfirmed address place a company, drawn visibly softer?), and registry
+   growth through the discovery pipeline that has idled at 23 boards since it
+   measured 2,605.
+10. **The buildings become ours** — ADR 0031. Building rendering moves from
+   MapLibre `fill-extrusion` into the Three.js layer: same pinned tiles, our
+   shader — dark glass mass, procedural window speckle (no sprite, offline
+   intact), rim light on silhouettes, distance haze. The extrusion layers stay
+   until parity, judged by the human against reference 02. Runs after Task 3
+   and before Task 7, because bloom should be tuned over the real material.
 
 **M4d Task 1's numbers, which still stand**: p50 16.6–16.7 ms in every scenario
 at both 200 and 5,000 roles on an Intel Iris Plus 645, 0–3% of frames missing
