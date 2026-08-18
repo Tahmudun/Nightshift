@@ -537,6 +537,35 @@ read as three-dimensional.
 
 This is the single most consequential technical decision in M4 and it gets an ADR.
 
+### 5.1a The sky, which is also ours
+
+> Added 2026-08-18 by ADR 0032, closing ADR 0029's "Still open".
+
+The sky is not MapLibre's `sky` block. It is `map/skyLayer.ts` — one full-screen
+triangle, one shader, raw WebGL rather than Three.js, because it draws no scene
+graph and a second `WebGLRenderer` on this context would be a second library
+caching a second belief about the same GL state.
+
+Three things about it are load-bearing and none is a taste:
+
+- **The gradient lives below 4.4° of elevation**, because that is the highest
+  sky the camera can put on screen at the opening pose. MapLibre's pitch is
+  measured from straight down, so the horizon sits 12% from the top at pitch 76
+  and 17% at the cap of 78. A gradient spread over a hemisphere shows one flat
+  colour here. ADR 0032 has the table, and **the reference's framing — horizon at
+  70% down the frame — is not reachable at any pitch MapLibre has.** That is
+  open as **Q9**.
+- **It draws below the buildings and above the roads**, because below the
+  horizon it is not sky at all but haze over ground MapLibre has already
+  painted. That is what closes the hard edge ADR 0029 could not move with any
+  fog setting: the band was drawn ground rather than void, so the fix had to
+  come from over it. The towers draw after and are unhazed until ADR 0031's
+  shader takes their share.
+- **The alpha is computed before the colour.** Not a micro-optimisation: a sun,
+  a glow and a starfield computed for ground pixels where the haze is a fraction
+  of a code value cost 12 ms a frame on the development machine. Returning early
+  brought the whole layer inside measurement noise.
+
 ### 5.2 Tiles must be local, which settles A4's open choice
 
 A4 offers "OpenFreeMap or self-hosted Protomaps" and does not choose. `CLAUDE.md` §4

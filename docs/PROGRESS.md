@@ -52,6 +52,14 @@ acceptance test is the human judging screenshots against
 `docs/design/references/02-skyline-grid-plane-light-columns.jpg`** — a standing
 commitment, made in exchange for the human continuing at all. Aesthetic work runs
 screenshot-first; tests pin semantics (ADR 0029's margins), never taste.
+**2026-08-18, later: M4e Task 3 — the sky — shipped and was approved.** ADR 0032:
+our own custom layer for the gradient, the starfield, the sun over the Hudson,
+and the distance haze that closed ADR 0029's hard edge. It also produced the
+finding that bounds ADR 0031's commitment — **reference 02's framing is not
+reachable at any pitch MapLibre has** (its horizon sits 70% down the frame; ours
+can reach 17% at today's cap and 36% at MapLibre's ceiling). Open as Q9.
+**The remaining M4e order is the audit's and is not to be resequenced: Task 10,
+then 7, then 8, then 9.**
 **Last updated: 2026-08-18**
 
 ---
@@ -59,7 +67,7 @@ screenshot-first; tests pin semantics (ADR 0029's margins), never taste.
 
 ## Next exact action
 
-### M4e — the synthwave city — is under way on `m4d-measured`, draft PR #17. Task 1 is done; next is Task 2.
+### M4e — the synthwave city — is under way on `m4d-measured`, draft PR #17. Task 3 is done; next is Task 10.
 
 **M4d Task 1 (the frame timer) is done and M4d Tasks 2–7 are deliberately
 paused.** The overhaul below changes what a frame costs, so tuning the adaptive
@@ -67,15 +75,37 @@ quality tiers and the field-at-scale fix against the grey renderer would mean
 measuring twice and believing the wrong number. The frame timer stays the
 instrument every M4e task reports against.
 
-**M4e Tasks 1, 2, 4, 5 and 6 are done. Next is Task 3 (the sky)**, then the
-2026-08-18 audit's running order: **Task 10 (the buildings become ours — ADR
-0031), Task 7 (bloom, which now owns the beam redesign), Task 8 (the documents),
-Task 9 (addresses without typing — promoted, no longer allowed to slip).**
-The milestone's acceptance test is the human holding
-`docs/design/references/02-skyline-grid-plane-light-columns.jpg` against a
-screenshot and saying it matches — not a checklist of mine.
+**M4e Tasks 1, 2, 3, 4, 5 and 6 are done. The rest of the milestone runs in the
+2026-08-18 audit's order, and a later session should not resequence it:**
 
-**The one thing to look at before picking up Task 3** is
+1. **Task 10 — the buildings become ours (ADR 0031).** ← **next**
+2. **Task 7 — bloom, which now owns the beam redesign.**
+3. **Task 8 — the documents that said not to do this.**
+4. **Task 9 — addresses without typing. Promoted; may no longer slip.**
+
+Then M4d Tasks 2–7. **The milestone's acceptance test is the human holding
+`docs/design/references/02-skyline-grid-plane-light-columns.jpg` against a
+screenshot and saying it matches — not a checklist of mine.** Show screenshots
+at every meaningful step and wait for the verdict before calling a look task
+done.
+
+**How to work on a look task**, settled by ADR 0031 and used for the first time
+on Task 3:
+
+- `make dev`, then `node apps/web/.look.mjs out.png <lng> <lat> <zoom> <pitch>
+  <bearing> [bare] [headed]`. `bare` hides the panels; `headed` opens a real
+  window on a real GPU.
+- **Headless Chromium here is a software rasteriser** reporting ~600 ms frames
+  over a city that draws in 16. Its numbers are evidence about nothing; the
+  frame report says so out loud. Measure with `node apps/web/.measure.mjs`,
+  which runs the M4d Task 1 instrument with and without a layer in the same
+  window, so the difference is the change and not the weather.
+- Tests pin semantics only — ADR 0029's brightness margins, `neon-*` and
+  `dusk-*` carrying no meaning. Never a gradient stop, a density or a position.
+- `make check` still wipes `company_locations` (Q8). Rerun `make offices`
+  after; `docs/runbooks/the-city-went-empty.md` is the runbook.
+
+**The one thing to look at before picking up Task 10** is
 `docs/reviews/milestone-4e-roofs-close.png`: at street-level zoom a beacon is
 several times the size of the building it stands on. It is fine at the opening
 pose and wrong up close, and it is a tuning decision rather than a bug — the
@@ -93,15 +123,20 @@ field sat 700 m up and was never approached.
   shoreline lit; the building mass dropped four shades with the light moved to
   the roofline. Screenshots: `docs/reviews/milestone-4e-ground.png`,
   `milestone-4e-buildings.png`.
-- **Task 3 — the sky — is not done, and `sky-horizon-blend` 0.8 → 0.55 is an
-  improvement rather than the fix.** Two things were measured while tuning it,
-  and neither can be solved from MapLibre's `sky` block: **more sky needs more
-  pitch and pitch is capped at 78** (at 70 the horizon leaves the viewport
-  entirely), and **the hard edge under the sky is far ground that fog does not
-  reach** — `fog-ground-blend` and `horizon-fog-blend` swept 0 → 0.85 with no
-  movement, and recolouring `background` did not move it either, because the
-  band is drawn ground rather than void. The horizon glow, the synthwave sun and
-  the starfield need a custom layer.
+- **Task 3 — the sky — is done and was approved on 2026-08-18.** ADR 0032.
+  `map/skyLayer.ts` is a custom layer: one full-screen triangle, one shader,
+  raw WebGL. Gradient, world-anchored starfield, a sun at azimuth 285° /
+  elevation 0.7° — west and a little north, which from Midtown is over the
+  Hudson — and **distance haze that finally closes ADR 0029's hard edge**,
+  because the layer is inserted below the buildings and draws over ground
+  MapLibre has already painted. Evidence: `docs/reviews/m4e-task3-sky/`,
+  before and after, judged by the human against reference 02.
+  **And the finding that bounds the whole milestone: the reference's framing is
+  not reachable.** MapLibre's pitch is measured from straight down, so the
+  horizon sits 12% from the top at the opening pose and 17% at the cap of 78;
+  reference 02 puts its horizon at 70%, which needs a pitch near 94°. The
+  gradient, the sun and the stars can match that image. The *proportion of sky*
+  cannot, beyond 36% at MapLibre's own ceiling of 85. Open as **Q9**.
 - **Task 6 — the hiring building — is done** (`368a2d4`). The 20 placed roles
   stand on their own roofs, at heights measured off the building tiles: Datadog
   on 620 8th Avenue at 230.1 m, Ramp on 28 West 23rd Street at 52.5 m. ADR 0023's
@@ -118,9 +153,13 @@ field sat 700 m up and was never approached.
 2. ~~**A `neon-*` palette family**, and replacing the two `darkStyle.test.ts`
    assertions that turn "the city stays grey" into a build failure.~~ **Done**
    (`c8b9e0d`). ADR 0029.
-3. **A sky, not a rectangle** — a custom layer with a gradient, a starfield, and
-   a sun fixed due west over the Hudson. **Not done**; the two constraints
-   measured while trying are above and in `darkStyle.ts`'s `sky` block.
+3. ~~**A sky, not a rectangle** — a custom layer with a gradient, a starfield,
+   and a sun fixed due west over the Hudson.~~ **Done**, approved 2026-08-18.
+   ADR 0032. Cost 12 ms a frame in its first version and nothing measurable in
+   its second: computing the alpha before the colour skips the sun, the glow and
+   the starfield for the ground pixels where the haze is invisible, which is
+   most of a pitched frame. 25.8 ms with the sky against 26.2 ms without, same
+   run, real GPU.
 4. ~~**The ground** — neon streets at graded intensity, a glowing shoreline.~~
    **Done** (`c8b9e0d`).
 5. ~~**The buildings** — near-black saturated mass, neon crowns via a second

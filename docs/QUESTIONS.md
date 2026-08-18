@@ -7,6 +7,42 @@ the date, because the reasoning is usually worth more than the decision.
 
 ---
 
+## Q9 — The reference's sky is 70% of the frame. Ours can be 17% or 36%. Which?
+
+**Raised:** 2026-08-18 (M4e Task 3) · **Type:** product / look · **Blocking:** no
+
+You approved the sky on 2026-08-18. This is the one thing about it I cannot
+decide for you, because it is a trade and both sides of the trade are yours.
+
+**The measurement.** MapLibre's pitch is the angle from straight *down*, so the
+camera always looks below horizontal and the horizon sits near the top of the
+frame. `docs/adr/0032` has the table; the short version:
+
+| Pitch | Sky, as a share of the frame |
+|---|---|
+| 76 — today's opening pose | 12% |
+| 78 — `CAMERA_LIMITS.maxPitch` today | 17% |
+| 85 — MapLibre's own ceiling | 36% |
+
+`02-skyline-grid-plane-light-columns.jpg` puts its horizon about **70%** down the
+frame. That needs a pitch near 94°, which does not exist. So the gradient, the
+sun and the stars can look like the reference; the *proportion of sky* can only
+go as far as 36%, and only by raising the cap.
+
+**What raising it costs.** The cap is 78 because the tile budget explodes past
+it: a flatter camera sees much further, so many more tiles are in view for a
+view of mostly nothing. I have not measured how much worse 85 is — I would
+before changing it — but the direction is certain and the machine is an Intel
+Iris Plus 645.
+
+**What I would pick, asked directly:** raise it to 82. That is most of the gain
+— roughly 27% of frame — at meaningfully less tile cost than 85, and it keeps a
+hard stop before the ground goes fully edge-on. But you filed the reference and
+you are the acceptance test, so if the sky should be as big as it can possibly
+be, say 85 and I will measure what it costs and tier it.
+
+---
+
 ## Q8 — `make check` wipes the offices you typed. Separate test database?
 
 **Raised:** 2026-08-17 (M4e Task 6) · **Type:** engineering, with a cost in your
