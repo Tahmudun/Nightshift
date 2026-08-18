@@ -3,12 +3,19 @@
  *
  * `city.md` §5.1 calls this the single most consequential technical decision in
  * M4 and asks for an ADR; it is ADR 0025. The short version: MapLibre owns the
- * projection, the camera, the basemap and the building extrusion, and Three.js
- * draws the signal layers **into MapLibre's own context** rather than onto a
- * second canvas stacked over it. One context, one camera, one depth buffer —
- * two stacked canvases would drift out of register on every gesture and would
- * share no depth, so a beacon could not be occluded by a building in front of
- * it, and occlusion is most of what makes a scene read as three-dimensional.
+ * projection, the camera and the basemap, and Three.js draws everything above
+ * it **into MapLibre's own context** rather than onto a second canvas stacked
+ * over it. One context, one camera, one depth buffer — two stacked canvases
+ * would drift out of register on every gesture and would share no depth, so a
+ * beacon could not be occluded by a building in front of it, and occlusion is
+ * most of what makes a scene read as three-dimensional.
+ *
+ * **Since ADR 0031 the buildings are here too.** MapLibre used to own the
+ * skyline as well, as a `fill-extrusion`; it is now `cityBuildings.ts` in this
+ * scene, for the reason that decision spells out at length — an extrusion's one
+ * expressive channel is a colour ramp, and everything the reference images
+ * build a tower out of is beyond it. So this file's scene is the whole visible
+ * city, not just what is floating over it.
  *
  * **Scene coordinates are metres, relative to a fixed anchor.** Mercator units
  * are a fraction of the world and vary in metres-per-unit with latitude, which
@@ -39,6 +46,7 @@ import type {
 } from 'maplibre-gl';
 import { Camera, Matrix4, Scene, Vector3, WebGLRenderer } from 'three';
 
+import { cameraDistanceMetres, HAZE_CAMERA_DISTANCES } from '@/lib/map/skyLayer';
 import type { CitySignal } from '@/lib/schemas';
 
 import {
@@ -59,6 +67,8 @@ import { pickInstance, sceneRayFromPointer, type PointerPoint, type Viewport } f
 import { createSelectionMesh } from './selectionMesh';
 import type { SignalTreatment } from './treatments';
 import { arrangeOnBuildings, type HiringBuilding } from './buildingField';
+import type { TileFootprint } from './buildingGeometry';
+import { cameraPositionFrom, createCityBuildings } from './cityBuildings';
 import { createRoofBeamMesh } from './roofBeamMesh';
 import {
   arrangeUnresolved,
@@ -147,9 +157,51 @@ export const MAX_MARKS = 500;
  */
 const RING_TURNS_PER_SECOND = 1 / 6;
 
+/**
+ * What share of a frame may go on building city, and the floor and ceiling.
+ *
+ * **A share rather than a fixed number, and the fixed number was the
+ * instructive mistake.** The first draft spent 4 ms a frame: a quarter of a
+ * 60fps frame, which assembles the whole of New York — 35,413 footprints,
+ * 269,439 points, something under a second of work — over about three seconds
+ * of frames, with every one of them still landing on time. On a machine whose
+ * frames take 600 ms, the same 4 ms is 0.7% of each one, and the city takes a
+ * hundred seconds to appear. That is not a hypothetical: it is what headless
+ * Chromium does here, and it is what a genuinely slow GPU would do to a user.
+ *
+ * Taking a quarter of whatever the last frame actually cost makes the wall
+ * clock roughly constant instead: fast machines get many small slices, slow
+ * ones get few large ones, and neither ever gives up more than a quarter of a
+ * frame to it. The ceiling stops a single stalled frame — a tab coming back
+ * from the background, where the delta is seconds — from turning into one very
+ * long block of work.
+ */
+const BUILD_FRAME_SHARE = 0.25;
+const BUILD_BUDGET_MIN_MS = 4;
+const BUILD_BUDGET_MAX_MS = 60;
+
+/**
+ * The haze scale used before the map can be asked for one.
+ *
+ * Only reachable on a frame rendered without a map — which is how the unit
+ * tests drive this layer. A zero would divide the fog by nothing and paint
+ * every building flat magenta, which is a wrong picture that looks deliberate.
+ */
+const DEFAULT_HAZE_METRES = 25_000;
+
 export interface SignalLayerOptions {
   /** Scene origin. Everything is metres from here. */
   readonly anchor: readonly [number, number];
+  /**
+   * Called once, the first time the whole city has been built and drawn.
+   *
+   * This is how ADR 0031's "the city never goes buildingless in between" is
+   * made mechanical: MapLibre's own extrusion layers stay in the style and
+   * stay visible until this fires, and only then does the caller retire them.
+   * A boolean the caller polls would be the same rule enforced by remembering
+   * to look, which is not enforcement.
+   */
+  readonly onBuildingsReady?: () => void;
 }
 
 /**
@@ -296,6 +348,30 @@ export interface SignalLayer extends CustomLayerInterface {
   readonly selectionAt: readonly [number, number, number] | null;
   /** Has a frame been drawn? Until it has, `pick` cannot answer. */
   readonly canPick: boolean;
+  /**
+   * Hand the layer whatever building footprints the map currently has loaded.
+   *
+   * ADR 0031: the towers are ours now, and they are built from the same tiles
+   * MapLibre parsed for its own extrusions rather than from a second copy of
+   * NYC's building table. Footprints already known are ignored, so this is
+   * safe — and cheap — to call on every tile arrival.
+   */
+  ingestFootprints(features: readonly TileFootprint[]): void;
+  /**
+   * What the city renderer has on the GPU, and what it still owes.
+   *
+   * Exposed for the same reason `drawn` is: a page that says "35,000
+   * buildings" while the buffer holds four is the failure mode M4c's
+   * acceptance suite caught once already, and a count nothing can read is a
+   * count nothing can contradict.
+   */
+  readonly city: {
+    readonly ready: boolean;
+    readonly pending: number;
+    readonly buildings: number;
+    readonly meshes: number;
+    readonly vertices: number;
+  };
 }
 
 /**
@@ -351,6 +427,25 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
   // by that tower exactly as the role is.
   const reticle = createSelectionMesh();
   scene.add(reticle.mesh);
+
+  // New York itself — ADR 0031. It joins this scene rather than getting a
+  // custom layer of its own for one reason: a second `WebGLRenderer` on
+  // MapLibre's context would be two libraries caching two beliefs about the
+  // same GL state, and this one already pays `resetState()` once a frame to
+  // settle that argument with MapLibre alone. Sharing the scene also means the
+  // buildings share the depth buffer with the beacons standing on them, which
+  // is the whole reason ADR 0025 put Three in MapLibre's context at all.
+  //
+  // It is opaque and depth-writing, so Three draws it before every transparent
+  // mesh above regardless of the order things were added here.
+  const cityBuildings = createCityBuildings({ anchor: options.anchor });
+  scene.add(cityBuildings.group);
+  /** Fired once, when the city has been built end to end. See the option. */
+  let announcedBuildings = false;
+  /** Where the camera stood on the last frame, in scene metres. */
+  const eye = new Vector3();
+  /** When the last frame was drawn, for the build budget's share of one. */
+  let lastRenderAt: number | null = null;
 
   let renderer: WebGLRenderer | null = null;
   let map: MapLibreMap | null = null;
@@ -563,6 +658,25 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
 
     markScaleAt(kind, index) {
       return marks[kind].scaleAt(index);
+    },
+
+    ingestFootprints(features) {
+      cityBuildings.ingest(features);
+      // The build happens inside the render loop, on a frame budget — so
+      // something has to ask for a frame, or a city handed footprints while
+      // nothing is animating waits for the next gesture to draw itself.
+      map?.triggerRepaint();
+    },
+
+    get city() {
+      const stats = cityBuildings.stats;
+      return {
+        ready: cityBuildings.ready,
+        pending: cityBuildings.pending,
+        buildings: stats.buildings,
+        meshes: stats.meshes,
+        vertices: stats.vertices,
+      };
     },
 
     tintAt(index) {
@@ -795,9 +909,47 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       // second one from the map's pose — see the head of `pick.ts`.
       projection = camera.projectionMatrix;
 
-      if (!renderer || drawn === 0) return;
+      if (!renderer) return;
 
-      if (layer.animating) {
+      // **Not `drawn === 0`, which is what this used to return on.** The scene
+      // held nothing but signals then, so an empty corpus meant an empty
+      // frame. It now holds New York (ADR 0031), and a city that refused to
+      // draw itself until somebody was hiring would be the most confusing
+      // possible expression of I7.
+
+      // Where the camera is, out of the matrix this frame will draw with —
+      // never out of a second derivation from the pose. The haze needs it per
+      // pixel and the eviction needs it per cell, and a camera position that
+      // disagreed with the projection by a metre would fog the city from
+      // slightly the wrong place, which reads as nothing at all being wrong.
+      cameraPositionFrom(camera.projectionMatrix, eye);
+      cityBuildings.setCamera(
+        eye,
+        map === null
+          ? DEFAULT_HAZE_METRES
+          : HAZE_CAMERA_DISTANCES *
+              cameraDistanceMetres(
+                map.getZoom(),
+                map.getCenter().lat,
+                map.getCanvas().clientHeight,
+                args.fov,
+              ),
+      );
+
+      // A slice of city per frame. The budget is what keeps 35,000 footprints
+      // from arriving as one dropped second — see `cityBuildings.ts`.
+      const now = performance.now();
+      const frameMs = lastRenderAt === null ? 16.7 : now - lastRenderAt;
+      lastRenderAt = now;
+      const building = cityBuildings.step(
+        Math.min(BUILD_BUDGET_MAX_MS, Math.max(BUILD_BUDGET_MIN_MS, BUILD_FRAME_SHARE * frameMs)),
+      );
+      if (!building && !announcedBuildings) {
+        announcedBuildings = true;
+        options.onBuildingsReady?.();
+      }
+
+      if (layer.animating && drawn > 0) {
         if (clockStartedAt === null) clockStartedAt = performance.now();
         beacons.tick(elapsed());
         orientMarks();
@@ -816,7 +968,11 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       // frame is asked for only while something is actually moving — a pulse
       // or a ring — and under `prefers-reduced-motion` nothing ever is, so the
       // city goes completely still rather than animating invisibly.
-      if (layer.animating) map?.triggerRepaint();
+      //
+      // A city still assembling counts as moving, and stops counting the frame
+      // it finishes. That is a bounded number of frames after a tile lands,
+      // not a standing subscription to the display's refresh rate.
+      if (layer.animating || building) map?.triggerRepaint();
     },
 
     onRemove(removedMap) {
@@ -833,6 +989,9 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       labels.dispose();
       beams.dispose();
       reticle.dispose();
+      // The largest allocation this layer holds by a wide margin — a hundred
+      // megabytes of New York across a few dozen buffers.
+      cityBuildings.dispose();
       // The geometries and materials above are this layer's; the compiled
       // programs and render lists behind them are the *renderer's*, and nulling
       // the reference leaves them on the GPU. It is a bounded leak today
@@ -849,6 +1008,7 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       map = null;
       columns = [];
       buildings = [];
+      lastRenderAt = null;
       placements = [];
       treatments = new Map();
       selected = null;

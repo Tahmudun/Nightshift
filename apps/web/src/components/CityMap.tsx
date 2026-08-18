@@ -51,12 +51,19 @@ import { useCityScene, visibleSignalsOf } from '@/lib/city/scene';
 import { createSignalLayer } from '@/lib/city/signalLayer';
 import { createSkyLayer, skyBefore } from '@/lib/map/skyLayer';
 import { BASEMAP_URL, BUILDINGS_URL } from '@/lib/tiles';
+import type { FilterSpecification } from 'maplibre-gl';
+
 import type { CameraController } from '@/lib/map/camera';
 import { CAMERA_LIMITS, createCameraController, INITIAL_POSE } from '@/lib/map/camera';
 import { createFrameTimer, describeRenderer, identifyRenderer } from '@/lib/map/frameTimer';
 import type { DebugMap } from '@/lib/map/debug';
 import { installCityDebug } from '@/lib/map/debug';
-import { buildDarkStyle, BUILDINGS_SOURCE } from '@/lib/map/darkStyle';
+import {
+  buildDarkStyle,
+  BUILDING_LAYER_ID,
+  BUILDINGS_SOURCE,
+  CROWN_LAYER_ID,
+} from '@/lib/map/darkStyle';
 
 // MapLibre's own stylesheet, for the attribution control and the canvas
 // positioning. A static import so Next can hoist it into the CSS bundle; the
@@ -287,14 +294,60 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
       canvas.setAttribute('role', 'application');
       canvas.setAttribute('aria-label', MAP_LABEL);
 
-      // The signal layer, and the seam that keeps React out of the render loop.
+      // What retires MapLibre's own skyline: a filter no feature can satisfy.
+      //
+      // **Not `visibility: none`, and the reason is load-bearing.** MapLibre
+      // only fetches and parses tiles for sources that a *visible* layer uses,
+      // so hiding these two stops the buildings archive loading — and the
+      // buildings archive is where our own geometry comes from. The first draft
+      // did exactly that and produced a screenshot of New York with no
+      // buildings in it at all: the extrusions retired, the tiles never
+      // arrived, and the Three.js city had nothing to build.
+      //
+      // A filter is applied when a tile is parsed into a bucket, so nothing is
+      // drawn and nothing is uploaded — while `querySourceFeatures`, which
+      // reads the tile's own feature index rather than the style's buckets,
+      // still answers with every footprint.
+      //
+      // The sentinel is a value a BIN cannot hold — NYC's are numeric strings —
+      // rather than a constant `false`, so a reader who finds this filter in a
+      // debugger can tell what it is doing without knowing why.
+      const RETIRED_FILTER = [
+        '==',
+        ['get', 'bin'],
+        'nightshift:retired-by-adr-0031',
+      ] as FilterSpecification;
+
+      // The Three.js layer — the beacons, the marks, and since ADR 0031 the
+      // city itself. It is the seam that keeps React out of the render loop.
       //
       // It is added on `load` rather than now, because `addLayer` before the
       // style has been applied throws — and it subscribes to the scene store
       // **outside React**, so a fetch resolving updates an instance buffer
       // rather than re-rendering the component that owns a WebGL context
       // (`city.md` §5.5, `CLAUDE.md` §8).
-      const layer = createSignalLayer({ anchor: INITIAL_POSE.center });
+      //
+      // `onBuildingsReady` is where MapLibre's own skyline is retired, and it
+      // fires exactly once, on the frame the last cell of city reaches the GPU.
+      // ADR 0031 is explicit that "the two extrusion layers retire the day the
+      // Three.js buildings reach visual parity, and not before — the city never
+      // goes buildingless in between", and this is that sentence made
+      // mechanical: until the callback fires, MapLibre's grey boxes are what is
+      // on screen, and the Three.js city is built with its group hidden.
+      const layer = createSignalLayer({
+        anchor: INITIAL_POSE.center,
+        onBuildingsReady: () => {
+          if (cancelled) return;
+          for (const id of [BUILDING_LAYER_ID, CROWN_LAYER_ID]) {
+            // Absent when the style was built without the buildings archive —
+            // `buildDarkStyle` does that offline, and `setLayoutProperty`
+            // throws on a layer that is not there.
+            if (created.getLayer(id) !== undefined) {
+              created.setFilter(id, RETIRED_FILTER);
+            }
+          }
+        },
+      });
       let attached = false;
       const attachSignals = () => {
         if (cancelled || attached) return;
@@ -385,8 +438,41 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
           if (heights.size > 0) layer.setRoofHeights(heights);
         };
         created.on('idle', refreshRoofHeights);
-        unsubscribeRoofs = () => created.off('idle', refreshRoofHeights);
+
+        // The footprints themselves, for the renderer that now draws them.
+        //
+        // ADR 0031: the towers are Three.js geometry with our own shader on
+        // them, built from the very tiles MapLibre already parsed for its
+        // extrusions. One unfiltered query answers with everything loaded —
+        // 35,413 features at the opening pose — and the layer ignores whatever
+        // it has already built, so this is safe to call repeatedly.
+        //
+        // **Guarded on tiles having actually changed**, which the roof query
+        // above does not need to be and this one does: the unfiltered call
+        // costs 70 ms, and `idle` fires after every gesture whether or not a
+        // single tile arrived in it. Without the guard, letting go of the
+        // mouse would cost a seventy-millisecond stall for nothing.
+        let tilesChanged = true;
+        const noteTiles = (event: { sourceId?: string; tile?: unknown }): void => {
+          if (event.sourceId === BUILDINGS_SOURCE && event.tile !== undefined) tilesChanged = true;
+        };
+        const refreshFootprints = (): void => {
+          if (!tilesChanged) return;
+          tilesChanged = false;
+          layer.ingestFootprints(
+            created.querySourceFeatures(BUILDINGS_SOURCE, { sourceLayer: 'buildings' }),
+          );
+        };
+        created.on('sourcedata', noteTiles);
+        created.on('idle', refreshFootprints);
+
+        unsubscribeRoofs = () => {
+          created.off('idle', refreshRoofHeights);
+          created.off('idle', refreshFootprints);
+          created.off('sourcedata', noteTiles);
+        };
         refreshRoofHeights();
+        refreshFootprints();
       };
       if (created.isStyleLoaded()) attachSignals();
       else created.on('styledata', attachSignals);

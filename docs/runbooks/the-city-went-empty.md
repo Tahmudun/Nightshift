@@ -30,6 +30,22 @@ OUTBOUND_HTTP_ENABLED=true make offices
 Idempotent — running it twice updates rather than duplicates — and it prints one
 line per company, so you can see what came back.
 
+**`OUTBOUND_HTTP_ENABLED=true` in front of `make` is not enough.** The Makefile
+sources `.env` itself, so the file's value wins over anything in your shell.
+Edit the line in `.env`, run, and put it back:
+
+```
+cp .env /tmp/env.bak
+sed -i '' 's/^OUTBOUND_HTTP_ENABLED=.*/OUTBOUND_HTTP_ENABLED=true/' .env
+make offices
+cp /tmp/env.bak .env
+```
+
+And the flag is needed **even when every answer is already cached**: the guard
+counts the addresses in the worksheet, not the ones that would actually reach
+the network. So a restore after `make check` asks for it whether or not it
+makes a single request.
+
 **Check `geocode_cache` too.** If it was emptied as well, that run just made
 real requests to `geosearch.planninglabs.nyc`, so it needed the network:
 

@@ -559,8 +559,12 @@ Three things about it are load-bearing and none is a taste:
   horizon it is not sky at all but haze over ground MapLibre has already
   painted. That is what closes the hard edge ADR 0029 could not move with any
   fog setting: the band was drawn ground rather than void, so the fix had to
-  come from over it. The towers draw after and are unhazed until ADR 0031's
-  shader takes their share.
+  come from over it. The towers draw after and carry their own haze — since
+  ADR 0031 landed on 2026-08-18 they are Three.js geometry, and
+  `cityBuildings.ts` fogs them into the same horizon colour at the same
+  quadratic rate off the same `HAZE_CAMERA_DISTANCES`. Two numbers there would
+  be a ground and a skyline dissolving at different rates, which is a seam
+  along the horizon no amount of tuning either one can close.
 - **The alpha is computed before the colour.** Not a micro-optimisation: a sun,
   a glow and a starfield computed for ground pixels where the haze is a fraction
   of a code value cost 12 ms a frame on the development machine. Returning early
@@ -608,6 +612,13 @@ dollars, no key, one cached artifact.
 > layer** — windows, rim light, gradient and haze in our shader, from the same
 > tiles — and the acceptance test is the human judging screenshots against
 > reference 02. Read ADR 0031 before touching either layer.
+>
+> **Built on 2026-08-18** as M4e Task 10: `buildingGeometry.ts` (tile features
+> to vertex arrays) and `cityBuildings.ts` (chunking, eviction, shader), inside
+> the existing signal layer's scene. The two `fill-extrusion` layers are still
+> in the style and are retired by a **filter no feature can satisfy** — never
+> by `visibility: none`, which stops MapLibre loading the very tiles the new
+> renderer reads. It cost 0.6 ms a frame over the boxes it replaced.
 
 NYC Open Data Building Footprints, which carry per-building roof height and ground
 elevation — real extrusion heights for the whole city instead of OSM's guesses.

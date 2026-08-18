@@ -95,6 +95,17 @@ export const BUILDINGS_SOURCE = 'nyc-buildings';
 export const BUILDING_LAYER_ID = 'buildings';
 
 /**
+ * The lit roofline layer's id.
+ *
+ * Named rather than inlined because something outside this file now has to
+ * *retire* it: ADR 0031 moves the buildings into the Three.js layer, and the
+ * two extrusion layers here stay in the style — visible — until the Three.js
+ * city has been built end to end, at which point `CityMap` hides both. A
+ * string typed in two places would retire one of them.
+ */
+export const CROWN_LAYER_ID = 'buildings-crown';
+
+/**
  * Feet to metres, applied here and nowhere else.
  *
  * The tiles carry `height_roof` in the source's own units, which is feet,
@@ -481,7 +492,7 @@ function buildingLayer(): LayerSpecification {
  */
 function crownLayer(): LayerSpecification {
   return {
-    id: 'buildings-crown',
+    id: CROWN_LAYER_ID,
     type: 'fill-extrusion',
     source: BUILDINGS_SOURCE,
     'source-layer': 'buildings',

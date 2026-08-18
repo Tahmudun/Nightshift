@@ -147,8 +147,13 @@ export const SUN = { azimuthDeg: 285, elevationDeg: 0.7 } as const;
  * 3.4 puts a light veil on the middle distance and takes the far ground all the
  * way into the horizon colour. Tuned by looking, which is what ADR 0031 sets as
  * the method for this class of number.
+ *
+ * **Exported because the buildings use it too.** `cityBuildings.ts` fogs the
+ * skyline with the same scale into the same colour; two numbers here would be
+ * a ground and a skyline dissolving at different rates, which is a seam along
+ * the horizon that no amount of tuning either one can close.
  */
-const HAZE_CAMERA_DISTANCES = 2.1;
+export const HAZE_CAMERA_DISTANCES = 2.1;
 
 /** Metres per pixel at the equator at zoom 0 — the mercator scale constant. */
 const EQUATOR_METRES_PER_PIXEL = 156543.03392;

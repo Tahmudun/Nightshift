@@ -85,6 +85,38 @@ into the docs:** visual tuning runs on a screenshot loop — render, look, adjus
 rigor stays exactly where it has always earned its keep: the data, the
 placement rules, the honesty machinery.
 
+## What it cost when it landed — 2026-08-18
+
+Recorded here rather than in PROGRESS because both are facts about *this
+decision* that a later reader would otherwise have to rediscover.
+
+**The extrusion layers cannot be retired with `visibility: none`.** MapLibre
+only fetches and parses tiles for a source that a *visible* layer uses, and the
+buildings source has exactly two layers, both of them extrusions. Hiding them
+stops the buildings archive loading — and the archive is where our own geometry
+comes from. The first implementation did exactly that and produced a screenshot
+of New York with no buildings in it at all: the extrusions retired, the tiles
+never requested, `querySourceFeatures` answering 0, and the Three.js city with
+nothing to build. They are retired instead by a **filter no feature can
+satisfy**: applied when a tile is parsed into a bucket, so nothing is drawn and
+nothing is uploaded, while `querySourceFeatures` — which reads the tile's own
+feature index rather than the style's buckets — still answers with all 35,413.
+
+**The cost, measured on the machine this is developed on, is nothing.** Same
+window, same GPU, same camera, spinning the bearing at the opening pose:
+
+| skyline | p50 | p95 | p99 |
+|---|---|---|---|
+| ours (Three.js, full look) | 27.2 ms | 36.5 ms | 59.8 ms |
+| MapLibre `fill-extrusion` | 26.6 ms | 35.0 ms | 55.4 ms |
+
+43,948 buildings, 82 cells, 1,386,130 vertices. So the windows, the edge light,
+the authored gradient and the haze together cost about 0.6 ms a frame over the
+flat-shaded boxes they replaced. What this does **not** say is that either one
+holds 60fps: both are ~27 ms while continuously rotating a full city on an
+Intel Iris, which is what M4d Task 2's quality tiers exist for and what this
+ADR already said would become load-bearing.
+
 ## Consequences
 
 **Performance must be re-measured, and the quality tiers stop being optional.**

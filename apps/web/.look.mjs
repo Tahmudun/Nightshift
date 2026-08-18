@@ -50,7 +50,9 @@ if (bare === 'bare') {
     // Found from the canvas outward rather than by class name: the overlay
     // wrapper's classes are Tailwind utilities and would silently stop
     // matching the first time one of them changed.
-    const container = document.querySelector('canvas.maplibregl-canvas')?.closest('.maplibregl-map');
+    const container = document
+      .querySelector('canvas.maplibregl-canvas')
+      ?.closest('.maplibregl-map');
     const root = container?.parentElement;
     if (root) {
       for (const child of root.children) {
@@ -63,7 +65,17 @@ if (bare === 'bare') {
   });
 }
 
-await page.waitForTimeout(8000);
+// The city builds on a frame budget, so a screenshot taken too early is a
+// screenshot of a half-assembled New York — and in headless, where a frame
+// takes 600 ms, "too early" is most of a minute. Waiting on the renderer's own
+// readiness rather than on a number of seconds is the difference between a
+// picture of the city and a picture of the loader.
+await page
+  .waitForFunction(() => window.__nightshiftCity?.signals?.city?.ready === true, null, {
+    timeout: 180000,
+  })
+  .catch(() => console.log('warning: the city never reported ready'));
+await page.waitForTimeout(3000);
 await page.screenshot({ path: out });
 
 const frames = await page.evaluate(() => {

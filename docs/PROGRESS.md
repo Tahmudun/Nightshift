@@ -60,6 +60,23 @@ reachable at any pitch MapLibre has** (its horizon sits 70% down the frame; ours
 can reach 17% at today's cap and 36% at MapLibre's ceiling). Open as Q9.
 **The remaining M4e order is the audit's and is not to be resequenced: Task 10,
 then 7, then 8, then 9.**
+**2026-08-18, later still: M4e Task 10 — the buildings became ours (ADR 0031) —
+is built and awaiting the human's verdict.** New York is no longer MapLibre's
+`fill-extrusion`. Every footprint is Three.js geometry in the layer that already
+drew the beacons, with a shader that gives a tower dark glass, procedural
+windows, lit corners and rooflines, and its own haze into the same horizon the
+sky fades the ground into. 32,686 buildings, 47 cells, 1.07M vertices at the
+opening pose, assembled on a share of each frame. **It costs 0.6 ms a frame more
+than the flat boxes it replaced** — measured on a real GPU, both skylines in the
+same window: ours p50 27.2 ms, MapLibre's p50 26.6 ms. Screenshots:
+`docs/reviews/milestone-4e-buildings-ours.png` (the opening pose),
+`milestone-4e-buildings-skyline.png` (the reference's own framing, as close as
+MapLibre's pitch allows — Q9), `milestone-4e-buildings-close.png` (street scale).
+**Two findings are recorded in ADR 0031 rather than here**: the extrusion layers
+cannot be retired with `visibility: none` — doing so starves the tile source our
+own geometry reads, and the first run drew an empty New York — and a fixed
+per-frame build budget is wrong on a slow machine, so it is now a share of the
+frame that actually elapsed.
 **Last updated: 2026-08-18**
 
 ---
@@ -67,7 +84,7 @@ then 7, then 8, then 9.**
 
 ## Next exact action
 
-### M4e — the synthwave city — is under way on `m4d-measured`, draft PR #17. Task 3 is done; next is Task 10.
+### M4e — the synthwave city — is under way on `m4d-measured`, draft PR #17. Task 10 is built and awaiting a verdict; next is Task 7.
 
 **M4d Task 1 (the frame timer) is done and M4d Tasks 2–7 are deliberately
 paused.** The overhaul below changes what a frame costs, so tuning the adaptive
@@ -75,11 +92,18 @@ quality tiers and the field-at-scale fix against the grey renderer would mean
 measuring twice and believing the wrong number. The frame timer stays the
 instrument every M4e task reports against.
 
-**M4e Tasks 1, 2, 3, 4, 5 and 6 are done. The rest of the milestone runs in the
-2026-08-18 audit's order, and a later session should not resequence it:**
+**M4e Tasks 1, 2, 3, 4, 5, 6 and 10 are built. The rest of the milestone runs in
+the 2026-08-18 audit's order, and a later session should not resequence it:**
 
-1. **Task 10 — the buildings become ours (ADR 0031).** ← **next**
-2. **Task 7 — bloom, which now owns the beam redesign.**
+1. **Task 10 — the buildings become ours (ADR 0031).** Built, tested and
+   measured; **the look is not signed off.** ADR 0031 makes the human holding
+   reference 02 the acceptance test, and they have not yet given a verdict on
+   the three screenshots. Do not mark it complete until they have, and expect
+   the next pass to be tuning rather than rebuilding: the constants that would
+   move — window density and tone, edge weight, the two size gates, the mass
+   gradient, the crown — are all named and commented in `cityBuildings.ts`, and
+   none of them is pinned by a test.
+2. **Task 7 — bloom, which now owns the beam redesign.** ← **next**
 3. **Task 8 — the documents that said not to do this.**
 4. **Task 9 — addresses without typing. Promoted; may no longer slip.**
 
@@ -97,15 +121,18 @@ on Task 3:
   window on a real GPU.
 - **Headless Chromium here is a software rasteriser** reporting ~600 ms frames
   over a city that draws in 16. Its numbers are evidence about nothing; the
-  frame report says so out loud. Measure with `node apps/web/.measure.mjs`,
-  which runs the M4d Task 1 instrument with and without a layer in the same
-  window, so the difference is the change and not the weather.
+  frame report says so out loud. Measure with `node apps/web/.measure.mjs
+  <lng> <lat> <zoom> <pitch> <bearing> [sky|buildings]`, which runs the M4d
+  Task 1 instrument twice in the same window on the same GPU, so the difference
+  is the change and not the weather. `.look.mjs` now waits for the city to
+  report itself built rather than for a fixed number of seconds — a screenshot
+  taken on a timer is a picture of a half-assembled New York.
 - Tests pin semantics only — ADR 0029's brightness margins, `neon-*` and
   `dusk-*` carrying no meaning. Never a gradient stop, a density or a position.
 - `make check` still wipes `company_locations` (Q8). Rerun `make offices`
   after; `docs/runbooks/the-city-went-empty.md` is the runbook.
 
-**The one thing to look at before picking up Task 10** is
+**Still open, and Task 7 inherits it** —
 `docs/reviews/milestone-4e-roofs-close.png`: at street-level zoom a beacon is
 several times the size of the building it stands on. It is fine at the opening
 pose and wrong up close, and it is a tuning decision rather than a bug — the
@@ -783,6 +810,87 @@ and 11 still float, which is exactly the mix §4.8 designs for.
 
 **Q2 (deployment target) is the only open question that blocks anything**, and
 only M4d.
+
+---
+
+## M4e Task 10 — the buildings become ours, and two things that failed silently
+
+**Built 2026-08-18. ADR 0031. The look is not signed off** — the acceptance test
+for it is the human holding
+`docs/design/references/02-skyline-grid-plane-light-columns.jpg`, and they have
+not yet given a verdict. Everything below is what is *true*, not what is
+approved.
+
+New York is no longer MapLibre's `fill-extrusion`. Every footprint is Three.js
+geometry inside the layer that already drew the beacons (ADR 0025), built from
+the same pinned tile archive (ADR 0022), the same measured `height_roof` and the
+same documented 25 ft default. What changed is what a tower is *made of*.
+
+**Three new pieces.** `buildingGeometry.ts` turns tile features into vertex
+arrays — walls with a per-wall coordinate system, roofs triangulated with
+Three's own earcut, no new dependency. `cityBuildings.ts` owns the chunking, the
+eviction and the shader. `signalLayer.ts` puts the group in the same scene, so
+there is still exactly one `WebGLRenderer` on MapLibre's context and the
+buildings share the depth buffer with the beacons standing on them.
+
+**What the shader owes ADR 0031, and where each one lives:** dark glass mass
+with a gradient we author; procedural window bays computed from world position,
+no sprite and no network; edge light on corners, rooflines and the line where a
+wall meets the street; and haze into the same horizon colour, at the same
+quadratic rate and off the same `HAZE_CAMERA_DISTANCES`, that `skyLayer.ts`
+fades the ground into.
+
+**What it draws, measured, not estimated.** 32,686 buildings in 47 cells and
+1,073,870 vertices at the opening pose; 43,948 / 82 / 1,386,130 after a full
+rotation loads more tiles.
+
+**What it costs: 0.6 ms a frame.** Both skylines, same window, same GPU, same
+camera, spinning the bearing — ours p50 27.2 ms / p95 36.5, MapLibre's p50
+26.6 / p95 35.0. The table is in ADR 0031. Neither holds 60fps while
+continuously rotating a full city on this Intel Iris, which is what M4d Task 2
+exists for.
+
+### The two failures, both silent, both now tested
+
+**1. `visibility: none` starves the tiles the new renderer reads.** The first
+implementation retired MapLibre's two extrusion layers by hiding them. MapLibre
+only fetches and parses tiles for a source a *visible* layer uses, and those two
+layers are the only consumers of the buildings archive — so hiding them stopped
+the archive loading, `querySourceFeatures` answered 0, and the Three.js city had
+nothing to build. **The screenshot was New York with no buildings on it at all**,
+and nothing in the console said so. They are retired instead by a filter no
+feature can satisfy: nothing is drawn, nothing is uploaded, and the tile's own
+feature index still answers with all 35,413 footprints. `e2e/city.spec.ts` now
+fails if either layer is ever set to `visibility: none`.
+
+**2. "Ready" meant "the queue is empty", which is also true of a city that never
+started.** The first drain runs before any tile has loaded. It found nothing to
+do, reported ready, and retired the extrusions in exchange for an empty scene —
+which is how failure 1 got as far as a screenshot. Ready now requires at least
+one built cell, and `cityBuildings.test.ts` asserts the empty case reports *not*
+ready with the group still hidden.
+
+**A third thing was wrong and only slow, not invisible.** The build budget was a
+fixed 4 ms a frame — a quarter of a 60fps frame, three seconds for the whole
+city. On a machine whose frames take 600 ms it is 0.7% of each one, and the city
+takes a hundred seconds to appear. It is now a quarter of whatever the last
+frame actually cost, floored at 4 ms and capped at 60. The browser acceptance
+test went from timing out at 90 s to passing in 5.7 s on the same rasteriser.
+
+### What is pinned, and what is deliberately not
+
+`buildingGeometry.test.ts` (21) and `cityBuildings.test.ts` (11) pin only what
+fails silently: the inlined projection against the shared one, ring winding in
+both directions, the 25 ft default read out of `darkStyle.ts`'s own source, the
+roof sentinel, multi-polygon buildings staying separate polygons, byte-identical
+output for identical input, ADR 0029's brightness stack over every colour, and
+the camera position recovered from a known projection matrix. Each was checked
+against a mutation: brightening one window colour fails three assertions;
+removing the retirement filter fails the browser test.
+
+**Nothing pins a window density, an edge width, a gradient stop or a haze.**
+ADR 0031 is explicit about why, and it is the same sentence that got the city out
+of two grey milestones: a test that pins taste is how it stayed that way.
 
 ---
 
