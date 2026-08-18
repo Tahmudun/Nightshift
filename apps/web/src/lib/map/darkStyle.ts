@@ -86,6 +86,15 @@ export const BASEMAP_SOURCE = 'protomaps';
 export const BUILDINGS_SOURCE = 'nyc-buildings';
 
 /**
+ * The mass layer's id, exported because something now has to draw *underneath*
+ * it: M4e Task 3's sky inserts with `beforeId` here so its haze lands on the
+ * ground and the streets and not on the towers. A string literal at the call
+ * site would be a second copy of this name, free to be right until this one
+ * changed — and the failure it would cause is a sky drawn over the skyline.
+ */
+export const BUILDING_LAYER_ID = 'buildings';
+
+/**
  * Feet to metres, applied here and nowhere else.
  *
  * The tiles carry `height_roof` in the source's own units, which is feet,
@@ -409,7 +418,7 @@ function roadLayers(): LayerSpecification[] {
  */
 function buildingLayer(): LayerSpecification {
   return {
-    id: 'buildings',
+    id: BUILDING_LAYER_ID,
     type: 'fill-extrusion',
     source: BUILDINGS_SOURCE,
     'source-layer': 'buildings',

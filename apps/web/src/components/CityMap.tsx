@@ -49,6 +49,7 @@ import { useEffect, useRef, useState } from 'react';
 import { readRoofHeights } from '@/lib/city/roofHeights';
 import { useCityScene, visibleSignalsOf } from '@/lib/city/scene';
 import { createSignalLayer } from '@/lib/city/signalLayer';
+import { createSkyLayer, skyBefore } from '@/lib/map/skyLayer';
 import { BASEMAP_URL, BUILDINGS_URL } from '@/lib/tiles';
 import type { CameraController } from '@/lib/map/camera';
 import { CAMERA_LIMITS, createCameraController, INITIAL_POSE } from '@/lib/map/camera';
@@ -314,6 +315,14 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
         // `addLayer` actually requires. It fires more than once — the buildings
         // TileJSON resolves seconds after the basemap's — hence the guard.
         attached = true;
+        // The sky goes in first and goes in *under* the buildings — M4e Task 3,
+        // and the ordering is the design rather than a detail. It draws the sky
+        // above the horizon and the haze over the ground below it, so it has to
+        // land after the ground and the streets are on screen and before the
+        // towers are, which is what `beforeId` buys. Added here rather than in
+        // `buildDarkStyle` because a custom layer is code, not style, and the
+        // style is a value that has to stay serialisable and testable.
+        created.addLayer(createSkyLayer({ anchor: INITIAL_POSE.center }), skyBefore(created));
         created.addLayer(layer);
         const initial = useCityScene.getState();
         layer.setSignals(visibleSignalsOf(initial), initial.sort);
