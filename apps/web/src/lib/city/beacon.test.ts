@@ -5,7 +5,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ARCHIVED_COLOR,
-  BEACON_RADIUS,
   COLUMN_HEIGHT,
   COLUMN_RADIUS,
   MIN_COLUMN_WIDTH_PX,

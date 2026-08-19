@@ -41,7 +41,7 @@ import {
 
 /** Half-height of one beacon, in metres. Duplicated from `signalLayer` would be
  * a second source of truth, so it is imported. */
-import { BEACON_RADIUS, COLUMN_HEIGHT, COLUMN_RADIUS } from './beacon';
+import { COLUMN_HEIGHT, COLUMN_RADIUS } from './beacon';
 
 /** The four shapes, and the whole of what this module can draw. */
 export const MARK_KINDS = ['outline', 'core', 'ring', 'beam'] as const;

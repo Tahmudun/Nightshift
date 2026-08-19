@@ -9,7 +9,7 @@ import {
   SELECTION_INNER_RADIUS,
   SELECTION_OUTER_RADIUS,
 } from './selectionMesh';
-import { BEACON_RADIUS } from './signalLayer';
+import { COLUMN_HEIGHT, COLUMN_RADIUS } from './signalLayer';
 import { ROLE_SPACING } from './unresolvedField';
 
 describe('the selection reticle’s size', () => {
@@ -18,7 +18,11 @@ describe('the selection reticle’s size', () => {
     // thing it is pointing at. The relationship is asserted rather than the
     // numbers, so enlarging a beacon goes red here instead of quietly swallowing
     // the reticle.
-    expect(SELECTION_INNER_RADIUS).toBeGreaterThan(BEACON_RADIUS);
+    // Clear of the whole column, not merely of its width — ADR 0034. A ring
+    // that only cleared the 9 m radius would be a hoop around the body's
+    // middle, which is where the interview arc already is.
+    expect(SELECTION_INNER_RADIUS).toBeGreaterThan(COLUMN_HEIGHT * 0.6);
+    expect(SELECTION_INNER_RADIUS).toBeGreaterThan(COLUMN_RADIUS * 5);
     expect(SELECTION_OUTER_RADIUS).toBeGreaterThan(SELECTION_INNER_RADIUS);
   });
 

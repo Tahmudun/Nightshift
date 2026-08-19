@@ -51,20 +51,6 @@ export const SIGNAL_COLOR = '#5ce8ff';
 export const ARCHIVED_COLOR = '#56698f';
 
 /**
- * Half-height of one beacon in metres.
- *
- * Large, and deliberately: these are read from a camera kilometres away at a
- * 76° pitch, where a marker sized like a map pin is a single pixel. This is
- * roughly a twelve-storey building, which is the smallest thing that reads at
- * this range at all.
- *
- * Exported for the marks that surround it and for the selection reticle's
- * radii, so those are asserted against this rather than against a number
- * somebody copied — a ring drawn inside the beacon is a ring nobody can see.
- */
-export const BEACON_RADIUS = 34;
-
-/**
  * The column's radius and height in metres — ADR 0034.
  *
  * Deliberately smaller than the octahedron they replace, and that is the fix

@@ -51,7 +51,8 @@ import type { CitySignal } from '@/lib/schemas';
 
 import {
   ARCHIVED_COLOR,
-  BEACON_RADIUS,
+  COLUMN_HEIGHT,
+  COLUMN_RADIUS,
   createBeaconMesh,
   DIM_FACTOR,
   MAX_BEACONS,
@@ -101,7 +102,7 @@ export const SIGNAL_LAYER_ID = 'nightshift-signals';
 // Re-exported rather than moved-and-forgotten: these lived here for two tasks
 // and `beacon.ts` is where they belong now, but every caller that had the old
 // import is still right about what it wanted.
-export { BEACON_RADIUS, MAX_BEACONS, SIGNAL_COLOR };
+export { COLUMN_HEIGHT, COLUMN_RADIUS, MAX_BEACONS, SIGNAL_COLOR };
 
 /**
  * `verdant-400` — an offer, and nothing else in the product (§6).

@@ -45,16 +45,21 @@ describe('the beam over a hiring building', () => {
     expect(mesh.drawn).toBe(2);
   });
 
-  it('stands the beam on the roof rather than centring it on one', () => {
+  it('puts the lit rim exactly on the roofline it describes', () => {
     const mesh = createRoofBeamMesh();
 
     mesh.set([building({ roofAltitude: 230, beamHeight: 260 })]);
 
-    // The geometry is a unit cylinder centred on its own origin, so the naive
-    // placement puts half the beam *inside* the building — a shaft of light
-    // through thirty floors, which reads as a rendering fault rather than as a
-    // mark. Its midpoint belongs half a beam above the roof.
-    expect(positionOf(mesh, 0).z).toBeCloseTo(230 + 130, 3);
+    // ADR 0034: the geometry stands on its own base, so the anchor *is* the
+    // roof. It used to be centred and lifted half a height by the caller,
+    // which was right for a shaft of even brightness and is wrong for a wash
+    // — the brightest thing a wash draws is the band at its foot, and a
+    // centred geometry buries that band inside the building it is marking.
+    //
+    // This is the assertion that caught the change, and it is worth keeping in
+    // that form: the offset is not arithmetic anybody should have to redo, it
+    // is the statement that the light starts where the structure ends.
+    expect(positionOf(mesh, 0).z).toBeCloseTo(230, 3);
   });
 
   it('stands it over the building and nowhere else', () => {

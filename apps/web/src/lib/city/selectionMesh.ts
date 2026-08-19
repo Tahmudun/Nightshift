@@ -44,18 +44,33 @@ import {
 export const SELECTION_COLOR = '#eaf1fa';
 
 /**
- * The ring's radii in metres, around a beacon of radius 34.
+ * The ring's radii in metres, around a column 9 m wide and 90 m tall.
  *
- * Clear of the beacon so it reads as a ring *around* the role rather than as a
- * change to the role, and large enough to survive the range this field is read
- * at — the name plates were sized 55 m, looked fine in a screenshot and were
- * too small on a screen, and this is read from the same kilometres away.
+ * Clear of the *whole* body, not merely of its width — ADR 0034. A ring at
+ * three times the column's radius would be a hoop around its middle, and the
+ * interview arc is already a hoop around its middle at 23 m. ADR 0027's
+ * standing requirement is that selection and the §6 treatments stay
+ * distinguishable at a glance; two rings at similar radii are not.
  *
- * It deliberately overlaps its neighbours in the stack (roles are 45 m apart).
- * A reticle that fits neatly between two beacons is a reticle you cannot find.
+ * So it is sized against the column's *height* and encloses it end to end,
+ * which keeps it clear of the arc by a factor of two and keeps its own
+ * character — a thing in the air around the role, touching nothing.
+ *
+ * Large enough to survive the range this field is read at, too: the name
+ * plates were sized 55 m, looked fine in a screenshot and were too small on a
+ * screen, and this is read from the same kilometres away.
  */
-export const SELECTION_INNER_RADIUS = 62;
-export const SELECTION_OUTER_RADIUS = 78;
+export const SELECTION_INNER_RADIUS = 58;
+export const SELECTION_OUTER_RADIUS = 72;
+
+/**
+ * How far up the column the reticle is centred, in metres.
+ *
+ * A beacon's anchor is now the *base* of its column rather than its middle, so
+ * a ring drawn at the anchor would circle the roof the role stands on instead
+ * of the role.
+ */
+export const SELECTION_LIFT = 45;
 
 /** Which way a positive bearing turns the ring — see `labelMesh`'s `BEARING_SIGN`. */
 const BEARING_SIGN = -1;
@@ -77,6 +92,9 @@ export interface SelectionMesh {
 
 export function createSelectionMesh(): SelectionMesh {
   const geometry = new RingGeometry(SELECTION_INNER_RADIUS, SELECTION_OUTER_RADIUS, 48);
+  // Lifted here rather than at every call site: `moveTo` is handed a beacon's
+  // anchor, and there is exactly one right offset from it.
+  geometry.translate(0, 0, SELECTION_LIFT);
   const material = new MeshBasicMaterial({
     color: new Color(SELECTION_COLOR),
     transparent: true,
