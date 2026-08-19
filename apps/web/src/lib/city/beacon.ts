@@ -24,10 +24,10 @@
 import {
   AdditiveBlending,
   Color,
+  CylinderGeometry,
   InstancedBufferAttribute,
   InstancedMesh,
   Object3D,
-  OctahedronGeometry,
   ShaderMaterial,
 } from 'three';
 
@@ -63,6 +63,47 @@ export const ARCHIVED_COLOR = '#56698f';
  * somebody copied — a ring drawn inside the beacon is a ring nobody can see.
  */
 export const BEACON_RADIUS = 34;
+
+/**
+ * The column's radius and height in metres — ADR 0034.
+ *
+ * Deliberately smaller than the octahedron they replace, and that is the fix
+ * for the M4c defect where a beacon is several times the size of the building
+ * it stands on at street zoom. Nine metres is narrower than any tower in New
+ * York and ninety is about a twenty-storey building, so a role standing on a
+ * roof belongs to it instead of swallowing it.
+ *
+ * Being small enough to belong up close is only half of it. See
+ * `MIN_COLUMN_WIDTH_PX` for the half that keeps it visible from twelve
+ * kilometres.
+ */
+export const COLUMN_RADIUS = 9;
+export const COLUMN_HEIGHT = 90;
+
+/**
+ * How narrow the column is ever allowed to get on screen, in CSS pixels.
+ *
+ * The same idea `cityBuildings.ts` uses for its edge lines, and for the same
+ * reason: a size honest in metres is invisible at the range the city is
+ * actually read from. Nine metres is a third of a pixel at the opening pose.
+ * So the column is drawn at its true size whenever that is legible and grown
+ * to this width when it is not — which means one shape that belongs to its
+ * building at street level *and* reads from orbit, rather than a fixed size
+ * that is wrong at one end or the other.
+ *
+ * It grows, and never shrinks: `max(1, ...)`. A ceiling here would be a second
+ * way to be wrong up close, and up close the metres are already right.
+ */
+export const MIN_COLUMN_WIDTH_PX = 7;
+
+/**
+ * How fast the column's light rises, in Hz.
+ *
+ * Five seconds a cycle. Slow enough to read as the city breathing rather than
+ * as a progress bar, and far under WCAG 2.3.1's three-a-second threshold with
+ * the two recency pulses it runs alongside.
+ */
+export const RISE_HZ = 0.2;
 
 /**
  * The most beacons this mesh will allocate room for.
@@ -117,6 +158,14 @@ export interface BeaconMesh {
   readonly drawn: number;
   /** Move the shader's clock, in seconds. The only per-frame call. */
   tick(seconds: number): void;
+  /**
+   * The drawing surface's height in CSS pixels, for the column's pixel floor.
+   *
+   * Handed in rather than read off a canvas here: this file knows nothing
+   * about MapLibre, and a second reading of the viewport is a second thing
+   * that can disagree with the one the projection was built from.
+   */
+  setViewportHeight(pixels: number): void;
   /** The clock the buffer currently holds. */
   readonly timeAt: number;
   /** Is anything in this buffer moving? What decides whether to ask for a frame. */
@@ -131,10 +180,26 @@ export interface BeaconMesh {
 }
 
 export function createBeaconMesh(capacity: number = MAX_BEACONS): BeaconMesh {
-  // One geometry, one material, one mesh, N transforms — §5.5. An octahedron
-  // reads as a signal rather than as a pin, and eight faces is cheap enough
-  // that the instance count is what costs, not the geometry.
-  const geometry = new OctahedronGeometry(BEACON_RADIUS, 0);
+  // One geometry, one material, one mesh, N transforms — §5.5.
+  //
+  // A column rather than the octahedron this drew for three milestones, and
+  // ADR 0034 has the argument. The short version is that a diamond has an
+  // orientation and a column does not: at the pitch this city is read at you
+  // see an octahedron near edge-on, which is why a stack of roles read as a
+  // stack of rhombi rather than as one thing.
+  //
+  // Open-ended, because a cap is a hard disc exactly where the light is
+  // supposed to be dissipating. Unit-sized and scaled in the vertex shader,
+  // where the pixel floor can be applied — a size baked in here could not
+  // know how far away it is.
+  const geometry = new CylinderGeometry(1, 1, 1, 16, 1, true);
+  // Three's cylinder runs along y and the scene's up is z. Rotated once here
+  // rather than per instance, so the instance matrix stays a translate-and-
+  // scale and the orientation cannot be forgotten by a caller.
+  geometry.rotateX(Math.PI / 2);
+  // Sits *on* its anchor rather than straddling it, so a role placed on a roof
+  // rises from the roof instead of sinking half a column into the building.
+  geometry.translate(0, 0, 0.5);
 
   const tint = new InstancedBufferAttribute(new Float32Array(capacity * 3), 3);
   const alpha = new InstancedBufferAttribute(new Float32Array(capacity), 1);
@@ -144,18 +209,21 @@ export function createBeaconMesh(capacity: number = MAX_BEACONS): BeaconMesh {
   geometry.setAttribute('pulse', pulse);
 
   const material = new ShaderMaterial({
-    uniforms: { time: { value: 0 } },
-    // `instanceMatrix`, `position`, `projectionMatrix` and `modelViewMatrix`
-    // are declared by three itself for a non-raw `ShaderMaterial` —
-    // redeclaring any of them is a compile error, so this declares only what
-    // three does not.
+    uniforms: { time: { value: 0 }, viewportHeight: { value: 900 } },
+    // `instanceMatrix`, `position`, `normal`, `normalMatrix`,
+    // `projectionMatrix` and `modelViewMatrix` are declared by three itself
+    // for a non-raw `ShaderMaterial` — redeclaring any of them is a compile
+    // error, so this declares only what three does not.
     vertexShader: /* glsl */ `
       uniform float time;
+      uniform float viewportHeight;
       attribute vec3 tint;
       attribute float alpha;
       attribute float pulse;
       varying vec3 vTint;
       varying float vAlpha;
+      varying float vUp;
+      varying float vThickness;
 
       void main() {
         // A pulse of zero must be perfectly still, not slow: 'new' is a claim
@@ -166,18 +234,74 @@ export function createBeaconMesh(capacity: number = MAX_BEACONS): BeaconMesh {
         // Never below half strength. A beacon that blinks out is a role that
         // appears to have closed, twice a second.
         vAlpha = alpha * mix(0.55, 1.0, wave);
-        // The body swells with the pulse as well as brightening. Brightness
-        // alone is nearly invisible at the range this field is read from.
-        vec3 swollen = position * mix(0.92, 1.08, wave);
-        gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(swollen, 1.0);
+
+        // --- How wide this column would be on screen ---------------------
+        //
+        // The instance's own origin in view space gives its distance, and a
+        // perspective matrix carries the field of view in element [1][1],
+        // which is 1/tan(fov/2). Together they are metres-per-pixel at that
+        // depth, without this file having to be told the camera's settings by
+        // anything that could tell it wrong.
+        vec4 origin = modelViewMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+        float depth = max(-origin.z, 1.0);
+        float metresPerPixel = 2.0 * depth / max(projectionMatrix[1][1] * viewportHeight, 1e-4);
+        float widthPx = (2.0 * ${COLUMN_RADIUS.toFixed(1)}) / metresPerPixel;
+        // Grows, never shrinks. Up close the metres are already right.
+        float grow = max(1.0, ${MIN_COLUMN_WIDTH_PX.toFixed(1)} / max(widthPx, 1e-4));
+
+        // The 'new' scale rides on the instance matrix and the recency pulse
+        // swells the body, exactly as they did on the octahedron — both are
+        // claims about the *role*, and neither is what the column itself is.
+        float swell = mix(0.92, 1.08, wave);
+        vec3 sized = position * vec3(
+          ${COLUMN_RADIUS.toFixed(1)} * grow * swell,
+          ${COLUMN_RADIUS.toFixed(1)} * grow * swell,
+          ${COLUMN_HEIGHT.toFixed(1)} * grow
+        );
+
+        vUp = position.z;
+        // How much column the eye is looking through: zero at the silhouette,
+        // one through the middle. This is what turns a hard-edged tube into a
+        // soft-edged glow without a second mesh, a texture or a blur — and a
+        // soft edge is one of the four things ADR 0034 gives a role that the
+        // city, which is all crisp mullions and hairlines, cannot have.
+        vThickness = abs(normalize(normalMatrix * normal).z);
+
+        gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(sized, 1.0);
       }
     `,
     fragmentShader: /* glsl */ `
+      uniform float time;
       varying vec3 vTint;
       varying float vAlpha;
+      varying float vUp;
+      varying float vThickness;
 
       void main() {
-        gl_FragColor = vec4(vTint, vAlpha);
+        float a = vAlpha * vThickness;
+
+        // --- The rise (ADR 0034) -----------------------------------------
+        //
+        // Light leaving the roof: the column is solid at its base and thinning
+        // at its top, and what cycles is how far up the thinning reaches.
+        //
+        // **The base is never touched, and that is the whole amendment.** The
+        // shape asked for was whole, slimmer, gone, back. Gone is already
+        // spoken for — §6 spends disappearance on 'closed' and on 'rejection'
+        // — so a mark that periodically vanishes tells a lie about a listing
+        // every five seconds. This reads the same and does not say that.
+        //
+        // Ambient and identical on every role: the rise is what says 'this is
+        // a job'. Recency stays on the two channels it already had, the
+        // brightness pulse above and NEW_SCALE, so one gesture is not being
+        // asked to carry two meanings.
+        float reach = mix(0.30, 1.05, fract(time * ${RISE_HZ.toFixed(2)}));
+        a *= 1.0 - smoothstep(reach * 0.30, reach, vUp);
+        // A brighter head travelling with the front, so the eye follows it up
+        // rather than merely noticing the column got shorter.
+        a += 0.5 * vAlpha * vThickness * exp(-pow((vUp - reach * 0.72) / 0.1, 2.0));
+
+        gl_FragColor = vec4(vTint, a);
       }
     `,
     transparent: true,
@@ -252,6 +376,10 @@ export function createBeaconMesh(capacity: number = MAX_BEACONS): BeaconMesh {
 
     tick(seconds) {
       if (material.uniforms.time) material.uniforms.time.value = seconds;
+    },
+
+    setViewportHeight(pixels) {
+      if (pixels > 0) material.uniforms.viewportHeight!.value = pixels;
     },
 
     tintAt(index) {

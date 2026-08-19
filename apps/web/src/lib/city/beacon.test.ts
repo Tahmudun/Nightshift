@@ -6,6 +6,10 @@ import { describe, expect, it } from 'vitest';
 import {
   ARCHIVED_COLOR,
   BEACON_RADIUS,
+  COLUMN_HEIGHT,
+  COLUMN_RADIUS,
+  MIN_COLUMN_WIDTH_PX,
+  RISE_HZ,
   createBeaconMesh,
   DIM_FACTOR,
   NEW_SCALE,
@@ -141,9 +145,30 @@ describe('the palette the beacons are drawn from', () => {
     expect(PULSE_HZ.rapid).toBeLessThan(1.5);
   });
 
-  it('keeps the beacon big enough to be seen from the pose the city opens at', () => {
-    // Roughly a twelve-storey building. A marker sized like a map pin is a
-    // single pixel at 76° of pitch from kilometres away.
-    expect(BEACON_RADIUS).toBeGreaterThan(20);
+  it('keeps the column small enough to belong to the building it stands on', () => {
+    // The other half of the M4c defect, and the half that is a *world* size.
+    // A beacon has been a fixed 34 m since M4c, which nothing noticed while
+    // the whole field sat 700 m up and was never approached; at street zoom it
+    // is several times the size of the building underneath it.
+    //
+    // Nine metres is narrower than any tower in New York and ninety is about
+    // twenty storeys, so a role standing on a roof reads as standing on it.
+    expect(COLUMN_RADIUS).toBeLessThan(12);
+    expect(COLUMN_HEIGHT).toBeLessThan(120);
+  });
+
+  it('keeps a floor in pixels, because metres alone vanish at the opening pose', () => {
+    // The half that is a *screen* size, and the two are a pair: without this
+    // the fix above would make the field invisible from twelve kilometres,
+    // where nine metres is a third of a pixel. `cityBuildings.ts` solves the
+    // same problem for its edge lines the same way.
+    expect(MIN_COLUMN_WIDTH_PX).toBeGreaterThan(3);
+  });
+
+  it('rises slowly enough to read as breathing rather than as a progress bar', () => {
+    // And far under WCAG 2.3.1's three-a-second threshold, which it shares
+    // with the two recency pulses it runs alongside.
+    expect(RISE_HZ).toBeGreaterThan(0);
+    expect(RISE_HZ).toBeLessThan(0.5);
   });
 });

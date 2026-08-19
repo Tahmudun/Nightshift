@@ -139,6 +139,36 @@ describe('the two rotations a mark carries', () => {
     return new Vector3(0, 0, 1).applyMatrix4(new Matrix4().extractRotation(matrix));
   }
 
+  it('leaves the gold spine vertical at every camera pose', () => {
+    // The assertion this file was missing, and the reason a defect survived
+    // three milestones: §6 asks for a "gold vertical beacon" and the renderer
+    // drew a slowly rotating diagonal bar, because every mark was billboarded
+    // and spun for the sake of the one mark that needs it. A human found it in
+    // a screenshot. Nothing here could have.
+    //
+    // Vertical in the *world*, checked at a pose that would tilt it — a pitched
+    // and rotated camera is exactly the case a billboard would break.
+    const marks = createMarkMesh({ kind: 'beam', capacity: 4 });
+    marks.set([{ x: 0, y: 0, z: 700, tint: '#ffcf5c' }]);
+
+    marks.orient(Math.PI / 3, 40, 76);
+
+    const up = normalOf(marks);
+    expect(up.x).toBeCloseTo(0, 6);
+    expect(up.y).toBeCloseTo(0, 6);
+    expect(Math.abs(up.z)).toBeCloseTo(1, 6);
+  });
+
+  it('leaves the collar and the core in the world too', () => {
+    for (const kind of ['outline', 'core'] as const) {
+      const marks = createMarkMesh({ kind, capacity: 4 });
+      marks.set([{ x: 0, y: 0, z: 700, tint: '#eaf1fa' }]);
+      marks.orient(Math.PI / 3, 40, 76);
+      const up = normalOf(marks);
+      expect(Math.abs(up.z), `${kind} was turned to face the camera`).toBeCloseTo(1, 6);
+    }
+  });
+
   it('spins a mark without changing where it faces', () => {
     // The bug this exists for was visible and wrong rather than subtle: folding
     // the spin into the billboard Euler as a y-rotation puts it *between* the

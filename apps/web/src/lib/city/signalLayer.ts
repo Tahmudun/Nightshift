@@ -992,6 +992,10 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
               ),
       );
 
+      // The column's pixel floor needs to know how tall the surface is; see
+      // `MIN_COLUMN_WIDTH_PX`. Read from the same canvas the haze above reads.
+      if (map !== null) beacons.setViewportHeight(map.getCanvas().clientHeight);
+
       // A slice of city per frame. The budget is what keeps 35,000 footprints
       // from arriving as one dropped second — see `cityBuildings.ts`.
       const now = performance.now();
