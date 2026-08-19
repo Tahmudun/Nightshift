@@ -112,16 +112,59 @@ export const BUILDING_COLOURS = {
   roof: C.ink900,
   /** A wall the sun is behind, lifted a little. The one directional cue. */
   sunlit: C.ink700,
-  /** The dimmest lit window. Most windows are near this. */
+  /** The dimmest lit window on a bay burning cool. Most windows are near this. */
   windowDim: C.neon900,
-  /** A mid window. */
+  /** A mid window, cool. */
   windowMid: C.neon700,
-  /** The brightest window, and the brightest thing this layer draws anywhere. */
+  /** The brightest cool window. */
   windowLit: C.neon400,
+  /**
+   * The same three steps for a bay burning *warm* — ADR 0033.
+   *
+   * A window is the only surface in the city allowed to be warm, and the
+   * reason is that it is the only one that is a light rather than a lit
+   * thing. A street is lit by the city; a window *is* somebody's lamp, and
+   * every reference image is built on the opposition between those two.
+   *
+   * `ember-400` is 29.2 L* below `signal-400` and 7.2 below `alert-400`, so
+   * the brightest window in New York can outshine neither a role nor a hiring
+   * building — the stack ADR 0029 set and ADR 0033 explicitly does not touch.
+   * The first draft cleared the second of those by 0.8 L*, which passes the
+   * assertion and defeats what the assertion is for.
+   */
+  warmDim: C.ember900,
+  /** A mid window, warm. */
+  warmMid: C.ember700,
+  /** The brightest warm window, and the brightest thing this layer draws. */
+  warmLit: C.ember400,
   /** Corners, rooflines and the line where a wall meets the street. */
   edge: C.neon400,
+  /**
+   * The same three lines on a tower that runs warm — ADR 0033.
+   *
+   * This is the one that actually changes the opening pose, and it took two
+   * failed attempts to find out. Warm windows are invisible from twelve
+   * kilometres up: a bay is a third of a pixel there and the shader has
+   * already replaced the speckle with its average. A warm crown is nearly
+   * invisible too — seven metres of band on a 200 m tower. The edge light is
+   * different because it is the *silhouette*: it is what draws the city at
+   * this distance, and giving four towers in ten a warm outline is what puts
+   * colour in a frame that is otherwise one hue and a magenta sky.
+   */
+  edgeWarm: C.ember400,
   /** The lit band on the towers tall enough to make the silhouette. */
   crown: C.neon400,
+  /**
+   * The same band on the towers whose crown burns warm — ADR 0033.
+   *
+   * The crown is the only light in this shader that is visible at the opening
+   * pose: a window is a third of a pixel from twelve kilometres up and an edge
+   * is a hairline, but a crown is a seven-metre band on the four hundred
+   * towers that make the silhouette. So it is the one place a second hue
+   * changes what the city looks like from where the city is actually looked
+   * at. Warming the windows alone was measured doing nothing at that distance.
+   */
+  crownWarm: C.ember400,
 } as const;
 
 /**
@@ -216,8 +259,13 @@ const vec3 SUNLIT     = ${glsl(BUILDING_COLOURS.sunlit)};
 const vec3 WINDOW_DIM = ${glsl(BUILDING_COLOURS.windowDim)};
 const vec3 WINDOW_MID = ${glsl(BUILDING_COLOURS.windowMid)};
 const vec3 WINDOW_LIT = ${glsl(BUILDING_COLOURS.windowLit)};
+const vec3 WARM_DIM   = ${glsl(BUILDING_COLOURS.warmDim)};
+const vec3 WARM_MID   = ${glsl(BUILDING_COLOURS.warmMid)};
+const vec3 WARM_LIT   = ${glsl(BUILDING_COLOURS.warmLit)};
 const vec3 EDGE       = ${glsl(BUILDING_COLOURS.edge)};
 const vec3 CROWN      = ${glsl(BUILDING_COLOURS.crown)};
+const vec3 CROWN_WARM = ${glsl(BUILDING_COLOURS.crownWarm)};
+const vec3 EDGE_WARM  = ${glsl(BUILDING_COLOURS.edgeWarm)};
 
 const vec3 HORIZON    = ${glsl(SKY_COLOURS.horizon)};
 const vec3 SKY_LOW    = ${glsl(SKY_COLOURS.low)};
@@ -327,8 +375,30 @@ void main() {
     // fell in the top branch and WINDOW_DIM could not be drawn anywhere: a
     // colour in the table, asserted by the brightness test, never on screen.
     float shade = hash(cell + 5.1);
-    vec3 tone = shade < 0.55 ? mix(WINDOW_DIM, WINDOW_MID, hash(cell + 9.7))
-                             : mix(WINDOW_MID, WINDOW_LIT, hash(cell + 9.7));
+    float step2 = hash(cell + 9.7);
+    vec3 cool = shade < 0.55 ? mix(WINDOW_DIM, WINDOW_MID, step2)
+                             : mix(WINDOW_MID, WINDOW_LIT, step2);
+    vec3 warmed = shade < 0.55 ? mix(WARM_DIM, WARM_MID, step2)
+                               : mix(WARM_MID, WARM_LIT, step2);
+
+    // --- What temperature this bay burns at (ADR 0033) --------------------
+    //
+    // Per *bay*, not per building, and that is deliberate rather than a
+    // shortcut around a missing attribute. A tower whose four faces disagree
+    // about their colour reads as a bug; a tower whose windows disagree reads
+    // as a building with people in it, which is what the close crops of every
+    // reference image actually show — warm offices, a cold conference room,
+    // the odd blue monitor.
+    //
+    // The per-wall bias is what stops it looking evenly salted. Each façade
+    // gets its own warm/cool ratio, so one runs amber and its neighbour runs
+    // indigo, and the block reads as varied at a scale the eye can see from
+    // the opening pose. The seed is span.z, the per-wall number the window grid
+    // already uses, so this costs one hash and no new vertex data. (No backticks
+    // in here: this shader is a TypeScript template literal and one would end it.)
+    float warmBias = clamp(0.60 + 0.34 * (hash(vec2(vSpan.z, 3.7)) - 0.5), 0.0, 1.0);
+    float warm = step(1.0 - warmBias, hash(cell + 21.3));
+    vec3 tone = mix(cool, warmed, warm);
 
     // Dimmed on the low-rise. A two-storey building with a full grid of lit
     // bays reads as an office tower that happens to be short, and 25,000 of
@@ -336,9 +406,30 @@ void main() {
     // it. The references put the light in the towers and leave the mat dark.
     float occupied = mix(0.30, 1.0, lifted);
     colour += tone * lit * pane * crisp * occupied;
-    colour += tone * uWindowDensity * 0.17 * (1.0 - crisp) * occupied;
+    // The far field, where the bays are finer than the pixels showing them and
+    // the speckle has been replaced by its own average. Raised from 0.17 with
+    // the glow: a district too dim to cross the bloom threshold contributes
+    // nothing to the block-scale halo, and the mid-ground of every reference
+    // image is exactly that halo — thousands of windows nobody can resolve,
+    // read as one lit mass.
+    colour += tone * uWindowDensity * 0.24 * (1.0 - crisp) * occupied;
 
     // --- Edges -----------------------------------------------------------
+    //
+    // Which temperature this whole tower is lit at (ADR 0033), seeded from its
+    // own roof height — the one per-building quantity every wall already
+    // shares, so a tower cannot come out amber on one face and indigo on the
+    // next. The crown below reads the same number, so a warm tower is warm all
+    // the way up rather than changing its mind at the top.
+    //
+    // A third warm, not a half. At even odds the skyline reads as a circuit
+    // board — two colours alternating with no ground for either to be figure
+    // against. A third keeps indigo as the city's own colour and makes amber
+    // the thing *some* towers do, which is both the better picture and the
+    // truer one: the references have a lit minority against a cool mass.
+    float warmTower = step(0.66, hash(vec2(height, height * 0.618)));
+    vec3 edgeTone = mix(EDGE, EDGE_WARM, warmTower);
+
     float corner = min(u, wall - u);
     float cornerW = max(${EDGE_METRES.toFixed(2)}, 1.1 * fwidth(corner));
     float vertical = 1.0 - smoothstep(0.0, cornerW, corner);
@@ -346,20 +437,22 @@ void main() {
     float roofW = max(${EDGE_METRES.toFixed(2)}, 1.1 * metresPerPixel);
     float roofline = 1.0 - smoothstep(0.0, roofW, below);
 
-    colour += EDGE * onScreen * (0.70 * tall * vertical + 0.85 * lifted * roofline);
+    colour += edgeTone * onScreen * (0.70 * tall * vertical + 0.85 * lifted * roofline);
 
     // Where the mass meets the street. In the references this is what stops a
     // building looking pasted onto the ground plane — the grid runs up to it
     // and the contact glows.
     float baseW = max(${BASE_GLOW_METRES.toFixed(2)}, 1.5 * fwidth(vWorld.z));
-    colour += EDGE * 0.26 * onScreen * lifted * (1.0 - smoothstep(0.0, baseW, vWorld.z));
+    colour += edgeTone * 0.26 * onScreen * lifted * (1.0 - smoothstep(0.0, baseW, vWorld.z));
 
     // --- Crown -----------------------------------------------------------
     // Only on the towers that make the silhouette. The threshold is a counted
     // number, not a taste; see CROWN_MIN_METRES.
     if (height > ${CROWN_MIN_METRES.toFixed(1)}) {
       float band = 1.0 - smoothstep(0.0, ${CROWN_METRES.toFixed(1)}, below);
-      colour += CROWN * 0.45 * band;
+      // The same warmTower the edges used, so a tower does not change its mind
+      // about its own colour seven metres from the top.
+      colour += mix(CROWN, CROWN_WARM, warmTower) * 0.45 * band;
     }
   }
 

@@ -77,6 +77,31 @@ cannot be retired with `visibility: none` — doing so starves the tile source o
 own geometry reads, and the first run drew an empty New York — and a fixed
 per-frame build budget is wrong on a slow machine, so it is now a share of the
 frame that actually elapsed.
+**2026-08-18, and the milestone's largest visual step: M4e Task 10 was signed
+off and Task 7's bloom shipped with it.** The human's verdict on ADR 0031's
+city was *"much, much closer to the vision. It's just missing color and glow"*
+— and the two turned out to be one problem. **ADR 0033** is the outcome:
+`lib/city/bloom.ts` blooms the whole composited frame (not just our scene, so
+MapLibre's streets and our own sun glow too), and the scenery gets a second
+saturated hue — an `ember-*` family — after two milestones in which
+`palette.ts` reserved every one of them for data. Cost, measured on the real
+GPU, both samples in the same window: **p50 37.9 ms with bloom, 35.8 without —
+2.1 ms**, behind `signals.setBloom()` for M4d Task 2's tiers. Screenshots:
+`docs/reviews/milestone-4e-glow-opening.png`,
+`milestone-4e-glow-midtown.png`, `milestone-4e-glow-skyline.png`.
+**Three things went wrong in ways that produce no error**, and all three are in
+ADR 0033 rather than here: an effect that ran for an hour drawing nothing
+because it inherited Three's bound vertex array and its instancing divisor; a
+bright-pass threshold of 0.5 against a palette whose brightest colour is 0.488,
+which excluded the entire city; and warm windows that are invisible from the
+opening pose, because a bay is a third of a pixel there — the edge light is what
+draws the city at that distance, and warming a third of the towers is what
+finally put colour in the frame. **ADR 0029's brightness stack is untouched and
+one of its margins is tightened**: `cityBuildings.test.ts` now demands 3 L*
+under `alert-400` rather than a bare `<`, because this ADR's first draft cleared
+it by 0.8 and that passes the assertion while defeating its purpose.
+**Task 7 is not finished: it also owns the beam redesign, and the diamond stack
+is still a diamond stack.**
 **Last updated: 2026-08-18**
 
 ---
@@ -84,7 +109,7 @@ frame that actually elapsed.
 
 ## Next exact action
 
-### M4e — the synthwave city — is under way on `m4d-measured`, draft PR #17. Task 10 is built and awaiting a verdict; next is Task 7.
+### M4e — the synthwave city — is under way on `m4d-measured`, draft PR #17. Task 10 is signed off and Task 7's bloom has shipped; next is Task 7's other half, the beam.
 
 **M4d Task 1 (the frame timer) is done and M4d Tasks 2–7 are deliberately
 paused.** The overhaul below changes what a frame costs, so tuning the adaptive
@@ -95,16 +120,23 @@ instrument every M4e task reports against.
 **M4e Tasks 1, 2, 3, 4, 5, 6 and 10 are built. The rest of the milestone runs in
 the 2026-08-18 audit's order, and a later session should not resequence it:**
 
-1. **Task 10 — the buildings become ours (ADR 0031).** Built, tested and
-   measured; **the look is not signed off.** ADR 0031 makes the human holding
-   reference 02 the acceptance test, and they have not yet given a verdict on
-   the three screenshots. Do not mark it complete until they have, and expect
-   the next pass to be tuning rather than rebuilding: the constants that would
-   move — window density and tone, edge weight, the two size gates, the mass
-   gradient, the crown — are all named and commented in `cityBuildings.ts`, and
-   none of them is pinned by a test.
-2. **Task 7 — bloom, which now owns the beam redesign.** ← **next**
-3. **Task 8 — the documents that said not to do this.**
+1. ~~**Task 10 — the buildings become ours (ADR 0031).**~~ **Signed off**
+   2026-08-18 — *"much, much closer to the vision"* — with one note, *"missing
+   color and glow"*, which became ADR 0033 and is done. The tuning pass ADR 0031
+   predicted did happen and it moved the constants that ADR predicted: window
+   tone, the far-field window term (0.17 → 0.24) and the edge/crown colour.
+2. **Task 7 — bloom, which also owns the beam redesign.** **Half done.**
+   Bloom shipped (ADR 0033, measured at 2.1 ms). **The beam redesign did not**,
+   and it is the next thing in this milestone: the diamond stack becomes a
+   narrow soft-edged column, intense at the roof and dissipating with height,
+   scale-aware so it belongs to its building at every zoom — which is the fix
+   for the roofs-close defect Task 6 recorded and which is still open. It is
+   worth doing now rather than later for the reason the task was written with:
+   the beam has bloom under it now, and a shape tuned without the glow would be
+   tuned twice. ← **next**
+3. **Task 8 — the documents that said not to do this.** ADR 0033 adds itself to
+   what this task has to reconcile: `city.md` §3 ring-fences hue by family and
+   now has a warm family it does not mention.
 4. **Task 9 — addresses without typing. Promoted; may no longer slip.**
 
 Then M4d Tasks 2–7. **The milestone's acceptance test is the human holding
@@ -150,6 +182,19 @@ field sat 700 m up and was never approached.
   shoreline lit; the building mass dropped four shades with the light moved to
   the roofline. Screenshots: `docs/reviews/milestone-4e-ground.png`,
   `milestone-4e-buildings.png`.
+- **Task 7 (bloom) and Task 10's colour pass — done, 2026-08-18.** ADR 0033.
+  `lib/city/bloom.ts` is four passes over the finished frame at the end of the
+  signal layer's render — a hardware downsample, a soft-knee bright pass, three
+  blurred octaves, added back additively. It blooms the *composited* frame
+  rather than our scene, so MapLibre's streets and the sky's own sun glow too;
+  that works only because the signal layer is the last layer in the style, which
+  is now load-bearing and asserted nowhere. The scenery gained a warm family
+  (`ember-*`) for windows and edges. **The one performance note worth carrying
+  forward**: the same run measured p50 35.8 ms *without* bloom at the opening
+  pose under a spinning camera, against ADR 0031's 27.2 ms for the same city
+  weeks earlier. The A/B is controlled and the absolute drift is not — different
+  session, different machine load — but M4d Task 2 should re-measure from cold
+  before it tunes tiers against either number.
 - **Task 3 — the sky — is done and was approved on 2026-08-18.** ADR 0032.
   `map/skyLayer.ts` is a custom layer: one full-screen triangle, one shader,
   raw WebGL. Gradient, world-anchored starfield, a sun at azimuth 285° /
@@ -205,8 +250,8 @@ field sat 700 m up and was never approached.
    brightness difference cannot carry ten in fifty thousand against a lit city.
    The slice plan asked for both; building both would have spent the encoding
    twice.
-7. **Bloom**, behind the quality tier, measured before and after. **This task
-   now owns the beam redesign** (2026-08-18 audit): the diamond stack becomes a
+7. ~~**Bloom**, behind the quality tier, measured before and after.~~ **Done**,
+   ADR 0033. **The other half of this task is not**: the diamond stack becomes a
    narrow soft-edged column of light, intense at the roof and dissipating with
    height, scale-aware so it belongs to its building at every zoom — which is
    the fix for the roofs-close defect Task 6 recorded. Bloom and beam shape are

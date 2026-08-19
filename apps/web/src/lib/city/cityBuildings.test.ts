@@ -101,12 +101,18 @@ describe('the city stays under the things that mean something', () => {
     // open role. A window is exactly the sort of thing that gets brighter
     // during a tuning pass, and a city whose scenery outshines its data has
     // spent the encoding on decoration.
+    //
+    // **With a stated margin, not a bare `<`.** ADR 0033's first draft put the
+    // brightest window 0.8 L* under `alert-400`: it passed this assertion and
+    // defeated what the assertion is for, because a difference the eye cannot
+    // see is not a stack. Three is the smallest gap that survives a screenshot.
     const hiring = lightness(cssToken('alert-400'));
     for (const [key, value] of Object.entries(BUILDING_COLOURS)) {
+      const margin = hiring - lightness(value);
       expect(
-        lightness(value),
-        `building ${key} (${value}) is not under a hiring building`,
-      ).toBeLessThan(hiring);
+        margin,
+        `building ${key} (${value}) leaves only ${margin.toFixed(1)} L* under a hiring building`,
+      ).toBeGreaterThan(3);
     }
   });
 

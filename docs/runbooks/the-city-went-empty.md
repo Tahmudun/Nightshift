@@ -24,8 +24,18 @@ docker exec nightshift-postgres-1 psql -U nightshift -d nightshift \
 ## Fix
 
 ```
-OUTBOUND_HTTP_ENABLED=true make offices
+bash -c 'set -a && source .env && set +a && \
+  OUTBOUND_HTTP_ENABLED=true services/api/.venv/bin/python -m nightshift.cli offices'
 ```
+
+**Not `OUTBOUND_HTTP_ENABLED=true make offices`, which this runbook used to say
+and which does not work.** The Makefile's `LOADENV` is `set -a && source .env`,
+so `.env`'s own `OUTBOUND_HTTP_ENABLED=false` is applied *after* the shell
+variable and overwrites it. The command runs, geocodes nothing, exits 1 with the
+"set OUTBOUND_HTTP_ENABLED=true in .env" error, and the table stays empty —
+which reads as the fix having failed for some other reason. The form above puts
+the override after the sourcing, where it survives. Setting it in `.env` and
+setting it back also works and is one more thing to remember to undo.
 
 Idempotent — running it twice updates rather than duplicates — and it prints one
 line per company, so you can see what came back.

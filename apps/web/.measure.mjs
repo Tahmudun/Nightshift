@@ -2,9 +2,13 @@
  * The M4d Task 1 instrument, run twice in the same window on the same GPU, so
  * the difference is the change and not the weather.
  *
- *   node .measure.mjs <lng> <lat> <zoom> <pitch> <bearing> [sky|buildings]
+ *   node .measure.mjs <lng> <lat> <zoom> <pitch> <bearing> [sky|buildings|bloom]
  *
  * `sky` (the default) samples with and without the sky layer.
+ * `bloom` samples M4e Task 7's post-process on against off, which is the one
+ * A/B in this file that needs nothing removed from the map: the effect has a
+ * switch, so both samples are the same city with the same layers in the same
+ * window and the only difference is four passes over the frame.
  * `buildings` samples ADR 0031's Three.js city against the MapLibre
  * `fill-extrusion` skyline it replaced — by putting MapLibre's own layers back
  * (clearing the retirement filter) and hiding ours, which is the only honest
@@ -62,7 +66,19 @@ async function sample(label) {
   return report;
 }
 
-if (subject === 'buildings') {
+if (subject === 'bloom') {
+  // The city has to be on the GPU first, or the first sample is measuring an
+  // assembly still in progress rather than the effect.
+  await page.waitForFunction(() => window.__nightshiftCity.signals.city.ready === true, null, {
+    timeout: 180000,
+  });
+  console.log('bloom:', await page.evaluate(() => JSON.stringify(window.__nightshiftCity.signals.bloom)));
+  await sample('with bloom   ');
+  await page.evaluate(() => window.__nightshiftCity.signals.setBloom(false));
+  await page.waitForTimeout(1500);
+  await sample('without bloom');
+  await page.evaluate(() => window.__nightshiftCity.signals.setBloom(true));
+} else if (subject === 'buildings') {
   // Wait for the city to actually be on the GPU, or the first sample measures
   // a frame that is still assembling itself.
   await page.waitForFunction(() => window.__nightshiftCity.signals.city.ready === true, null, {

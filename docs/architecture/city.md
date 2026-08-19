@@ -177,10 +177,25 @@ This gets the look honestly. The synthwave read in those images comes mostly fro
 the *field* — the graded violet sky and haze — rather than from the marks, which is
 why the discipline costs nothing visually and buys the encoding everything.
 
+> **The table below gained two rows and lost a rule, on 2026-08-18 — ADR 0033.**
+> As written, this section left the scenery exactly *one* saturated hue, because
+> every other one was spoken for by the encoding. That is a defensible rule and
+> it produced a monochrome: violet scenery, a violet-to-magenta sky and cyan
+> data, everything inside a 60° arc of the wheel with no warm anywhere. The
+> premise was true and the conclusion did not follow — hue had stopped being the
+> only channel separating scenery from data long before, because a role floats,
+> pulses, is far brighter, wears a name plate and stands on a beam. The scenery
+> now has a warm family as well as a cool one. **What did not change is the
+> headroom**: every scenery colour clears 20 L\* under `signal-400` and 3 L\*
+> under `alert-400`, and two tests hold it. Read ADR 0033 before spending a
+> third hue.
+
 | Family | Role in the city | May carry a meaning? |
 |---|---|---|
 | `ink-*` | Building mass, water, land, panel surfaces | No — surfaces only, never text |
 | `dusk-*` **(new)** | Sky gradient, haze, fog, horizon glow, starfield | **No — atmosphere only** |
+| `neon-*` **(ADR 0029)** | The city's own cool light — streets, corners, rooflines, crowns, windows | **No — scenery only** |
+| `ember-*` **(ADR 0033)** | The city's own *warm* light — lit windows, and the edge light on a third of the towers | **No — scenery only** |
 | `signal-*` | Beacons, building edge-light, selection, the active state | Yes |
 | `alert-*` | Degradation, staleness, source failure | Yes, and only this |
 | `gold-400` | Urgency — a deadline you can still act on | Yes, and sparingly |

@@ -60,6 +60,7 @@ import {
   SIGNAL_COLOR,
   type Beacon,
 } from './beacon';
+import { createBloom, type Bloom } from './bloom';
 import { createLabelMesh } from './labelMesh';
 import { createMarkMesh, MARK_KINDS, type Mark, type MarkKind } from './markMesh';
 import { mercatorFromLngLat, metreInMercatorUnits } from './mercator';
@@ -358,6 +359,32 @@ export interface SignalLayer extends CustomLayerInterface {
    */
   ingestFootprints(features: readonly TileFootprint[]): void;
   /**
+   * Switch the glow on or off.
+   *
+   * M4d Task 2 owns the quality tiers and has not run yet, so this is the knob
+   * that task will reach for rather than a setting with a home of its own. It
+   * exists now for two reasons that cannot wait for it: bloom is the most
+   * expensive thing this layer does per pixel and the frame report has to be
+   * able to measure the city with and without it in the same window, and the
+   * screenshot loop ADR 0031 works by needs a before to put beside the after.
+   */
+  setBloom(enabled: boolean): void;
+  /**
+   * What the glow is doing: whether it is on, whether this GPU can run it at
+   * all, and how many frames it has actually drawn on.
+   *
+   * `available` is false on a WebGL 1 context, where `blitFramebuffer` does not
+   * exist. That is a real machine — MapLibre asks for WebGL 2 and falls back —
+   * and the honest behaviour there is a city with no glow, said out loud,
+   * rather than a city that renders black or an effect that silently does
+   * nothing while the page claims it is on.
+   */
+  readonly bloom: {
+    readonly enabled: boolean;
+    readonly available: boolean;
+    readonly drawn: number;
+  };
+  /**
    * What the city renderer has on the GPU, and what it still owes.
    *
    * Exposed for the same reason `drawn` is: a page that says "35,000
@@ -448,6 +475,12 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
   let lastRenderAt: number | null = null;
 
   let renderer: WebGLRenderer | null = null;
+  /**
+   * The glow. Built in `onAdd` against MapLibre's own context, because it reads
+   * the frame back out of that context and cannot be given one of its own.
+   */
+  let bloom: Bloom | null = null;
+  let bloomEnabled = true;
   let map: MapLibreMap | null = null;
   let drawn = 0;
   let columns: readonly FieldColumn[] = [];
@@ -668,6 +701,23 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       map?.triggerRepaint();
     },
 
+    setBloom(enabled) {
+      bloomEnabled = enabled;
+      // A repaint, because nothing else is going to ask for one: the city is
+      // deliberately still when nothing animates, so switching the glow off on
+      // an idle map would leave the last bloomed frame on screen until the
+      // next gesture — which reads as the setting having no effect.
+      map?.triggerRepaint();
+    },
+
+    get bloom() {
+      return {
+        enabled: bloomEnabled,
+        available: bloom?.available ?? false,
+        drawn: bloom?.drawn ?? 0,
+      };
+    },
+
     get city() {
       const stats = cityBuildings.stats;
       return {
@@ -872,6 +922,12 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       // MapLibre has already drawn the city into this buffer. Clearing would
       // erase it and leave beacons floating on black.
       renderer.autoClear = false;
+
+      // The glow reads the finished frame back out of this same buffer, which
+      // is only the finished frame because this layer is the last one in the
+      // style — see `bloom.ts`. If anything is ever inserted above it, the
+      // glow stops covering whatever that is, silently.
+      bloom = createBloom(gl);
     },
 
     render(_gl: WebGLRenderingContext | WebGL2RenderingContext, args: CustomRenderMethodInput) {
@@ -962,6 +1018,14 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       renderer.resetState();
       renderer.render(scene, camera);
 
+      // **Last, and it has to be last.** This reads the colour buffer back and
+      // adds a blurred copy of its bright half on top, so anything drawn after
+      // it is a thing with no glow sitting on a city that has one. The signal
+      // layer being the final layer in the style is what makes that true, and
+      // it is asserted nowhere — a `beforeId` in `CityMap` would break it
+      // without failing anything.
+      if (bloomEnabled) bloom?.apply();
+
       // Deliberately *not* unconditional. A `triggerRepaint()` on every frame
       // is how every Three-in-MapLibre example animates, and it is also how a
       // map pins a core at 60fps forever with nothing moving on it. The next
@@ -1003,6 +1067,10 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       //
       // `dispose()` and not `forceContextLoss()`: the context belongs to
       // MapLibre, which is still drawing New York with it.
+      // Its own programs, buffers and half a dozen render targets — a few
+      // megabytes of texture that outlive the page's teardown otherwise.
+      bloom?.dispose();
+      bloom = null;
       renderer?.dispose();
       renderer = null;
       map = null;

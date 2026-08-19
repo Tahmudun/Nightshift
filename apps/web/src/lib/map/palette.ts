@@ -74,6 +74,43 @@ export const MAP_PALETTE = {
   neon500: '#6547d1',
   /** The brightest thing the basemap may draw: 55.2 L*, 30.4 below `signal-400`. */
   neon400: '#8a6bff',
+
+  /**
+   * The city's own *warm* light — lit windows, and nothing else. ADR 0033.
+   *
+   * The `neon-*` note above ends "a lit street has to be a colour that means
+   * nothing, or the encoding pays for the scenery", and that was right about
+   * streets and wrong about the conclusion drawn from it: it left exactly one
+   * saturated hue for every lit surface in New York, and a city lit in one hue
+   * is a monochrome. ADR 0033 spends a second one, on the argument that hue was
+   * never carrying the separation alone — a role floats above the roofline,
+   * pulses, is far brighter, wears a name plate and has a beam under it, and a
+   * 3 px amber square in a wall shares none of those.
+   *
+   * The rule it does *not* bend is the headroom: `ember-400` is 22.9 L* below
+   * `signal-400`, inside the same 20 the whole palette clears, and the test
+   * below checks it with the rest.
+   *
+   * Warm rather than a second cool, because the gap in the frame was warmth.
+   * Reference 02 is built on the opposition between an amber-lit tower and a
+   * cyan ground plane; two neighbouring blues cannot make that picture at any
+   * saturation.
+   */
+  ember900: '#4a2711',
+  ember700: '#8a4a1a',
+  ember500: '#b0611f',
+  /**
+   * The brightest window in the city: 56.4 L*.
+   *
+   * Chosen by the *lower* of the two ceilings rather than the palette's own.
+   * The 20 L* headroom under `signal-400` would have admitted 62.7, and
+   * `cityBuildings.test.ts` holds a second and tighter rule that the first
+   * draft cleared by 0.8 L*: ADR 0029's stack is city < hiring building < open
+   * role, and `alert-400` — the hiring building — sits at 63.6. A window 0.8
+   * below it passes the assertion and defeats what the assertion is for. This
+   * clears it by 7.2.
+   */
+  ember400: '#cd6e2b',
 } as const;
 
 export type MapPalette = typeof MAP_PALETTE;

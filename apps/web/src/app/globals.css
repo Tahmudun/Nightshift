@@ -117,6 +117,26 @@
    * The stack, brightest last: city (neon, <=55.2 L*) < hiring building
    * (alert-400, 63.6) < job beacon (signal-400, 85.6). See darkStyle.test.ts
    * and colour-contrast.test.ts, which hold all three in place. */
+  /**
+   * The city's own *warm* light — lit windows, and nothing else. ADR 0033.
+   *
+   * `neon-*` is the electric indigo everything infrastructural is lit with, and
+   * for two milestones it was the only saturated hue the scenery had, because
+   * every other one carries meaning. The result was a frame with no warm in it
+   * anywhere: two hues thirty degrees apart is not colour, it is a tint. This
+   * family is the opposition — a sodium-lamp amber that no mark may ever be.
+   *
+   * It obeys the same ceiling every scenery colour does: `ember-400` sits 22.9
+   * L* below `signal-400`, so an open role is still the brightest thing on
+   * screen. `palette.test.ts` holds it there.
+   *
+   * Ordered dimmest-first, and the window ramp reads straight down it.
+   */
+  --color-ember-900: #4a2711;
+  --color-ember-700: #8a4a1a;
+  --color-ember-500: #b0611f;
+  --color-ember-400: #cd6e2b;
+
   --color-neon-900: #2f2170;
   --color-neon-700: #4733ad;
   --color-neon-500: #6547d1;
