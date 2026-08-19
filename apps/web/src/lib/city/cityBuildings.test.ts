@@ -62,6 +62,22 @@ function lightness(hex: string): number {
   return y <= 0.008856 ? 903.3 * y : 116 * Math.cbrt(y) - 16;
 }
 
+/** Hue in degrees, for the one rule that is about hue rather than brightness. */
+function hue(hex: string): number {
+  const h = hex.replace('#', '');
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255) as [
+    number,
+    number,
+    number,
+  ];
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  if (max === min) return 0;
+  const d = max - min;
+  const raw = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return (raw * 60 + 360) % 360;
+}
+
 const ANCHOR = [-73.9857, 40.7484] as const;
 
 function square(bin: string, offset: number, feet = '200'): TileFootprint {
@@ -113,6 +129,32 @@ describe('the city stays under the things that mean something', () => {
         margin,
         `building ${key} (${value}) leaves only ${margin.toFixed(1)} L* under a hiring building`,
       ).toBeGreaterThan(3);
+    }
+  });
+
+  it('keeps its cyan further from the signal than a brightness rule alone would', () => {
+    // ADR 0034's rule, and the one that made the facade pass shippable.
+    //
+    // Cyan is a role. Four milestones of encoding say so and `globals.css`
+    // says so out loud. The general 20 L* headroom below treats every hue
+    // alike, and it should not: a magenta window 20 L* under a beacon is
+    // obviously not a beacon, and a *cyan* one 20 L* under it is a beacon
+    // somebody turned down. Same-hue confusion is the worse failure, so it
+    // earns the tighter bar.
+    //
+    // The palette this ADR shipped with was proposed at `#00dfff`, which is
+    // 3.8 L* under `signal-400` in nearly the same hue — a window all but
+    // indistinguishable from an open role. `aqua-400` is what it became.
+    const signalHue = hue(cssToken('signal-400'));
+    const role = lightness(cssToken('signal-400'));
+    for (const [key, value] of Object.entries(BUILDING_COLOURS)) {
+      const apart = Math.abs(((hue(value) - signalHue + 540) % 360) - 180);
+      if (180 - apart > 20) continue;
+      const headroom = role - lightness(value);
+      expect(
+        headroom,
+        `building ${key} (${value}) is within 20 deg of the signal hue and only ${headroom.toFixed(1)} L* under it`,
+      ).toBeGreaterThan(25);
     }
   });
 

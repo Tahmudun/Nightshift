@@ -135,11 +135,34 @@
   --color-ember-900: #4a2711;
   --color-ember-700: #8a4a1a;
   --color-ember-500: #b0611f;
+  /* The warm window — ADR 0034. More golden than `ember-400` and 1.6 L*
+     brighter, still 5.6 under a hiring building. */
+  --color-ember-350: #bf7d2a;
   --color-ember-400: #cd6e2b;
 
   --color-neon-900: #2f2170;
   --color-neon-700: #4733ad;
   --color-neon-500: #6547d1;
+  /* The building mass — ADR 0034. Seven near-blacks from navy to indigo, and
+     the reason there are seven rather than one is that a skyline of 25,000
+     boxes in a single shade reads as one extruded material. Every step is
+     under 16 L*, so the whole family clears every ceiling trivially. */
+  --color-mass-950: #07061a;
+  --color-mass-900: #0a0924;
+  --color-mass-800: #0d0b32;
+  --color-mass-700: #111044;
+  --color-mass-600: #18104f;
+  --color-mass-500: #21105d;
+  --color-mass-400: #2a1268;
+
+  /* Window light — ADR 0034. Four hues rather than one, because a lit city is
+     polychrome and `neon-*` was written when it was not. Each is a single step
+     because each is a light, not a ramp: nothing dims a window but distance. */
+  --color-aqua-400: #0096cc;
+  --color-azure-400: #168bff;
+  --color-iris-400: #7040ff;
+  --color-fuchsia-400: #e82cff;
+
   --color-neon-400: #8a6bff;
 
   /* Thin white highlights. Exactly three text weights, and every one of them is

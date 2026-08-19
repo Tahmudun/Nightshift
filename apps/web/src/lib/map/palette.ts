@@ -96,6 +96,44 @@ export const MAP_PALETTE = {
    * cyan ground plane; two neighbouring blues cannot make that picture at any
    * saturation.
    */
+  /**
+   * The building mass — ADR 0034, and the family this city is actually made of.
+   *
+   * Seven near-blacks running navy to indigo. Seven rather than one because a
+   * skyline of twenty-five thousand boxes in a single shade reads as one
+   * extruded material, which is the exact note that started this milestone; a
+   * per-building seed picks a family and the towers stop looking stamped.
+   *
+   * Every step is under 16 L*, so nothing here comes near a ceiling. That is
+   * the point — ADR 0034 moves the city's colour into its *light* and leaves
+   * its *mass* darker than anything that means something.
+   */
+  mass950: '#07061a',
+  mass900: '#0a0924',
+  mass800: '#0d0b32',
+  mass700: '#111044',
+  mass600: '#18104f',
+  mass500: '#21105d',
+  mass400: '#2a1268',
+
+  /**
+   * Window light — ADR 0034. Four hues, one step each.
+   *
+   * One step because a window is a light rather than a lit thing: nothing dims
+   * it but distance, and distance is handled in the shader. Four hues because
+   * `neon-*`'s note — "a lit street has to be a colour that means nothing" —
+   * was written for a monochrome city and does not survive one that is not.
+   * What replaces it is narrower and stronger, and it is the whole of this
+   * ADR's colour rule: **cyan is a role.** `aqua-400` is the closest the
+   * scenery comes and it sits 27.4 L* below `signal-400` and 5.4 below
+   * `alert-400`, so the city can be as polychrome as it likes without ever
+   * competing with the one hue that carries a job.
+   */
+  aqua400: '#0096cc',
+  azure400: '#168bff',
+  iris400: '#7040ff',
+  fuchsia400: '#e82cff',
+
   ember900: '#4a2711',
   ember700: '#8a4a1a',
   ember500: '#b0611f',
@@ -111,6 +149,16 @@ export const MAP_PALETTE = {
    * clears it by 7.2.
    */
   ember400: '#cd6e2b',
+  /**
+   * The warm window — ADR 0034.
+   *
+   * More golden than `ember-400` (hue 33 against 25) and 1.6 L* brighter, and
+   * both moves are deliberate: warm is now a tenth of the window light rather
+   * than most of it, so the few that are warm have to actually read as warm.
+   * 58.0 L*, which is 5.6 under a hiring building — the binding ceiling, and
+   * the one ADR 0033's first draft cleared by 0.8 and learned from.
+   */
+  ember350: '#bf7d2a',
 } as const;
 
 export type MapPalette = typeof MAP_PALETTE;

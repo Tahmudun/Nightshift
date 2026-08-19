@@ -104,68 +104,70 @@ const FEATURES_PER_SLICE = 1500;
  * that must not drift. See `cityBuildings.test.ts`.
  */
 export const BUILDING_COLOURS = {
-  /** The mass at street level. Darker than the land it stands on. */
-  massBase: C.ink950,
-  /** The mass at the roofline. Still near-black; the light is on the edges. */
-  massTop: C.ink800,
-  /** Roofs. Seen from above at this pitch, and deliberately the darkest surface. */
-  roof: C.ink900,
-  /** A wall the sun is behind, lifted a little. The one directional cue. */
-  sunlit: C.ink700,
-  /** The dimmest lit window on a bay burning cool. Most windows are near this. */
-  windowDim: C.neon900,
-  /** A mid window, cool. */
-  windowMid: C.neon700,
-  /** The brightest cool window. */
-  windowLit: C.neon400,
+  /** The mass at street level, on the darkest of the four families. */
+  massDarkA: C.mass950,
+  /** The mass at street level, a shade toward violet. */
+  massDarkB: C.mass900,
+  /** The roofline on the near-black family. */
+  massPrimaryA: C.mass800,
+  /** The roofline on the navy family — the commonest tower in New York. */
+  massPrimaryB: C.mass700,
+  /** The roofline on the indigo family. */
+  massIndigo: C.mass600,
+  /** The roofline on the rare violet family. The accent, not the rule. */
+  massViolet: C.mass500,
+  /** A wall the sun is behind, lifted. The one directional cue in the scene. */
+  massSunlit: C.mass400,
+  /** Roofs. Seen from above at this pitch, and the darkest surface drawn. */
+  roof: C.mass900,
+  /** Windows, the cold end. 40% of the light with `windowBlue` below it. */
+  windowCyan: C.aqua400,
+  /** Windows, electric blue. */
+  windowBlue: C.azure400,
+  /** Windows, violet — 30%. */
+  windowViolet: C.iris400,
+  /** Windows, magenta — 20%, the accent. */
+  windowMagenta: C.fuchsia400,
+  /** Windows, warm — 10%, and no more than that. */
+  windowWarm: C.ember350,
+  /** Corners, rooflines and the base line, on 55% of towers. */
+  edgeViolet: C.neon400,
+  /** The same lines, electric blue, on 25%. */
+  edgeBlue: C.azure400,
+  /** The same lines, magenta, on 12%. */
+  edgeMagenta: C.fuchsia400,
   /**
-   * The same three steps for a bay burning *warm* — ADR 0033.
+   * The same lines, warm, on 8% — against a third of every tower before.
    *
-   * A window is the only surface in the city allowed to be warm, and the
-   * reason is that it is the only one that is a light rather than a lit
-   * thing. A street is lit by the city; a window *is* somebody's lamp, and
-   * every reference image is built on the opposition between those two.
-   *
-   * `ember-400` is 29.2 L* below `signal-400` and 7.2 below `alert-400`, so
-   * the brightest window in New York can outshine neither a role nor a hiring
-   * building — the stack ADR 0029 set and ADR 0033 explicitly does not touch.
-   * The first draft cleared the second of those by 0.8 L*, which passes the
-   * assertion and defeats what the assertion is for.
-   */
-  warmDim: C.ember900,
-  /** A mid window, warm. */
-  warmMid: C.ember700,
-  /** The brightest warm window, and the brightest thing this layer draws. */
-  warmLit: C.ember400,
-  /** Corners, rooflines and the line where a wall meets the street. */
-  edge: C.neon400,
-  /**
-   * The same three lines on a tower that runs warm — ADR 0033.
-   *
-   * This is the one that actually changes the opening pose, and it took two
-   * failed attempts to find out. Warm windows are invisible from twelve
-   * kilometres up: a bay is a third of a pixel there and the shader has
-   * already replaced the speckle with its average. A warm crown is nearly
-   * invisible too — seven metres of band on a 200 m tower. The edge light is
-   * different because it is the *silhouette*: it is what draws the city at
-   * this distance, and giving four towers in ten a warm outline is what puts
-   * colour in a frame that is otherwise one hue and a magenta sky.
+   * This one number is most of why the ADR 0033 city read as a realistic
+   * night-time Manhattan render. A window is a third of a pixel from the pose
+   * the city opens at; the edge light *is* the building at that distance, so
+   * warming a third of the rooflines warmed the whole frame.
    */
   edgeWarm: C.ember400,
-  /** The lit band on the towers tall enough to make the silhouette. */
-  crown: C.neon400,
-  /**
-   * The same band on the towers whose crown burns warm — ADR 0033.
-   *
-   * The crown is the only light in this shader that is visible at the opening
-   * pose: a window is a third of a pixel from twelve kilometres up and an edge
-   * is a hairline, but a crown is a seven-metre band on the four hundred
-   * towers that make the silhouette. So it is the one place a second hue
-   * changes what the city looks like from where the city is actually looked
-   * at. Warming the windows alone was measured doing nothing at that distance.
-   */
-  crownWarm: C.ember400,
 } as const;
+
+/**
+ * What the window mix averages out to, as linear RGB: 0.40 x (cyan..blue) +
+ * 0.30 x violet + 0.20 x magenta + 0.10 x warm, weighted and summed once here.
+ *
+ * The far field needs a constant. Past the point where a bay is finer than a
+ * pixel, a hue read from a per-group hash is a different hue in every
+ * neighbouring pixel — a sheet of confetti over the back half of the frame.
+ * So the distance that cannot resolve a window gets the average of all of
+ * them, which is this cool periwinkle.
+ */
+const FAR_FIELD_TONE = [0.353, 0.404, 0.788] as const;
+
+/**
+ * What the preview multiplies the window density by: a 62% cut.
+ *
+ * Expressed as a scale on `uWindowDensity` rather than as its own constant so
+ * it composes with M4d Task 2's quality tiers instead of racing them — turn
+ * the tier down and the windows turn down with it, in whichever order the two
+ * are set.
+ */
+export const GROUP_DENSITY_SCALE = 0.38;
 
 /**
  * How tall a building must be, in metres, before its roofline is lit.
@@ -252,20 +254,26 @@ varying vec3 vWorld;
 varying vec4 vSpan;
 varying float vRoof;
 
-const vec3 MASS_BASE  = ${glsl(BUILDING_COLOURS.massBase)};
-const vec3 MASS_TOP   = ${glsl(BUILDING_COLOURS.massTop)};
-const vec3 ROOF       = ${glsl(BUILDING_COLOURS.roof)};
-const vec3 SUNLIT     = ${glsl(BUILDING_COLOURS.sunlit)};
-const vec3 WINDOW_DIM = ${glsl(BUILDING_COLOURS.windowDim)};
-const vec3 WINDOW_MID = ${glsl(BUILDING_COLOURS.windowMid)};
-const vec3 WINDOW_LIT = ${glsl(BUILDING_COLOURS.windowLit)};
-const vec3 WARM_DIM   = ${glsl(BUILDING_COLOURS.warmDim)};
-const vec3 WARM_MID   = ${glsl(BUILDING_COLOURS.warmMid)};
-const vec3 WARM_LIT   = ${glsl(BUILDING_COLOURS.warmLit)};
-const vec3 EDGE       = ${glsl(BUILDING_COLOURS.edge)};
-const vec3 CROWN      = ${glsl(BUILDING_COLOURS.crown)};
-const vec3 CROWN_WARM = ${glsl(BUILDING_COLOURS.crownWarm)};
-const vec3 EDGE_WARM  = ${glsl(BUILDING_COLOURS.edgeWarm)};
+const vec3 MASS_DARK_A = ${glsl(BUILDING_COLOURS.massDarkA)};
+const vec3 MASS_DARK_B = ${glsl(BUILDING_COLOURS.massDarkB)};
+const vec3 MASS_PRIM_A = ${glsl(BUILDING_COLOURS.massPrimaryA)};
+const vec3 MASS_PRIM_B = ${glsl(BUILDING_COLOURS.massPrimaryB)};
+const vec3 MASS_INDIGO = ${glsl(BUILDING_COLOURS.massIndigo)};
+const vec3 MASS_VIOLET = ${glsl(BUILDING_COLOURS.massViolet)};
+const vec3 MASS_SUNLIT = ${glsl(BUILDING_COLOURS.massSunlit)};
+const vec3 ROOF        = ${glsl(BUILDING_COLOURS.roof)};
+
+const vec3 WIN_CYAN    = ${glsl(BUILDING_COLOURS.windowCyan)};
+const vec3 WIN_BLUE    = ${glsl(BUILDING_COLOURS.windowBlue)};
+const vec3 WIN_VIOLET  = ${glsl(BUILDING_COLOURS.windowViolet)};
+const vec3 WIN_MAGENTA = ${glsl(BUILDING_COLOURS.windowMagenta)};
+const vec3 WIN_WARM    = ${glsl(BUILDING_COLOURS.windowWarm)};
+const vec3 FAR_FIELD   = vec3(${FAR_FIELD_TONE.map((v) => v.toFixed(4)).join(', ')});
+
+const vec3 EDGE_VIOLET = ${glsl(BUILDING_COLOURS.edgeViolet)};
+const vec3 EDGE_BLUE   = ${glsl(BUILDING_COLOURS.edgeBlue)};
+const vec3 EDGE_MAGENTA= ${glsl(BUILDING_COLOURS.edgeMagenta)};
+const vec3 EDGE_WARM   = ${glsl(BUILDING_COLOURS.edgeWarm)};
 
 const vec3 HORIZON    = ${glsl(SKY_COLOURS.horizon)};
 const vec3 SKY_LOW    = ${glsl(SKY_COLOURS.low)};
@@ -299,18 +307,33 @@ void main() {
   float height = max(vRoof, 1.0);
   float up = clamp(vWorld.z / height, 0.0, 1.0);
 
+  // One number per building, shared by every wall of it. The mass family, the
+  // edge colour and the crown all read it, so a tower cannot come out navy on
+  // one face and indigo on the next.
+  float towerSeed = hash(vec2(height, height * 0.618));
+
   vec3 colour;
   if (isRoof) {
     colour = ROOF;
   } else {
+    // Four mass families, all of them dark. The reference images are not a
+    // city of purple buildings — they are a city of near-black buildings in
+    // four slightly different colds, which is what stops a skyline of 25,000
+    // boxes reading as one extruded material.
+    float fam = hash(vec2(height, height * 0.618) + 3.0);
+    vec3 massBase = fam < 0.30 ? MASS_DARK_A : fam < 0.86 ? MASS_DARK_B : MASS_DARK_A;
+    vec3 massTop = fam < 0.30 ? MASS_PRIM_A
+                 : fam < 0.62 ? MASS_PRIM_B
+                 : fam < 0.86 ? MASS_INDIGO
+                              : MASS_VIOLET;
     // Squared, so the lift sits in the top third rather than spreading evenly
     // down a wall. An even ramp is what makes a box read as a box.
-    colour = mix(MASS_BASE, MASS_TOP, up * up);
+    colour = mix(massBase, massTop, up * up);
     // The sun is over the Hudson at 285 deg; a wall turned into it is lifted a
     // little. This is the only non-emissive light in the scene and it is worth
     // roughly one shade — enough that a tower's two visible faces differ,
     // which is most of what makes a mass read as solid.
-    colour = mix(colour, SUNLIT, 0.55 * max(vSpan.w, 0.0));
+    colour = mix(colour, MASS_SUNLIT, 0.55 * max(vSpan.w, 0.0));
   }
 
   if (!isRoof) {
@@ -343,14 +366,12 @@ void main() {
 
     // --- Windows ---------------------------------------------------------
     //
-    // The grid is in metres of façade, so a bay is a bay whether the camera is
+    // The grid is in metres of facade, so a bay is a bay whether the camera is
     // on the street or twenty kilometres up, and it does not swim when the
     // zoom changes.
     float cu = u / ${WINDOW_WIDTH_METRES.toFixed(2)};
     float cv = vWorld.z / ${WINDOW_HEIGHT_METRES.toFixed(2)};
-    vec2 cell = floor(vec2(cu, cv));
     vec2 f = fract(vec2(cu, cv)) - 0.5;
-    float r = hash(cell + vSpan.z * 137.0);
 
     // How many bays fit in a pixel. Past one, the grid is finer than the
     // screen can show and every sample lands in a different bay — which is a
@@ -361,74 +382,78 @@ void main() {
     float bays = max(fwidth(cu), fwidth(cv));
     float crisp = 1.0 - smoothstep(0.35, 0.9, bays);
 
-    // Wider than tall, which is what a floor of windows looks like and what
-    // separates a façade from a checkerboard.
+    // Whether a bay is lit is decided for a *group* of bays rather than for
+    // each one. Three group shapes, chosen per wall: a vertical strip five
+    // floors tall, a horizontal band four bays wide, and a squat block. That
+    // is the whole difference between a facade of scattered dots and a facade
+    // with strips and bands on it, and it costs one hash and one divide.
+    float mode = hash(vec2(vSpan.z, 11.3));
+    vec2 grp = mode < 0.34 ? vec2(1.0, 5.0)
+             : mode < 0.67 ? vec2(4.0, 1.0)
+                           : vec2(2.0, 3.0);
+    vec2 gcell = floor(vec2(cu, cv) / grp);
+
+    // A 62% cut against the pre-ADR-0034 city, as a scale on the tier knob
+    // rather than as a second knob.
+    float density = uWindowDensity * ${GROUP_DENSITY_SCALE.toFixed(2)};
+    float litGroup = step(1.0 - density, hash(gcell + vSpan.z * 137.0 + 4.0));
+
+    // Hue, per group: 40% cyan-to-blue, 30% violet, 20% magenta, 10% warm.
+    // The per-wall bias is what stops it looking evenly salted — one facade
+    // runs colder than the one beside it instead of every wall averaging to
+    // the same lilac.
+    float t = fract(hash(gcell + vSpan.z * 19.0 + 8.0)
+                    + 0.16 * (hash(vec2(vSpan.z, 2.9)) - 0.5));
+    vec3 tone = t < 0.40 ? mix(WIN_CYAN, WIN_BLUE, t / 0.40)
+              : t < 0.70 ? WIN_VIOLET
+              : t < 0.90 ? WIN_MAGENTA
+                         : WIN_WARM;
+
+    // Brightness, per group, in four steps — very dim, moderate, bright, hot —
+    // because a facade where every lit bay is equally bright reads as a texture
+    // rather than as lights. Completely dark is already covered by litGroup,
+    // which is 87% of them.
+    float b = hash(gcell + vSpan.z * 31.0 + 15.0);
+    float bright = b < 0.38 ? 0.22 : b < 0.72 ? 0.55 : b < 0.93 ? 1.00 : 1.35;
+
+    // Wide panes, so bays inside a group nearly touch and the group reads as
+    // one strip or band with mullions in it rather than as five dots.
     float pane =
-      (1.0 - smoothstep(0.26, 0.32, abs(f.x))) *
-      (1.0 - smoothstep(0.18, 0.24, abs(f.y)));
-    float lit = step(1.0 - uWindowDensity, r);
+      (1.0 - smoothstep(0.32, 0.42, abs(f.x))) *
+      (1.0 - smoothstep(0.24, 0.32, abs(f.y)));
 
-    // A second, independent hash, and the first draft's mistake is worth
-    // keeping written down. The tone used to be chosen from r — the same
-    // number that decides whether the bay is lit at all. A lit bay is by
-    // definition one where r is above 1 minus the density, so every lit window
-    // fell in the top branch and WINDOW_DIM could not be drawn anywhere: a
-    // colour in the table, asserted by the brightness test, never on screen.
-    float shade = hash(cell + 5.1);
-    float step2 = hash(cell + 9.7);
-    vec3 cool = shade < 0.55 ? mix(WINDOW_DIM, WINDOW_MID, step2)
-                             : mix(WINDOW_MID, WINDOW_LIT, step2);
-    vec3 warmed = shade < 0.55 ? mix(WARM_DIM, WARM_MID, step2)
-                               : mix(WARM_MID, WARM_LIT, step2);
-
-    // --- What temperature this bay burns at (ADR 0033) --------------------
-    //
-    // Per *bay*, not per building, and that is deliberate rather than a
-    // shortcut around a missing attribute. A tower whose four faces disagree
-    // about their colour reads as a bug; a tower whose windows disagree reads
-    // as a building with people in it, which is what the close crops of every
-    // reference image actually show — warm offices, a cold conference room,
-    // the odd blue monitor.
-    //
-    // The per-wall bias is what stops it looking evenly salted. Each façade
-    // gets its own warm/cool ratio, so one runs amber and its neighbour runs
-    // indigo, and the block reads as varied at a scale the eye can see from
-    // the opening pose. The seed is span.z, the per-wall number the window grid
-    // already uses, so this costs one hash and no new vertex data. (No backticks
-    // in here: this shader is a TypeScript template literal and one would end it.)
-    float warmBias = clamp(0.60 + 0.34 * (hash(vec2(vSpan.z, 3.7)) - 0.5), 0.0, 1.0);
-    float warm = step(1.0 - warmBias, hash(cell + 21.3));
-    vec3 tone = mix(cool, warmed, warm);
+    // The occasional whole-facade panel: six bays by ten floors, lit as one
+    // sheet with no mullions and turned well down. A glowing wall, not a
+    // searchlight — 3.5% of them, which is a handful per block.
+    float panel = step(0.965, hash(floor(vec2(cu / 6.0, cv / 10.0)) + vSpan.z * 57.0));
+    pane = mix(pane, 1.0, panel);
+    bright = mix(bright, 0.30, panel);
+    litGroup = max(litGroup, panel);
 
     // Dimmed on the low-rise. A two-storey building with a full grid of lit
     // bays reads as an office tower that happens to be short, and 25,000 of
     // them turn the foreground into a field of speckle with no silhouette in
     // it. The references put the light in the towers and leave the mat dark.
     float occupied = mix(0.30, 1.0, lifted);
-    colour += tone * lit * pane * crisp * occupied;
-    // The far field, where the bays are finer than the pixels showing them and
-    // the speckle has been replaced by its own average. Raised from 0.17 with
-    // the glow: a district too dim to cross the bloom threshold contributes
-    // nothing to the block-scale halo, and the mid-ground of every reference
-    // image is exactly that halo — thousands of windows nobody can resolve,
-    // read as one lit mass.
-    colour += tone * uWindowDensity * 0.24 * (1.0 - crisp) * occupied;
+    colour += tone * litGroup * bright * pane * crisp * occupied;
+    // 0.58 is the mean of the four brightness steps, so the distance that
+    // cannot resolve a window still carries the light the near field would
+    // have put there — the mid-ground of every reference image is exactly that
+    // halo, thousands of windows nobody can resolve read as one lit mass.
+    colour += FAR_FIELD * density * 0.58 * 1.45 * (1.0 - crisp) * occupied;
 
     // --- Edges -----------------------------------------------------------
     //
-    // Which temperature this whole tower is lit at (ADR 0033), seeded from its
-    // own roof height — the one per-building quantity every wall already
-    // shares, so a tower cannot come out amber on one face and indigo on the
-    // next. The crown below reads the same number, so a warm tower is warm all
-    // the way up rather than changing its mind at the top.
-    //
-    // A third warm, not a half. At even odds the skyline reads as a circuit
-    // board — two colours alternating with no ground for either to be figure
-    // against. A third keeps indigo as the city's own colour and makes amber
-    // the thing *some* towers do, which is both the better picture and the
-    // truer one: the references have a lit minority against a cool mass.
-    float warmTower = step(0.66, hash(vec2(height, height * 0.618)));
-    vec3 edgeTone = mix(EDGE, EDGE_WARM, warmTower);
+    // The edge light is the silhouette, and at the pose the city opens at it is
+    // the only thing about a tower anyone can see — a window is a third of a
+    // pixel from twelve kilometres up. So this is where the frame's overall
+    // temperature is actually decided, and it is the single biggest reason the
+    // ADR 0033 city read warm: a third of every roofline in New York was amber.
+    // Here warm is 8% and the other 92% is violet, blue and magenta.
+    vec3 edgeTone = towerSeed < 0.55 ? EDGE_VIOLET
+                  : towerSeed < 0.80 ? EDGE_BLUE
+                  : towerSeed < 0.92 ? EDGE_MAGENTA
+                                     : EDGE_WARM;
 
     float corner = min(u, wall - u);
     float cornerW = max(${EDGE_METRES.toFixed(2)}, 1.1 * fwidth(corner));
@@ -450,9 +475,9 @@ void main() {
     // number, not a taste; see CROWN_MIN_METRES.
     if (height > ${CROWN_MIN_METRES.toFixed(1)}) {
       float band = 1.0 - smoothstep(0.0, ${CROWN_METRES.toFixed(1)}, below);
-      // The same warmTower the edges used, so a tower does not change its mind
+      // The same tower seed the edges used, so a tower does not change its mind
       // about its own colour seven metres from the top.
-      colour += mix(CROWN, CROWN_WARM, warmTower) * 0.45 * band;
+      colour += edgeTone * 0.45 * band;
     }
   }
 
