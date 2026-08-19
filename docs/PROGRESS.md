@@ -153,6 +153,73 @@ world, the column's world size, and its pixel floor. Each shown able to fail.
 **Still open on this work**: the roof wash's strength is untuned — it reads
 faintly at the pose the city opens at and needs a look rather than a number.
 
+**2026-08-19: the columns were never on the screen.** The human's report was
+that the beacons are short, hard to spot at city scale, and not animated. All
+three were true and the second and third had a cause nobody had guessed:
+**ADR 0034's beacon bodies drew nothing at all, at any zoom, since the day they
+shipped.** What had been looked at for two days were §6's marks and the roof
+beams, which are also vertical cyan things standing on the same anchors.
+**ADR 0035** has the whole of it. The short version is that the shader asked
+two questions a conventional Three.js scene answers and this one does not —
+ADR 0025 gives the layer *one composed matrix* and leaves the model-view alone,
+so there is no view matrix here at all. `normalMatrix * normal` for the soft
+edge came out **exactly zero at every vertex** and every body multiplied to
+alpha 0; `projectionMatrix[1][1]` read as a field of view produced a growth
+factor in the thousands and scaled every column to hundreds of kilometres.
+**The two defects were each other's alibi** — with alpha 0 you cannot see that
+the geometry is a continent, and fixing only the size gives a solid white
+window. Both are now measured out of the frame's own matrix rather than assumed
+from its elements: the camera position `signalLayer` already computes for the
+building haze, and one projected metre for each pixel floor.
+**The height was a design error rather than a bug.** 90 m was the width rule
+applied to the wrong axis — a mark whose width belongs to its building reads as
+standing on it, a mark whose *height* does reads as part of it — and it came to
+about fifty pixels at the opening pose. `COLUMN_HEIGHT` is now **1,650 m**,
+three times One World Trade's spire, and the test that pinned a ceiling of 120 m
+now pins a floor of twice 541: the rule inverted, because that is the rule
+`docs/design/references/02-*.jpg` and `city.md` §2.1 both already stated.
+`COLUMN_BASE` (90 m) is new and is what the marks and the reticle are cut
+against — the job is at the bottom of the column, the spire is the flag.
+**The animation had two things wrong and only one was the gate.** The repaint
+request still asked whether a role was *new*, which ADR 0034 had stopped being
+the question; the seeded corpus hid it because 27 of 30 roles are inside
+`NEW_WINDOW_DAYS`. And the rise cycles the column's *top*, which at 1.65 km is
+off the top of the frame at every pose this city is read at — two frames 2.5 s
+apart were pixel-identical along the whole visible length. Bands now scroll up
+the shaft, and **they modulate rather than add**, because light added to an
+already-clipped additive pixel changes nothing.
+**The new acceptance test is the useful artefact.** `city-acceptance.spec.ts`
+serves a corpus where the beacon is the only thing that *can* move — every role
+old, unresolved and untouched, so no pulse, no mark, no roof beam — then keeps
+a frame and counts what fraction of the map changes. Every threshold was
+calibrated by running it against the broken renderer: as shipped the field
+painted 0.5% of the map (three name plates) and moved **0.0%**; fixed it paints
+2.9% and moves 0.46%; size-broken alone paints 100%. It also forced a finding
+that would have made every future frame comparison worthless — **the city has
+to have finished assembling first**, because a mid-build frame differs from the
+next by 354,665 pixels against the 4,257 a field of columns moves.
+Screenshots: `docs/reviews/milestone-4e-spires-opening.png`,
+`milestone-4e-spires-midtown.png`, `milestone-4e-spires-skyline.png`, and
+`milestone-4e-spires-motion.png`, which is four stills across one cycle.
+`.rise.mjs` is the tool that makes them.
+**A third defect came out of running a suite that had not been run.**
+`make test-e2e-seeded` needs a database, so it is the one that gets skipped —
+and it is the only one that clicks a beacon. It was **18 passed / 10 failed**
+before this session and the ten had been red since ADR 0034 merged: *"no
+reachable pixel on the canvas was beacon"*. Same root cause one level over —
+`pick.ts` raycasts three's geometry, ADR 0034 moved the column's size into the
+shader, and what was left on the CPU was a **unit cylinder**, a metre across in
+a city where a metre is a sixth of a pixel. The geometry now carries the *click
+target's* size and the shader scales from it to the light. A whole-spire target
+was tried first and is wrong: roles at one employer stack coaxially 45 m apart,
+so 1.65 km tubes all occupy each other's sky and one role answers for the whole
+company. At 45 m — the spacing itself — the targets tile. Now **28 passed**.
+
+**Not verified**: none of this has been seen on a real GPU — every capture in
+this session is headless Chromium's software rasteriser, so the bloom around a
+spire and the frame cost of 1.65 km of overdraw at 5,000 roles are both
+unmeasured. The frame cost belongs with M4d Task 2's quality tiers.
+
 **Last updated: 2026-08-19**
 
 ---
@@ -168,17 +235,27 @@ described — it took the beacon body, the four marks, the selection reticle
 and the hiring building's mark with it, because all of them were sized or
 shaped against an octahedron.
 
-**Next: the roof wash wants a look.** It is the one thing in ADR 0034 that
-shipped untuned. Everything else in that ADR was decided against a
-screenshot; the wash was decided against an argument, and at the pose the
-city opens at it reads faintly. Take it to the human with a close crop
-before touching the number.
+**Next: the spires want a real GPU, and then the roof wash wants a look.**
 
-**Then Task 8** — the documents that said not to do this. ADR 0034 adds
-itself to what that task has to reconcile: `city.md` §6's table now has a
-form column that is load-bearing rather than descriptive, and §6's "Gold
+ADR 0035 put the beacon bodies on the screen for the first time and made them
+1.65 km tall, and **every capture of that was taken on a software rasteriser**.
+Two things are unmeasured because of it: how the bloom reads around a spire on
+real hardware, and what 1.65 km of additive overdraw costs at 5,000 roles. The
+second belongs with M4d Task 2's quality tiers and should be measured with
+`.measure.mjs` in a headed window before those tiers are tuned.
+
+The roof wash is still the one thing in ADR 0034 that shipped untuned.
+Everything else in that ADR was decided against a screenshot; the wash was
+decided against an argument, and at the pose the city opens at it reads
+faintly. Take it to the human with a close crop before touching the number.
+
+**Then Task 8** — the documents that said not to do this. ADR 0034 and 0035
+both add themselves to what that task has to reconcile: `city.md` §6's table
+now has a form column that is load-bearing rather than descriptive, §6's "Gold
 vertical beacon" row describes a mark that no longer exists as a separate
-object.
+object, and §2.1's *"narrow column of light leaving a rooftop and dissipating
+with height"* is now literally what is drawn rather than an aspiration the
+implementation missed by a factor of eighteen.
 
 **M4d Task 1 (the frame timer) is done and M4d Tasks 2–7 are deliberately
 paused.** The overhaul below changes what a frame costs, so tuning the adaptive

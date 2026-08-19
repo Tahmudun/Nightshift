@@ -429,3 +429,238 @@ test('the frame timer measures frames the map really presented, and names what d
   // the M4c review's finding repeated one milestone later.
   await expect(readout).toContainText(/software rasteriser on the CPU/i);
 });
+
+/**
+ * Keep the map's current frame, and count how many pixels the next one moved.
+ *
+ * Read out of the drawing buffer inside a `render` event, which is the one
+ * moment it is guaranteed to still hold the frame — this map does not set
+ * `preserveDrawingBuffer`, and outside that window the canvas reads back
+ * empty. Playwright's own screenshot would do for whole-frame equality, but
+ * equality is what the first draft of this test used and it passed with the
+ * bodies drawing nothing: three name plates disappearing was difference
+ * enough. Counting the pixels is what separates a field of columns from a
+ * field of captions, and decoding a PNG in Node to do it would mean a
+ * dependency for one assertion.
+ *
+ * A colour test was the other candidate and it does not survive contact with
+ * this renderer: the beacons are additive over a lit sky, so a column crossing
+ * the horizon band comes out white rather than cyan and a hue filter throws
+ * most of it away. What the field paints is measured by taking the field away.
+ */
+async function keepFrame(page: Page): Promise<void> {
+  await page.evaluate(
+    (key) =>
+      new Promise<void>((resolve) => {
+        const map = window[key as typeof CITY_DEBUG_KEY]!.map;
+        map.once('render', () => {
+          const canvas = map.getCanvas();
+          const off = document.createElement('canvas');
+          off.width = canvas.width;
+          off.height = canvas.height;
+          const context = off.getContext('2d')!;
+          context.drawImage(canvas, 0, 0);
+          (window as unknown as { __keptFrame?: ImageData }).__keptFrame = context.getImageData(
+            0,
+            0,
+            off.width,
+            off.height,
+          );
+          resolve();
+        });
+        map.triggerRepaint();
+      }),
+    CITY_DEBUG_KEY,
+  );
+}
+
+/**
+ * What fraction of the map differs from the kept frame, ignoring rasteriser
+ * noise.
+ *
+ * A fraction rather than a count so the thresholds below mean the same thing
+ * at any viewport, and so an upper bound can be written at all: one of the two
+ * defects this test exists for made every column thousands of times too large,
+ * and the frame it produced was solid white. A floor alone welcomes that.
+ */
+async function fractionMovedSince(page: Page): Promise<number> {
+  return page.evaluate(
+    (key) =>
+      new Promise<number>((resolve) => {
+        const map = window[key as typeof CITY_DEBUG_KEY]!.map;
+        map.once('render', () => {
+          const kept = (window as unknown as { __keptFrame?: ImageData }).__keptFrame;
+          if (kept === undefined) {
+            resolve(-1);
+            return;
+          }
+          const canvas = map.getCanvas();
+          const off = document.createElement('canvas');
+          off.width = canvas.width;
+          off.height = canvas.height;
+          const context = off.getContext('2d')!;
+          context.drawImage(canvas, 0, 0);
+          const now = context.getImageData(0, 0, off.width, off.height).data;
+          const before = kept.data;
+          let moved = 0;
+          for (let i = 0; i < now.length; i += 4) {
+            const delta =
+              Math.abs(now[i]! - before[i]!) +
+              Math.abs(now[i + 1]! - before[i + 1]!) +
+              Math.abs(now[i + 2]! - before[i + 2]!);
+            if (delta > 24) moved += 1;
+          }
+          resolve(moved / (now.length / 4));
+        });
+        map.triggerRepaint();
+      }),
+    CITY_DEBUG_KEY,
+  );
+}
+
+/**
+ * The two failures ADR 0034's column shipped with, and neither one raised
+ * anything: no error, no warning, no red test, no visibly broken frame.
+ *
+ * **The bodies drew nothing at all.** The shader asked two questions that only
+ * have answers in a renderer with a view matrix — `normalMatrix * normal` for
+ * the soft edge, `projectionMatrix[1][1]` for the pixel floor — and ADR 0025
+ * says this renderer has neither: MapLibre hands over one composed matrix and
+ * the model-view is left alone. The first came out exactly zero at every
+ * vertex, so every column was alpha 0; the second came out about 7,000x, so
+ * every column was scaled to hundreds of kilometres and clipped out of frame.
+ * The city looked fine, because §6's marks and the roof beams are also
+ * vertical cyan things standing on the same anchors, and they were what
+ * everybody had been looking at for two days.
+ *
+ * **And the ambient rise was gated on the recency pulse.** ADR 0034 made the
+ * rise identical on every role; the repaint request still asked whether some
+ * role was new. The seeded corpus is 90% new, so frames kept arriving and it
+ * never showed.
+ *
+ * A corpus is what separates them, and it is why this test is here rather than
+ * in the seeded suite. Every role below is **old** — outside
+ * `NEW_WINDOW_DAYS`, so no pulse — and **unresolved and untouched**, so §6
+ * draws no outline, no core, no ring, no arc, and no roof beam stands under
+ * it. On this corpus the beacon column is the only thing on the city that can
+ * move. If it is missing, or frozen, nothing else covers for it.
+ */
+/**
+ * How much of the map the field has to paint, and how much of it has to move.
+ *
+ * Every number here was measured against the broken renderer rather than
+ * guessed, by running this test against it. ADR 0034's column shipped with two
+ * defects in one shader, and they hid each other:
+ *
+ * | state                        | field paints | moves per frame |
+ * |------------------------------|--------------|-----------------|
+ * | as shipped (both defects)    | 0.5%         | **0.0%**        |
+ * | size fixed, soft edge broken | 0.5%         | 0.0%            |
+ * | soft edge fixed, size broken | **100%**     | — (solid white) |
+ * | both fixed                   | 2.9%         | 0.46%           |
+ *
+ * The 0.5% in the broken rows is three name plates. The bodies contributed
+ * nothing at all, which is why every threshold has daylight around it.
+ *
+ * A moving threshold of zero would have caught this and is still the wrong
+ * number: a rasteriser that dithers, or a sky that ever animates, clears zero
+ * with the columns standing still.
+ */
+const FIELD_FRACTION_MIN = 0.012;
+const FIELD_FRACTION_MAX = 0.4;
+const MOVING_FRACTION = 0.001;
+
+test('a role nobody applied to and nobody posted this week still draws, and still moves', async ({
+  page,
+}) => {
+  const serve = await stubSignals(page);
+  serve(corpus(9, 3));
+  await openCity(page);
+  await cityHasLayer(page);
+  await expect.poll(() => drawn(page), { timeout: 60_000 }).toBe(9);
+
+  // Every measurement below is a difference between two frames, so the city
+  // has to have stopped arriving in them first. New York is assembled on a
+  // share of each frame — 35,000 footprints over hundreds of frames — and a
+  // frame taken mid-build differs from the next one by two thirds of the
+  // canvas, which would swamp anything a beacon does and pass every assertion
+  // here for the wrong reason. Measured: 354,665 pixels moving per frame
+  // during the build, against the few thousand a field of columns moves.
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          (key) => window[key as typeof CITY_DEBUG_KEY]!.signals.city.ready === true,
+          CITY_DEBUG_KEY,
+        ),
+      { timeout: 120_000, message: 'the city never finished building' },
+    )
+    .toBe(true);
+
+  // Not one of them is new, so not one of them pulses. This is the state the
+  // old repaint gate answered "nothing is moving" to.
+  const pulses = await page.evaluate((key) => {
+    const layer = window[key as typeof CITY_DEBUG_KEY]!.signals;
+    return Array.from({ length: layer.drawn }, (_, i) => layer.pulseAt(i) ?? -1);
+  }, CITY_DEBUG_KEY);
+  expect(pulses).toHaveLength(9);
+  expect(pulses.every((hz) => hz === 0)).toBe(true);
+
+  // The city still considers itself animating, and its clock still advances.
+  expect(
+    await page.evaluate(
+      (key) => window[key as typeof CITY_DEBUG_KEY]!.signals.animating,
+      CITY_DEBUG_KEY,
+    ),
+  ).toBe(true);
+
+  const clockAt = () =>
+    page.evaluate((key) => window[key as typeof CITY_DEBUG_KEY]!.signals.clockAt, CITY_DEBUG_KEY);
+  const before = await clockAt();
+  await expect
+    .poll(clockAt, { timeout: 30_000, message: 'the beacon clock never advanced' })
+    .toBeGreaterThan(before + 1);
+
+  // The clock advancing is not the claim either — a uniform can advance in
+  // front of a shader that ignores it, which is the other half of what went
+  // wrong here. The claim is that the picture changes, by more than a
+  // rasteriser's noise, with nothing on this city moving but the columns.
+  await keepFrame(page);
+  await expect
+    .poll(() => fractionMovedSince(page), {
+      timeout: 30_000,
+      message: 'the columns drew an identical frame for thirty seconds',
+    })
+    .toBeGreaterThan(MOVING_FRACTION);
+
+  // And a clock advancing is not the claim — a uniform can advance in front of
+  // a shader that ignores it, which is exactly half of what went wrong here.
+  //
+  // So: count the signal cyan on the canvas, with the field and without it.
+  // Nothing else in the city is allowed to be this colour (ADR 0034 reserves
+  // the hue, and `cityBuildings.test.ts` holds the scenery 27 L* below it), so
+  // the difference between the two counts is the field and only the field —
+  // and on this corpus the field is nine bodies, three name plates and nothing
+  // else. An earlier draft of this compared whole screenshots for inequality
+  // and passed with the bodies drawing zero pixels, because the plates
+  // vanishing was difference enough. Counting separates them.
+  //
+  // So: keep the frame, take the field away, and count what changed. On this
+  // corpus the field is nine bodies and three name plates and nothing else, so
+  // what changed is the field — and the two parts of it are separated by an
+  // order of magnitude. An earlier draft compared whole screenshots for
+  // inequality and passed with the bodies drawing zero pixels, because the
+  // plates vanishing was difference enough.
+  await keepFrame(page);
+  await page.evaluate((key) => {
+    window[key as typeof CITY_DEBUG_KEY]!.signals.setSignals([]);
+  }, CITY_DEBUG_KEY);
+  await expect.poll(() => drawn(page), { timeout: 30_000 }).toBe(0);
+
+  const field = await fractionMovedSince(page);
+  expect(field).toBeGreaterThan(FIELD_FRACTION_MIN);
+  // And the ceiling, which is the other defect: a column that is thousands of
+  // times too large paints the whole window white, and a floor alone calls
+  // that a healthy field.
+  expect(field).toBeLessThan(FIELD_FRACTION_MAX);
+});

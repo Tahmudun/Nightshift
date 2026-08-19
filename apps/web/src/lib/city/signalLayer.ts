@@ -51,6 +51,7 @@ import type { CitySignal } from '@/lib/schemas';
 
 import {
   ARCHIVED_COLOR,
+  COLUMN_BASE,
   COLUMN_HEIGHT,
   COLUMN_RADIUS,
   createBeaconMesh,
@@ -102,7 +103,7 @@ export const SIGNAL_LAYER_ID = 'nightshift-signals';
 // Re-exported rather than moved-and-forgotten: these lived here for two tasks
 // and `beacon.ts` is where they belong now, but every caller that had the old
 // import is still right about what it wanted.
-export { COLUMN_HEIGHT, COLUMN_RADIUS, MAX_BEACONS, SIGNAL_COLOR };
+export { COLUMN_BASE, COLUMN_HEIGHT, COLUMN_RADIUS, MAX_BEACONS, SIGNAL_COLOR };
 
 /**
  * `verdant-400` — an offer, and nothing else in the product (§6).
@@ -278,6 +279,16 @@ export interface SignalLayer extends CustomLayerInterface {
    * repainting is how a pulse freezes mid-breath.
    */
   readonly animating: boolean;
+  /**
+   * The clock the beacon shader is currently drawing with, in seconds.
+   *
+   * Exposed because "the city animates" is otherwise a claim only a person
+   * watching it can check, and the thing that broke it — a repaint that stops
+   * being asked for — leaves a perfectly correct shader drawing one frame
+   * forever. `city-acceptance.spec.ts` reads this twice and requires it to have
+   * moved.
+   */
+  readonly clockAt: number;
   /** The columns as laid out, in order: what the roster panel navigates by. */
   readonly columns: readonly FieldColumn[];
   /**
@@ -752,6 +763,10 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       return !reducedMotion && (beacons.animating || marks.ring.drawn > 0);
     },
 
+    get clockAt() {
+      return beacons.timeAt;
+    },
+
     get columns() {
       return columns;
     },
@@ -900,6 +915,13 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       // uniform would have been one line and would have left the *data* saying
       // the city is animating while the shader quietly ignored it.
       writeTreatments();
+      // The ambient rise is the exception, and it is the exception for the
+      // reason the rule exists: it is not a fact about any role, so there is
+      // nothing in the buffer for it to be honest about. Switching it off has
+      // to draw every column *whole* — without this the shader keeps the last
+      // clock it was handed and a reduced-motion city is a field of columns
+      // cut off a third of the way up.
+      beacons.setMotion(!reduced);
       orientMarks();
       map?.triggerRepaint();
     },
@@ -980,6 +1002,11 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       // disagreed with the projection by a metre would fog the city from
       // slightly the wrong place, which reads as nothing at all being wrong.
       cameraPositionFrom(camera.projectionMatrix, eye);
+      // The beacons need it too, and for a reason that is not the haze's: a
+      // column's soft edge is the fraction of the tube the eye looks through,
+      // and this renderer's model-view carries no view rotation to derive that
+      // from. See `vThickness` in `beacon.ts`.
+      beacons.setEye(eye.x, eye.y, eye.z);
       cityBuildings.setCamera(
         eye,
         map === null
@@ -993,9 +1020,13 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
               ),
       );
 
-      // The column's pixel floor needs to know how tall the surface is; see
-      // `MIN_COLUMN_WIDTH_PX`. Read from the same canvas the haze above reads.
-      if (map !== null) beacons.setViewportHeight(map.getCanvas().clientHeight);
+      // The column's two pixel floors need the surface's size in both
+      // directions — see `MIN_COLUMN_WIDTH_PX` and `MIN_COLUMN_HEIGHT_PX`.
+      // Read from the same canvas the haze above reads.
+      if (map !== null) {
+        const canvas = map.getCanvas();
+        beacons.setViewport(canvas.clientWidth, canvas.clientHeight);
+      }
 
       // A slice of city per frame. The budget is what keeps 35,000 footprints
       // from arriving as one dropped second — see `cityBuildings.ts`.

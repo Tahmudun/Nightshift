@@ -9,6 +9,7 @@ import {
   markMaterial,
   RING_ARC,
 } from './markMesh';
+import { COLUMN_HEIGHT } from './beacon';
 import { FIELD_BASE_ALTITUDE } from './unresolvedField';
 
 /**
@@ -109,13 +110,45 @@ describe('the geometry each mark is drawn with', () => {
     }
   });
 
-  it('keeps the gold beam short enough to float', () => {
+  it('never lets the gold spine descend below the role it belongs to', () => {
     // The one rule in this file that an invariant depends on. §4.8: nothing in
     // the unresolved field touches the ground, and "the absence of a ground
-    // connection is the entire message". The field sits at 700 m, so a beam
-    // long enough to reach the street would draw a line from a role to a
-    // building nobody confirmed — I1 violated by a decoration.
-    expect(BEAM_LENGTH / 2).toBeLessThan(FIELD_BASE_ALTITUDE);
+    // connection is the entire message". A spine long enough to reach the
+    // street would draw a line from a floating role to a building nobody
+    // confirmed — I1 broken by a decoration.
+    //
+    // **This asserts the direction, not the arithmetic.** It used to demand
+    // `BEAM_LENGTH / 2 < FIELD_BASE_ALTITUDE`, which was the right sum while
+    // the shaft was centred on the beacon and reached half its length
+    // downward. ADR 0034 made it stand on the anchor and rise, and left this
+    // assertion behind describing geometry that no longer exists — it passed
+    // for a length that could not have failed it and went red the first time a
+    // length changed, for a reason that had nothing to do with the ground.
+    //
+    // A spine that only goes up cannot reach the street at any length, and
+    // that is what is checked: the shape's own lowest point, read off the
+    // geometry rather than computed a second time here.
+    const beam = markGeometry('beam');
+    beam.computeBoundingBox();
+
+    expect(beam.boundingBox?.min.z).toBeGreaterThanOrEqual(0);
+    // And the field's clearance is still real, so a future centred geometry
+    // would be caught by the sum as well as by the direction.
+    expect(FIELD_BASE_ALTITUDE).toBeGreaterThan(0);
+  });
+
+  it('lets the gold spine emerge from the column without standing above it', () => {
+    // ADR 0034 deleted the exceptional-match mark as a separate object: the
+    // gold runs up *inside* the role's own column and out past the top of it.
+    // Both bounds are that sentence. Too short and there is no gold to see;
+    // too long and it is a second vertical mark hanging over a first one,
+    // which is the arrangement the ADR removed.
+    //
+    // The factor was 1.55 while a column was 90 m, where half again was 50 m
+    // of tip. Against a 1.65 km spire the same factor is 900 m of gold
+    // standing alone, so it moved rather than the rule.
+    expect(BEAM_LENGTH).toBeGreaterThan(COLUMN_HEIGHT);
+    expect(BEAM_LENGTH).toBeLessThan(COLUMN_HEIGHT * 1.3);
   });
 
   it('draws the saved outline as lines rather than as a surface', () => {

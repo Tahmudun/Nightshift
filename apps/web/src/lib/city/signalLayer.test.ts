@@ -8,7 +8,7 @@ import type { CitySignal } from '@/lib/schemas';
 
 import { MAX_LABELS } from './labelAtlas';
 import { signalFixture } from './signal.fixture';
-import { ARCHIVED_COLOR, COLUMN_HEIGHT, DIM_FACTOR, MAX_BEACONS, SIGNAL_COLOR } from './beacon';
+import { ARCHIVED_COLOR, COLUMN_RADIUS, DIM_FACTOR, MAX_BEACONS, SIGNAL_COLOR } from './beacon';
 import {
   anchorTransform,
   createSignalLayer,
@@ -560,9 +560,12 @@ describe('the §6 treatments, as buffers', () => {
   });
 
   it('keeps the outline on the body and the reticle in the air around it', () => {
-    // What makes two white marks legible as different things: one is a
-    // wireframe on the beacon itself, the other an annulus clear of it.
-    expect(COLUMN_HEIGHT * 0.6).toBeLessThan(SELECTION_INNER_RADIUS);
+    // What makes two white marks legible as different things: one is a collar
+    // on the beacon itself at 1.9 radii, the other an annulus clear of it.
+    // Against the column's *radius* rather than its height — see the note in
+    // `selectionMesh.test.ts` for why the height stopped being a usable proxy
+    // once the column became a spire.
+    expect(COLUMN_RADIUS * 1.9).toBeLessThan(SELECTION_INNER_RADIUS);
   });
 
   it('gives an offer a core in the green nothing else uses', () => {

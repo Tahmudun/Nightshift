@@ -39,16 +39,25 @@ import {
   type BufferGeometry,
 } from 'three';
 
-/** Half-height of one beacon, in metres. Duplicated from `signalLayer` would be
- * a second source of truth, so it is imported. */
-import { COLUMN_HEIGHT, COLUMN_RADIUS } from './beacon';
+/** The column these marks decorate. Duplicating any of it here would be a
+ * second source of truth, so all three are imported. `COLUMN_BASE` is the part
+ * of the spire the marks ride — see `beacon.ts`. */
+import { COLUMN_BASE, COLUMN_HEIGHT, COLUMN_RADIUS } from './beacon';
 
 /** The four shapes, and the whole of what this module can draw. */
 export const MARK_KINDS = ['outline', 'core', 'ring', 'beam'] as const;
 export type MarkKind = (typeof MARK_KINDS)[number];
 
-/** How much taller than the role's own column the gold spine runs. */
-const BEAM_LENGTH_FACTOR = 1.55;
+/**
+ * How much taller than the role's own column the gold spine runs.
+ *
+ * It was 1.55 while a column was 90 m, where half again was 50 m of overshoot
+ * and read as a tip. Against a 1.65 km spire the same factor is 900 m of gold
+ * standing alone above the cyan, which is the separate floating mark ADR 0034
+ * deleted, rebuilt out of the thing that replaced it. A twelfth is enough to
+ * see the gold emerge and still be one object.
+ */
+const BEAM_LENGTH_FACTOR = 1.08;
 
 /**
  * How tall the gold spine is, in metres.
@@ -176,15 +185,16 @@ export function markGeometry(kind: MarkKind): BufferGeometry {
       // version of this was a full circle and the animation was invisible by
       // construction, which no screenshot would ever have shown.
       // Re-scaled to orbit a column rather than a diamond — ADR 0034 — and
-      // lifted to a third of the column's height so it rides the body instead
-      // of resting on the roof it stands on.
+      // lifted to a third of the column's *body* so it rides the role instead
+      // of resting on the roof it stands on. Against the spire's full height
+      // it would be a hoop parked 560 m above the job it describes.
       return new TorusGeometry(
         COLUMN_RADIUS * 2.6,
         COLUMN_RADIUS * 0.16,
         8,
         36,
         RING_ARC,
-      ).translate(0, 0, COLUMN_HEIGHT * 0.34);
+      ).translate(0, 0, COLUMN_BASE * 0.34);
     case 'beam':
       // The exceptional-match mark — ADR 0034, and it is no longer a beam.
       //

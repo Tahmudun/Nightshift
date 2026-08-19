@@ -3,11 +3,20 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { ROOF_ROLE_SPACING } from './buildingField';
+import { ROLE_SPACING } from './unresolvedField';
+
 import {
   ARCHIVED_COLOR,
+  COLUMN_BASE,
   COLUMN_HEIGHT,
   COLUMN_RADIUS,
+  FLOW_BANDS,
+  FLOW_HZ,
+  MIN_COLUMN_HEIGHT_PX,
   MIN_COLUMN_WIDTH_PX,
+  PICK_HEIGHT,
+  PICK_RADIUS,
   RISE_HZ,
   createBeaconMesh,
   DIM_FACTOR,
@@ -98,16 +107,48 @@ describe('createBeaconMesh', () => {
     expect(beacons.timeAt).toBeCloseTo(12.5);
   });
 
-  it('says whether anything in the buffer is actually animating', () => {
-    // This is what decides whether the map asks for another frame. A layer that
-    // repaints unconditionally pins a core at 60fps to redraw an identical
-    // image; one that never repaints leaves the pulses frozen.
+  it('reports a drawn column as animating even when no role is new', () => {
+    // ADR 0034 made the rise ambient — every column, all the time — and this
+    // getter went on answering the question it answered before that ADR: is
+    // some role new enough to earn a recency pulse?
+    //
+    // The seeded corpus hid it. 27 of its 30 roles are inside
+    // `NEW_WINDOW_DAYS`, so something was always pulsing and the frames always
+    // came. A corpus a week older — which is the same corpus, later — would
+    // have gone still with a shader fully able to animate it, and nothing in
+    // the suite or in a screenshot would have reported that.
+    //
+    // Restoring `pulse > 0` here turns this red, which is the point: "nothing
+    // is new" and "nothing is moving" have stopped being the same sentence.
     const beacons = createBeaconMesh(16);
 
     beacons.set([beacon({ pulse: 0 })]);
-    expect(beacons.animating).toBe(false);
+    expect(beacons.animating).toBe(true);
 
     beacons.set([beacon({ pulse: PULSE_HZ.slow })]);
+    expect(beacons.animating).toBe(true);
+  });
+
+  it('stops animating when there is nothing drawn', () => {
+    // The other half: an empty city must not hold a repaint loop open.
+    const beacons = createBeaconMesh(16);
+
+    beacons.set([]);
+    expect(beacons.animating).toBe(false);
+  });
+
+  it('goes still when motion is switched off, whatever is in the buffer', () => {
+    // `prefers-reduced-motion`. The pulses are zeroed in the buffer by the
+    // layer above; the ambient rise is not a fact about any role, so it is
+    // switched off here instead — and switching it off has to stop the frames
+    // as well as the shader, or the city repaints forever to draw one image.
+    const beacons = createBeaconMesh(16);
+
+    beacons.set([beacon({ pulse: 0 })]);
+    beacons.setMotion(false);
+    expect(beacons.animating).toBe(false);
+
+    beacons.setMotion(true);
     expect(beacons.animating).toBe(true);
   });
 });
@@ -144,24 +185,77 @@ describe('the palette the beacons are drawn from', () => {
     expect(PULSE_HZ.rapid).toBeLessThan(1.5);
   });
 
-  it('keeps the column small enough to belong to the building it stands on', () => {
-    // The other half of the M4c defect, and the half that is a *world* size.
-    // A beacon has been a fixed 34 m since M4c, which nothing noticed while
-    // the whole field sat 700 m up and was never approached; at street zoom it
-    // is several times the size of the building underneath it.
-    //
-    // Nine metres is narrower than any tower in New York and ninety is about
-    // twenty storeys, so a role standing on a roof reads as standing on it.
+  it('keeps the column narrow enough to belong to the building it stands on', () => {
+    // The half of the M4c defect that is a *world* size. A beacon was a fixed
+    // 34 m across from M4c, which nothing noticed while the whole field sat
+    // 700 m up and was never approached; at street zoom it was several times
+    // the width of the building underneath it. Nine metres is narrower than
+    // any tower in New York, so a role standing on a roof reads as standing
+    // on it.
     expect(COLUMN_RADIUS).toBeLessThan(12);
-    expect(COLUMN_HEIGHT).toBeLessThan(120);
   });
 
-  it('keeps a floor in pixels, because metres alone vanish at the opening pose', () => {
-    // The half that is a *screen* size, and the two are a pair: without this
-    // the fix above would make the field invisible from twelve kilometres,
-    // where nine metres is a third of a pixel. `cityBuildings.ts` solves the
-    // same problem for its edge lines the same way.
+  it('spires past every roof in New York', () => {
+    // This assertion is the inverse of the one it replaces, which required the
+    // column to be *under* 120 m. That rule was the width rule applied to the
+    // wrong axis and it produced a fifty-pixel tick mark at the pose the city
+    // opens on — a beacon that has to be pointed out is not one.
+    //
+    // One World Trade's roof is 417 m and its spire 541. A mark that does not
+    // clear those is competing with the architecture instead of flagging it,
+    // and `docs/design/references/02-*.jpg` is unambiguous that the columns
+    // leave the skyline entirely.
+    expect(COLUMN_HEIGHT).toBeGreaterThan(541 * 2);
+  });
+
+  it('keeps the marks on the body rather than spread up the spire', () => {
+    // The saved collar, the interview arc and the selection reticle are all
+    // cut against `COLUMN_BASE`. The job is at the bottom of the column; the
+    // spire is the flag. Marks distributed over the spire's full length would
+    // be three unrelated objects hanging in the sky above an employer.
+    expect(COLUMN_BASE).toBeLessThan(COLUMN_HEIGHT / 5);
+  });
+
+  it('gives a click target the geometry actually carries', () => {
+    // `pick.ts` raycasts three's geometry, and ADR 0034 moved the column's size
+    // into the vertex shader — where the pixel floor can see how far away it
+    // is, which is the whole point. What was left on the CPU was a *unit*
+    // cylinder: a metre across at a city where a metre is a sixth of a pixel.
+    // Every beacon was unclickable from the day the column shipped.
+    //
+    // So the geometry is the target and the shader scales to the light. The
+    // target has to be wide enough to hit and not so wide that two employers
+    // share one.
+    expect(PICK_RADIUS).toBeGreaterThan(COLUMN_RADIUS * 2);
+    expect(PICK_RADIUS).toBeLessThan(COLUMN_RADIUS * 4);
+  });
+
+  it('tiles the click targets of a stack instead of overlapping them', () => {
+    // Roles at one employer stack *coaxially*, 45 m apart. A target as tall as
+    // the spire puts every role in a stack inside every other role's target,
+    // and one of them answers for the whole company — which is what happened
+    // when this was first tried.
+    //
+    // Asserted against the two spacings rather than against 45, so a field
+    // that spreads its roles further apart comes here rather than quietly
+    // leaving gaps between the targets.
+    expect(PICK_HEIGHT).toBe(ROOF_ROLE_SPACING);
+    expect(PICK_HEIGHT).toBe(ROLE_SPACING);
+    // And it is the light that is the flag, not the target.
+    expect(PICK_HEIGHT).toBeLessThan(COLUMN_HEIGHT / 10);
+  });
+
+  it('keeps both floors in pixels, because metres alone vanish at the opening pose', () => {
+    // The *screen* sizes, and they pair with the world sizes above: without
+    // them a column honest in metres is a third of a pixel wide from twelve
+    // kilometres. `cityBuildings.ts` solves the same problem for its edge
+    // lines the same way.
+    //
+    // Two numbers rather than one factor applied to both axes: they were one
+    // number, and the only way a distant column could get taller was by
+    // getting fatter, which turns a light shaft into a lozenge.
     expect(MIN_COLUMN_WIDTH_PX).toBeGreaterThan(3);
+    expect(MIN_COLUMN_HEIGHT_PX).toBeGreaterThan(MIN_COLUMN_WIDTH_PX * 8);
   });
 
   it('rises slowly enough to read as breathing rather than as a progress bar', () => {
@@ -169,5 +263,25 @@ describe('the palette the beacons are drawn from', () => {
     // with the two recency pulses it runs alongside.
     expect(RISE_HZ).toBeGreaterThan(0);
     expect(RISE_HZ).toBeLessThan(0.5);
+  });
+
+  it('keeps the travelling bands under the flash threshold too', () => {
+    // The flow is the fastest thing on a beacon and the one somebody will
+    // reach for when asked to make the city feel more alive, so it is the one
+    // worth pinning. A band passing a fixed point at `FLOW_HZ` is that point's
+    // flicker rate; WCAG 2.3.1's limit is three a second.
+    expect(FLOW_HZ).toBeGreaterThan(0);
+    expect(FLOW_HZ).toBeLessThan(1.5);
+  });
+
+  it('puts several bands on a spire, so motion is visible near the roof', () => {
+    // One band per column is one band that spends most of its cycle above the
+    // top of the frame — which is exactly how the envelope failed. Enough
+    // bands that a few are always inside the first few hundred metres, where
+    // the role is.
+    expect(FLOW_BANDS).toBeGreaterThan(4);
+    // And a wavelength no shorter than a tall building, or the shaft reads as
+    // hatched rather than as flowing.
+    expect(COLUMN_HEIGHT / FLOW_BANDS).toBeGreaterThan(100);
   });
 });

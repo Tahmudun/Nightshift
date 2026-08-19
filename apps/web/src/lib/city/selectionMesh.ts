@@ -35,6 +35,8 @@ import {
   RingGeometry,
 } from 'three';
 
+import { COLUMN_BASE } from './beacon';
+
 /**
  * `paper`, the interface's own foreground colour, duplicated out of
  * `globals.css` for the same reason `SIGNAL_COLOR` is — a WebGL material cannot
@@ -44,17 +46,22 @@ import {
 export const SELECTION_COLOR = '#eaf1fa';
 
 /**
- * The ring's radii in metres, around a column 9 m wide and 90 m tall.
+ * The ring's radii in metres, around a column 9 m wide.
  *
- * Clear of the *whole* body, not merely of its width — ADR 0034. A ring at
- * three times the column's radius would be a hoop around its middle, and the
- * interview arc is already a hoop around its middle at 23 m. ADR 0027's
- * standing requirement is that selection and the §6 treatments stay
- * distinguishable at a glance; two rings at similar radii are not.
+ * Clear of every other hoop on the body — ADR 0034. A ring at three times the
+ * column's radius would sit where the interview arc already sits, at 23 m, and
+ * ADR 0027's standing requirement is that selection and the §6 treatments stay
+ * distinguishable at a glance; two rings at similar radii are not. At 58 m
+ * this clears the arc by a factor of two and keeps its own character — a thing
+ * in the air around the role, touching nothing.
  *
- * So it is sized against the column's *height* and encloses it end to end,
- * which keeps it clear of the arc by a factor of two and keeps its own
- * character — a thing in the air around the role, touching nothing.
+ * **It is a fixed size in metres and no longer derived from the column's
+ * height.** It used to enclose the body end to end, which was a legible thing
+ * to say when a column was 90 m tall and is not one now: the spire is 1.65 km
+ * and a reticle enclosing it would be a kilometre-wide hoop drawn around a
+ * job. The clearance the derivation was really protecting is the clearance
+ * from the arc, and `selectionMesh.test.ts` now asserts that directly rather
+ * than through a height that has moved once and will move again.
  *
  * Large enough to survive the range this field is read at, too: the name
  * plates were sized 55 m, looked fine in a screenshot and were too small on a
@@ -66,11 +73,12 @@ export const SELECTION_OUTER_RADIUS = 72;
 /**
  * How far up the column the reticle is centred, in metres.
  *
- * A beacon's anchor is now the *base* of its column rather than its middle, so
- * a ring drawn at the anchor would circle the roof the role stands on instead
- * of the role.
+ * A beacon's anchor is the *base* of its column, so a ring drawn at the anchor
+ * would circle the roof the role stands on instead of the role. Half the
+ * column's body — not half its spire, which would park the cursor 800 m above
+ * the thing it is pointing at.
  */
-export const SELECTION_LIFT = 45;
+export const SELECTION_LIFT = COLUMN_BASE / 2;
 
 /** Which way a positive bearing turns the ring — see `labelMesh`'s `BEARING_SIGN`. */
 const BEARING_SIGN = -1;
