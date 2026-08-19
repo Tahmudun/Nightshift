@@ -220,6 +220,63 @@ this session is headless Chromium's software rasteriser, so the bloom around a
 spire and the frame cost of 1.65 km of overdraw at 5,000 roles are both
 unmeasured. The frame cost belongs with M4d Task 2's quality tiers.
 
+**2026-08-19, and the first defect in this milestone that was not a renderer
+defect: every beacon was floating, and the renderer was right.** Reported as
+*"the beacons look better but should be attached to real buildings and not just
+floating in air"*. `GET /city/signals` returned **31 signals, 31 of them
+`unresolved`**, so `arrangeUnresolved` — whose rule 2 is that nothing in that
+field touches the ground — drew thirty-one untethered columns, correctly.
+`company_locations` was **empty**, and so was `geocode_cache`.
+
+**The offices had no way back.** They are written by `make offices`, which is
+not part of `seed`, `demo`, `reset-db` or `acceptance` — a separate command,
+run by hand, once, on 2026-08-17. The database was re-seeded on 2026-08-19 and
+nothing re-ran it. That alone is an operator error; what makes it **ADR 0036**
+is the second half: `CachingGeocoder` promised "every address is requested once
+ever" and `cmd_offices` promised "`make demo` stays offline afterwards", and
+both are void the moment somebody runs `make reset-db`, because `geocode_cache`
+is a Postgres table and `reset-db` is `docker compose down -v`. **The cache
+protecting the offline path lived inside the thing being destroyed.** A clean
+clone could never have had a role on a building at all.
+
+**Nothing was red.** Not a unit test, not a browser test, not `make verify`,
+not CI. Each of the promotion path's four hops — `read_worksheet`,
+`parse_search_response`, `load_offices`, `buildingField.ts` — has its own tests
+and passes them; the chain between them was tested nowhere. **A subsystem whose
+degraded mode is beautiful cannot be trusted to report its own starvation**,
+and that is the lesson worth more than the fix.
+
+**The fix, ADR 0036.** `scripts/record_office_geocodes.py` records NYC
+GeoSearch's answer for all eight confirmed addresses, verbatim and with
+provenance — all eight resolve to real BINs, and Datadog → 1087186 /
+Ramp → 1080672 are the same two the live run produced two days earlier.
+`FixtureNycGeoSearchGeocoder` replays them through the *production*
+`parse_search_response`, finally implementing the fixture rung
+`domain/geocoding.py`'s Protocol docstring has promised since M4a. `cmd_seed`
+now runs `load_offices` beside the three fixture boards, so `demo`, `reset-db`
+and `acceptance` all inherit it with no Makefile change and no network.
+**`GET /city/signals` is back to 20 on a building / 11 floating**, from a
+committed file rather than from somebody's memory of a command.
+Evidence: `docs/reviews/milestone-4e-beacons-on-buildings.png` (a spire
+descending into Midtown and terminating on the roof of 28 West 23rd Street)
+and `-close.png`.
+
+**Two new assertions, at the two altitudes the failure needed.**
+`test_every_confirmed_address_in_the_worksheet_has_a_recording` catches the
+next occurrence — a ninth address typed in with no recording made, that
+company's roles silently back to floating — and was verified able to fail by
+deleting Ramp's recording. `check_city_placement` in `verify.py` is the
+end-to-end one that was missing entirely: at least one role on a real building,
+every placed role carrying a `verified` coordinate *and* a BIN, and no unplaced
+role acquiring a coordinate on its way to the map. It deliberately does **not**
+demand that every role be placed — eleven of the thirty-one are at an employer
+nobody has confirmed an address for, and I1 says those float.
+
+**The data-supply cap the 2026-08-18 audit named is unchanged.** Two confirmed
+offices is still two buildings that can ever light. This restored the two; it
+did not add a third. Six of the eight recorded addresses belong to companies
+whose boards have never been polled.
+
 **Last updated: 2026-08-19**
 
 ---
@@ -7758,8 +7815,8 @@ presented to a user as working.
 
 | Thing | What it actually is | Real at |
 |---|---|---|
-| Four rows of `city.md` §6 | **Not drawn, named as not drawn in the interface's own legend** (ADR 0028). *Approximate location*: no role in this corpus resolves to an area — it takes a confirmed office at approximate confidence and there are none. *Closed / fading afterimage*: an afterimage belongs to the session that watched a role close, and closed listings are absent from a cold load by design. *Applied as a "solid illuminated **building**"*: nothing here stands on a building, so the beacon's own body fills instead. *Urgent deadline*: drawn, but no posting in the corpus carries `application_deadline`, so the legend counts it rather than implying it is live | The first two at **M5**; the third when a confirmed office exists; the fourth if any provider ever publishes a deadline |
-| Roles at a confirmed office, or in an area | **Counted, named, and not drawn.** `arrangeUnresolved` lays out the unresolved field and ignores every other placement kind, so a `building` or `area` role appears in the census panel's counts and nowhere on the city. It is **0 today** — `data/company-locations.yaml` is blank and no posting names a street — and the panel now says *"n of these are not drawn on this map yet… missing from the sky, not from the corpus"* the moment it stops being 0. Found by the M4c acceptance walk, which is the only thing that has ever executed that branch | The renderer's building and area treatments are **M4d/M5**, and arrive with the first confirmed address |
+| Four rows of `city.md` §6 | **Not drawn, named as not drawn in the interface's own legend** (ADR 0028). *Approximate location*: no role in this corpus resolves to an area — it takes a confirmed office at approximate confidence and there are none. *Closed / fading afterimage*: an afterimage belongs to the session that watched a role close, and closed listings are absent from a cold load by design. *Applied as a "solid illuminated **building**"*: the roof beam (M4e Task 6) now marks a hiring building, but "applied" is still carried by the beacon's own body rather than by lighting the footprint — one beam per building cannot say which of the roles standing on it you applied to. *Urgent deadline*: drawn, but no posting in the corpus carries `application_deadline`, so the legend counts it rather than implying it is live | The first two at **M5**; the third when a mark can distinguish one role on a shared roof; the fourth if any provider ever publishes a deadline |
+| Roles in an *area* (approximate placement) | **Counted, named, and not drawn**, and now the only half of this row still true. `buildingField.ts` (M4e Task 6) draws a `building` role on its roof, so 20 of 31 are on the city; `area` has no renderer, and `arrangeUnresolved` ignores it. It is **0 today** and stays 0 until an office resolves at `approximate` confidence, which `load_offices` refuses by design — so this is unreachable rather than merely empty. The panel says *"n of these are not drawn on this map yet… missing from the sky, not from the corpus"* the moment it stops being 0. Found by the M4c acceptance walk, which is the only thing that has ever executed that branch | The area treatment is **M5**, and needs rungs 2–3 of the geocoding ladder first |
 | The unresolved field's legibility past a few hundred roles | **Real, and measured at the wrong size until now.** The layout wraps at six employers per row, so 200 employers recede 34 rows deep: the name plates at the back overlap into an unreadable strip and a column of 25 roles is ~1,125 m tall. Legible at the 31 roles this corpus has, and `docs/reviews/milestone-4c-scale.png` shows what 5,000 looks like. The roster stays usable at either size, so the *information* is never lost — only the view | **M4d**, beside the adaptive quality tiers: level-of-detail on the plates, a camera that frames the field, clustering |
 | The city's five demo applications | Real `Application` rows with real append-only event trails, written by `make seed` through `save_job` and `change_stage` — the same functions the UI calls, no shortcut. They are **seeded data, not a user's**: one at each stage §6 draws, so the encoding has something to encode in `make demo` and something to assert in the seeded browser suite | Permanent. This is the demo path, not a stopgap |
 | `data/skills.yaml` coverage against real postings | **Largely addressed at M3a.1, and the remainder is now a decision rather than a gap.** The vocabulary went from **73 entries to 107** — 34 added, counted from the file
@@ -7767,8 +7824,9 @@ rather than from memory, because the commit message for this work says 36 and is
 wrong: ML frameworks (JAX, LangChain, HuggingFace, DSPy), accelerators (CUDA, ROCm, Triton, SYCL), HDLs (Verilog, VHDL, SystemVerilog), Windows/network/security administration (Active Directory, SIEM, EDR, SSO, MFA, VPN, DNS, TCP/IP, PowerShell, Windows, macOS, firewalls), and business systems (Salesforce, Google Sheets, Microsoft 365). Recall moved 0.459 → 0.861. **What is deliberately still absent**: structural engineering codes (ACI 318, ASCE 7, IBC, IFC, AISC, FM Global), treasury systems (Kyriba, GTreasury, Trovata, TMS), accounting standards (US GAAP, IFRS), and words too ordinary to match safely (`Word`, `MS Office`). Those are real requirements of real postings in the corpus and are not software skills — adding them would raise recall by teaching the product a domain it does not serve | Closed as vocabulary work. The residual absences are a scope decision, revisited only if the product's scope changes |
 | Eligibility answer key (`tests/fixtures/eligibility/labels.yaml`) | **Filled in, and model-labeled rather than human-verified.** All 60 postings × 9 fields were labeled 2026-08-04 by a browser-side Claude reading the recorded excerpts, with the web explicitly off — the grader compares against text the extractor also sees, so a label sourced from outside that text marks a correct extractor wrong. Audited on install: 0 of 199 named technologies absent from the posting text, and no sponsorship, graduation-window, internship or years claim unsupported by the text. Two `+equivalent` calls read an escape hatch worded without the word "equivalent" (`akunacapital/8035515`, `openai/8fb1615c…`) and are the entries most likely to be wrong. Not spot-checked by a human | Human spot-check of ~10 entries, unscheduled |
 | `FixtureGreenhouseAdapter` (`cli.py`) | Subclasses the real adapter, overrides only `fetch_board` to read a committed JSON file. Constructed with no HTTP client, so it cannot make a request. Attributed to source `greenhouse_fixture` with `source_type='fixture'`, badged **"committed fixture"** in the Operate UI. ADR 0004 | Permanent — this is the offline demo path, not a stopgap |
+| `FixtureNycGeoSearchGeocoder` (`cli.py`) | The geocoding counterpart, added **2026-08-19** (ADR 0036), and the thing `domain/geocoding.py`'s Protocol docstring had promised since M4a while nothing implemented it. Holds no client; replays one recorded NYC GeoSearch response per confirmed worksheet address into the *production* `parse_search_response`, so every acceptance rule the live rung runs, this one runs. Recorded verbatim with provenance by `scripts/record_office_geocodes.py`; all 8 addresses resolve to real BINs. **A missing recording is reported as `PROVIDER_UNAVAILABLE` — "we could not look" — never as "no building found"**, which is I3's distinction one subsystem over and is also what stops an offline run poisoning `geocode_cache` | Permanent — this is what makes `make demo` show a city with roles on buildings, offline, from a clean clone |
 | Geocoding | **Built in M4a and correct to say so.** `domain/geocoding.py` behind a Protocol, the NYC GeoSearch adapter with committed fixtures, the permanent cache that refuses to store an outage, and the office loader. **What is still true: no coordinate has been written**, because the worksheet below is blank — not because the geocoder is missing. `mappable_locations` reads 0 and the page now says *"no posting states a street"* rather than *"nothing geocoded yet"*, which is the difference between a property of the data and a missing feature. Rungs 2–3 (Nominatim, neighbourhood centroids) are still unbuilt and stay deferred: they produce `approximate` points the office loader refuses by design | Done at **M4a**. Coordinates appear when the worksheet has a row |
-| `company_locations` table and `data/company-locations.yaml` | **Table, worksheet and loader all exist and are now connected.** The table, its migration and its constraints landed at M4a; `read_worksheet` and `load_offices` at M4a/M4b; **`make offices`, the thing that calls them, at M4e Task 1 on 2026-08-16** — until then the worksheet led nowhere and no number of typed addresses could have changed a pixel. The file covers all **23** registry boards and **the human filled it in on 2026-08-17**: 8 confirmed addresses, 15 blank, 0 refused (Q7 answered: "as many as you'd like"). `read_worksheet` refuses four kinds of entry, the sharpest being an address that names no street — somebody typing here is asserting *an office is at this address*, and a weaker version of that assertion is not what they meant; the first hand-written file it ever saw tripped none of the four | Table and promotion path **done**; end to end, verified live twice (Datadog → BIN 1087186, Ramp → BIN 1080672). **20 of 31 roles resolve to `kind: building` and stand on their own roofs** at heights measured off the building archive — M4e Task 6, done the same day (`368a2d4`). The promotion path now runs end to end from a line somebody typed in a YAML file to a beacon on a roof in Manhattan |
+| `company_locations` table and `data/company-locations.yaml` | **Table, worksheet and loader all exist and are now connected.** The table, its migration and its constraints landed at M4a; `read_worksheet` and `load_offices` at M4a/M4b; **`make offices`, the thing that calls them, at M4e Task 1 on 2026-08-16** — until then the worksheet led nowhere and no number of typed addresses could have changed a pixel. The file covers all **23** registry boards and **the human filled it in on 2026-08-17**: 8 confirmed addresses, 15 blank, 0 refused (Q7 answered: "as many as you'd like"). `read_worksheet` refuses four kinds of entry, the sharpest being an address that names no street — somebody typing here is asserting *an office is at this address*, and a weaker version of that assertion is not what they meant; the first hand-written file it ever saw tripped none of the four. **Since 2026-08-19 the table is filled by `make seed`, not by anybody remembering to run `make offices`** (ADR 0036) — the table and `geocode_cache` both live in Postgres, so one `make reset-db` erased the offices *and* the cached answers that could have rebuilt them, and the only route back was a network call `make demo` is forbidden to make | Table and promotion path **done**; end to end, verified live twice on 2026-08-17 and re-verified from committed recordings on 2026-08-19 (Datadog → BIN 1087186, Ramp → BIN 1080672 — the same BINs both times). **20 of 31 roles resolve to `kind: building` and stand on their own roofs** at heights measured off the building archive — M4e Task 6 (`368a2d4`), restored to a fresh database offline at ADR 0036. The promotion path runs end to end from a line somebody typed in a YAML file to a beacon on a roof in Manhattan, and `verify.py`'s `check_city_placement` now asserts that it does |
 | Street-level placement of any job | **Impossible from this data, and now measured rather than assumed.** 0 of 247 postings, 139 distinct location strings, 10 fields, 3 providers. Reproduce with `./.venv/bin/python scripts/census_location_text.py`, which refuses to print a count until it has proved on that run that it can see a real address | Not a gap — a property of ATS data. Named on `/analyze/coverage` at **M4a** |
 | Dedupe similarity threshold | **Real, thinly calibrated, and now with one real-world data point.** `SIMILARITY_THRESHOLD = 0.85` was derived from three labelled pairs. M1d's live Datadog poll merged two genuine postings on `similar_description` at **0.864** — the first evidence from outside the labelled set, and it landed close to the line. One observation is not a calibration and nothing was changed on the strength of it, but it is the first sign the number is doing real work at a real boundary. Re-derive as the fixture set grows | Unscheduled; revisit when more live boards are polled |
 | ~~Merge concurrency~~ | **Fixed in M1d** (`408c768`). The defect was reproduced before being fixed — Postgres reported a real `DeadlockDetectedError` between two workers merging the same pair in opposite directions. Both rows are now locked in primary-key order, as two statements rather than one `IN` clause, because a single statement's lock acquisition follows the query plan rather than the sort. Mutation-checked: the caller's order deadlocks on 3 of 3 runs; the fix passed 8 consecutive | Done |

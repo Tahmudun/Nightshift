@@ -1,0 +1,21 @@
+{
+ "provenance": {
+  "endpoint": "https://geosearch.planninglabs.nyc/v2/search?text=<geocoder_query>&size=5",
+  "recorded_at": "2026-08-19T19:25:12.530003+00:00",
+  "provider": "NYC GeoSearch (Pelias over the NYC Property Address Directory)",
+  "recorded_by": "scripts/record_office_geocodes.py",
+  "note": "Byte-identical to the live responses. Nothing edited, redacted or synthesised."
+ },
+ "what_this_is": "One recorded search per confirmed address in data/company-locations.yaml, keyed by the exact OfficeEntry.geocoder_query the loader sends. Replayed by FixtureNycGeoSearchGeocoder through the real parse_search_response, which is what lets `make seed` put roles on real buildings with no network.",
+ "how_to_refresh": "Add an address to data/company-locations.yaml, then run python scripts/record_office_geocodes.py with outbound network access. An address with no recording here is reported by the fixture rung as 'provider unavailable' \u2014 we could not look \u2014 never as 'no building found'.",
+ "queries": [
+  "160 Varick Street, New York, NY, 10013",
+  "200 Lafayette Street, New York, NY, 10012",
+  "28 Liberty Street, New York, NY, 10005",
+  "28 West 23rd Street, New York, NY, 10010",
+  "309 East 45th Street, New York, NY, 10017",
+  "41 Madison Avenue, New York, NY, 10010",
+  "450 Park Avenue South, New York, NY, 10016",
+  "620 8th Avenue, New York, NY, 10018"
+ ]
+}

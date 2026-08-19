@@ -585,6 +585,74 @@ def _corpus_verdicts() -> list[dict[str, Any]]:
     return details
 
 
+def check_city_placement() -> None:
+    """Somebody's role has to be standing on a real building.
+
+    Added 2026-08-19, and the reason is the whole of it. `company_locations`
+    is filled by `make offices`, which was not part of `seed`, `demo`,
+    `reset-db` or `acceptance`. A reseed emptied it. `GET /city/signals` came
+    back **31 of 31 `unresolved`**, the renderer drew 31 columns floating in
+    the sky with nothing under them — which is exactly what `city.md` §4.8
+    says an unplaced role should look like, so the renderer was right — and
+    every check in this file, every unit test and every browser test stayed
+    green. The city was empty and nothing anywhere said so.
+
+    The gap was that nothing asserted the *promotion path* end to end: a
+    human's address in `data/company-locations.yaml` → a geocode → a
+    `company_locations` row → a signal whose placement is a building. It has
+    four hops and each one was tested in isolation.
+
+    This deliberately does **not** assert that every role is placed. Most are
+    not and must not be: eleven of the seeded roles are at an employer whose
+    address nobody has confirmed, and I1 says those float. What it asserts is
+    that the path can carry anything at all.
+    """
+    status, payload = get_json("/city/signals")
+    check(status == 200, "/city/signals returns 200", f"got {status}")
+    if not isinstance(payload, dict) or not isinstance(payload.get("signals"), list):
+        check(False, "/city/signals returns a signal list")
+        return
+
+    signals = payload["signals"]
+    placed = [s for s in signals if s.get("placement", {}).get("kind") == "building"]
+    floating = [s for s in signals if s.get("placement", {}).get("kind") == "unresolved"]
+
+    check(
+        len(placed) > 0,
+        "at least one role stands on a real building",
+        f"{len(placed)} placed, {len(floating)} floating of {len(signals)}"
+        + ("  — did `seed` load data/company-locations.yaml?" if not placed else ""),
+    )
+
+    # I1, at the surface that draws the coordinate. A building placement that
+    # carries no BIN is a marker floating over a neighbourhood being drawn as
+    # if it were on a tower, which is the fabrication the invariant forbids and
+    # is indistinguishable from a correct one by eye.
+    unbacked = [
+        s["job_id"]
+        for s in placed
+        if not s["placement"].get("building_id")
+        or s["placement"].get("latitude") is None
+        or s["placement"].get("location_confidence") != "verified"
+    ]
+    check(
+        not unbacked,
+        "every placed role carries a verified coordinate and a BIN (I1)",
+        f"{len(unbacked)} without: {unbacked[:3]}" if unbacked else "",
+    )
+
+    # And the counterpart, which is the invariant's other half: a role with no
+    # confirmed office must NOT acquire a coordinate on its way to the map.
+    invented = [
+        s["job_id"] for s in floating if s["placement"].get("latitude") is not None
+    ]
+    check(
+        not invented,
+        "no unplaced role was given a coordinate (I1)",
+        f"{len(invented)} invented: {invented[:3]}" if invented else "",
+    )
+
+
 def check_eligibility_gate() -> None:
     """M3b over HTTP: a verdict about a person, against the seeded corpus.
 
@@ -1598,6 +1666,7 @@ def main() -> int:
         check_application_tracking()
         check_profile_confirmation()
         asyncio.run(check_daily_queue())
+        check_city_placement()
         check_eligibility_gate()
         asyncio.run(check_job_requirements())
         asyncio.run(verify_constraints())

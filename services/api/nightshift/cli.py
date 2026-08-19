@@ -24,13 +24,14 @@ import sys
 import uuid
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nightshift.adapters.ashby import AshbyAdapter
 from nightshift.adapters.base import BoardRef, FetchOutcome, RawJob
-from nightshift.adapters.geosearch import NycGeoSearchGeocoder
+from nightshift.adapters.geosearch import NycGeoSearchGeocoder, parse_search_response
 from nightshift.adapters.greenhouse import GreenhouseAdapter
 from nightshift.adapters.http import PoliteClient
 from nightshift.adapters.lever import LeverAdapter
@@ -42,6 +43,7 @@ from nightshift.db.base import (
     LocationConfidence,
     ProficiencyLevel,
     RemotePreference,
+    ResolutionMethod,
     SourceType,
     WorkAuthorization,
 )
@@ -62,6 +64,11 @@ from nightshift.domain.applications import change_stage, save_job
 from nightshift.domain.companies import normalize_company_name
 from nightshift.domain.company_locations import DEFAULT_WORKSHEET_PATH, read_worksheet
 from nightshift.domain.geocode_cache import CachingGeocoder
+from nightshift.domain.geocoding import (
+    PROVIDER_UNAVAILABLE,
+    GeocodeOutcome,
+    Unresolved,
+)
 from nightshift.domain.ingestion import get_or_create_source, ingest_boards
 from nightshift.domain.matching import recompute_pending
 from nightshift.domain.office_loading import LoadReport, load_offices
@@ -184,6 +191,66 @@ class FixtureAshbyAdapter(AshbyAdapter):
             if isinstance(job, dict) and job.get("id") is not None
         )
         return FetchOutcome(board=board, ok=True, jobs=jobs, http_status=200)
+
+
+#: One recorded NYC GeoSearch response per confirmed address in the worksheet,
+#: keyed by the exact `OfficeEntry.geocoder_query` the loader sends. Written by
+#: `scripts/record_office_geocodes.py`; provenance in the sibling `.meta.json`.
+OFFICE_GEOCODE_FIXTURE = (
+    Path(__file__).resolve().parent.parent
+    / "tests"
+    / "fixtures"
+    / "geosearch"
+    / "office_addresses.json"
+)
+
+
+class FixtureNycGeoSearchGeocoder:
+    """Rung 1, replayed from a recording. Implements `domain.geocoding.Geocoder`.
+
+    `geocoding.py`'s Protocol docstring promised this at M4a — "`make demo`
+    wires a fixture-backed implementation through the same interface, not
+    around it" — and nothing implemented it for three milestones. The cost was
+    not theoretical. `make offices` cached its answers in `geocode_cache`,
+    which is a Postgres table, so `make reset-db` deleted every confirmed
+    office and the only way back was a network call `make demo` is forbidden to
+    make. The city came back with 31 of 31 roles `unresolved`, every beacon
+    floating, and nothing anywhere reporting a fault.
+
+    Like the three fixture *adapters* above, this holds no client and overrides
+    only the fetch. `parse_search_response` — where every acceptance rule lives,
+    including the one that rejects Pelias's confident garbage — is the
+    production code path, unmodified.
+
+    **A missing recording is `PROVIDER_UNAVAILABLE`, not "nothing found".**
+    That is I3's distinction applied to a geocoder: we could not look is not
+    evidence that there is no building there. It also keeps an offline run from
+    poisoning `geocode_cache`, which stores every answer *except* that one.
+    """
+
+    method = ResolutionMethod.NYC_GEOSEARCH
+
+    def __init__(self, fixture_path: Path | None = None) -> None:
+        self._fixture_path = fixture_path or OFFICE_GEOCODE_FIXTURE
+        self._recordings: dict[str, Any] | None = None
+
+    def _load(self) -> dict[str, Any]:
+        if self._recordings is None:
+            try:
+                payload = json.loads(self._fixture_path.read_text())
+            except (OSError, ValueError):
+                # Unreadable is indistinguishable from unrecorded, and both are
+                # "we could not look". Raising here would take `make seed` down
+                # over a file whose whole purpose is to be optional enrichment.
+                payload = {}
+            self._recordings = payload if isinstance(payload, dict) else {}
+        return self._recordings
+
+    async def geocode(self, address: str) -> GeocodeOutcome:
+        payload = self._load().get(address)
+        if not isinstance(payload, dict):
+            return Unresolved(PROVIDER_UNAVAILABLE, LocationConfidence.CITY_ONLY)
+        return parse_search_response(payload)
 
 
 #: The confirmed skills the demo profile starts with — a subset of what
@@ -479,6 +546,48 @@ async def cmd_seed(args: argparse.Namespace) -> int:
         # a table of honest "never" is the actual state.
         created = await sync_board_poll_state(session, now=utcnow())
         print(f"  board poll schedules: {created} created (none polled yet)")
+
+        # -- confirmed offices, from recorded geocodes -------------------------
+        #
+        # Added 2026-08-19, after the city came back with every beacon
+        # floating. `company_locations` is what turns a role into something
+        # standing on a roof, and until now it was filled *only* by
+        # `make offices` — a separate command, run by hand, that geocodes over
+        # the network and caches the answers in `geocode_cache`. That table is
+        # in Postgres. `make reset-db` drops it. So one reseed erased both the
+        # offices and the cached answers that could have rebuilt them, and the
+        # only route back was a network call `make demo` is forbidden to make.
+        # `GET /city/signals` returned 31 of 31 `unresolved`, the renderer
+        # correctly drew 31 untethered columns, and nothing reported a fault.
+        #
+        # So the offices are seeded like everything else here: the committed
+        # worksheet a human filled in, through `read_worksheet` and
+        # `load_offices` — the production loader, with every refusal rule
+        # intact — over recorded GeoSearch responses instead of live ones.
+        # `CachingGeocoder` still wraps the rung, so a later `make offices`
+        # finds the answers already cached and asks the network nothing.
+        offices = await load_offices(
+            session,
+            read_worksheet(DEFAULT_WORKSHEET_PATH.read_text()),
+            (CachingGeocoder(FixtureNycGeoSearchGeocoder(), session),),
+        )
+        # `LoadReport.summary()` rather than a line of my own: it is the same
+        # sentence `make offices` prints, and a second one here would be free
+        # to leave a category out. The first draft of this line did exactly
+        # that — it dropped `unknown_company` and printed four numbers that
+        # summed to 17 of 23 companies.
+        print(f"  confirmed offices: {offices.summary()}")
+        if not offices.placed:
+            # Not fatal — a worksheet with no addresses is a legitimate state,
+            # and it is the state a fresh clone starts in. But it is the exact
+            # shape of the failure above, so it says so in words rather than
+            # leaving somebody to infer it from a city that looks broken.
+            print(
+                "  warning: no role will stand on a building. Every beacon will "
+                "float, which is what `city.md` §4.8 says an unplaced role looks "
+                "like — not a rendering fault.",
+                file=sys.stderr,
+            )
 
         # M3c Task 12: score what was just seeded, through the function the ARQ
         # cron calls and no other.
