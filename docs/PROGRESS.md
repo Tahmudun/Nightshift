@@ -102,7 +102,58 @@ under `alert-400` rather than a bare `<`, because this ADR's first draft cleared
 it by 0.8 and that passes the assertion while defeating its purpose.
 **Task 7 is not finished: it also owns the beam redesign, and the diamond stack
 is still a diamond stack.**
-**Last updated: 2026-08-18**
+**2026-08-18/19: the facade pass was approved and shipped, and it took the
+beacons with it.** The ADR 0033 city read as *"a realistic nighttime Manhattan
+render"*; the counter-proposal came from the human as literal hexes, was built
+behind `setBuildingStyle(1)`, judged against four poses photographed in one
+window, and signed off — *"a drastic improvement"*. The switch is gone and the
+palette is the city's only one. Twelve new tokens: `mass-*` (a seven-step
+near-black ramp, a per-building seed picks a family, which is what stops a
+skyline of 25,000 boxes reading as one extruded material) and
+`aqua/azure/iris/fuchsia-400` plus `ember-350` for window light. Density cut
+62%, windows lit per *group* of bays in three shapes chosen per wall, warm
+rooflines from 33% of towers to 8%.
+**Two of the five proposed window colours could not ship as proposed**, both
+caught by measuring: ADR 0029 sets two ceilings and the binding one is
+`alert-400` minus 3, at 60.6 L\*. `#00dfff` measured 81.8 and `#ffb84a` 79.6.
+They became `aqua-400` #0096cc and `ember-350` #bf7d2a. **The rule was not
+relaxed to fit the colours; the colours moved.**
+
+**ADR 0034 is the consequential outcome, and it is not about colour.** The
+beacons were losing to the city because *"brightest thing on screen"* is not a
+durable way to say "this is a job" in a city whose whole direction is neon —
+every tuning pass will push on that rule and the answer will always be "dim the
+city", which is what made the city grey for two milestones. ADR 0023 made the
+same argument one level up and gave the hiring beam shape and behaviour; the
+beacons never got it. **A role is now a column of light**: 9 m by 90 m in the
+world with a seven-pixel floor in the vertex shader, which closes the M4c
+defect where a beacon is several times the size of the building it stands on at
+street zoom. The rise is ambient and identical on every role — it says "this is
+a job" — and **the base never leaves**, because §6 spends disappearance on
+`closed` and `rejection` and a mark that vanishes every five seconds tells a lie
+about a listing. Recency stays on the brightness pulse and `NEW_SCALE`.
+**The colour rule that replaces the brightness rule is narrow: cyan is a role,
+and a scenery colour within 20° of the signal hue must clear 25 L\* rather than
+the general 20.** Same-hue confusion is the worse failure.
+**Three defects and one rejection are recorded in ADR 0034 rather than here.**
+The dark halo was built, photographed and rejected on sight — *"shadowy
+horizontal slits"* — and the rejection was right for a reason worth keeping: a
+mark that darkens is correct, a *separate object* that darkens is not, because
+separate objects overlap and their edges band. **The human found a real bug in
+a screenshot**: every mark was billboarded *and* spun for the sake of the
+interview arc, so §6's "gold vertical beacon" has been drawn as a slowly
+rotating diagonal bar since M4c. It is deleted rather than corrected — the gold
+is now a spine inside the role's own column. And the hiring beam became a
+*wash*, because a role becoming a column made the two the same object.
+Screenshots: `docs/reviews/milestone-4e-facade-shipped.png`,
+`milestone-4e-columns-field.png`, `milestone-4e-columns-street.png`.
+**Four tests were added that would have caught what a human had to**: the mark
+orientation at a pitched-and-rotated pose, the collar and core staying in the
+world, the column's world size, and its pixel floor. Each shown able to fail.
+**Still open on this work**: the roof wash's strength is untuned — it reads
+faintly at the pose the city opens at and needs a look rather than a number.
+
+**Last updated: 2026-08-19**
 
 ---
 
@@ -110,6 +161,24 @@ is still a diamond stack.**
 ## Next exact action
 
 ### M4e — the synthwave city — is under way on `m4d-measured`, draft PR #17. Task 10 is signed off and Task 7's bloom has shipped; next is Task 7's other half, the beam.
+
+**Task 7 is now done, both halves.** Bloom shipped as ADR 0033; the beam
+redesign shipped as ADR 0034 and turned out to be larger than the task
+described — it took the beacon body, the four marks, the selection reticle
+and the hiring building's mark with it, because all of them were sized or
+shaped against an octahedron.
+
+**Next: the roof wash wants a look.** It is the one thing in ADR 0034 that
+shipped untuned. Everything else in that ADR was decided against a
+screenshot; the wash was decided against an argument, and at the pose the
+city opens at it reads faintly. Take it to the human with a close crop
+before touching the number.
+
+**Then Task 8** — the documents that said not to do this. ADR 0034 adds
+itself to what that task has to reconcile: `city.md` §6's table now has a
+form column that is load-bearing rather than descriptive, and §6's "Gold
+vertical beacon" row describes a mark that no longer exists as a separate
+object.
 
 **M4d Task 1 (the frame timer) is done and M4d Tasks 2–7 are deliberately
 paused.** The overhaul below changes what a frame costs, so tuning the adaptive
