@@ -45,6 +45,14 @@ comment, a `seed` command that planted a published password in any environment
 including production, and a config comment describing a variable the same slice
 deleted. `docs/reviews/milestone-5b-review.md`. **What remains for M5b is CI
 and the PR, not code.**
+**The three red seeded tests were investigated and none of them were M5b's** —
+proved by checking out the commit before M5b's first identity commit and
+watching two of them fail there too. Both root causes are fixed: a demo
+`interview` stage that two other test paths destroyed and `make seed` could
+not repair, and a city that renders at **1.8fps** on a GPU-less rasteriser, so
+a single click cost 6.5-9.6s against a 10s budget. `make test-e2e-seeded` is
+**86 passed, 1 failed, 1 skipped**, the one red test being a separate,
+pre-existing intermittent. See "Next exact action".
 **AMENDMENTS A3 is retired.** Single-user mode is over: `current_user_id` no
 longer returns `settings.dev_user_id` and no setting restores it.
 **M5a is COMPLETE** — domain, schema, three routes, the paste form, the
@@ -724,39 +732,122 @@ last rung of the three rather than the next.
 
 ## Next exact action
 
-### Current milestone: **M5 — The Open Hand**, on `m5b-identity`. M5a and M5b are both built. M5b is reviewed and its three findings are fixed. **The next action is not the PR: `make test-e2e-seeded` has three red tests and nobody has established whether they are M5b's.**
+### Current milestone: **M5 — The Open Hand**, on `m5b-identity`. M5a and M5b are both built and reviewed. **The three red seeded tests are answered and fixed: none of them were M5b's.** The next action is CI and the PR.
 
-> **START HERE, NEXT SESSION.** `make check` is green (2128 Python, 799 web) and
-> `make verify` is green (109 checks, real sign-in over a real socket). The
-> seeded browser suite is **not**: **84 passed, 3 failed, 1 skipped**, where this
-> file records 87 passed / 0 failed. The three are all in
-> `apps/web/e2e-seeded/city.spec.ts`:
->
-> | Test | Symptom |
-> |---|---|
-> | `every control in the right rail can actually be clicked` (:473) | `Keyboard` button — "click action done, waiting for scheduled navigations to finish", 10s timeout |
-> | `the rail is still usable with a role selected` (:500) | same button, same timeout |
-> | `the seeded applications reach the skyline as §6 marks` (:837) | `marks.ring` expected > 0, received **0** |
->
-> **What is known.** They reproduce. Run alone on an idle machine the file is
-> **4 failed / 25 passed** — *worse* than in the full suite, which kills the
-> load-sensitivity theory that explains the frame timer and the scale guard.
-> The fourth (`a selection keeps the query it was made under`, :654) appeared
-> only in the isolated run, so there is some nondeterminism on top.
->
-> **What is NOT known, and this is the important part: whether M5b caused
-> them.** The baseline comparison — the same spec at `7675d11`, the commit
-> before this session's fixes — **was started and never finished.** Nothing in
-> the three fixes plausibly reaches MapLibre (a one-second change to a cookie's
-> `max_age`, a guard that only fires under `NIGHTSHIFT_ENV=production`, and two
-> comments), but *plausibly* is not evidence and this project has a long record
-> of confident wrong diagnoses. **Run the baseline first. Do not open the PR
-> until this is answered.**
->
-> Two hypotheses worth having, neither tested: `verify` runs between `seed` and
-> the seeded suite and mutates profile and scores (it claims to restore them),
-> and `marks.ring == 0` points at application *stage*, which is what §6 draws a
-> ring for.
+> **START HERE, NEXT SESSION.** `make lint` and `make typecheck` are green.
+> `make verify` is green and now leaves the corpus exactly as it found it.
+> `make test-e2e-seeded` is **86 passed, 1 failed, 1 skipped** — the three
+> tests this file sent the session to investigate all pass, and the one red
+> test is a *different*, already-known intermittent one (see "the fourth" at
+> the foot of this block). Run `make check` and the seeded suite once more,
+> then open the PR.
+
+**2026-08-20, later: the baseline was run, and the answer is no.**
+
+**M5b did not cause any of the three.** The question this file blocked the PR
+on is settled by evidence rather than by argument:
+
+- `apps/web/e2e-seeded/city.spec.ts` is **byte-identical** between M5b and the
+  commit before M5b's first identity commit — same tests at the same line
+  numbers, so nothing in the slice edited them.
+- Checked out at `e9042cd` (the commit before `6e787ef`, "a password is a row,
+  and a session is one too") with both servers restarted on that code, **both
+  rail tests fail there too**, and again at a *different* control each run.
+- The third test's two causes are dated `6a10bb6` (2026-08-03) and `a62a9af`
+  (2026-08-12) — eight days and two milestones before M5b.
+
+The earlier session's instinct — "nothing in a cookie `max_age` plausibly
+reaches MapLibre" — was right. It was still right to demand the baseline: the
+reason it is now *known* is that somebody ran it.
+
+**Root cause 1 — `marks.ring == 0`: three writers, one row, and no owner.**
+
+`nightshift seed` deals its five demo stages over jobs ordered by `(title,
+id)`; `GET /jobs` orders by `last_seen_at DESC`. Two unrelated orderings, so
+**which demo application the write-heavy tests land on is a coincidence** —
+and the coincidence was the corpus's only `interview`, which is exactly what
+§6 draws a ring for. `scripts/verify.py` took it to `preparing` and archived
+it; `pipeline.spec.ts` then walked it and left it at `saved`, while its own
+comment claimed "the run must end in the state it began in".
+
+The property that made this permanent rather than transient: **`make seed`
+cannot repair it.** `save_job` is idempotent by skipping — `if not created:
+continue` — so a re-seed leaves a mutated stage exactly where it was. The city
+lost its one §6 arc, and only `make reset-db` put it back. That is why the
+test passed the day it was written and has been red ever since.
+
+The append-only event trail is what made this readable at all: 29 rows naming
+every transition, its actor and its second. A corpus without that history
+would have offered nothing but "the number is 0".
+
+Fixed in both writers, so each hands back what it borrowed:
+`verify.py` snapshots `current_stage` and restores it — the same
+snapshot-and-restore it already did for `GATE_FIELDS` — and now asserts the
+restore rather than firing it and hoping; `pipeline.spec.ts` reads the stage
+before normalising to `saved` and puts it back at the end.
+
+**Root cause 2 — the two rail tests: the city runs at 1.8fps in this browser.**
+
+Not a navigation, not the auth gate, not occlusion. The city animates
+continuously, so every frame re-renders the whole Three.js scene and the bloom
+pass over it — and the suite's Chromium has no GPU, so that is a software
+rasteriser doing **~600-800ms of work per frame**. Measured on the running
+page: **6-9 map renders in 5 seconds, with `requestAnimationFrame` pinned to
+the same rate**, so the main thread is never free for more than a fraction of
+a second. Single blocking tasks up to **2588ms**. Individual clicks measured
+at **6.5s, 9.6s, 7.1s, 9.6s** against a 10s budget.
+
+That explains the shape that made this look like four different bugs: *which*
+control went red was decided by which stall the click landed in, so the
+failure moved between runs — `Keyboard`, then `Openings`, then `Reset view`,
+then `Hide keys` — and each move invited a fresh wrong diagnosis.
+
+**This is not the product being slow.** `milestone-4e-*` records p50 37.9ms on
+a real GPU, and `debug.ts` already refuses to assert a frame-time threshold
+here for exactly this reason.
+
+Fixed by raising those clicks to a 30s budget, which **cannot** mask the thing
+they exist to catch: a covered control fails with "intercepts pointer events",
+so a longer budget makes such a run slower to go red, never green.
+
+**A thing that was tried, did nothing, and is recorded rather than deleted.**
+`reducedMotion: 'reduce'` is the better lever — it stops the map repainting and
+the same four clicks drop to 48ms-1.3s, measured. Applied through
+`test.use({ reducedMotion: 'reduce' })` inside a `describe` it **never reached
+the page**: the run still rendered the orbit button, `matchMedia` was false,
+and the raised budget was quietly doing all the work. It was only caught
+because an assertion had been added for the notice that replaces that button —
+without it, the suite would have gone green carrying a line that did nothing.
+Building the context by hand does work, and the existing
+`the city stops moving under prefers-reduced-motion` is the shape that proves
+it.
+
+**The fourth test — now characterised, deliberately not fixed.**
+`a selection is a link you can send — §5.6` (:662) fails about **one run in
+three** (measured: `--repeat-each=3`, one red). It is pre-existing and
+untouched by this session.
+
+What is now known, from the failing run's own page snapshot: **the selection
+happens and the URL never receives it.** The detail panel is open — `Close`,
+`Save` and `Open the full role` are all in the accessibility tree — so the
+click landed on a beacon and the store holds the role. `?job=` is simply
+absent 15 seconds later.
+
+That puts it inside `CityDetail`'s one sync effect, and there is a shape there
+worth looking at: `agreed.current` is set to the value being written
+**before** `router.replace` commits. A replace that is starved — and at 1.8fps
+a Next transition can be starved for a long time — leaves the ref already
+claiming agreement, so nothing ever retries it. The store says X, the URL says
+nothing, and the effect believes they match. The neighbouring hazard is the
+opposite one: any re-render landing in that same window sees `urlSelection`
+still null, takes the "the URL is the truth" branch, and would `select(null)`
+— which is the deselecting-deep-link bug M5b already fixed once (`dbc036a`).
+
+**This is a hypothesis with good evidence, not a diagnosis** — the starvation
+half is not proven, and this effect has already produced one confident wrong
+reading. It wants its own slice rather than a fix bolted onto the end of a
+session, because the last two bugs in this effect both came from making it
+converge faster.
 
 **2026-08-20, this session: M5b was reviewed and it found three defects, all
 fixed, each shown red first.** `docs/reviews/milestone-5b-review.md` has the
