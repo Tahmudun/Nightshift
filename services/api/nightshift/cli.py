@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import getpass
 import json
 import sys
 import uuid
@@ -73,6 +74,7 @@ from nightshift.domain.geocoding import (
     GeocodeOutcome,
     Unresolved,
 )
+from nightshift.domain.identity import normalize_email, set_password
 from nightshift.domain.ingestion import get_or_create_source, ingest_boards
 from nightshift.domain.matching import recompute_pending
 from nightshift.domain.office_loading import LoadReport, load_offices
@@ -605,23 +607,39 @@ async def cmd_seed(args: argparse.Namespace) -> int:
             return 1
 
     async with session_scope() as session:
-        # -- dev user (AMENDMENTS A3) ---------------------------------------
-        existing_user = (
-            await session.execute(select(User).where(User.id == settings.dev_user_id))
-        ).scalar_one_or_none()
-        if existing_user is None:
-            session.add(
-                User(
-                    id=settings.dev_user_id,
-                    email=settings.dev_user_email,
-                    display_name="Development User",
-                    timezone="America/New_York",
+        # -- two accounts, with real passwords (M5b, ADR 0037) --------------
+        #
+        # Two, not one, and the second is not decoration. M5's acceptance is
+        # that two users cannot see each other's data; a seeded stack with one
+        # account cannot demonstrate that, and `make demo` should be able to.
+        # The second holds nothing — which is the point, because everything the
+        # first one owns is what it must not be able to see.
+        #
+        # Both get the same demo password so `make demo` walks in through the
+        # real front door. There is no bypass: A3's "return the dev user"
+        # dependency is gone and `api/deps.py` raises 401 without a session.
+        for user_id, email, name in (
+            (settings.dev_user_id, settings.dev_user_email, "Development User"),
+            (settings.second_user_id, settings.second_user_email, "Second User"),
+        ):
+            existing_user = (
+                await session.execute(select(User).where(User.id == user_id))
+            ).scalar_one_or_none()
+            if existing_user is None:
+                session.add(
+                    User(
+                        id=user_id,
+                        email=email,
+                        display_name=name,
+                        timezone="America/New_York",
+                    )
                 )
-            )
-            await session.flush()
-            print(f"  created dev user {settings.dev_user_email}")
-        else:
-            print(f"  dev user {settings.dev_user_email} already present")
+                await session.flush()
+                print(f"  created user {email}")
+            else:
+                print(f"  user {email} already present")
+            await set_password(session, user_id, settings.dev_user_password)
+        print(f"  both accounts sign in with the password {settings.dev_user_password!r}")
 
         print(f"  {await seed_demo_profile(session, settings.dev_user_id)}")
 
@@ -1157,6 +1175,51 @@ def _print_office_report(
     print(f"\n  {report.summary()}")
 
 
+async def cmd_users(args: argparse.Namespace) -> int:
+    """Create an account, or set a password on one. M5b, ADR 0037.
+
+    Registration is closed — there is no `POST /auth/register` — so this is the
+    only way an account comes into existence. That is the "just me for now"
+    answer written as code rather than as a disabled form, and invite-only is
+    the next rung: a token table and a page, neither of which is built.
+
+    The password is read from a prompt rather than taken as an argument.
+    `--password` on a command line lands in shell history and in `ps`, and a
+    password that leaked through the tool that set it is a bad joke.
+    """
+    email = normalize_email(args.email)
+    async with session_scope() as session:
+        user = (await session.execute(select(User).where(User.email == email))).scalar_one_or_none()
+
+        if user is None:
+            if not args.create:
+                print(
+                    f"error: no account for {email}. Pass --create to make one.",
+                    file=sys.stderr,
+                )
+                return 1
+            user = User(email=email, display_name=args.display_name)
+            session.add(user)
+            await session.flush()
+            print(f"  created {email}")
+        elif args.create:
+            print(f"  {email} already exists; setting its password")
+
+        password = getpass.getpass("password: ")
+        if password != getpass.getpass("again: "):
+            print("error: the two passwords do not match", file=sys.stderr)
+            return 1
+
+        try:
+            await set_password(session, user.id, password)
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+
+    print(f"  password set for {email}")
+    return 0
+
+
 COMMANDS = {
     "seed": cmd_seed,
     "offices": cmd_offices,
@@ -1165,6 +1228,7 @@ COMMANDS = {
     "poll": cmd_poll,
     "enqueue": cmd_enqueue,
     "stats": cmd_stats,
+    "users": cmd_users,
 }
 
 
@@ -1189,6 +1253,12 @@ def main(argv: list[str] | None = None) -> int:
     poll.add_argument("--token", required=True)
     subparsers.add_parser("enqueue", help="queue the ingestion task for the worker")
     subparsers.add_parser("stats", help="print corpus counts")
+    users = subparsers.add_parser(
+        "users", help="create an account or set its password (registration is closed)"
+    )
+    users.add_argument("--email", required=True)
+    users.add_argument("--create", action="store_true", help="make the account if it is absent")
+    users.add_argument("--display-name", default=None)
     args = parser.parse_args(argv)
 
     configure_logging()
