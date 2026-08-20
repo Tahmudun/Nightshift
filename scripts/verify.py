@@ -26,6 +26,7 @@ Run via `make verify`, after `make up && make migrate && make seed`.
 from __future__ import annotations
 
 import asyncio
+import math
 import os
 import socket
 import subprocess
@@ -1311,13 +1312,43 @@ async def check_match_results() -> None:
                 row["match"]["overall_score"], row["match"]["assessed_out_of"]
             )
 
+        def tied(earlier: float, later: float) -> bool:
+            """Two float pipelines computing one quantity, held to a tie.
+
+            The list is ordered by Postgres evaluating
+            `overall / (sqrt(assessed_out_of) * 10)`; this check re-derives the
+            same quantity from the wire through `coverage_weighted_fraction`,
+            which spells it `fraction * sqrt(assessed_out_of / 100)`. The two
+            are algebraically identical and are **not** bit-identical, because
+            they round in a different order.
+
+            Found on 2026-08-19, when the seeded corpus gained a 15-of-90 pair
+            beside an existing 10-of-40 one. Both are exactly 1/(2*sqrt(10)).
+            Postgres makes them equal to the last bit and orders them either
+            way, correctly; Python makes them differ by one unit in the last
+            place, and a strict comparison read that as a broken list.
+
+            The tolerance is 1e-12 relative — roughly ten thousand times the
+            error two double pipelines can accumulate on this expression, and
+            roughly a billionth of the smallest gap between two genuinely
+            different keys this corpus produces. A real inversion is nowhere
+            near it.
+            """
+            return math.isclose(earlier, later, rel_tol=1e-12, abs_tol=1e-15)
+
         misordered: list[str] = []
         for band in bands:
             keys = [rank_key(row) for row in band["items"]]
             # `None` sorts last and is never compared as a number — a pair
             # nothing could be assessed on is not a pair that scored zero.
             ranked = [key for key in keys if key is not None]
-            if ranked != sorted(ranked, reverse=True):
+            # Pairwise rather than `!= sorted(...)`: a tie is ordered either
+            # way and both ways are right, and only a pairwise walk can tell a
+            # tie from an inversion.
+            if any(
+                later > earlier and not tied(earlier, later)
+                for earlier, later in zip(ranked, ranked[1:], strict=False)
+            ):
                 misordered.append(band["state"])
             if any(key is None for key in keys) and ranked != [
                 key for key in keys[: len(ranked)] if key is not None
