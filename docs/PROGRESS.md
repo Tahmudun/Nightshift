@@ -340,6 +340,29 @@ parses and commits together — that would make the parser's reading
 indistinguishable from a decision at exactly the point where the difference
 decides which building a job stands on.
 
+**Verified green on this machine:** `make lint` and `make typecheck` clean,
+**1994 python tests pass** (8m37s), **788 web tests** across 53 files. Migration
+verified up, down and up again.
+
+**A fourth defect, and the only one in this slice that was mine in the test
+rather than in the code.** The constraint test provoked its expected
+`IntegrityError` and called `db_session.rollback()` to recover. That fixture
+already runs each test inside an outer transaction it rolls back itself, on a
+**session-scoped** engine — so the rollback tore down the outer transaction
+rather than the failed statement, and the damage outlived the test. It surfaced
+as `test_seed_reports_its_own_failure` failing about five hundred tests later.
+
+**The first diagnosis was wrong and worth recording as such.** That test passed
+in isolation, passed beside the capture tests, and its own docstring documents
+fragility to event-loop ordering — so "pre-existing flakiness" was plausible and
+false. What settled it was excluding only the two new files and re-running the
+whole suite: 1954 passed, which made the attribution unambiguous.
+
+**The tell was in the output of every run already read:** `SAWarning: transaction
+already deassociated from connection`, naming the exact test and the exact
+mechanism. It was treated as noise four times. `begin_nested()` unwinds the
+failed statement and leaves the fixture intact; the warning count went 45 → 44.
+
 **A third defect, found by re-reading rather than by a test.** `propose()` has
 detected internships from the title since the first commit and `test_capture.py`
 asserts it does — but the route returned a hardcoded `None`, so the form opened
