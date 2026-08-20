@@ -17,6 +17,8 @@ import {
   applicationSchema,
   captureListSchema,
   captureSchema,
+  identitySchema,
+  sessionSchema,
   companyDetailSchema,
   companyListSchema,
   citySignalsSchema,
@@ -43,6 +45,8 @@ import {
   type Coverage,
   type DailyQueue,
   type Health,
+  type Identity,
+  type Session,
   type JobDetail,
   type JobAdminList,
   type JobList,
@@ -69,7 +73,17 @@ import {
   type WorkAuthorization,
 } from './schemas';
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000';
+/**
+ * Where the browser sends its requests: this app's own origin, under a prefix
+ * that `next.config.ts` rewrites to the API.
+ *
+ * A relative path and not an absolute one, deliberately (M5b, ADR 0037). The
+ * session cookie is only first-party — and therefore only ever sent — because
+ * these requests do not cross an origin. Restoring an absolute URL here signs
+ * everybody out, and the symptom is a 401 on every page rather than a CORS
+ * error naming the cause.
+ */
+export const API_BASE_URL = '/api/ns';
 
 /** Thrown for any non-2xx or unparseable response. Carries the status. */
 export class ApiError extends Error {
@@ -583,4 +597,57 @@ export function confirmCapture(
 
 export function discardCapture(captureId: string): Promise<Capture> {
   return send(`/capture/${captureId}/discard`, captureSchema, 'POST', {});
+}
+
+// -- M5b: identity (ADR 0037) ------------------------------------------------
+
+/**
+ * Who the caller is, or `null` when nobody.
+ *
+ * A 401 is an ordinary answer here rather than an error — it is precisely the
+ * question being asked — so it is translated to `null` instead of thrown. Every
+ * other status still throws, because "the API is down" and "you are signed out"
+ * must not look the same to the caller deciding whether to show a sign-in page.
+ */
+export async function fetchMe(): Promise<Identity | null> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/auth/me`, {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+    });
+  } catch {
+    throw new ApiError(`cannot reach the API — is it running? (\`make dev\`)`, null);
+  }
+
+  if (response.status === 401) return null;
+
+  const body: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new ApiError(`/auth/me failed: ${response.statusText}`, response.status);
+  }
+  const parsed = identitySchema.safeParse(body);
+  if (!parsed.success) {
+    throw new ApiError('/auth/me returned an unexpected shape', 200);
+  }
+  return parsed.data;
+}
+
+/** Exchange an email and a password for a session cookie. */
+export async function signIn(email: string, password: string): Promise<Session> {
+  return request('/auth/sign-in', sessionSchema, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+/**
+ * End the session and drop the cookie.
+ *
+ * Always succeeds, including when there was no session — the API is deliberately
+ * idempotent here, so a stale cookie can always be shed.
+ */
+export async function signOut(): Promise<void> {
+  await fetch(`${API_BASE_URL}/auth/sign-out`, { method: 'POST', cache: 'no-store' });
 }

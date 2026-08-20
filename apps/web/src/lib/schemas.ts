@@ -1323,3 +1323,27 @@ export const captureListSchema = z.object({
   total: z.number(),
 });
 export type CaptureList = z.infer<typeof captureListSchema>;
+
+// -- M5b: identity (ADR 0037) ------------------------------------------------
+
+/** Who the caller is. What `GET /api/ns/auth/me` answers. */
+export const identitySchema = z.object({
+  id: z.string().uuid(),
+  email: z.string(),
+  display_name: z.string().nullable(),
+});
+export type Identity = z.infer<typeof identitySchema>;
+
+/**
+ * Identity plus how long this sign-in lasts. Only the route that just minted a
+ * session knows the expiry, which is why it is a separate shape from
+ * `identitySchema` rather than an optional field on it.
+ *
+ * There is deliberately no token here. It arrives as an httpOnly cookie that
+ * this code cannot read, and that is the property that makes an XSS on any page
+ * unable to walk off with a login.
+ */
+export const sessionSchema = identitySchema.extend({
+  expires_at: z.string().datetime({ offset: true }),
+});
+export type Session = z.infer<typeof sessionSchema>;
