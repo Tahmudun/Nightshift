@@ -333,12 +333,28 @@ produce no error until they do:**
   discriminator is whether anything *recognised* came back — a state, a country,
   or an enumerated NYC name.
 
+**M5a is feature-complete: domain, schema, three routes and the form.**
+`/operate/capture` takes a paste, shows what was read, and creates a job only
+when somebody confirms. There is deliberately **no one-shot endpoint** that
+parses and commits together — that would make the parser's reading
+indistinguishable from a decision at exactly the point where the difference
+decides which building a job stands on.
+
+**A third defect, found by re-reading rather than by a test.** `propose()` has
+detected internships from the title since the first commit and `test_capture.py`
+asserts it does — but the route returned a hardcoded `None`, so the form opened
+on "Not stated" for every internship. **A green unit test sitting on top of a
+feature no person could see**, and internships are most of what this product is
+for. The new assertion is at the route boundary where the bug lived, not on the
+parser that was never wrong.
+
 **Next, in order:**
 
-1. **M5a's API and form** — `POST /capture` (propose), `POST /capture/{id}/confirm`,
-   `POST /capture/{id}/discard`, and a paste-and-review page in `apps/web` with a
-   **"manually captured" provenance badge** wherever the job appears (I7: a
-   captured job must never be indistinguishable from a polled one). ← **next**
+1. **M5a's remaining half — the provenance badge and the seed.** I7: a captured
+   job must never be indistinguishable from a polled one, and today the job
+   pages do not say where it came from. `make seed` should also plant one
+   captured posting so the demo shows the path without needing a person to
+   paste. ← **next**
 2. **M5b — identity.** Replace `deps.py`'s one-line `current_user_id`. The
    two-user isolation test is the most important thing in the milestone: routes
    filter by convention today, and one missed filter leaks another person's

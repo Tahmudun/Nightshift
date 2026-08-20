@@ -123,3 +123,33 @@ describe('JobFacts', () => {
     expect(screen.getByText(/period not stated/i)).toBeVisible();
   });
 });
+
+describe('JobFacts provenance', () => {
+  const withSource = (name: string) =>
+    jobDetailSchema.parse({
+      ...jobDetailSchema.parse(BASE),
+      sources: [
+        {
+          source_name: name,
+          source_job_id: 'abc123',
+          canonical_url: null,
+          first_seen_at: '2026-08-19T12:00:00+00:00',
+          last_seen_at: '2026-08-19T12:00:00+00:00',
+        },
+      ],
+    });
+
+  it('marks a captured posting as added by hand', () => {
+    // I7. A posting somebody pasted is real data and is not the same kind of
+    // fact as a polled one — presenting the two identically is the failure
+    // mode that invariant is about.
+    render(<JobFacts job={withSource('manual_capture')} />);
+    expect(screen.getByTestId('captured-badge')).toBeVisible();
+    expect(screen.getByText(/nothing re-reads it/i)).toBeVisible();
+  });
+
+  it('does not mark a polled posting as added by hand', () => {
+    render(<JobFacts job={withSource('greenhouse')} />);
+    expect(screen.queryByTestId('captured-badge')).toBeNull();
+  });
+});

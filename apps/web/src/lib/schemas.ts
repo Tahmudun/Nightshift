@@ -1263,6 +1263,16 @@ export type CitySignals = z.infer<typeof citySignalsSchema>;
 // Manual capture (M5a)
 // ---------------------------------------------------------------------------
 
+/**
+ * The `sources.name` every captured posting is attributed to.
+ *
+ * Mirrors `CAPTURE_SOURCE_NAME` in `nightshift/domain/capture.py`, and
+ * `test_enum_parity.py` asserts the two agree. A drift here does not raise —
+ * it silently stops rendering the "added by hand" badge, which is I7 failing
+ * quietly, which is the worst way for it to fail.
+ */
+export const CAPTURE_SOURCE_NAME = 'manual_capture';
+
 /** Three values. A capture is a proposal until a person decides. */
 export const captureStatusSchema = z.enum(['pending', 'confirmed', 'discarded']);
 export type CaptureStatus = z.infer<typeof captureStatusSchema>;

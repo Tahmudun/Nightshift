@@ -16,6 +16,8 @@
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 
+import { CAPTURE_SOURCE_NAME } from '@/lib/schemas';
+
 import { ConfidenceLadder } from './ConfidenceLadder';
 import { JobEligibility } from './JobEligibility';
 import { JobRequirements } from './JobRequirements';
@@ -185,17 +187,39 @@ export function JobFacts({ job }: { readonly job: JobDetail }) {
           <ul className="mt-3 space-y-2">
             {job.sources.map((source) => (
               <li key={`${source.source_name}-${source.source_job_id}`}>
-                {source.canonical_url !== null ? (
-                  <a
-                    className="text-[14px] text-signal-400 underline underline-offset-2"
-                    href={source.canonical_url}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {source.source_name}
-                  </a>
-                ) : (
-                  <span className="text-[14px] text-paper">{source.source_name}</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  {source.canonical_url !== null ? (
+                    <a
+                      className="text-[14px] text-signal-400 underline underline-offset-2"
+                      href={source.canonical_url}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {source.source_name}
+                    </a>
+                  ) : (
+                    <span className="text-[14px] text-paper">{source.source_name}</span>
+                  )}
+                  {source.source_name === CAPTURE_SOURCE_NAME && (
+                    <span
+                      data-testid="captured-badge"
+                      className="border border-gold-400/40 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-gold-400"
+                    >
+                      added by hand
+                    </span>
+                  )}
+                </div>
+                {source.source_name === CAPTURE_SOURCE_NAME && (
+                  /* I7. A captured posting is real data and is not the same
+                     kind of fact as a polled one: nothing re-reads it, so it
+                     cannot go stale on its own and cannot be closed by a poll
+                     that never happens. Saying so here is the difference
+                     between honest provenance and a row that merely looks
+                     like every other row. */
+                  <p className="mt-1 max-w-2xl text-[12px] leading-relaxed text-paper-dim">
+                    Somebody pasted this in and confirmed it. Nothing re-reads it, so it will not
+                    age or close on its own — the board it came from is not one we poll.
+                  </p>
                 )}
               </li>
             ))}

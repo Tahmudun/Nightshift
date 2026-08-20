@@ -354,3 +354,20 @@ def test_the_browser_allocates_room_for_every_signal_the_api_can_send() -> None:
         "the API can return more signals than the renderer has room for, and the "
         "surplus is dropped silently — raise MAX_BEACONS or lower MAX_SIGNALS"
     )
+
+
+def test_the_capture_source_name_matches_the_browsers_copy() -> None:
+    """Not an enum, and it drifts exactly like one.
+
+    `JobDetail` renders the "added by hand" badge by comparing a source's name
+    against this string. A mismatch raises nothing, breaks no type, and fails
+    no other test — the badge simply stops appearing, and a captured posting
+    becomes indistinguishable from a polled one. That is invariant I7 failing
+    silently, which is the failure mode this whole file exists for.
+    """
+    from nightshift.domain.capture import CAPTURE_SOURCE_NAME
+
+    source = SCHEMAS_TS.read_text(encoding="utf-8")
+    match = re.search(r"export const CAPTURE_SOURCE_NAME = '([^']+)'", source)
+    assert match is not None, "CAPTURE_SOURCE_NAME is not exported from schemas.ts"
+    assert match.group(1) == CAPTURE_SOURCE_NAME
