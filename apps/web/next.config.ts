@@ -22,9 +22,13 @@ const config: NextConfig = {
    * a deployment need not expose the API publicly at all.
    *
    * `API_ORIGIN` and not `NEXT_PUBLIC_API_BASE_URL`: this rewrite runs on the
-   * server, so the value must NOT be inlined into the browser bundle. The
-   * public variable still exists for the Playwright specs, which talk to the
-   * API directly to set up their state.
+   * server, so the value must NOT be inlined into the browser bundle — that
+   * prefix would publish the API's internal address to every visitor.
+   *
+   * `NEXT_PUBLIC_API_BASE_URL` is gone rather than kept for the tests. The
+   * Playwright specs go through this proxy too, at `WEB_ORIGIN + /api/ns` —
+   * see `e2e-seeded/api.ts`. A suite with a private door into the API is not
+   * exercising the path a person's browser takes.
    */
   async rewrites() {
     const target = process.env.API_ORIGIN ?? 'http://127.0.0.1:8000';

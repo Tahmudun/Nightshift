@@ -168,7 +168,7 @@ make test              Unit tests, both languages
 make test-e2e          Playwright, with no API behind it (the degraded path)
 make test-e2e-seeded   Playwright against a seeded stack (needs make up/migrate/seed)
 make verify            Assert the running stack works; exits 0 or 1
-make acceptance        up && migrate && seed && verify && test-e2e-seeded
+make acceptance        up && migrate && drift && seed && test-e2e && verify && test-e2e-seeded
 make check             format + lint + typecheck + test. Run before every commit.
 make reset-db          Drop, recreate, migrate, seed
 ```
