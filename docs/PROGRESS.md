@@ -33,7 +33,14 @@
 **M4c Task 5 is done: the city speaks §6, and says what it is saying.** The table is one pure function (`treatments.ts`), the beacons carry per-instance colour, strength and pulse rate through a shader, four instanced meshes draw the marks §6 puts *on* a body, and an in-interface legend documents all thirteen rows — including the four that are not drawn, each with its reason. ADR 0028. `docs/reviews/milestone-4c-treatments.png` is the screenshot. Three defects were found by looking rather than by a test: a closed torus whose rotation was invisible by construction, a spin folded into the billboard that rolled every arc out of the camera plane, and a saved outline drawn cyan — which is exactly what ADR 0027's standing instruction ruled out.
 **M4c: Tasks 1, 2, 3 and 4 are done. The placement join and `GET /city/signals` (ADR 0024, which resolves a real conflict between I1 and `city.md` §4.4 rather than papering over it), the Three.js signal layer in MapLibre's own context (ADR 0025), and the field made legible, navigable and sortable. New York now has every open role floating above it, untethered, and none on a building — see `docs/reviews/milestone-4c-signals.png` and `docs/reviews/milestone-4c-roster.png`. Task 4 then made a role reachable: picking by raycast against the frame's own matrix, a reticle, a detail panel, and one selection shared by the list and the map (ADR 0027) — `docs/reviews/milestone-4c-selection.png`.**
 **Docker's daemon is no longer wedged.** It was force-quit and relaunched on 2026-08-12. `make up` was then run **from cold** — containers removed with `docker compose down` first — and created both from scratch to healthy, exit 0. **That closes the last open step in M4b's acceptance chain**; container startup is now proven rather than assumed. The seeded corpus survived and matches what this file records: 31 canonical jobs, 62 `job_locations`, 44 `city_only` + 18 `remote`, 0 mappable.
-**Current milestone: M4 — the living city, and the shippable checkpoint (A15). M4a, M4b and M4c are closed and on `main`; M4d is what remains.**
+**Current milestone: M5 — The Open Hand (A16), on `m5a-manual-capture`.** M5a's
+domain, schema and 28 tests are committed at `af76777`; its API and form are
+next. **Superseded 2026-08-19:** this line read *"M4 — the living city, and the
+shippable checkpoint (A15)"* until the project became a product. `AMENDMENTS`
+A16 re-cut M5 onward, moved the ship from M4 to M7, and narrowed §8's
+one-user anti-pattern; M4e is paused with its remaining tuning moved into M7 so
+it is measured against a real corpus rather than 31 postings. See "Next exact
+action".
 **PR #16 was the largest thing this project has merged — 43 commits, 106 files, ~20,700 lines, two milestones — because M4b and M4c are one renderer and merging a map with nothing on it would have been merging half of it.**
 **The finding that shaped the milestone: no ATS posting names a street. 0 of 247, 139 distinct location strings, 10 fields, three providers. A job can never place itself on a building, so every building comes from an address a human confirmed.**
 **Task 11 measured the embedding proposal path and declined to ship it — ADR 0018.**
@@ -277,14 +284,74 @@ offices is still two buildings that can ever light. This restored the two; it
 did not add a third. Six of the eight recorded addresses belong to companies
 whose boards have never been polled.
 
-**Last updated: 2026-08-19**
+**Last updated: 2026-08-19** (M5a domain; A16 re-cut)
 
 ---
 
 
 ## Next exact action
 
-### M4e — the synthwave city — is under way on `m4d-measured`, draft PR #17. Task 10 is signed off and Task 7's bloom has shipped; next is Task 7's other half, the beam.
+### Current milestone: **M5 — The Open Hand**, on `m5a-manual-capture`. M5a's domain is committed; the API and the form are next.
+
+**2026-08-19: the project became a product, and the milestones were re-cut.**
+The goal is no longer a portfolio piece for one person — it is something other
+people can use, smooth and deployable, with Claude integration, an island for
+location-less roles, a rejection realm, voice and hand tracking, and eventually
+more than one state. **`AMENDMENTS` A16 is the re-cut** and carries the old→new
+milestone mapping; `CLAUDE.md` §6 is rewritten to match. **The ship moved from
+M4 to M7.**
+
+The re-cut's one real insight is a scope *reduction*: reading LinkedIn, linking
+the app to Claude, AI rejection analysis and a voice assistant look like four
+features and are **one MCP server**. Built once, the other three are
+configuration. It is also why the AI costs nothing — the user's own Claude is
+the model and this domain supplies the evidence. Server-side inference is
+deferred until there is revenue for it (measured: ~$0.24–$1.16 per user per
+month, before caching and batch discounts — hosting the tile archive is the
+larger number, which is why deployment pins tiles to zero-egress storage).
+
+**M5a — manual capture — has its domain, schema and tests on `main`'s branch
+(`af76777`).** `data/company-locations.yaml` could only ever light a building
+for a company whose board is polled; this is the path that needs no board at
+all. Paste a posting, confirm what it says, and it is a real job with real
+provenance. 28 tests; migration verified up, down and up again.
+
+**Two things in it were found rather than designed, and both are the kind that
+produce no error until they do:**
+
+- `merge_jobs` deletes the losing job and `captured_postings.job_id` is
+  `ON DELETE SET NULL` under a constraint that a confirmed row must carry a job
+  — so a capture whose job lost a dedupe merge **aborted the merge**, which
+  would have taken down ordinary polling of any board duplicating something
+  somebody had pasted. Found by reading the constraint against the delete rather
+  than by a failing test. Fixed beside the source links already re-pointed
+  there, and the test is shown red under a mutation that removes the loop.
+- The location proposal deferred to `parse_location_segment`'s confidence, and
+  that parser's own docstring says junk corroborates junk: any comma yields a
+  city, so the first draft proposed the **job title** as the location
+  (`"Senior Software Engineer, Platform"` → city `"Platform"`). The
+  discriminator is whether anything *recognised* came back — a state, a country,
+  or an enumerated NYC name.
+
+**Next, in order:**
+
+1. **M5a's API and form** — `POST /capture` (propose), `POST /capture/{id}/confirm`,
+   `POST /capture/{id}/discard`, and a paste-and-review page in `apps/web` with a
+   **"manually captured" provenance badge** wherever the job appears (I7: a
+   captured job must never be indistinguishable from a polled one). ← **next**
+2. **M5b — identity.** Replace `deps.py`'s one-line `current_user_id`. The
+   two-user isolation test is the most important thing in the milestone: routes
+   filter by convention today, and one missed filter leaks another person's
+   applications.
+3. **M5c — the MCP server.** ADR required.
+4. **M5d — assisted capture from LinkedIn/Indeed**, user-initiated and
+   session-bound, never a poller.
+
+**M4e is paused, not abandoned.** What remains of it is below and is still
+correct; A16 moves the M4d tuning work into M7 so it is measured against a real
+corpus on a real GPU rather than against 31 postings.
+
+### M4e — the synthwave city — was under way on `m4d-measured`, draft PR #17. Task 10 is signed off and Task 7's bloom has shipped; next is Task 7's other half, the beam.
 
 **Task 7 is now done, both halves.** Bloom shipped as ADR 0033; the beam
 redesign shipped as ADR 0034 and turned out to be larger than the task
