@@ -1366,3 +1366,67 @@ class CaptureConfirmIn(BaseModel):
     company_name: str = Field(min_length=1, max_length=300)
     location_text: str | None = Field(default=None, max_length=500)
     employment_type: EmploymentType = EmploymentType.UNKNOWN
+
+
+# -- M5b: identity (ADR 0037) ----------------------------------------------
+
+
+class SignInIn(BaseModel):
+    """Credentials offered at the door.
+
+    No `min_length` on the password. The floor lives in
+    `domain.identity.MIN_PASSWORD_LENGTH` and applies when one is *set*;
+    applying it here would make a too-short attempt fail with a different
+    status and a different message than a wrong one, which tells an attacker
+    something about the account they are guessing at.
+    """
+
+    #: A plain `str`, not pydantic's `EmailStr`. That type needs the
+    #: `email-validator` package, and CLAUDE.md §8 forbids a dependency for a
+    #: problem not yet confirmed: a malformed address already fails sign-in
+    #: correctly, because no credential matches it. The check worth having is
+    #: at account creation, and there is no password-reset flow yet for a typo
+    #: to strand. Revisit when one exists.
+    email: str = Field(min_length=3, max_length=320)
+    password: str = Field(max_length=1024)
+
+
+class IdentityOut(BaseModel):
+    """Who you are. What `GET /auth/me` answers.
+
+    The token is deliberately absent: it goes back as an httpOnly cookie, where
+    script on the page cannot read it. `POST /auth/token` is the one route that
+    puts it in a body, for clients that are not browsers.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    email: str
+    display_name: str | None
+
+
+class SessionOut(IdentityOut):
+    """Who you are *and* how long this sign-in lasts.
+
+    Separate from `IdentityOut` because only the route that just minted a
+    session knows its expiry. `/auth/me` would have to run a second query for a
+    field nothing reads — and the first draft of this schema instead returned
+    the account's `created_at` under the name `expires_at`, which is a
+    fabricated field of exactly the kind invariant I1 exists to forbid.
+    """
+
+    expires_at: datetime
+
+
+class TokenOut(BaseModel):
+    """A bearer token, for a client with no cookie jar.
+
+    `scripts/verify.py` and M5c's MCP server are the callers. Same sessions
+    table and same lifetime as a browser's — one way to end a session, one
+    place to look when asking who is signed in.
+    """
+
+    access_token: str
+    token_type: Literal["bearer"] = "bearer"
+    expires_at: datetime

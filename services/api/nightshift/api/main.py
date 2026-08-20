@@ -6,11 +6,13 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import structlog
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from nightshift.api.deps import require_session
 from nightshift.api.routes import (
     applications,
+    auth,
     capture,
     city,
     companies,
@@ -58,17 +60,37 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # -- Open by design (M5b, ADR 0037) ------------------------------------
+    #
+    # Exactly two routers answer an anonymous request, and both have to.
+    # `/health` reports on a database that may be down, so requiring a session
+    # would make it unable to say so. `/auth` is how a request stops being
+    # anonymous.
     app.include_router(health.router)
-    app.include_router(jobs.router)
-    app.include_router(city.router)
-    app.include_router(capture.router)
-    app.include_router(matches.router)
-    app.include_router(sources.router)
-    app.include_router(companies.router)
-    app.include_router(applications.router)
-    app.include_router(profile.router)
-    app.include_router(resumes.router)
-    app.include_router(queue.router)
+    app.include_router(auth.router)
+
+    # -- Everything else: default-deny -------------------------------------
+    #
+    # The dependency is attached here, once, rather than declared by each
+    # handler. A route is behind a session because it exists — including
+    # `/jobs` and `/city/signals`, which serve the shared corpus and still have
+    # no business answering a stranger. Opening one means editing this list,
+    # which is a line in a diff rather than a handler that quietly omitted a
+    # parameter.
+    protected = Depends(require_session)
+    for router in (
+        jobs.router,
+        city.router,
+        capture.router,
+        matches.router,
+        sources.router,
+        companies.router,
+        applications.router,
+        profile.router,
+        resumes.router,
+        queue.router,
+    ):
+        app.include_router(router, dependencies=[protected])
     return app
 
 
