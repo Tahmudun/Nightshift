@@ -291,21 +291,50 @@ test('fifty times the markers is the same DOM, and every one of them reaches the
 });
 
 /**
- * Every element the city itself renders — `#main`, which is the whole page.
+ * Every element the city itself renders — `#main`, less the one live instrument
+ * inside it.
  *
- * Scoped rather than counting the document, and the two things left out are
- * both timing rather than content. `<head>` gains a `<style>` and a `<script>`
- * per route `next dev` has compiled so far, and the shell's header holds the
- * live health indicators, which move through loading → unreachable on their own
- * schedule with no API behind them. Counting either would make this a detector
- * of how recently the page was compiled. Neither can hold a marker: every
- * beacon, every roster row and every legend row is inside `#main`.
+ * Scoped rather than counting the document, and everything left out is timing
+ * rather than content. `<head>` gains a `<style>` and a `<script>` per route
+ * `next dev` has compiled so far, and the shell's header holds the live health
+ * indicators, which move through loading → unreachable on their own schedule
+ * with no API behind them. Counting either would make this a detector of how
+ * recently the page was compiled. None of them can hold a marker: every beacon,
+ * every roster row and every legend row is inside `#main`.
  *
  * That was not a guess — the first version of this counted the document and
  * failed by a handful of elements between two loads of the same corpus.
+ *
+ * **`CityPerformance` is excluded for exactly that reason, and missing it cost
+ * this test its credibility for three days.** It sits inside `#main` and
+ * changes *shape*, not just numbers, depending on whether the map presented any
+ * frames in the last 500 ms: with no report it is one `<p>`, with one it is a
+ * `<dl>` of four `dt`/`dd` pairs — **a difference of exactly 8 elements** —
+ * plus a ninth when frames were discarded as pauses. On 2026-08-20 this test
+ * failed `expected 279, received 270` and the obvious reading was that the DOM
+ * had *shrunk* as the corpus grew, which is the opposite of what it guards
+ * against. It had not. The 5,000-role reload simply had not painted recently
+ * enough for the panel to have anything to say, and the 100-role page had.
+ *
+ * The first fix attempted was to wait for the count to settle. That was wrong
+ * and is worth recording as wrong: no amount of waiting settles a panel whose
+ * content depends on whether frames happened to be drawn in the sampling
+ * window, and it would have left a plausible-looking workaround with a false
+ * explanation attached to it.
+ *
+ * A performance readout cannot hold a marker either, so removing it costs this
+ * assertion nothing.
  */
 async function elementCount(page: Page): Promise<number> {
-  return page.evaluate(() => document.querySelectorAll('#main *').length);
+  return page.evaluate(() => {
+    const all = document.querySelectorAll('#main *').length;
+    const instrument = document.querySelector(
+      '#main section[aria-labelledby="city-performance-heading"]',
+    );
+    // The panel itself plus its subtree.
+    const live = instrument === null ? 0 : instrument.querySelectorAll('*').length + 1;
+    return all - live;
+  });
 }
 
 /**
