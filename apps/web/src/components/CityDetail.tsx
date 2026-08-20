@@ -229,14 +229,29 @@ export function CityDetail() {
       return;
     }
 
-    if (selected !== agreed.current) {
+    // The live value, not the render's — the same rule the adopt branch above
+    // already follows, and for the same reason. Comparing the render's
+    // `selected` here is a real bug and it shipped: this effect can re-run
+    // between `select()` and React re-rendering with its result, so `selected`
+    // is `null` while the store already holds the adopted deep link. The
+    // branch below then reads that as "the city deselected" and writes the
+    // emptiness out — deleting the `?job=` it adopted one run earlier.
+    //
+    // It was invisible until M5b, and that is the instructive part. Without an
+    // auth gate this effect's second run happened after React had re-rendered,
+    // so the stale read never occurred; adding a session check ahead of the
+    // page changed the mounting order and made a latent race certain. The
+    // symptom was that a shared city link deselected itself a second after
+    // opening — `city.md` §5.6's shareable selection, broken by a login.
+    const live = useCityScene.getState().selected;
+    if (live !== agreed.current) {
       // The city moved: a beacon, a roster row, escape. Write it down.
-      agreed.current = selected;
+      agreed.current = live;
       // `replace`, not `push`: clicking through a field of beacons must not
       // fill the back stack with one entry per role, the same rule the filters
       // in `/explore` follow. `scroll: false` because this page does not
       // scroll and a scroll reset would fight the map.
-      router.replace(selectionHref(pathname, searchParams, selected), { scroll: false });
+      router.replace(selectionHref(pathname, searchParams, live), { scroll: false });
     }
   }, [urlSelection, selected, select, router, pathname, searchParams]);
 
