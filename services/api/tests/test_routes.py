@@ -27,6 +27,7 @@ real against the developer's database. Every test below overrides
 from __future__ import annotations
 
 import json
+import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -40,6 +41,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from nightshift.adapters.base import BoardRef, FetchOutcome, RawJob
 from nightshift.adapters.lever import LeverAdapter
+from nightshift.api.deps import current_user_id
 from nightshift.api.main import create_app
 from nightshift.db.base import SourceType
 from nightshift.db.models import BoardPollState
@@ -131,6 +133,17 @@ async def _seed_alloy_board(session: AsyncSession) -> int:
     return await _ingest_alloy(session)
 
 
+#: A stand-in caller for the corpus routes below (M5b, ADR 0037). Not a row in
+#: `users`: nothing these routes read joins to one, and inventing a real
+#: account would imply these tests are about a person when they are about a
+#: corpus.
+_CALLER = uuid.UUID("00000000-0000-4000-8000-0000000000ff")
+
+
+async def _test_user_id() -> uuid.UUID:
+    return _CALLER
+
+
 @pytest_asyncio.fixture(loop_scope="session")
 async def client(db_session: AsyncSession) -> AsyncIterator[AsyncClient]:
     """The ASGI app, wired to the fixture's own transactional session.
@@ -146,6 +159,14 @@ async def client(db_session: AsyncSession) -> AsyncIterator[AsyncClient]:
         yield db_session
 
     app.dependency_overrides[get_db_session] = _override_get_db_session
+
+    # M5b (ADR 0037): every router except `/health` and `/auth` is behind a
+    # session now, including the corpus routes this file tests, which were open
+    # before. These tests are about what a route *returns*, not about who may
+    # ask — that question has its own module,
+    # `test_two_users_cannot_see_each_other.py`, which deliberately overrides
+    # nothing and signs in over HTTP.
+    app.dependency_overrides[current_user_id] = _test_user_id
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as http:
         yield http
