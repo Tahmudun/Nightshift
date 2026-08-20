@@ -583,6 +583,79 @@ which is deliberately **not** a `NEXT_PUBLIC_` variable — that prefix inlines 
 value into the browser bundle, which would publish the API's internal address
 to every visitor.
 
+**One red test was found during M5b's acceptance and it was M4c's, not
+M5b's.** `city-acceptance.spec.ts`'s scale guard — *"fifty times the markers is
+the same DOM"* — failed `expected 279, received 270`. It is fixed at `4c700ac`,
+and it is worth reading because of how the diagnosis went rather than what it
+was.
+
+**It was proved to be pre-existing before anything was changed.** The identical
+spec run on `m5a-manual-capture`, the commit this branch starts from, produced
+the byte-identical failure. "It was probably already broken" is not evidence;
+the run is.
+
+**The cause: the guard was counting its own instrument.** `CityPerformance`
+sits inside `#main` and changes *shape*, not just numbers, depending on whether
+the map presented a frame in the last 500 ms — one `<p>` with no report, a
+`<dl>` of four `dt`/`dd` pairs with one, **exactly 8 elements** — plus a ninth
+when frames were discarded as pauses, which is the ±1 that moved the baseline
+between runs. So the test compared a 100-role page that had painted against a
+5,000-role reload that had not.
+
+**The failure pointed the wrong way, which is why it survived.** The guard
+exists to catch the DOM *growing* per marker. A count that shrank was never the
+property under test, so the message — *"the DOM grew when the corpus did"* —
+described the opposite of what happened.
+
+**Only load reveals it.** Alone, the test passes in 31 s and the per-selector
+DOM fingerprint at 100 and 5,000 roles is identical. Beside a Python suite it
+fails. Three runs under three back-to-back pytest suites and four CPU burners
+now pass at 2.0 m, 1.3 m and 1.7 m — slow enough to prove the contention was
+real. **This guard has been load-sensitive since M4c and nobody had run it on a
+busy machine.**
+
+**My first fix was wrong and the docstring says so.** I diagnosed a mid-render
+race and wrote a settle-and-retry helper. The loaded run disproved it: the
+*baseline* moved too, 278 → 279, which a sampling race cannot explain. No
+amount of waiting settles a panel whose content depends on whether frames
+happened to be drawn, and shipping it would have left a plausible workaround
+carrying a false explanation — worse than the flake. The docstring had already
+recorded this class of bug once, at M4c: *"the first version of this counted the
+document and failed by a handful of elements between two loads of the same
+corpus."* It escaped by scoping to `#main` and missed that `#main` still holds a
+live instrument.
+
+**`make test-e2e`'s city specs are flaky on this machine, on both branches,
+and the numbers say so.** The full offline suite was run on `m5b-identity` and
+on `m5a-manual-capture` back to back:
+
+| | baseline (`m5a`) | `m5b-identity` |
+|---|---|---|
+| passed | 27 | **29** |
+| failed | **3** | **1** |
+| wall clock | 6:23 | ~6:36 |
+
+The baseline fails the scale guard (fixed at `4c700ac`), *"the frame timer
+measures frames the map really presented"*, **and** a keyboard-gesture test in
+`city.spec.ts` that passes on this branch. So M5b removes two failures and adds
+none.
+
+**The frame timer is the one that remains, and it is not fixed here.** It times
+out at 180 s in a full-suite run and passes when its own spec runs alone — on
+both branches. It needs twelve real frames out of a software rasteriser drawing
+32,686 buildings with bloom, after five minutes of other city specs have already
+loaded the browser. That is a performance fact about the machine, not a logic
+fault, and **raising the timeout until it passes would hide the real regression
+it exists to catch.** It belongs with M7's performance work, beside the M4d
+tiers A16 moved there.
+
+**A hypothesis worth recording as disproven.** The proxy means every page load
+in the offline suite now reaches a *dead upstream through Next* rather than
+failing in the browser, so Next connects, fails and logs a stack trace per
+request — real added server work in exactly the suite designed to run with no
+API. The two runs above are 13 seconds apart on six minutes, which is noise. It
+costs nothing measurable.
+
 **Two questions were opened rather than answered quietly** — Q10 (password
 reset needs an email sender, which needs a domain and an account) and Q11
 (nothing rate-limits sign-in; my recommendation is M7 unless somebody gets an
