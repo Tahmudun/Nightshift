@@ -54,6 +54,7 @@ from nightshift.db.base import (
     RoleFamily,
     Seniority,
     SkillSourceType,
+    SourceType,
     TransitionClass,
     WorkAuthorization,
 )
@@ -371,3 +372,19 @@ def test_the_capture_source_name_matches_the_browsers_copy() -> None:
     match = re.search(r"export const CAPTURE_SOURCE_NAME = '([^']+)'", source)
     assert match is not None, "CAPTURE_SOURCE_NAME is not exported from schemas.ts"
     assert match.group(1) == CAPTURE_SOURCE_NAME
+
+
+def test_the_capture_source_type_matches_the_browsers_copy() -> None:
+    """The other half, and it is a separate string for a reason.
+
+    `SourceHealthTable` labels a row by its `source_type`, not by its name, and
+    `sourceHealthSchema` types that field as a bare `z.string()` — so nothing
+    in the parity above covers it and nothing in Zod would refuse a wrong
+    value. A drift here puts a captured posting in the source health table
+    labelled **live**, which is the word the table gives a board we poll every
+    hour, about the one source nothing ever reads twice.
+    """
+    source = SCHEMAS_TS.read_text(encoding="utf-8")
+    match = re.search(r"export const CAPTURE_SOURCE_TYPE = '([^']+)'", source)
+    assert match is not None, "CAPTURE_SOURCE_TYPE is not exported from schemas.ts"
+    assert match.group(1) == SourceType.MANUAL_CAPTURE.value

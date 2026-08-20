@@ -1273,6 +1273,17 @@ export type CitySignals = z.infer<typeof citySignalsSchema>;
  */
 export const CAPTURE_SOURCE_NAME = 'manual_capture';
 
+/**
+ * The `sources.source_type` a captured posting carries.
+ *
+ * The same string as `CAPTURE_SOURCE_NAME` and a different fact: one is which
+ * source it is, the other is what kind of source that is. Compared separately
+ * because they are free to diverge — a second capture surface (M5d's assisted
+ * capture) would be a new source *name* of this same *type*, and code that had
+ * conflated them would stop labelling it.
+ */
+export const CAPTURE_SOURCE_TYPE = 'manual_capture';
+
 /** Three values. A capture is a proposal until a person decides. */
 export const captureStatusSchema = z.enum(['pending', 'confirmed', 'discarded']);
 export type CaptureStatus = z.infer<typeof captureStatusSchema>;
