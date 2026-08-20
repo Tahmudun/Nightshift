@@ -4,6 +4,8 @@ import { join } from 'node:path';
 
 import { expect, test } from '@playwright/test';
 
+import { API, apiFetch } from './api';
+
 /**
  * M3c in a browser: the score, and everything it is made of.
  *
@@ -37,17 +39,6 @@ import { expect, test } from '@playwright/test';
  * that it would report "the corpus is not scored" and be telling the truth
  * about a database another spec emptied thirty seconds earlier.
  */
-
-/**
- * The API, reached through the web app's own origin (M5b, ADR 0037).
- *
- * Was `http://127.0.0.1:8000`. It moved because the API now requires a session
- * and the session is a first-party cookie on `localhost:3000` — a request
- * straight to the API's own host would carry no cookie and get a 401. Going
- * through the rewrite is also the path the browser takes, so these setup calls
- * and the pages they set up for now agree about what they are talking to.
- */
-const API = '/api/ns';
 
 /** `next dev` compiles a dynamic route on first request (see search-and-detail.spec.ts). */
 const FIRST_COMPILE = 30_000;
@@ -126,7 +117,7 @@ const collapse = (s: string) => s.replace(/\s+/g, ' ').trim();
 async function readJson<T>(path: string): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     try {
-      return (await (await fetch(`${API}${path}`)).json()) as T;
+      return (await (await apiFetch(`${API}${path}`)).json()) as T;
     } catch (error) {
       if (attempt > 0) throw error;
     }

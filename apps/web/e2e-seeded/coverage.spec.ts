@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { API, apiFetch } from './api';
+
 /**
  * M1 acceptance criterion 12: "The coverage page names what is *not* covered,
  * not only what is."
@@ -14,17 +16,6 @@ import { expect, test } from '@playwright/test';
  * the suite tracks the real blind-spot list rather than a snapshot of it.
  */
 
-/**
- * The API, reached through the web app's own origin (M5b, ADR 0037).
- *
- * Was `http://127.0.0.1:8000`. It moved because the API now requires a session
- * and the session is a first-party cookie on `localhost:3000` — a request
- * straight to the API's own host would carry no cookie and get a 401. Going
- * through the rewrite is also the path the browser takes, so these setup calls
- * and the pages they set up for now agree about what they are talking to.
- */
-const API = '/api/ns';
-
 interface BlindSpot {
   readonly id: string;
   readonly title: string;
@@ -33,7 +24,7 @@ interface BlindSpot {
 }
 
 async function blindSpots(): Promise<BlindSpot[]> {
-  const response = await fetch(`${API}/coverage`);
+  const response = await apiFetch(`${API}/coverage`);
   expect(response.ok, `GET ${API}/coverage failed — is the API running?`).toBe(true);
   const body = (await response.json()) as { blind_spots: BlindSpot[] };
   expect(

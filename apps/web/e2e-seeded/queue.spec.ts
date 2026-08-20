@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { API, apiFetch } from './api';
+
 /**
  * The daily queue, walked in a browser.
  *
@@ -19,17 +21,6 @@ import { expect, test, type Page } from '@playwright/test';
  */
 
 test.describe.configure({ mode: 'serial' });
-
-/**
- * The API, reached through the web app's own origin (M5b, ADR 0037).
- *
- * Was `http://127.0.0.1:8000`. It moved because the API now requires a session
- * and the session is a first-party cookie on `localhost:3000` — a request
- * straight to the API's own host would carry no cookie and get a 401. Going
- * through the rewrite is also the path the browser takes, so these setup calls
- * and the pages they set up for now agree about what they are talking to.
- */
-const API = '/api/ns';
 
 /** `next dev` compiles a dynamic route on first request. */
 const FIRST_COMPILE = 30_000;
@@ -51,7 +42,7 @@ const FOLLOW_UP_JOB = 2;
 const INTERVIEW_JOB = 3;
 
 async function jobAt(offset: number): Promise<{ id: string; title: string }> {
-  const response = await fetch(`${API}/jobs?limit=1&offset=${offset}&status=open`);
+  const response = await apiFetch(`${API}/jobs?limit=1&offset=${offset}&status=open`);
   const body = (await response.json()) as { items: { id: string; title: string }[] };
   expect(body.items.length, 'the seeded corpus has fewer jobs than this test needs').toBe(1);
   return body.items[0]!;

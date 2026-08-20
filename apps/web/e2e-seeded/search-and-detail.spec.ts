@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { API, apiFetch } from './api';
+
 /**
  * M2a: search, filters and the two detail pages, against the seeded corpus.
  *
@@ -14,17 +16,6 @@ import { expect, test } from '@playwright/test';
  */
 
 /**
- * The API, reached through the web app's own origin (M5b, ADR 0037).
- *
- * Was `http://127.0.0.1:8000`. It moved because the API now requires a session
- * and the session is a first-party cookie on `localhost:3000` — a request
- * straight to the API's own host would carry no cookie and get a 401. Going
- * through the rewrite is also the path the browser takes, so these setup calls
- * and the pages they set up for now agree about what they are talking to.
- */
-const API = '/api/ns';
-
-/**
  * The seeded stack runs `next dev`, which compiles a route the first time it is
  * requested. The first navigation into /explore/jobs/[id] therefore pays a
  * multi-second compile that has nothing to do with the product, and the default
@@ -34,7 +25,7 @@ const API = '/api/ns';
 const FIRST_COMPILE = 30_000;
 
 async function totalFor(query: string): Promise<number> {
-  const response = await fetch(`${API}/jobs?${query}`);
+  const response = await apiFetch(`${API}/jobs?${query}`);
   const body = (await response.json()) as { total: number };
   return body.total;
 }

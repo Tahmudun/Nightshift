@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { API, apiFetch } from './api';
+
 /**
  * M3a in a browser: a posting's requirements, shown in the posting's own words.
  *
@@ -16,17 +18,6 @@ import { expect, test } from '@playwright/test';
  * exit. State the property, then check it: this file is read-only against the
  * stack, which is why it can run in any order and any number of times.
  */
-
-/**
- * The API, reached through the web app's own origin (M5b, ADR 0037).
- *
- * Was `http://127.0.0.1:8000`. It moved because the API now requires a session
- * and the session is a first-party cookie on `localhost:3000` — a request
- * straight to the API's own host would carry no cookie and get a 401. Going
- * through the rewrite is also the path the browser takes, so these setup calls
- * and the pages they set up for now agree about what they are talking to.
- */
-const API = '/api/ns';
 
 /** `next dev` compiles a dynamic route on first request (see search-and-detail.spec.ts). */
 const FIRST_COMPILE = 30_000;
@@ -62,7 +53,7 @@ interface JobDetail {
  * measured against zero jobs and produced five plausible numbers.
  */
 async function findJob(wanted: (job: JobDetail) => boolean): Promise<JobDetail | null> {
-  const list = (await (await fetch(`${API}/jobs?limit=100`)).json()) as {
+  const list = (await (await apiFetch(`${API}/jobs?limit=100`)).json()) as {
     items: { id: string }[];
     total: number;
   };
@@ -70,7 +61,7 @@ async function findJob(wanted: (job: JobDetail) => boolean): Promise<JobDetail |
     throw new Error('the seeded corpus is empty — run `make seed` before this suite');
   }
   for (const item of list.items) {
-    const detail = (await (await fetch(`${API}/jobs/${item.id}`)).json()) as JobDetail;
+    const detail = (await (await apiFetch(`${API}/jobs/${item.id}`)).json()) as JobDetail;
     if (wanted(detail)) return detail;
   }
   return null;

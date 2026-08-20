@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { API, apiFetch } from './api';
+
 /**
  * M3b in a browser: whether a posting is open to you, and what happens to the
  * posting when the answer is no.
@@ -36,17 +38,6 @@ import { expect, test } from '@playwright/test';
  */
 
 test.describe.configure({ mode: 'serial' });
-
-/**
- * The API, reached through the web app's own origin (M5b, ADR 0037).
- *
- * Was `http://127.0.0.1:8000`. It moved because the API now requires a session
- * and the session is a first-party cookie on `localhost:3000` — a request
- * straight to the API's own host would carry no cookie and get a 401. Going
- * through the rewrite is also the path the browser takes, so these setup calls
- * and the pages they set up for now agree about what they are talking to.
- */
-const API = '/api/ns';
 
 /** `next dev` compiles a dynamic route on first request (see search-and-detail.spec.ts). */
 const FIRST_COMPILE = 30_000;
@@ -98,12 +89,12 @@ interface JobDetail {
 }
 
 async function readProfile(): Promise<GateProfile> {
-  const body = (await (await fetch(`${API}/profile`)).json()) as Record<string, unknown>;
+  const body = (await (await apiFetch(`${API}/profile`)).json()) as Record<string, unknown>;
   return Object.fromEntries(GATE_FIELDS.map((key) => [key, body[key]])) as GateProfile;
 }
 
 async function patchProfile(patch: Partial<GateProfile>): Promise<void> {
-  const response = await fetch(`${API}/profile`, {
+  const response = await apiFetch(`${API}/profile`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(patch),
@@ -122,7 +113,7 @@ async function patchProfile(patch: Partial<GateProfile>): Promise<void> {
  * an unseeded stack and the file would report success having checked nothing.
  */
 async function findJob(wanted: (job: JobDetail) => boolean): Promise<JobDetail | null> {
-  const list = (await (await fetch(`${API}/jobs?limit=100`)).json()) as {
+  const list = (await (await apiFetch(`${API}/jobs?limit=100`)).json()) as {
     items: { id: string }[];
     total: number;
   };
@@ -130,7 +121,7 @@ async function findJob(wanted: (job: JobDetail) => boolean): Promise<JobDetail |
     throw new Error('the seeded corpus is empty — run `make seed` before this suite');
   }
   for (const item of list.items) {
-    const detail = (await (await fetch(`${API}/jobs/${item.id}`)).json()) as JobDetail;
+    const detail = (await (await apiFetch(`${API}/jobs/${item.id}`)).json()) as JobDetail;
     if (wanted(detail)) return detail;
   }
   return null;

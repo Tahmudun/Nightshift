@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { API, apiFetch } from './api';
+
 /**
  * M0 acceptance criterion 5: "One real Greenhouse board's jobs appear in the
  * browser."
@@ -13,17 +15,6 @@ import { expect, test } from '@playwright/test';
  * Every expectation is derived from the API at run time instead of hard-coded, so
  * the suite tracks the committed fixture rather than a snapshot of it.
  */
-
-/**
- * The API, reached through the web app's own origin (M5b, ADR 0037).
- *
- * Was `http://127.0.0.1:8000`. It moved because the API now requires a session
- * and the session is a first-party cookie on `localhost:3000` — a request
- * straight to the API's own host would carry no cookie and get a 401. Going
- * through the rewrite is also the path the browser takes, so these setup calls
- * and the pages they set up for now agree about what they are talking to.
- */
-const API = '/api/ns';
 
 interface Location {
   readonly raw_text: string;
@@ -51,7 +42,7 @@ interface Stats {
 }
 
 async function api<T>(path: string): Promise<T> {
-  const response = await fetch(`${API}${path}`);
+  const response = await apiFetch(`${API}${path}`);
   if (!response.ok) {
     throw new Error(
       `${API}${path} returned ${response.status}. This suite needs a seeded stack: ` +

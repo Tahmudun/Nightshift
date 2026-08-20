@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { API, apiFetch } from './api';
+
 /**
  * M1b's UI half: "ingestion failures are visible in the UI, not just logs."
  *
@@ -12,17 +14,6 @@ import { expect, test } from '@playwright/test';
  * in the same words then the invariant holds in the database and fails for the
  * person actually reading it.
  */
-
-/**
- * The API, reached through the web app's own origin (M5b, ADR 0037).
- *
- * Was `http://127.0.0.1:8000`. It moved because the API now requires a session
- * and the session is a first-party cookie on `localhost:3000` — a request
- * straight to the API's own host would carry no cookie and get a 401. Going
- * through the rewrite is also the path the browser takes, so these setup calls
- * and the pages they set up for now agree about what they are talking to.
- */
-const API = '/api/ns';
 
 interface AdminRow {
   readonly title: string;
@@ -37,7 +28,7 @@ interface AdminList {
 }
 
 async function fetchAdmin(): Promise<AdminList> {
-  const response = await fetch(`${API}/jobs/admin`);
+  const response = await apiFetch(`${API}/jobs/admin`);
   expect(response.ok, `GET ${API}/jobs/admin failed — is the seeded stack up?`).toBe(true);
   return (await response.json()) as AdminList;
 }

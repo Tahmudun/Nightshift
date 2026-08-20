@@ -1,4 +1,6 @@
 import type { Page } from '@playwright/test';
+
+import { API, apiFetch } from './api';
 import { expect, test } from '@playwright/test';
 
 /**
@@ -21,17 +23,6 @@ import { CITY_DEBUG_KEY } from '../src/lib/map/debug';
 import { FIELD_BASE_ALTITUDE } from '../src/lib/city/unresolvedField';
 
 test.describe.configure({ timeout: 120_000 });
-
-/**
- * The API, reached through the web app's own origin (M5b, ADR 0037).
- *
- * Was `http://127.0.0.1:8000`. It moved because the API now requires a session
- * and the session is a first-party cookie on `localhost:3000` — a request
- * straight to the API's own host would carry no cookie and get a 401. Going
- * through the rewrite is also the path the browser takes, so these setup calls
- * and the pages they set up for now agree about what they are talking to.
- */
-const API = '/api/ns';
 
 interface Signals {
   readonly counts: { building: number; area: number; unresolved: number; total: number };
@@ -94,7 +85,7 @@ async function firstUnresolvedInstance(page: Page): Promise<number> {
  * number keeps these tests tracking the seed rather than a snapshot of it.
  */
 async function archivedJobIds(): Promise<ReadonlySet<string>> {
-  const response = await fetch(`${API}/applications?archived=true`);
+  const response = await apiFetch(`${API}/applications?archived=true`);
   expect(response.ok, `GET ${API}/applications failed — is the API running?`).toBe(true);
   const body = (await response.json()) as {
     items: readonly { current_stage: string; job: { id: string } }[];
@@ -107,7 +98,7 @@ async function archivedJobIds(): Promise<ReadonlySet<string>> {
 }
 
 async function signalsFromApi(): Promise<Signals> {
-  const response = await fetch(`${API}/city/signals`);
+  const response = await apiFetch(`${API}/city/signals`);
   expect(response.ok, `GET ${API}/city/signals failed — is the API running?`).toBe(true);
   const body = (await response.json()) as Signals;
   expect(body.counts.total, 'a city with no roles in it proves nothing below').toBeGreaterThan(0);

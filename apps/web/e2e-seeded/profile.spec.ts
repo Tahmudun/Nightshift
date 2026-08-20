@@ -3,6 +3,8 @@ import { join } from 'node:path';
 
 import { expect, test, type Page } from '@playwright/test';
 
+import { API, apiFetch } from './api';
+
 /**
  * M2's fourth acceptance criterion, walked in a browser:
  *
@@ -20,17 +22,6 @@ import { expect, test, type Page } from '@playwright/test';
  */
 
 test.describe.configure({ mode: 'serial' });
-
-/**
- * The API, reached through the web app's own origin (M5b, ADR 0037).
- *
- * Was `http://127.0.0.1:8000`. It moved because the API now requires a session
- * and the session is a first-party cookie on `localhost:3000` — a request
- * straight to the API's own host would carry no cookie and get a 401. Going
- * through the rewrite is also the path the browser takes, so these setup calls
- * and the pages they set up for now agree about what they are talking to.
- */
-const API = '/api/ns';
 
 /** `next dev` compiles a dynamic route on first request (see search-and-detail.spec.ts). */
 const FIRST_COMPILE = 30_000;
@@ -53,13 +44,13 @@ interface Skill {
 }
 
 async function listResumes(): Promise<Resume[]> {
-  const response = await fetch(`${API}/resumes`);
+  const response = await apiFetch(`${API}/resumes`);
   const body = (await response.json()) as { items: Resume[] };
   return body.items;
 }
 
 async function skills(): Promise<Skill[]> {
-  const response = await fetch(`${API}/profile`);
+  const response = await apiFetch(`${API}/profile`);
   const body = (await response.json()) as { skills: Skill[] };
   return body.skills;
 }
@@ -68,7 +59,7 @@ async function skills(): Promise<Skill[]> {
 async function clearMine(): Promise<void> {
   for (const resume of await listResumes()) {
     if (MINE.test(resume.name)) {
-      await fetch(`${API}/resumes/${resume.id}`, { method: 'DELETE' });
+      await apiFetch(`${API}/resumes/${resume.id}`, { method: 'DELETE' });
     }
   }
 }
@@ -104,7 +95,7 @@ test('a resume proposes, and confirms nothing until it is told to', async ({ pag
   // as of M3c Task 12, and blanking it here would leave the demo profile
   // quietly missing a field every run — and, because graduation year is a
   // scoring input, withdraw every score in the database on the way out.
-  const graduationBefore = (await (await fetch(`${API}/profile`)).json()) as {
+  const graduationBefore = (await (await apiFetch(`${API}/profile`)).json()) as {
     graduation_year: number | null;
     graduation_month: number | null;
   };
@@ -131,7 +122,7 @@ test('a resume proposes, and confirms nothing until it is told to', async ({ pag
   const resume = (await listResumes()).find((row) => MINE.test(row.name))!;
   await page.goto(`/operate/resumes/${resume.id}`);
 
-  const detail = (await (await fetch(`${API}/resumes/${resume.id}`)).json()) as {
+  const detail = (await (await apiFetch(`${API}/resumes/${resume.id}`)).json()) as {
     extractions: { id: string; kind: string; value: Record<string, unknown> }[];
   };
   const unconfirmedSkills = detail.extractions.filter(
@@ -172,17 +163,17 @@ test('a resume proposes, and confirms nothing until it is told to', async ({ pag
   await expect(page.getByText(String(keep.value.name), { exact: true }).first()).toBeVisible();
 
   // 9. Deleting the resume keeps the fact. The skill belongs to the person.
-  await fetch(`${API}/resumes/${resume.id}`, { method: 'DELETE' });
+  await apiFetch(`${API}/resumes/${resume.id}`, { method: 'DELETE' });
   const survived = await skills();
   expect(survived.map((skill) => skill.name)).toContain(String(keep.value.name));
 
   // Put the profile back exactly as this test found it, so it can run again.
   for (const skill of survived) {
     if (!before.has(skill.name)) {
-      await fetch(`${API}/profile/skills/${skill.id}`, { method: 'DELETE' });
+      await apiFetch(`${API}/profile/skills/${skill.id}`, { method: 'DELETE' });
     }
   }
-  await fetch(`${API}/profile`, {
+  await apiFetch(`${API}/profile`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-import { STORAGE_STATE } from './e2e-seeded/auth.setup';
+import { STORAGE_STATE } from './e2e-seeded/storage-state';
 
 /**
  * The seeded counterpart to playwright.config.ts.
@@ -18,9 +18,6 @@ import { STORAGE_STATE } from './e2e-seeded/auth.setup';
  */
 export default defineConfig({
   testDir: './e2e-seeded',
-  // The setup file is a project, not a spec; without this it would also run as
-  // an ordinary test inside `chromium` and sign in a second time.
-  testIgnore: /auth\.setup\.ts/,
   // One test at a time, across the whole suite.
   //
   // Every spec here shares one database and one dev user, and three of them
@@ -61,9 +58,14 @@ export default defineConfig({
     // M5b (ADR 0037): the API is closed, so somebody has to sign in first. A
     // setup project rather than a `beforeEach` — it runs once for the suite,
     // and every spec inherits the cookie through `storageState`.
-    { name: 'setup', testMatch: /auth\.setup\.ts/, use: { baseURL: 'http://localhost:3000' } },
+    { name: 'setup', testMatch: /auth\.setup\.ts/ },
     {
       name: 'chromium',
+      // The ignore belongs to *this* project, not to the config. At config
+      // level it applies to every project including `setup`, which leaves the
+      // setup project matching nothing — the suite then runs signed out and
+      // every spec fails on an unrelated assertion.
+      testIgnore: /auth\.setup\.ts/,
       use: { ...devices['Desktop Chrome'], storageState: STORAGE_STATE },
       dependencies: ['setup'],
     },

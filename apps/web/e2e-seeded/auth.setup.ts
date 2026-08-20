@@ -1,5 +1,6 @@
 import { expect, test as setup } from '@playwright/test';
-import path from 'node:path';
+
+import { STORAGE_STATE } from './storage-state';
 
 /**
  * Sign in once, and hand every other spec the cookie. M5b, ADR 0037.
@@ -20,8 +21,6 @@ import path from 'node:path';
  * loads, and the direct `request.get(API + …)` calls the specs make to derive
  * their expectations, because `API` points at the same origin.
  */
-
-export const STORAGE_STATE = path.join(import.meta.dirname, '.auth', 'seeded.json');
 
 const EMAIL = process.env.DEV_USER_EMAIL ?? 'dev@nightshift.local';
 const PASSWORD = process.env.DEV_USER_PASSWORD ?? 'nightshift-demo-password';
