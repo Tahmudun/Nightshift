@@ -27,6 +27,14 @@ interface Job {
   readonly company: { readonly canonical_name: string };
   readonly locations: readonly Location[];
 }
+
+/** The `sources.name` and `sources.source_type` M5a gives every capture. */
+const CAPTURED = 'manual_capture';
+
+interface Capture {
+  readonly status: string;
+  readonly job_id: string | null;
+}
 interface Stats {
   readonly total_jobs: number;
   readonly mappable_locations: number;
@@ -143,6 +151,47 @@ test.describe('seeded corpus in the browser', () => {
   test('the fixture source is labelled as a fixture, not as a live feed (I7)', async ({ page }) => {
     await page.goto('/operate');
     await expect(page.getByText('committed fixture').first()).toBeVisible();
+  });
+
+  test('the seeded capture is on its job page, badged as added by hand (I7)', async ({ page }) => {
+    // M5a. `make seed` pastes one real posting and confirms it, so the capture
+    // path is walkable from `make demo` rather than only from a person with
+    // something in their clipboard. This is the end of that chain: a job in
+    // the corpus, reached the ordinary way, saying out loud that it did not
+    // arrive from a poll.
+    //
+    // The job is found through the API rather than named here, so the test
+    // tracks the seed instead of a snapshot of it.
+    const { captures, total } = await api<{ captures: Capture[]; total: number }>(
+      '/capture?status=confirmed',
+    );
+    expect(total, 'the seed must plant exactly one confirmed capture — `make seed` prints it').toBe(
+      1,
+    );
+    const jobId = captures[0]!.job_id;
+    expect(
+      jobId,
+      'a confirmed capture carries a job; the schema refuses one that does not',
+    ).not.toBeNull();
+
+    await page.goto(`/explore/jobs/${jobId}`);
+    await expect(page.getByTestId('captured-badge')).toBeVisible();
+    // The sentence is the part that matters more than the badge: a captured
+    // posting cannot be closed by the freshness machinery, because nothing
+    // ever asks the page it came from a second time.
+    await expect(page.getByText(/Nothing re-reads it/)).toBeVisible();
+  });
+
+  test('the source health table does not call that capture a live feed (I7)', async ({ page }) => {
+    // The badge and this label are two screens describing one source, and
+    // until M5a they disagreed: `/operate` had a binary — fixture, or else
+    // live — so the first captured posting to reach the seeded corpus was
+    // labelled with the same word as `greenhouse`.
+    await page.goto('/operate');
+    const row = page.getByRole('row').filter({ hasText: CAPTURED });
+    await expect(row).toBeVisible();
+    await expect(row.getByText('added by hand')).toBeVisible();
+    await expect(row.getByText('live', { exact: true })).toHaveCount(0);
   });
 
   test('the corpus readout reports zero mappable locations rather than hiding it', async ({
