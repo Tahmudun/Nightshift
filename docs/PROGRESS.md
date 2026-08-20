@@ -656,6 +656,58 @@ request — real added server work in exactly the suite designed to run with no
 API. The two runs above are 13 seconds apart on six minutes, which is noise. It
 costs nothing measurable.
 
+**The milestone's real regression, and it was mine: a shared city link
+deselected itself.** Fixed at `dbc036a`. Opening `/explore/city?job=…` cold
+adopted the selection, showed the detail panel, and a second later deleted the
+parameter from the URL and cleared the selection — `city.md` §5.6's shareable
+selection, broken by a login screen.
+
+**The bug is M4c's; the reachability is M5b's.** `CityDetail`'s sync effect can
+re-run between `select()` and React re-rendering with the result. In that window
+the render's `selected` is still `null` while the store already holds the
+adopted deep link, so the write-back branch read that as "the city deselected"
+and wrote the emptiness out. Without an auth gate the second run always landed
+*after* the re-render, so the race never fired. Putting a session check ahead of
+the page changed the mounting order and made it certain.
+
+**That is the generalisable part and it is not about auth.** An async gate in
+front of a page does not merely delay the page — it re-orders effect runs
+against state propagation, and turns latent races into reliable failures. M5c's
+MCP surface and M9's Overworld will both put more gates in front of more pages.
+
+**The codebase had already solved half of it.** The adopt branch three lines
+above reads `useCityScene.getState().selected`, commented *"Read the live value
+rather than the render's."* Whoever wrote that understood the hazard exactly and
+fixed the branch where it had bitten them; the write-back branch kept comparing
+the stale value. Both read live now.
+
+**Found by instrumentation, not by reading.** Two confident theories were both
+wrong: a scene-store reset (`scene.ts` explicitly refuses to clear the selection
+and its comment names this exact URL-deletion symptom), and Fast Refresh
+remounting (a real confound — creating a file anywhere in `apps/web` rebuilds
+the dev server mid-test — but not the cause). Logging what the effect actually
+decided gave the answer in one run:
+
+```
+run 1: first=true  url=<jobId> agreed=undefined selected=null  live=null     -> adopt
+run 2: first=false url=<jobId> agreed=<jobId>   selected=null  live=<jobId>  -> WRITES URL null
+```
+
+**`make test-e2e-seeded` is green: 87 passed, 1 skipped, 0 failed** — under a
+load average of 27, so the result is robust rather than lucky. `city.spec.ts`
+is 29/29.
+
+**The four defects in the seeded suite's own sign-in scaffolding are recorded at
+`3b7a7a1`**, and they share one cause worth stating: `make lint` and `make
+typecheck` are green on every one, because neither loads a Playwright config. A
+config-load crash is the worst shape of failure available there — `EXIT=2` with
+a Node stack trace and no test counts reads as "something went wrong" rather
+than "nothing was verified." **A check is not an execution**, and for anything
+that only runs inside another program's loader — a Playwright config, a FastAPI
+request, a migration — running it is the only verification that counts. That is
+the same lesson the uncommitted session token taught earlier in this slice, in a
+different place.
+
 **Two questions were opened rather than answered quietly** — Q10 (password
 reset needs an email sender, which needs a domain and an account) and Q11
 (nothing rate-limits sign-in; my recommendation is M7 unless somebody gets an
