@@ -20,6 +20,7 @@ wrong, and the first where the reporter was the seed itself.
 from __future__ import annotations
 
 import argparse
+import asyncio
 from typing import Any
 
 import pytest
@@ -67,3 +68,52 @@ def _returning(count: int) -> Any:
         return count
 
     return _count
+
+
+def test_the_seed_refuses_to_run_in_production(
+    monkeypatch: pytest.MonkeyPatch, capsys: Any
+) -> None:
+    """A demo account with a published password must not reach a real deployment.
+
+    Found in the M5b review. `cmd_seed` plants two accounts at fixed UUIDs and
+    gives both `settings.dev_user_password`, whose default is the string
+    `nightshift-demo-password` — then prints it. It did that unconditionally,
+    against whatever database `NIGHTSHIFT_DATABASE_URL` named.
+
+    **The dangerous shape is not the fresh install, it is the second run.**
+    `set_password` sits outside the "did this user already exist" branch,
+    deliberately, because it is an upsert. So seeding a stack that already has
+    those accounts *resets* their passwords to the default rather than skipping
+    them. On a deployed instance that is an unauthenticated stranger with a
+    working login, created by a command whose name sounds like it only loads
+    fixture jobs.
+
+    M5b is the milestone that decided a deployed product has no business
+    handing its corpus to a stranger, and A16 put multi-user correctness in
+    scope from M5 precisely because it is "a property of being deployable at
+    all". This is the same rule one command over.
+
+    The precedent is `Settings._forbid_dev_password_in_production`, which
+    already refuses to *start* with a development database password. This
+    refuses to *seed* for the same reason and in the same words.
+    """
+    monkeypatch.setattr(cli, "_canonical_job_count", _returning(31))
+    monkeypatch.setattr(cli, "get_settings", _settings_in("production"))
+
+    assert asyncio.run(cli.cmd_seed(argparse.Namespace())) == 1
+    assert "refusing to seed" in capsys.readouterr().err
+
+
+def _settings_in(env: str) -> Any:
+    """`get_settings` returning a copy of the real settings with `env` swapped.
+
+    A copy rather than a stub: every other field the seed reads — the fixture
+    paths, the two user ids, the demo password — has to stay real, or this
+    tests a mock of the settings object rather than the guard.
+    """
+    from nightshift.config import get_settings as real_get_settings
+
+    def _get() -> Any:
+        return real_get_settings().model_copy(update={"nightshift_env": env})
+
+    return _get

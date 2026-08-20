@@ -598,6 +598,24 @@ async def cmd_seed(args: argparse.Namespace) -> int:
     ``*_fixture`` source, per ADR 0004.
     """
     settings = get_settings()
+
+    # M5b review. This command plants two accounts at fixed UUIDs, gives both
+    # `dev_user_password` — default `nightshift-demo-password` — and prints it.
+    # `set_password` is an upsert sitting outside the "already exists" branch,
+    # so a second run against a live deployment *resets* those two logins to
+    # the published default rather than skipping them. A command that reads as
+    # "load the fixture jobs" would hand a stranger a working account.
+    #
+    # Same rule and same words as `Settings._forbid_dev_password_in_production`,
+    # which already refuses to start with a development database password.
+    if settings.nightshift_env == "production":
+        print(
+            "refusing to seed: this command creates demo accounts with a published "
+            "password and NIGHTSHIFT_ENV is 'production'. Use `nightshift users create`.",
+            file=sys.stderr,
+        )
+        return 1
+
     fixture_path = FIXTURE_DIR / "datadog_board.json"
     lever_fixture_path = LEVER_FIXTURE_DIR / "alloy_board.json"
     ashby_fixture_path = ASHBY_FIXTURE_DIR / "ramp_board.json"
