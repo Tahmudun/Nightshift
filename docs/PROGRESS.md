@@ -34,11 +34,17 @@
 **M4c: Tasks 1, 2, 3 and 4 are done. The placement join and `GET /city/signals` (ADR 0024, which resolves a real conflict between I1 and `city.md` §4.4 rather than papering over it), the Three.js signal layer in MapLibre's own context (ADR 0025), and the field made legible, navigable and sortable. New York now has every open role floating above it, untethered, and none on a building — see `docs/reviews/milestone-4c-signals.png` and `docs/reviews/milestone-4c-roster.png`. Task 4 then made a role reachable: picking by raycast against the frame's own matrix, a reticle, a detail panel, and one selection shared by the list and the map (ADR 0027) — `docs/reviews/milestone-4c-selection.png`.**
 **Docker's daemon is no longer wedged.** It was force-quit and relaunched on 2026-08-12. `make up` was then run **from cold** — containers removed with `docker compose down` first — and created both from scratch to healthy, exit 0. **That closes the last open step in M4b's acceptance chain**; container startup is now proven rather than assumed. The seeded corpus survived and matches what this file records: 31 canonical jobs, 62 `job_locations`, 44 `city_only` + 18 `remote`, 0 mappable.
 **Current milestone: M5 — The Open Hand (A16), on `m5b-identity`.**
-**M5b is BUILT and awaiting its acceptance run** — `user_credentials`,
-`user_sessions`, argon2id, `/auth/sign-in|token|sign-out|me`, default-deny on
-every router, `nightshift users create`, a seed that plants **two** accounts,
-the Next.js proxy, a sign-in gate, and the enumerating isolation test that is
-the milestone's whole point. ADR 0037. See "2026-08-20" below.
+**M5b is BUILT and REVIEWED** — `user_credentials`, `user_sessions`, argon2id,
+`/auth/sign-in|token|sign-out|me`, default-deny on every router,
+`nightshift users create`, a seed that plants **two** accounts, the Next.js
+proxy, a sign-in gate, and the enumerating isolation test that is the
+milestone's whole point. ADR 0037. See "2026-08-20" below.
+**The review found three defects and all three are fixed**, each shown red
+first: a cookie lifetime and a session-row lifetime kept as two constants and a
+comment, a `seed` command that planted a published password in any environment
+including production, and a config comment describing a variable the same slice
+deleted. `docs/reviews/milestone-5b-review.md`. **What remains for M5b is CI
+and the PR, not code.**
 **AMENDMENTS A3 is retired.** Single-user mode is over: `current_user_id` no
 longer returns `settings.dev_user_id` and no setting restores it.
 **M5a is COMPLETE** — domain, schema, three routes, the paste form, the
@@ -718,7 +724,128 @@ last rung of the three rather than the next.
 
 ## Next exact action
 
-### Current milestone: **M5 — The Open Hand**, on `m5a-manual-capture`. M5a is complete — domain, schema, routes, form, badge and seed. M5b (identity) is next.
+### Current milestone: **M5 — The Open Hand**, on `m5b-identity`. M5a and M5b are both built. M5b is reviewed and its three findings are fixed. **The next action is not the PR: `make test-e2e-seeded` has three red tests and nobody has established whether they are M5b's.**
+
+> **START HERE, NEXT SESSION.** `make check` is green (2128 Python, 799 web) and
+> `make verify` is green (109 checks, real sign-in over a real socket). The
+> seeded browser suite is **not**: **84 passed, 3 failed, 1 skipped**, where this
+> file records 87 passed / 0 failed. The three are all in
+> `apps/web/e2e-seeded/city.spec.ts`:
+>
+> | Test | Symptom |
+> |---|---|
+> | `every control in the right rail can actually be clicked` (:473) | `Keyboard` button — "click action done, waiting for scheduled navigations to finish", 10s timeout |
+> | `the rail is still usable with a role selected` (:500) | same button, same timeout |
+> | `the seeded applications reach the skyline as §6 marks` (:837) | `marks.ring` expected > 0, received **0** |
+>
+> **What is known.** They reproduce. Run alone on an idle machine the file is
+> **4 failed / 25 passed** — *worse* than in the full suite, which kills the
+> load-sensitivity theory that explains the frame timer and the scale guard.
+> The fourth (`a selection keeps the query it was made under`, :654) appeared
+> only in the isolated run, so there is some nondeterminism on top.
+>
+> **What is NOT known, and this is the important part: whether M5b caused
+> them.** The baseline comparison — the same spec at `7675d11`, the commit
+> before this session's fixes — **was started and never finished.** Nothing in
+> the three fixes plausibly reaches MapLibre (a one-second change to a cookie's
+> `max_age`, a guard that only fires under `NIGHTSHIFT_ENV=production`, and two
+> comments), but *plausibly* is not evidence and this project has a long record
+> of confident wrong diagnoses. **Run the baseline first. Do not open the PR
+> until this is answered.**
+>
+> Two hypotheses worth having, neither tested: `verify` runs between `seed` and
+> the seeded suite and mutates profile and scores (it claims to restore them),
+> and `marks.ring == 0` points at application *stage*, which is what §6 draws a
+> ring for.
+
+**2026-08-20, this session: M5b was reviewed and it found three defects, all
+fixed, each shown red first.** `docs/reviews/milestone-5b-review.md` has the
+whole of it. The review's own finding is that the slice diagnosed one problem
+correctly and then did not carry the diagnosis across itself:
+
+> **A fact that lives in two places is not one fact. It is two facts that
+> happen to agree today, and nothing tells you the day they stop.**
+
+ADR 0037 §4a is that argument, about `require_session` and `current_user_id`.
+Two more instances of the identical shape shipped anyway.
+
+1. **The cookie's lifetime and the session row's lifetime were two constants
+   and a comment.** `_set_cookie` sized `Max-Age` from
+   `Settings.session_lifetime_days`; `create_session` set `expires_at` from
+   `identity.SESSION_LIFETIME`. Both default to 30, so every test agreed and
+   the disagreement was only reachable by editing `.env` — where it is
+   silent in both directions and reads as a bug rather than as configuration.
+   Set to 7, the test printed **"the cookie lasts 604800s and the session row
+   lasts 2592000s"**. Fixed structurally: the setting is the authority, both
+   routes pass it through one `_lifetime()` helper, and the cookie's `max_age`
+   is computed from the row that was actually minted. `/auth/token` did not
+   read `Settings` at all before this — the same divergence a second time.
+2. **`nightshift seed` created accounts with a published password in any
+   environment, and this is the serious one.** It plants two accounts at fixed
+   UUIDs, gives both `dev_user_password` (default `nightshift-demo-password`)
+   and prints it, against whatever database `NIGHTSHIFT_DATABASE_URL` names.
+   **The dangerous shape is the second run**: `set_password` is an upsert
+   sitting outside the "already exists" branch, so seeding a live deployment
+   *resets* those two logins to the published default rather than skipping
+   them. Forced to `production`, the unfixed command ran to completion and
+   printed `both accounts sign in with the password 'nightshift-demo-password'`.
+   Now exits 1, naming `nightshift users create`. The precedent was already in
+   the codebase — `Settings._forbid_dev_password_in_production` refuses to
+   *start* with a dev database password; this refuses to *seed*.
+3. **`next.config.ts` documented a variable the same slice deleted** — it
+   claimed `NEXT_PUBLIC_API_BASE_URL` "still exists for the Playwright specs",
+   and both halves are false. Trivial except for where it sits: four lines
+   above the rewrite that makes the cookie work, in the file somebody opens
+   when a session breaks in a deployment.
+
+**Two things the review left open on purpose**, both recorded so M13 need not
+rediscover them: a session is never *renewed* (the expiry is absolute, because
+renewal is a write on a read path — which is what got `last_seen_at` deleted
+earlier in this same slice), and expired sessions are never collected (one row
+a month at one account; a sweeper now would be §8's imaginary scale).
+
+**The stale-shell finding, and it is a real trap rather than an anecdote.**
+**Twenty-nine** background shells were left running by the previous session,
+every one of them a wait loop of the form:
+
+```
+until ! pgrep -f "playwright test"; do sleep 15; done
+```
+
+`pgrep -f` matches the pattern against *full command lines* — **including the
+waiting shell's own**, which contains the literal text `playwright test`. Every
+one matched itself, so the condition was never false and none of them ever
+exited. Some had been spinning for hours. Write it as
+`pgrep -f "playwright[ ]test"` — the bracket makes the shell's own copy of the
+string not match the regex — or match on a PID instead of a pattern.
+
+They are invisible in casual inspection because they are just `zsh`, so a
+`ps | grep pytest` does not show them. `ps -eo pid,command | grep shell-snapshots`
+is what finds them.
+
+**A second process finding, and it cost this session its clean evidence.**
+Ad-hoc `pytest` runs and `make check` share one Postgres, and running both at
+once produced a real `DeadlockDetectedError` inside the suite. **A test run that
+overlaps another test run is not evidence** — the first `make check` of the
+session had to be thrown away and re-run with nothing else touching the
+database. This is Q8 with a second face: Q8 is about `make check` wiping
+`company_locations`, this is about two suites corrupting each other's results,
+and both come from the suite and the dev stack sharing a database. It
+strengthens the case for the separate test database Q8 asks about.
+
+**The session's own worst mistake, recorded because the next one should not
+repeat it.** All of this work sat uncommitted for hours, and was then
+`git stash`ed in order to run a baseline comparison — putting finished,
+verified work at risk to answer a question that could have been answered after
+committing it. Nothing was lost. **Commit verified work before running the next
+experiment**, always: the experiment is the thing that might go wrong, not the
+work.
+
+**`company_locations` was wiped by `make check` and is back to 2 rows** —
+`make seed` replants the offices (ADR 0036, "a confirmed office is seeded, not
+remembered"), so the Q8 wipe self-heals on the next seed. `geocode_cache` is
+still cold; `make offices` refills it and needs the network to do so. See
+`docs/runbooks/the-city-went-empty.md`.
 
 **2026-08-19: the project became a product, and the milestones were re-cut.**
 The goal is no longer a portfolio piece for one person — it is something other
