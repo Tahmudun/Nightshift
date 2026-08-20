@@ -7,6 +7,86 @@ the date, because the reasoning is usually worth more than the decision.
 
 ---
 
+## Q10 — Sending email costs money. Which means no password reset. For how long?
+
+**Raised:** 2026-08-20 (M5b) · **Type:** cost / account · **Blocking:** no
+
+M5b built accounts. It did **not** build password reset or email verification,
+and both are blocked on the same thing: something that can send an email.
+
+**What is missing today, stated plainly.** If you mistype your address when
+creating an account, or forget your password, nothing in this system can help
+you. There is no reset link because there is nowhere to send one. That is
+tolerable right now — you are the only account and it is created at a prompt on
+your own machine — and it is a hard blocker for the "eventually anyone" you
+asked for.
+
+**What it costs.** All three usual options have a free tier that comfortably
+covers a product with tens of users:
+
+| | Free tier | Then |
+|---|---|---|
+| Resend | 3,000 emails/month, 100/day | $20/month |
+| AWS SES | 3,000/month for 12 months | ~$0.10 per 1,000 |
+| Postmark | 100/month | $15/month |
+
+**Why it is not free the way everything else here is.** Every other dependency
+in this project runs on your machine — the tiles, the embeddings, the geocoder
+fallback. Email cannot: sending mail that arrives requires a reputable IP, and
+that is the thing you are renting. Running our own mail server is possible and
+lands in spam folders, which is worse than not sending.
+
+**Two things I need from you, and you can answer either separately:**
+
+1. **A domain.** Reset mail from `@gmail.com` gets filtered. This needs an
+   address at a domain you control, which is also the thing M7's deploy will
+   need — so it is one purchase, not two.
+2. **Which provider**, and an account on it. I would take **Resend**: the free
+   tier is the largest of the three at the volume that matters, and it is the
+   least configuration.
+
+**What I will do until you answer**, and it is not nothing: accounts stay
+closed, created by `nightshift users create`, which prompts rather than mailing.
+Invite-only can also ship without email if the invite is a link you hand
+somebody directly. **Open sign-up cannot** — that is the rung this question
+blocks, and it is the last one on your list rather than the next.
+
+---
+
+## Q11 — Nothing rate-limits sign-in. Before or after the first deploy?
+
+**Raised:** 2026-08-20 (M5b) · **Type:** security / scope · **Blocking:** no
+
+A real gap, named rather than discovered later.
+
+**What is true.** Sign-in has no rate limit. Somebody can try passwords against
+`/auth/sign-in` as fast as the API answers. argon2id makes each attempt cost
+real CPU — roughly 50ms — so this is expensive rather than free, and the 12
+character minimum means a dictionary is not enough. But "expensive" is not
+"prevented", and enough attempts against a weak password will find it.
+
+**Why it is not built.** It needs somewhere to count attempts, Redis is already
+running, and it is perhaps an afternoon. I did not build it in M5b because M5b
+had one acceptance criterion — two users cannot see each other's data — and a
+rate limiter does not move it. Doing it badly is also worse than not doing it:
+a limiter keyed on IP alone locks out an office, and one keyed on email alone
+lets anybody lock **you** out of your own account by failing your sign-in.
+
+**The actual question is when, and there are only two sensible answers:**
+
+- **Now**, if you intend to hand somebody an invite before M7. The moment a
+  second person has an account on a machine you do not own, this stops being
+  theoretical.
+- **At M7**, with the first public deploy, which is where it belongs on the
+  merits — alongside HTTPS, a real domain, and the `secure` cookie flag that
+  only becomes true off `localhost`.
+
+**What I would pick, asked directly:** M7. Nothing is reachable from outside
+your machine until then, so there is no attacker with a route to the endpoint.
+If you plan to invite somebody sooner, say so and I will move it.
+
+---
+
 ## Q9 — The reference's sky is 70% of the frame. Ours can be 17% or 36%. Which?
 
 **Raised:** 2026-08-18 (M4e Task 3) · **Type:** product / look · **Blocking:** no

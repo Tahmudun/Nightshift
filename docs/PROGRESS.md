@@ -33,7 +33,14 @@
 **M4c Task 5 is done: the city speaks §6, and says what it is saying.** The table is one pure function (`treatments.ts`), the beacons carry per-instance colour, strength and pulse rate through a shader, four instanced meshes draw the marks §6 puts *on* a body, and an in-interface legend documents all thirteen rows — including the four that are not drawn, each with its reason. ADR 0028. `docs/reviews/milestone-4c-treatments.png` is the screenshot. Three defects were found by looking rather than by a test: a closed torus whose rotation was invisible by construction, a spin folded into the billboard that rolled every arc out of the camera plane, and a saved outline drawn cyan — which is exactly what ADR 0027's standing instruction ruled out.
 **M4c: Tasks 1, 2, 3 and 4 are done. The placement join and `GET /city/signals` (ADR 0024, which resolves a real conflict between I1 and `city.md` §4.4 rather than papering over it), the Three.js signal layer in MapLibre's own context (ADR 0025), and the field made legible, navigable and sortable. New York now has every open role floating above it, untethered, and none on a building — see `docs/reviews/milestone-4c-signals.png` and `docs/reviews/milestone-4c-roster.png`. Task 4 then made a role reachable: picking by raycast against the frame's own matrix, a reticle, a detail panel, and one selection shared by the list and the map (ADR 0027) — `docs/reviews/milestone-4c-selection.png`.**
 **Docker's daemon is no longer wedged.** It was force-quit and relaunched on 2026-08-12. `make up` was then run **from cold** — containers removed with `docker compose down` first — and created both from scratch to healthy, exit 0. **That closes the last open step in M4b's acceptance chain**; container startup is now proven rather than assumed. The seeded corpus survived and matches what this file records: 31 canonical jobs, 62 `job_locations`, 44 `city_only` + 18 `remote`, 0 mappable.
-**Current milestone: M5 — The Open Hand (A16), on `m5a-manual-capture`.**
+**Current milestone: M5 — The Open Hand (A16), on `m5b-identity`.**
+**M5b is BUILT and awaiting its acceptance run** — `user_credentials`,
+`user_sessions`, argon2id, `/auth/sign-in|token|sign-out|me`, default-deny on
+every router, `nightshift users create`, a seed that plants **two** accounts,
+the Next.js proxy, a sign-in gate, and the enumerating isolation test that is
+the milestone's whole point. ADR 0037. See "2026-08-20" below.
+**AMENDMENTS A3 is retired.** Single-user mode is over: `current_user_id` no
+longer returns `settings.dev_user_id` and no setting restores it.
 **M5a is COMPLETE** — domain, schema, three routes, the paste form, the
 "added by hand" badge, and a seed that plants one captured posting. See
 "2026-08-19, later" below for what it caught. **Superseded 2026-08-19:** this line read *"M4 — the living city, and the
@@ -413,6 +420,176 @@ still exits non-zero on this machine**, at `test-e2e`, which runs before
 
 ---
 
+
+**2026-08-20: M5b — identity. A3 is retired and the door is shut by default.**
+ADR 0037. The milestone's acceptance is *"two users cannot see each other's
+data, proved by a test shown able to fail"*, and that test is the artifact
+worth reading rather than the login form.
+
+**A3's promise held on the schema and not on the tests, and I predicted the
+wrong number.** A3 said auth would be *"an adapter plus a middleware, not a
+migration of every table"*. On the schema that is exactly right: two new tables
+and **no existing table altered**, because every user-owned table has carried a
+real `user_id` since its own first migration.
+
+**On the test suite I claimed the blast radius was "≈ zero" and it was 145
+failures.** Recording the mistake rather than the tidy version, because the
+cause was a design flaw and not a test-fixture detail:
+
+- Seven route-test files already override `current_user_id`, which is what led
+  me to the estimate. But `require_session` — the new router-level guard —
+  depended on `current_user`, **a different function**. Overriding one left the
+  other resolving a real session that was not there, so every one of those
+  tests 401ed.
+- The failure is the smaller half. The shape it implies is the larger one: two
+  independent entry points into "who is this" that anything replacing one can
+  desynchronise, so a handler could believe it is serving A while the guard
+  believes nobody is signed in. **Fixed by making `require_session` depend on
+  `CurrentUserId`** — one seam, so the two cannot disagree. That single line
+  turned 84 of the failures green.
+- The rest were `test_routes.py`, `test_city_routes.py` and
+  `test_company_routes.py`, which test the corpus routes — open before this
+  milestone, closed by it. Those failures are the decision working, not a
+  defect, and each fixture now names a caller.
+
+**What was built:**
+
+- `user_credentials` — `(user_id, method)` with `method` a PG enum holding one
+  value. **`users` has no `password_hash` and will not get one**, which is the
+  direct answer to *"can be email + password for now but eventually that should
+  change"*: adding Google later is an INSERT, not an `ALTER TABLE`, and a
+  person who uses both is still one person.
+- `user_sessions` — a hashed token, an expiry, a revocation stamp. Rows rather
+  than JWTs because a JWT cannot be revoked and M13 will ask for "sign out
+  everywhere". SHA-256 rather than argon2, deliberately the opposite of the
+  choice one table over: a password is short and human-chosen so slowness is
+  the defence, a 256-bit CSPRNG token has no dictionary to slow down.
+- **Default-deny at the router**, not per handler. `/jobs` and `/city/signals`
+  are behind it too — a deployed product has no business handing its whole
+  corpus to a stranger. A route added in M5c is protected because it exists.
+- **`current_user_id` raises.** No flag, no environment, no fallback.
+- **No `POST /auth/register`, and no disabled one.** Registration is closed on
+  the human's call — *"for now, just me. soon invite-only, eventually anyone"* —
+  so accounts come from `nightshift users create`, which prompts rather than
+  taking `--password` (a flag lands in shell history and in `ps`).
+- The browser now reaches the API through **the web app's own origin**, via a
+  Next.js rewrite. Not cosmetic: `localhost:3000` and `127.0.0.1:8000` are
+  different *sites*, so a `SameSite=Lax` cookie set by the API is never sent
+  back, and the alternative needs HTTPS that local development does not have.
+
+**The isolation test enumerates rather than lists.** It reads the application's
+own route table out of its OpenAPI schema and requires **every one of 48
+routes** to carry an explicit classification — `open`, `owned`, `listing`,
+`global` or `writes`. A route with no entry fails the suite, so adding an
+endpoint in M5c without deciding what isolation means for it turns CI red
+instead of passing quietly. Signed in as A, every route is called with B's
+identifiers, and the assertion is **a substring scan of the whole response
+body** for any UUID B owns — not a field check, because a field check only
+inspects the fields somebody thought of.
+
+It also does **not** override `current_user_id`. It signs in over HTTP like a
+person. Overriding it would be testing the route filters against a stub of the
+very thing this milestone built.
+
+**Shown able to fail, four ways:**
+
+| Mutation | Result |
+|---|---|
+| Delete one `.where(Application.user_id == user_id)` in `_load` | **7 routes red** |
+| Restore the dev-user fallback in `deps.py` | **43 routes red** |
+| Include the `jobs` router outside the default-deny loop | **3 routes red** |
+| Add a route with no isolation case | **classification test red** |
+
+**The third mutation is the finding, and it was produced rather than
+reasoned.** Removing `require_session` from the `jobs` router turned three of
+its four routes red — not four. `GET /jobs/{job_id}` stayed green because its
+handler *also* declares `CurrentUserId` and 401s on its own. The two guards
+overlap, neither is redundant, and neither alone covers the surface. That is
+the argument for keeping both, and I did not have it until the mutation
+produced it.
+
+**The worst defect in the slice: a 200 carrying a credential that was never
+real.** `get_db_session` deliberately commits nothing — *"read paths get a
+plain session and commit nothing; write routes commit explicitly. An implicit
+commit-on-response makes it impossible to tell from a handler's body whether it
+writes."* `/auth/sign-in` and `/auth/token` flushed and never committed, so the
+token went back to the browser and **the row it named was rolled back when the
+request ended.** Sign-out had the same shape: it cleared the cookie and left
+the session usable by anybody holding the token.
+
+**Every test passed.** They pass because the fixture yields one open
+transaction shared by the sign-in and the request after it, so the uncommitted
+row is visible to both. `make verify` is what caught it — it starts a real
+server and signs in over a real socket, and eleven checks came back 401 after a
+green "✓ signed in". This is the M5a lesson again in a new place: *a green test
+sitting on top of a feature no person could use*, and the only instrument that
+finds it is the one that does not share the harness.
+
+**`last_seen_at` is gone, for the same reason, found while fixing the first.**
+`resolve_session` stamped it on every resolution, for a future "signed in on
+these devices" screen. Resolving a session is a read path, so the stamp was
+never persisted — and on any request that *did* commit for unrelated reasons,
+it would have been. A column written non-deterministically is worse than no
+column. M13 can add one with a write path that runs.
+
+**Three more things went wrong that produce no error, and one of them was mine
+in the design rather than in the code.**
+
+1. **The session gate blanked the honest degraded path, and that was the real
+   defect.** The first draft of `SessionGate` replaced the whole application
+   whenever `/auth/me` failed *for any reason* — including "the API is not
+   running". M0 built the opposite on purpose: with no API the shell renders,
+   the nav works, the telemetry strip says "api unreachable", and each region
+   says it could not load rather than showing an empty state that reads as
+   "there are no jobs". `e2e/shell.spec.ts` is entirely about that behaviour,
+   and the first draft would have taken all of it out — while sending a person
+   whose server is down to type credentials at something that cannot check
+   them, so they conclude their password is wrong. **The gate now keys on a
+   definite 401 and never on "I could not ask."** Found by reading the offline
+   suite rather than by running it.
+2. **`GET /auth/me` returned the account's `created_at` under the name
+   `expires_at`.** `SessionOut` carried an expiry, `/auth/me` knows the account
+   and not the session row, and rather than run a second query the first draft
+   filled the field with the nearest timestamp to hand. That is a fabricated
+   field of exactly the kind I1 exists to forbid, in a schema rather than in a
+   location. Split into `IdentityOut` and `SessionOut`.
+3. **`NIGHTSHIFT_ENV=test` would have set `Secure` on the cookie, and CI runs
+   over plain HTTP.** The first rule was `secure = env != "development"`, which
+   reads sensibly and signs out CI: a browser does not store a `Secure` cookie
+   from an `http://` origin. Chrome happens to except `localhost`, so it might
+   have passed — relying on one browser's exception to keep CI green is not a
+   policy. The rule is now `env == "production"`.
+
+**A stated limit, recorded as a test rather than as prose.** The enumeration
+reads the OpenAPI schema, and FastAPI's own `/docs`, `/redoc`,
+`/openapi.json` and the OAuth redirect are not in it — so they are open and
+this module does not cover them. They describe the API's shape rather than
+anybody's data. `test_the_only_uncovered_routes_are_fastapis_own_docs` pins the
+set at exactly those four, so a fifth cannot appear quietly. Closing them
+belongs with M7's deploy, beside HTTPS and the `secure` flag.
+
+**Two seeded accounts changed arithmetic three checks depended on**, and each
+was the check asking the wrong question rather than the seed being wrong.
+`match_results` is per (user, job), so the corpus holds 64 rows and not 32.
+`verify.py`'s `score_count()` counted everybody's, and its sweep comparison used
+`recompute_pending`'s **global** return value against a per-person expectation —
+so "editing a scoring input withdraws every score" read 64 → 32 and called it a
+failure, when the other person's scores were correctly still there. Both are now
+scoped to the signed-in account, which is what they always meant.
+
+**`NEXT_PUBLIC_API_BASE_URL` is retired.** Nothing read it once the browser
+started calling `/api/ns/*` on its own origin. It is replaced by `API_ORIGIN`,
+which is deliberately **not** a `NEXT_PUBLIC_` variable — that prefix inlines a
+value into the browser bundle, which would publish the API's internal address
+to every visitor.
+
+**Two questions were opened rather than answered quietly** — Q10 (password
+reset needs an email sender, which needs a domain and an account) and Q11
+(nothing rate-limits sign-in; my recommendation is M7 unless somebody gets an
+invite sooner). Neither blocks. Open sign-up is blocked on Q10, and it is the
+last rung of the three rather than the next.
+
+---
 
 ## Next exact action
 
