@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from nightshift.api.routes import (
     applications,
+    capture,
     city,
     companies,
     health,
@@ -60,6 +61,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(jobs.router)
     app.include_router(city.router)
+    app.include_router(capture.router)
     app.include_router(matches.router)
     app.include_router(sources.router)
     app.include_router(companies.router)

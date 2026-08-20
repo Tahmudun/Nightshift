@@ -346,6 +346,39 @@ produce no error until they do:**
 3. **M5c — the MCP server.** ADR required.
 4. **M5d — assisted capture from LinkedIn/Indeed**, user-initiated and
    session-bound, never a poller.
+5. **M5e — addresses without typing. Promoted on the human's call 2026-08-19:
+   *"it's a prominent problem and needs to be fixed."*** This was M4e Task 9 and
+   I had argued its priority *drops* under A16. **That was wrong, and for a
+   reason I missed rather than a matter of taste**: the worksheet is a file one
+   person edits. It was adequate for one user and it cannot ship in a product,
+   because no product asks its users to research and type their employers'
+   street addresses. It is not tedious, it is structurally blocking.
+
+   The architecture already sanctions the fix and nobody built it —
+   `city.md` §4.4 decided "OSM proposing and a human confirming", and
+   `company_locations` has carried `confirmed_by` and `confirmed_at` since M4a
+   waiting for it. What A16 adds is the part that makes it *scale*:
+
+   - **A proposal ladder, none of it authoritative.** Nominatim/OSM and Wikidata
+     both name company offices, both are free and keyless, and both are — in
+     §4.4's words — good enough to propose and never to confirm. When the user's
+     Claude is linked, it proposes too: "where is Ramp's New York office" is
+     exactly the question the MCP surface is for, and it is the same pattern as
+     M5d's capture.
+   - **Confirmation stays, and gets cheap.** I1 does not bend: a building is
+     still a fact somebody agreed to. But confirming a proposed address is one
+     click against a map, not twenty minutes of research and a YAML edit.
+   - **A confirmation is shared, and that is the whole unlock.** `companies` and
+     `company_locations` are global, exactly like `jobs`. One person confirming
+     Ramp's office lights that building **for everyone**, permanently. Two
+     confirmed offices is a one-person ceiling; it is not a hundred-person one,
+     and the corpus gets better as the product gets used rather than as one
+     person types.
+
+   Sequenced after M5c because the MCP rung is the best of the three and comes
+   free once that server exists. Needs its own ADR — the proposal ladder, why a
+   proposal may never auto-promote, and what `confirmed_by` means when the
+   confirmer is not the reader.
 
 **M4e is paused, not abandoned.** What remains of it is below and is still
 correct; A16 moves the M4d tuning work into M7 so it is measured against a real
