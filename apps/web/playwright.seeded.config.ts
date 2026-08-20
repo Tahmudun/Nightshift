@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+import { STORAGE_STATE } from './e2e-seeded/auth.setup';
+
 /**
  * The seeded counterpart to playwright.config.ts.
  *
@@ -16,6 +18,9 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './e2e-seeded',
+  // The setup file is a project, not a spec; without this it would also run as
+  // an ordinary test inside `chromium` and sign in a second time.
+  testIgnore: /auth\.setup\.ts/,
   // One test at a time, across the whole suite.
   //
   // Every spec here shares one database and one dev user, and three of them
@@ -52,7 +57,17 @@ export default defineConfig({
     baseURL: 'http://localhost:3000',
     trace: 'on-first-retry',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    // M5b (ADR 0037): the API is closed, so somebody has to sign in first. A
+    // setup project rather than a `beforeEach` — it runs once for the suite,
+    // and every spec inherits the cookie through `storageState`.
+    { name: 'setup', testMatch: /auth\.setup\.ts/, use: { baseURL: 'http://localhost:3000' } },
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'], storageState: STORAGE_STATE },
+      dependencies: ['setup'],
+    },
+  ],
   webServer: [
     {
       command: 'npm run dev',

@@ -49,6 +49,53 @@ GREEN, RED, DIM, RESET = "\033[32m", "\033[31m", "\033[2m", "\033[0m"
 
 failures: list[str] = []
 
+#: The bearer token this run authenticates with, filled in by `sign_in()`.
+#:
+#: M5b (ADR 0037) closed every route except `/health` and `/auth`, so `verify`
+#: has to sign in like anything else. It uses the bearer path rather than the
+#: cookie one because `urllib` has no cookie jar here and because that is the
+#: path a non-browser client takes — the same one M5c's MCP server will use, so
+#: this script exercises it on every acceptance run rather than leaving it
+#: covered only by unit tests.
+TOKEN: str | None = None
+
+#: The signed-in account's id. Needed because the corpus now holds more than one
+#: person's rows — `make seed` plants two accounts so `make demo` can show that
+#: they cannot see each other — and a check about "my scores" that counts
+#: everybody's is asserting the wrong number.
+USER_ID: str | None = None
+
+
+def auth_headers() -> dict[str, str]:
+    return {"Authorization": f"Bearer {TOKEN}"} if TOKEN else {}
+
+
+def sign_in() -> bool:
+    """Get a token for the seeded demo account. Fails loudly rather than 401ing.
+
+    A failure here would otherwise surface as forty unrelated checks reporting
+    401, which says "the API is broken" when the truth is "the seed did not
+    run" or "the password is not the one in .env".
+    """
+    global TOKEN, USER_ID
+    email = os.environ.get("DEV_USER_EMAIL", "dev@nightshift.local")
+    password = os.environ.get("DEV_USER_PASSWORD", "nightshift-demo-password")
+    status_code, body = send_json(
+        "/auth/token", "POST", {"email": email, "password": password}
+    )
+    if status_code == 200 and isinstance(body, dict) and body.get("access_token"):
+        TOKEN = str(body["access_token"])
+        me_code, me = get_json("/auth/me")
+        if me_code != 200 or not isinstance(me, dict):
+            return check(False, "signed in", f"GET /auth/me returned {me_code}")
+        USER_ID = str(me["id"])
+        return check(True, "signed in", f"as {email}")
+    return check(
+        False,
+        "signed in",
+        f"POST /auth/token returned {status_code} for {email} — has `make seed` run?",
+    )
+
 
 def check(ok: bool, label: str, detail: str = "") -> bool:
     mark = f"{GREEN}✓{RESET}" if ok else f"{RED}✗{RESET}"
@@ -61,7 +108,9 @@ def check(ok: bool, label: str, detail: str = "") -> bool:
 def get_json(path: str, timeout: float = 10.0) -> tuple[int, Any]:
     import json
 
-    request = urllib.request.Request(f"{BASE}{path}", headers={"Accept": "application/json"})
+    request = urllib.request.Request(
+        f"{BASE}{path}", headers={"Accept": "application/json", **auth_headers()}
+    )
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
             return response.status, json.loads(response.read())
@@ -80,7 +129,7 @@ def send_json(
     import json
 
     body = None if payload is None else json.dumps(payload).encode()
-    headers = {"Accept": "application/json"}
+    headers = {"Accept": "application/json", **auth_headers()}
     if body is not None:
         headers["Content-Type"] = "application/json"
     request = urllib.request.Request(
@@ -98,7 +147,7 @@ def send_json(
 
 def send_delete(path: str, timeout: float = 10.0) -> int:
     """DELETE, returning only the status. A 204 has no body to decode."""
-    request = urllib.request.Request(f"{BASE}{path}", method="DELETE")
+    request = urllib.request.Request(f"{BASE}{path}", method="DELETE", headers=auth_headers())
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
             return int(response.status)
@@ -1239,9 +1288,21 @@ async def check_match_results() -> None:
         }
 
     async def score_count() -> int:
+        """How many scores **this account** has.
+
+        Scoped to `USER_ID` since M5b. `make seed` plants two accounts, so an
+        unscoped count is 64 where the checks below mean 32 — and "editing a
+        scoring input withdraws every score" would read as a failure because
+        the *other* person's scores are, correctly, still there.
+        """
         async with engine.begin() as connection:
             return int(
-                (await connection.execute(sql("SELECT count(*) FROM match_results"))).scalar_one()
+                (
+                    await connection.execute(
+                        sql("SELECT count(*) FROM match_results WHERE user_id = :user_id"),
+                        {"user_id": USER_ID},
+                    )
+                ).scalar_one()
             )
 
     code, before_profile = get_json("/profile")
@@ -1263,7 +1324,14 @@ async def check_match_results() -> None:
         # Everything before this point in `main` has changed a profile column or
         # a confirmed skill at least once, so the table is empty by now. Putting
         # it back is this check's first act rather than an assumption.
-        restored = await rescore_corpus()
+        await rescore_corpus()
+        # Counted per account, not taken from the sweep's return value. The
+        # sweep reports pairs scored **across every user**, and `make seed`
+        # plants two — so on the first sweep it reports both people's work and
+        # on a later one only this person's. Comparing those two numbers is
+        # what made "the sweep rebuilds what the edit removed" fail at M5b,
+        # with nothing wrong except the arithmetic.
+        restored = await score_count()
         if not check(restored > 0, "the corpus scores", f"{restored} pair(s) scored"):
             return
 
@@ -1542,12 +1610,13 @@ async def check_match_results() -> None:
             f"{empty_ranking['not_yet_scored']} awaiting the sweep",
         )
 
-        again = await rescore_corpus()
+        await rescore_corpus()
+        again = await score_count()
         code, rescored = get_json(f"/jobs/{subject['job']['id']}")
         check(
             again == restored and rescored.get("match") is not None,
             "the sweep rebuilds what the edit removed",
-            f"{again} pair(s) rescored",
+            f"{again} of this account's pair(s) rescored",
         )
 
         # And the sweep really read the new profile, rather than rebuilding the
@@ -1692,6 +1761,11 @@ def main() -> int:
     try:
         if not wait_for_api(api):
             print(f"  {RED}✗{RESET} API did not start within 45s")
+            return 1
+        # First, because every check after it needs a session (ADR 0037), and a
+        # failure here should say so once rather than forty times.
+        if not sign_in():
+            print(f"    {DIM}every check below needs a session; stopping here.{RESET}")
             return 1
         verify_http()
         check_application_tracking()

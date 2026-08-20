@@ -37,7 +37,16 @@ import { expect, test } from '@playwright/test';
 
 test.describe.configure({ mode: 'serial' });
 
-const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000';
+/**
+ * The API, reached through the web app's own origin (M5b, ADR 0037).
+ *
+ * Was `http://127.0.0.1:8000`. It moved because the API now requires a session
+ * and the session is a first-party cookie on `localhost:3000` — a request
+ * straight to the API's own host would carry no cookie and get a 401. Going
+ * through the rewrite is also the path the browser takes, so these setup calls
+ * and the pages they set up for now agree about what they are talking to.
+ */
+const API = '/api/ns';
 
 /** `next dev` compiles a dynamic route on first request (see search-and-detail.spec.ts). */
 const FIRST_COMPILE = 30_000;

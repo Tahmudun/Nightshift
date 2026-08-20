@@ -348,7 +348,14 @@ jobs:
       NIGHTSHIFT_ENV: test
       OUTBOUND_HTTP_ENABLED: 'false'
       HTTP_USER_AGENT: 'Nightshift/0.1-ci (+https://github.com/Tahmudun/Nightshift)'
-      NEXT_PUBLIC_API_BASE_URL: 'http://127.0.0.1:8000'
+      # The browser reaches the API through the Next rewrite (M5b, ADR 0037).
+      # This is the rewrite's server-side target; it is deliberately not a
+      # NEXT_PUBLIC_ variable, which would be inlined into the browser bundle.
+      API_ORIGIN: 'http://127.0.0.1:8000'
+      # Must match what `make seed` sets, or `auth.setup.ts` cannot sign in and
+      # the whole seeded suite fails on an unrelated assertion.
+      DEV_USER_EMAIL: 'dev@nightshift.local'
+      DEV_USER_PASSWORD: 'nightshift-demo-password'
     steps:
       - uses: actions/checkout@v4
 
