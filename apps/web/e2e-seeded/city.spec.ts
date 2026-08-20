@@ -470,6 +470,42 @@ test('the sort control is a radio group a keyboard can reach', async ({ page }) 
   await expect(name).toHaveAttribute('aria-checked', 'false');
 });
 
+/**
+ * The budget for the two occlusion checks below.
+ *
+ * These ask one question — can a pointer actually reach this control, or is
+ * something drawn on top of it — and they are the only tests in this file that
+ * click several controls in a row, which is what made them the ones to fail.
+ *
+ * **Measured, 2026-08-20, on this suite's own headless Chromium.** The city
+ * animates continuously, so every frame re-renders the whole Three.js scene and
+ * the bloom pass over it; with no GPU that is a software rasteriser doing
+ * ~600-800ms of work per frame. The page runs at **1.8fps**, the main thread is
+ * never free for longer than a fraction of a second, and a single click was
+ * measured taking 6.5s to 9.6s against a 10s budget. Which control went red was
+ * decided by which stall it landed in, so the failure moved between runs and
+ * read as four different bugs.
+ *
+ * This is not the product being slow — `docs/reviews/milestone-4e-*` records
+ * p50 37.9ms on a real GPU — and it is the same reason `debug.ts` refuses to
+ * assert a frame-time threshold here at all.
+ *
+ * **A longer budget does not weaken what these assert.** The failure they exist
+ * to catch is a control another element covers, which Playwright reports as
+ * "intercepts pointer events"; more time makes such a run slower to go red,
+ * never green. The budget only decides whether a slow city is allowed to look
+ * like a covered one.
+ *
+ * `reducedMotion: 'reduce'` would be the better lever — it stops the map
+ * repainting and the same four clicks take 48ms to 1.3s — but it belongs to a
+ * browser context, and `test.use` on this project did not reach the page: the
+ * run still rendered the orbit button, so the emulation was not applied and the
+ * budget was doing all the work. Recorded rather than left as a silently
+ * ineffective line. `the city stops moving under prefers-reduced-motion` below
+ * builds its own context, which is the shape that does work.
+ */
+const CLICK = { timeout: 30_000 };
+
 test('every control in the right rail can actually be clicked', async ({ page }) => {
   await openCity(page);
   await cityHasSignals(page);
@@ -484,13 +520,13 @@ test('every control in the right rail can actually be clicked', async ({ page })
   //
   // Playwright's actionability check fails a click that another element would
   // intercept, so each of these is an occlusion assertion.
-  await page.getByRole('button', { name: 'Reset view' }).click({ timeout: 10_000 });
-  await page.getByRole('button', { name: 'Keyboard' }).click({ timeout: 10_000 });
-  await page.getByRole('button', { name: 'Hide keys' }).click({ timeout: 10_000 });
-  await page.getByRole('radio', { name: 'Openings' }).click({ timeout: 10_000 });
+  await page.getByRole('button', { name: 'Reset view' }).click(CLICK);
+  await page.getByRole('button', { name: 'Keyboard' }).click(CLICK);
+  await page.getByRole('button', { name: 'Hide keys' }).click(CLICK);
+  await page.getByRole('radio', { name: 'Openings' }).click(CLICK);
 
   const roster = page.getByRole('region', { name: /who is hiring/i });
-  await roster.getByRole('button').first().click({ timeout: 10_000 });
+  await roster.getByRole('button').first().click(CLICK);
 
   // And the counts panel at the foot of the rail is still on screen with all
   // of that above it, rather than pushed off the bottom.
@@ -510,13 +546,11 @@ test('the rail is still usable with a role selected', async ({ page }) => {
   await page.mouse.click(beacon.x, beacon.y);
   await expect(page.getByTestId('city-detail')).toBeVisible({ timeout: 15_000 });
 
-  await page.getByRole('button', { name: 'Reset view' }).click({ timeout: 10_000 });
-  await page.getByRole('button', { name: 'Keyboard' }).click({ timeout: 10_000 });
-  await page.getByRole('button', { name: 'Hide keys' }).click({ timeout: 10_000 });
-  await page.getByRole('radio', { name: 'Newest' }).click({ timeout: 10_000 });
-  await page.getByTestId('city-detail').getByRole('button', { name: 'Close' }).click({
-    timeout: 10_000,
-  });
+  await page.getByRole('button', { name: 'Reset view' }).click(CLICK);
+  await page.getByRole('button', { name: 'Keyboard' }).click(CLICK);
+  await page.getByRole('button', { name: 'Hide keys' }).click(CLICK);
+  await page.getByRole('radio', { name: 'Newest' }).click(CLICK);
+  await page.getByTestId('city-detail').getByRole('button', { name: 'Close' }).click(CLICK);
 
   await expect(page.getByTestId('city-detail')).toHaveCount(0);
 });
