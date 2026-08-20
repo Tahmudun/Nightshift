@@ -664,3 +664,80 @@ test('a role nobody applied to and nobody posted this week still draws, and stil
   // that a healthy field.
   expect(field).toBeLessThan(FIELD_FRACTION_MAX);
 });
+
+/**
+ * The sort control reorders the field, against a corpus chosen to tell the
+ * two orderings apart.
+ *
+ * This assertion lived in `city.spec.ts` against the seeded corpus until M5a,
+ * where it had **stopped being able to fail**. The unresolved field there
+ * holds four employers with 9, 1, 1 and 1 roles, and the one with 9 is also
+ * the alphabetically first — so ordering by openings is a stable sort over
+ * three ties and returns the *same* order the name sort did. The test asked
+ * for a change that could not happen, and the product was right.
+ *
+ * That is M4c Task 6's lesson arriving a second time: **a corpus that cannot
+ * produce a failure cannot test the guard against it.** So the corpus here is
+ * chosen — 1, 5 and 3 roles across three employers, alphabetically ascending
+ * and numerically neither — and the first assertion is the one that proves it
+ * discriminates, before anything is clicked.
+ */
+test('the sort control reorders the field, and reorders nothing else', async ({ page }) => {
+  const serve = await stubSignals(page);
+
+  // Roles per employer, in the order their names sort. Deliberately not
+  // monotonic: 1, 5, 3 makes the alphabetical order and the openings order two
+  // different permutations, which is the whole point of the fixture.
+  const SPREAD = [1, 5, 3];
+  const roles: Signal[] = [];
+  SPREAD.forEach((count, employer) => {
+    for (let n = 0; n < count; n += 1) roles.push(role(roles.length, employer));
+  });
+  serve(roles);
+
+  await openCity(page);
+  await cityHasLayer(page);
+  await expect.poll(() => drawn(page), { timeout: 30_000 }).toBe(roles.length);
+
+  const read = () =>
+    page.evaluate((key) => {
+      const city = window[key as typeof CITY_DEBUG_KEY]!;
+      return {
+        drawn: city.signals.drawn,
+        names: city.signals.columns.map((column) => column.name),
+        // Parallel to `names`, in column order — never sorted here. Returning
+        // it sorted and then indexing it as though it were parallel is the
+        // defect this file's seeded ancestor was written to catch.
+        counts: city.signals.columns.map((column) => column.jobIds.length),
+      };
+    }, CITY_DEBUG_KEY);
+
+  const byName = await read();
+  expect(byName.names).toEqual([...byName.names].sort((a, b) => a.localeCompare(b)));
+  // Non-vacuity, and it is the assertion that makes the rest of this test
+  // worth running: on a corpus where the two orders coincide, everything below
+  // passes against a control that does nothing at all.
+  expect(
+    byName.counts,
+    'the fixture no longer distinguishes the two orderings — see the note above',
+  ).not.toEqual([...byName.counts].sort((a, b) => b - a));
+
+  await page.getByRole('radio', { name: 'Openings' }).click();
+
+  await expect
+    .poll(async () => (await read()).names.join('|'), {
+      timeout: 30_000,
+      message: 'the field never reordered after the sort was changed',
+    })
+    .not.toBe(byName.names.join('|'));
+
+  const byOpenings = await read();
+  // Tallest first, read off the instance buffer's own columns — so this is the
+  // assertion that the *scene* reordered rather than only the list beside it.
+  expect(byOpenings.counts).toEqual([...byOpenings.counts].sort((a, b) => b - a));
+
+  // An ordering is not a filter. The same roles are on the city before and
+  // after, or the sort control is quietly hiding part of the corpus.
+  expect(byOpenings.drawn).toBe(byName.drawn);
+  expect([...byOpenings.counts].sort()).toEqual([...byName.counts].sort());
+});

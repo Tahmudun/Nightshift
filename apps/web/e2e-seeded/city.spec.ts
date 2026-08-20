@@ -33,12 +33,45 @@ interface Signals {
   }[];
 }
 
-/** How many unresolved roles the city should actually be drawing right now. */
+/**
+ * How many roles the city should actually be drawing right now.
+ *
+ * **Every placement, not only the unresolved ones.** This counted `kind ===
+ * 'unresolved'` from M4c until M5a, which was the whole corpus while no
+ * company had a confirmed office. The offices came back on 2026-08-19 (ADR
+ * 0036) and twenty roles moved onto two roofs — so this started returning a
+ * number twenty short of what the renderer correctly drew, and three tests
+ * below have been red ever since, describing a city this product stopped
+ * being. The seeded suite needs a database, so nothing re-ran it.
+ */
 async function expectedBeacons(): Promise<number> {
   const [body, archived] = await Promise.all([signalsFromApi(), archivedJobIds()]);
-  return body.signals.filter(
-    (signal) => signal.placement.kind === 'unresolved' && !archived.has(signal.job_id),
-  ).length;
+  return body.signals.filter((signal) => !archived.has(signal.job_id)).length;
+}
+
+/** The first instance in the buffer that is a role standing on nothing. */
+async function firstUnresolvedInstance(page: Page): Promise<number> {
+  const unresolved = new Set(
+    (await signalsFromApi()).signals
+      .filter((signal) => signal.placement.kind === 'unresolved')
+      .map((signal) => signal.job_id),
+  );
+  expect(unresolved.size, 'a corpus with nothing floating cannot check the field').toBeGreaterThan(
+    0,
+  );
+  const index = await page.evaluate(
+    ([key, ids]) => {
+      const city = window[key as typeof CITY_DEBUG_KEY]!;
+      for (let i = 0; i < city.signals.drawn; i += 1) {
+        const jobId = city.signals.jobAt(i);
+        if (jobId !== null && (ids as string[]).includes(jobId)) return i;
+      }
+      return -1;
+    },
+    [CITY_DEBUG_KEY, [...unresolved]] as const,
+  );
+  expect(index, 'no instance in the buffer draws an unresolved role').toBeGreaterThanOrEqual(0);
+  return index;
 }
 
 /**
@@ -101,7 +134,7 @@ async function cityHasSignals(page: Page) {
     .toBeGreaterThan(0);
 }
 
-test('every unresolved role reaches the instance buffer', async ({ page }) => {
+test('every role reaches the instance buffer', async ({ page }) => {
   // Every one the archive toggle is not hiding, since Task 5: §6 keeps
   // rejections off the skyline by default, so the endpoint's own total is no
   // longer the number that should be drawn.
@@ -139,16 +172,20 @@ test('the beacons are drawn where the field put them, above every building', asy
   await openCity(page);
   await cityHasSignals(page);
 
-  // Project the first instance back through MapLibre's own camera and ask what
-  // altitude it is at. This is the assertion that catches the anchor transform
-  // being wrong — a mirrored or mis-scaled field still produces the right
-  // *number* of beacons, in entirely the wrong place.
-  const altitude = await page.evaluate((key) => {
-    const city = window[key as typeof CITY_DEBUG_KEY]!;
-    // The scene stores metres relative to the anchor; instance 0 is the first
-    // role of the alphabetically first employer.
-    return city.signals.altitudeOf(0);
-  }, CITY_DEBUG_KEY);
+  // Read back the altitude of an instance the field placed — not instance 0.
+  // This asked for instance 0 until M5a, which was an unresolved role while
+  // every role was unresolved; the offices came back and instance 0 became a
+  // role standing on a roof at 310 m, so this asserted the unresolved field's
+  // floor against a building placement that is entitled to be below it.
+  //
+  // The assertion itself is the one that catches the anchor transform being
+  // wrong — a mirrored or mis-scaled field still produces the right *number*
+  // of beacons, in entirely the wrong place.
+  const index = await firstUnresolvedInstance(page);
+  const altitude = await page.evaluate(
+    ([key, i]) => window[key as typeof CITY_DEBUG_KEY]!.signals.altitudeOf(i as number),
+    [CITY_DEBUG_KEY, index] as const,
+  );
 
   // §4.8: the absence of a ground connection is the whole message, and One
   // World Trade is 541 m. A signal that can hide behind a tower reads as being
@@ -294,7 +331,23 @@ test('the name plates keep facing the camera as it turns', async ({ page }) => {
   ).toBe(55);
 });
 
-test('reordering the field changes the order and not the roles', async ({ page }) => {
+test('the sort control is served the whole corpus, whichever order it asks for', async ({
+  page,
+}) => {
+  // **The ordering claim itself moved to `e2e/city-acceptance.spec.ts` at
+  // M5a**, and the move is the finding. This test used to require that
+  // choosing Openings produced a *different* order from the default, and it
+  // had stopped being able to fail: the unresolved field in the seeded corpus
+  // is four employers holding 9, 1, 1 and 1 roles, and the one with 9 is also
+  // the alphabetically first — so ordering by openings is a stable sort over
+  // three ties and correctly returns the order the name sort already gave.
+  // The test asked the product for a change that could not happen.
+  //
+  // A corpus that cannot produce a failure cannot test the guard against it
+  // (M4c Task 6), so the guard is now tested against a corpus chosen to tell
+  // the two orderings apart, and what stays here is what the *real* corpus can
+  // still say: the default order is alphabetical, and switching the sort is
+  // not a filter.
   await openCity(page);
   await cityHasSignals(page);
 
@@ -305,10 +358,9 @@ test('reordering the field changes the order and not the roles', async ({ page }
         drawn: city.signals.drawn,
         names: city.signals.columns.map((c) => c.name),
         // Parallel to `names`, in column order. It used to be returned sorted
-        // and then indexed as though it were parallel, which made the
-        // "tallest first" assertion below compare a name's position against
-        // somebody else's height — an assertion that could only pass or fail
-        // by accident. Found while adding selection.
+        // and then indexed as though it were parallel, which made a "tallest
+        // first" assertion compare a name's position against somebody else's
+        // height — an assertion that could only pass or fail by accident.
         counts: city.signals.columns.map((c) => c.jobIds.length),
       };
     }, CITY_DEBUG_KEY);
@@ -317,21 +369,14 @@ test('reordering the field changes the order and not the roles', async ({ page }
   expect(byName.names).toEqual([...byName.names].sort((a, b) => a.localeCompare(b)));
 
   await page.getByRole('radio', { name: 'Openings' }).click();
-
-  await expect
-    .poll(async () => (await read()).names.join('|'), {
-      message: 'the field never reordered after the sort was changed',
-    })
-    .not.toBe(byName.names.join('|'));
-
-  const byOpenings = await read();
-  // Tallest first. This is the assertion that the *scene* reordered, not just
-  // the list — it reads the instance buffer's own columns.
-  expect([...byOpenings.counts]).toEqual([...byOpenings.counts].sort((a, b) => b - a));
+  // Settle on the count rather than on the order: this corpus is entitled to
+  // return the same order, and waiting for one it cannot produce is what the
+  // old version of this test did for fifteen seconds before failing.
+  await expect.poll(async () => (await read()).drawn).toBe(byName.drawn);
 
   // An ordering is not a filter. The same roles are on the city before and
   // after, or the sort control is quietly hiding part of the corpus.
-  expect(byOpenings.drawn).toBe(byName.drawn);
+  const byOpenings = await read();
   expect([...byOpenings.counts].sort()).toEqual([...byName.counts].sort());
   expect([...byOpenings.names].sort()).toEqual([...byName.names].sort());
 });

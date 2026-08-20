@@ -86,20 +86,27 @@ test.describe('search and filters', () => {
   }) => {
     // M3b Task 11, and it asserts a defect that was written and then caught.
     //
-    // The seeded corpus holds exactly one internship — "Software Engineer
-    // Internship, Android" — whose title states no season. Filtering by Summer
-    // therefore returns nothing, and the first version of this page rendered
-    // the caveats only in the branch that has rows. So the screen said "No
-    // roles match these filters" and nothing else: the product asserting there
-    // are no summer internships, when the truth is that its one internship
-    // never says when it runs.
+    // No internship in the seeded corpus states a season in its title, so
+    // filtering by Summer returns nothing — and the first version of this page
+    // rendered the caveats only in the branch that has rows. The screen said
+    // "No roles match these filters" and nothing else: the product asserting
+    // there are no summer internships, when the truth is that neither of its
+    // internships says when it runs.
+    //
+    // The assertion is count-agnostic on purpose. It named the singular
+    // wording until M5a, when `make seed` planted a second season-less
+    // internship (the captured posting) and the caveat correctly pluralised —
+    // so a test about *whether the caveat renders at all* went red over a
+    // change to how many roles it counts.
     //
     // This is the browser check, because the component test cannot see which
     // branch the real page takes.
     await page.goto('/explore?internship_season=summer');
 
     await expect(page.getByText(/no roles match these filters/i)).toBeVisible();
-    await expect(page.getByText(/does not say when it runs/i)).toBeVisible();
+    await expect(
+      page.getByText(/further internships? (does|do) not say when (it runs|they run)/i),
+    ).toBeVisible();
   });
 
   test('the skill filter states what it is based on, on the page', async ({ page }) => {
@@ -174,10 +181,14 @@ test.describe('detail pages', () => {
       .first()
       .click();
     await page.waitForURL(/\/explore\/jobs\//, { timeout: FIRST_COMPILE });
-    await page
-      .getByRole('link', { name: /datadog|alloy|ramp/i })
-      .first()
-      .click();
+    // The employer link by where it goes, not by who the employer is. This
+    // named the three seeded boards until M5a, when `make seed` planted a
+    // captured posting from a fourth employer and it happened to sort first
+    // among the roles whose title says "engineer" — so the step above landed
+    // on a real job page and this one waited thirty seconds for a name that
+    // was never going to be there. A corpus this suite reads at run time
+    // everywhere else should not be spelled out here.
+    await page.locator('a[href^="/explore/companies/"]').first().click();
     await page.waitForURL(/\/explore\/companies\//, { timeout: FIRST_COMPILE });
     for (const state of ['open', 'possibly_stale', 'unverified', 'closed']) {
       await expect(page.getByTestId(`count-${state}`)).toBeVisible();
