@@ -140,6 +140,26 @@ class SourceType(enum.StrEnum):
     ATS_ASHBY = "ats_ashby"
     GOVERNMENT = "government"
     FIXTURE = "fixture"
+    #: A posting a person handed us (M5a, A16). Not polled, not discovered, and
+    #: never refreshed — nothing re-reads the page it came from, so a captured
+    #: posting can never be aged out by a poll that did not happen. I3 applies
+    #: with more force here than anywhere else: silence about a captured job is
+    #: the *only* thing we will ever hear about it.
+    MANUAL_CAPTURE = "manual_capture"
+
+
+class CaptureStatus(enum.StrEnum):
+    """A captured posting is a proposal until a person says otherwise.
+
+    The same shape as ``ExtractionStatus`` and for the same reason: a table of
+    proposals kept apart from the corpus of facts makes "no parser bug can
+    create a job" a property of the schema rather than a claim about every
+    write path.
+    """
+
+    PENDING = "pending"
+    CONFIRMED = "confirmed"
+    DISCARDED = "discarded"
 
 
 class EmploymentType(enum.StrEnum):

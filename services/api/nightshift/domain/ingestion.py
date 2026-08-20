@@ -50,6 +50,7 @@ from nightshift.db.base import (
     SourceStatus,
 )
 from nightshift.db.models import (
+    CapturedPosting,
     Company,
     IngestionRun,
     Job,
@@ -759,6 +760,23 @@ async def merge_jobs(
         link.job_id = winner.id
         link.match_confidence = verdict.confidence
         link.link_reason = verdict.reason
+
+    # M5a: a captured posting points at the job it produced, and that job can
+    # lose a merge like any other. Re-point it for the same reason the source
+    # links above are re-pointed — the capture did produce a real opening, and
+    # after this merge the winner *is* that opening.
+    #
+    # This is not optional bookkeeping. ``captured_postings.job_id`` is
+    # ``ON DELETE SET NULL`` under a constraint that a confirmed row must carry
+    # a job, so leaving it pointing at the loser does not merely lose a link —
+    # the delete below nulls it and the check constraint aborts the merge.
+    captures = (
+        (await session.execute(select(CapturedPosting).where(CapturedPosting.job_id == loser.id)))
+        .scalars()
+        .all()
+    )
+    for capture in captures:
+        capture.job_id = winner.id
 
     # The winner keeps the earlier discovery date: it is the same opening, and
     # the earlier sighting is the true one. Overwriting it with the later of the

@@ -54,6 +54,7 @@ from nightshift.db.base import (
     ApplicationStage,
     Base,
     BoardTier,
+    CaptureStatus,
     EligibilityState,
     EmploymentType,
     EventActor,
@@ -1871,3 +1872,89 @@ class MatchEvidence(UUIDPrimaryKeyMixin, Base):
     )
 
     match_result: Mapped[MatchResult] = relationship(back_populates="evidence")
+
+
+class CapturedPosting(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """A posting a person handed us, before anybody agreed it is real.
+
+    M5a / AMENDMENTS A16. Every other row in ``source_job_records`` arrived
+    because a provider served it at a URL we can go back to. This one arrived
+    because somebody pasted it, which changes two things and only two:
+
+    1. **Nothing can re-read it.** There is no board to poll, so freshness and
+       closure have no signal here. I3 already says silence is not evidence a
+       job closed; for a captured posting silence is *all there is*.
+    2. **The parse can be wrong in a way a provider's JSON cannot.** Greenhouse
+       tells us which string is the company. Pasted text does not, and guessing
+       wrong is not a cosmetic error: a company name resolves to a company,
+       which resolves to that company's confirmed office, which puts a beacon
+       on a **building**. A misparsed employer is invariant I1 violated through
+       the side door, so no proposed field is trusted until a person confirms.
+
+    ``proposed_*`` is what the parser offered and what the form was seeded
+    with. It is **not** what got created — confirmation submits the values the
+    person actually approved, and those go straight to the normalizer. These
+    columns are kept so a bad parse is diagnosable after the fact rather than
+    overwritten by the correction.
+
+    **Why this does not mirror ``resume_extractions``.** That table stores one
+    row per extracted fact with a span, and a trigger that refuses a row whose
+    span does not literally quote the résumé. It earns that machinery because a
+    résumé yields dozens of facts a person accepts individually against a
+    highlighted document. A capture is one short form reviewed against text the
+    person pasted seconds ago and can still see. The guarantee that matters is
+    identical and is enforced here by ``confirmed_rows_carry_a_job``: a row
+    cannot claim to be confirmed without pointing at the job it produced, and
+    cannot point at a job without being confirmed.
+
+    The capture is user-owned; the **job it produces is not**. A posting is
+    public information and the corpus is shared, exactly as it is for polled
+    boards. What stays private is the application — that lives in
+    ``applications`` behind a ``user_id``, and nothing here changes it.
+    """
+
+    __tablename__ = "captured_postings"
+    __table_args__ = (
+        CheckConstraint("length(btrim(raw_text)) > 0", name="capture_has_text"),
+        CheckConstraint(
+            "(status = 'confirmed') = (job_id IS NOT NULL)",
+            name="confirmed_rows_carry_a_job",
+        ),
+        CheckConstraint(
+            "(status = 'pending') = (decided_at IS NULL)",
+            name="decided_rows_carry_a_time",
+        ),
+        Index("ix_captured_postings_user_id_status", "user_id", "status"),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    #: Verbatim, exactly as pasted. The same contract as
+    #: ``source_job_records.raw_payload``: the parse is always re-derivable, so
+    #: a parser bug is a backfill rather than "ask the user to paste it again".
+    raw_text: Mapped[str] = mapped_column(Text, nullable=False)
+    #: Where the person says it came from. Never fetched — see the class note.
+    source_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+
+    status: Mapped[CaptureStatus] = mapped_column(
+        _enum(CaptureStatus, "capture_status"),
+        nullable=False,
+        server_default=CaptureStatus.PENDING.value,
+    )
+
+    #: What the parser offered. NULL means it declined to guess, which is a
+    #: real answer and the one the parser is biased toward.
+    proposed_title: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    proposed_company_name: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    proposed_location_text: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    #: Pinned so a proposal can be judged against the parser that made it.
+    parser_version: Mapped[str] = mapped_column(String(40), nullable=False)
+
+    job_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("jobs.id", ondelete="SET NULL"), nullable=True
+    )
+    decided_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
