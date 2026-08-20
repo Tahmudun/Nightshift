@@ -8,6 +8,7 @@ resolves, a sign-out that does not sign out.
 
 from __future__ import annotations
 
+import re
 import uuid
 from collections.abc import AsyncIterator
 from datetime import timedelta
@@ -21,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from nightshift.api.deps import SESSION_COOKIE, current_user, session_token
 from nightshift.api.main import create_app
+from nightshift.config import Settings, get_settings
 from nightshift.db.models import User, UserCredential, UserSession
 from nightshift.db.session import get_db_session
 from nightshift.db.types import utcnow
@@ -382,3 +384,74 @@ async def test_anonymous_health_still_answers(client: AsyncClient) -> None:
     response = await client.get("/health/live")
     assert response.status_code != 401
     assert response.status_code < 400
+
+
+@_async
+async def test_the_cookie_expires_when_the_session_row_does(
+    db_session: AsyncSession, user: User
+) -> None:
+    """The browser's `Max-Age` and the row's `expires_at` are one fact, not two.
+
+    Found in the M5b review. `Settings.session_lifetime_days` is a real,
+    range-validated setting (1-365) and it sized the cookie's `max-age`, while
+    the row's `expires_at` came from `identity.SESSION_LIFETIME`, a module
+    constant nothing passed the setting into. A comment on the field said the
+    two "mirror" each other. Nothing enforced it, and both default to 30, so
+    the disagreement is invisible until somebody sets the value.
+
+    Both ways it breaks are silent and neither looks like configuration:
+
+    * **Longer than 30** — the browser keeps sending a token the server
+      expired. The person is signed out mid-session holding a cookie that still
+      looks good, and it reads as a bug.
+    * **Shorter than 30** — the browser drops the cookie while the row stays
+      resolvable for the rest of the thirty days. The setting reads as "how
+      long a sign-in lasts" and it shortens only the browser's memory of it,
+      not the credential's life.
+
+    This is ADR 0037 s4a one floor along: two independent sources of truth for
+    one fact, related by a comment, which anything changing one desynchronises.
+    The cookie is now computed from the session that was actually issued, so
+    they cannot disagree by construction.
+    """
+    lifetime_days = 7
+    settings = Settings(session_lifetime_days=lifetime_days)
+    app = create_app()
+
+    async def _session() -> AsyncIterator[AsyncSession]:
+        yield db_session
+
+    app.dependency_overrides[get_db_session] = _session
+    app.dependency_overrides[get_settings] = lambda: settings
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as http:
+        response = await http.post(
+            "/auth/sign-in", json={"email": user.email, "password": PASSWORD}
+        )
+    app.dependency_overrides.clear()
+
+    assert response.status_code == 200, response.text
+
+    max_age = int(re.search(r"Max-Age=(\d+)", response.headers["set-cookie"]).group(1))  # type: ignore[union-attr]
+
+    row = (
+        await db_session.execute(
+            select(UserSession)
+            .where(UserSession.user_id == user.id)
+            .order_by(UserSession.created_at.desc())
+            .limit(1)
+        )
+    ).scalar_one()
+    row_seconds = (row.expires_at - utcnow()).total_seconds()
+
+    # One second of slack for the time between minting the row and reading it.
+    assert abs(max_age - row_seconds) <= 1, (
+        f"the cookie lasts {max_age}s and the session row lasts {row_seconds:.0f}s. "
+        "A browser that stops sending a live token, or keeps sending a dead one, "
+        "is a sign-in that fails in a way nobody can read as configuration."
+    )
+    # And the setting is what decided it, rather than being decorative.
+    assert abs(max_age - lifetime_days * 24 * 60 * 60) <= 1, (
+        "session_lifetime_days is range-validated config; if it does not size "
+        "the session, it should not exist."
+    )

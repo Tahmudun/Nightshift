@@ -18,6 +18,7 @@ the one surface where half-built is least acceptable.
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -27,7 +28,13 @@ from nightshift.api.deps import SESSION_COOKIE, CurrentUser, session_token
 from nightshift.api.schemas import IdentityOut, SessionOut, SignInIn, TokenOut
 from nightshift.config import Settings, get_settings
 from nightshift.db.session import get_db_session
-from nightshift.domain.identity import authenticate, create_session, revoke_session
+from nightshift.db.types import utcnow
+from nightshift.domain.identity import (
+    IssuedSession,
+    authenticate,
+    create_session,
+    revoke_session,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -41,7 +48,18 @@ _REJECTED = HTTPException(
 )
 
 
-def _set_cookie(response: Response, token: str, settings: Settings) -> None:
+def _lifetime(settings: Settings) -> timedelta:
+    """How long a session issued right now should last.
+
+    `Settings.session_lifetime_days` is the authority and both routes read it
+    through here, so "how long is a sign-in" has one answer rather than one per
+    endpoint. `identity.SESSION_LIFETIME` stays the domain's own default, for
+    callers with no `Settings` to hand.
+    """
+    return timedelta(days=settings.session_lifetime_days)
+
+
+def _set_cookie(response: Response, issued: IssuedSession, settings: Settings) -> None:
     """Put the session token where a browser will carry it and script will not.
 
     ``httponly`` is the one that matters: it is what stops an XSS on any page
@@ -59,14 +77,23 @@ def _set_cookie(response: Response, token: str, settings: Settings) -> None:
     the web app's own origin** — the Next.js rewrite added in M5b.2. Were it
     cross-site, this cookie would simply never be sent, which is the trap that
     decided the proxy.
+
+    ``max_age`` is computed from the session that was actually minted, not from
+    the setting a second time. The M5b review found those were two independent
+    sources of truth for one fact: the cookie read `session_lifetime_days` and
+    the row read `identity.SESSION_LIFETIME`, related by a comment saying they
+    mirror each other and by nothing else. Setting the value to 7 produced a
+    cookie the browser dropped after a week naming a session the server kept
+    for thirty days. Deriving one from the other is what makes them agree by
+    construction rather than by anybody remembering to.
     """
     response.set_cookie(
         SESSION_COOKIE,
-        token,
+        issued.token,
         httponly=True,
         secure=settings.nightshift_env == "production",
         samesite="lax",
-        max_age=int(settings.session_lifetime_days * 24 * 60 * 60),
+        max_age=max(0, int((issued.expires_at - utcnow()).total_seconds())),
         path="/",
     )
 
@@ -83,14 +110,14 @@ async def sign_in(
     if user is None:
         raise _REJECTED
 
-    issued = await create_session(db, user.id)
+    issued = await create_session(db, user.id, lifetime=_lifetime(settings))
     # `get_db_session` commits nothing — read paths get a plain session and
     # write routes commit explicitly, so a handler's body says whether it
     # writes. Signing in writes. Without this the token goes back to the
     # client and the row it names is rolled back when the request ends: a
     # 200 carrying a credential that was never real.
     await db.commit()
-    _set_cookie(response, issued.token, settings)
+    _set_cookie(response, issued, settings)
     return SessionOut(
         id=user.id,
         email=user.email,
@@ -103,6 +130,7 @@ async def sign_in(
 async def issue_token(
     payload: SignInIn,
     db: Annotated[AsyncSession, Depends(get_db_session)],
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> TokenOut:
     """The same exchange, for a client that has no cookie jar.
 
@@ -115,7 +143,7 @@ async def issue_token(
     if user is None:
         raise _REJECTED
 
-    issued = await create_session(db, user.id)
+    issued = await create_session(db, user.id, lifetime=_lifetime(settings))
     await db.commit()  # See `sign_in`. A minted session that is not committed is a lie.
     return TokenOut(access_token=issued.token, expires_at=issued.expires_at)
 

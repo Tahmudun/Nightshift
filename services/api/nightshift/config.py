@@ -73,9 +73,15 @@ class Settings(BaseSettings):
     #: person to be about, and so `make demo` can show that it holds.
     second_user_id: UUID = UUID("00000000-0000-4000-8000-000000000002")
     second_user_email: str = "second@nightshift.local"
-    #: How long a sign-in lasts. Mirrors `domain.identity.SESSION_LIFETIME`,
-    #: which is the authority; this value only sizes the cookie's `max-age` so
-    #: a browser stops sending a token the server would refuse anyway.
+    #: How long a sign-in lasts, and the authority on it. `/auth/sign-in` and
+    #: `/auth/token` both pass it to `create_session`, and the cookie's
+    #: `max-age` is computed from the row that comes back — so the browser's
+    #: copy and the server's cannot disagree.
+    #:
+    #: It used to say it "mirrored" `domain.identity.SESSION_LIFETIME`, and
+    #: mirroring was all it did: the row read the module constant, the cookie
+    #: read this, and setting it to anything but 30 desynchronised them
+    #: silently. See `test_the_cookie_expires_when_the_session_row_does`.
     session_lifetime_days: int = Field(default=30, ge=1, le=365)
 
     # -- Outbound HTTP -----------------------------------------------------
