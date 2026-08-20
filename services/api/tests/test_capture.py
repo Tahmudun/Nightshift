@@ -217,6 +217,15 @@ async def test_the_schema_refuses_a_pending_capture_that_carries_a_job(
     db_session.add(job)
     await db_session.flush()
 
+    # Inside a savepoint, and that is not a detail. `db_session` runs each test
+    # in an outer transaction it rolls back itself, on a **session-scoped**
+    # engine. A bare `db_session.rollback()` here to recover from the expected
+    # IntegrityError tears down that outer transaction rather than this
+    # statement, and the damage outlives the test: the first draft of this file
+    # did exactly that and broke
+    # `test_seed_reports_its_own_failure.py` five hundred tests later, while
+    # passing in isolation and in every small group it was run with.
+    savepoint = await db_session.begin_nested()
     db_session.add(
         CapturedPosting(
             user_id=user.id,
@@ -228,7 +237,7 @@ async def test_the_schema_refuses_a_pending_capture_that_carries_a_job(
     )
     with pytest.raises(IntegrityError, match="confirmed_rows_carry_a_job"):
         await db_session.flush()
-    await db_session.rollback()
+    await savepoint.rollback()
 
 
 @requires_db
