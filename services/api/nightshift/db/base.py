@@ -601,6 +601,24 @@ class EvidenceSource(enum.StrEnum):
     EMBEDDING = "embedding"
 
 
+class CredentialMethod(enum.StrEnum):
+    """How a person proves they are themselves.
+
+    This is an enum on a **separate table** rather than a ``password_hash``
+    column on ``users``, and that is the whole point of it. Sign-in is expected
+    to change — the human said so when M5b was scoped — and every alternative
+    (Google, a passkey) is a second row here beside the password, not an
+    ``ALTER TABLE users`` and not a second account. A person may hold more than
+    one and sign in with either.
+
+    Only ``password`` is implemented. A member is not added until the code that
+    honours it exists, because an enum value nothing can produce is a promise
+    the schema makes and the product does not keep.
+    """
+
+    PASSWORD = "password"
+
+
 def pg_enum_values(enum_cls: type[enum.Enum]) -> list[str]:
     """``values_callable`` helper: store enum *values*, not member names."""
     return [member.value for member in enum_cls]

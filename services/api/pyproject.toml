@@ -33,6 +33,11 @@ dependencies = [
   "pypdf>=5.1",
   # FastAPI needs this to parse a multipart upload at all. Also pure Python.
   "python-multipart>=0.0.20",
+  # M5b: password hashing (ADR 0037). argon2id is the current OWASP default and
+  # the reference implementation is the only sane way to get it — hand-rolling
+  # a password hash is malpractice. Wheels are prebuilt, so `make setup` does
+  # not need a compiler and `make demo` stays offline.
+  "argon2-cffi>=23.1",
 ]
 
 # Deliberately absent until the milestone that needs them, per CLAUDE.md §8:
