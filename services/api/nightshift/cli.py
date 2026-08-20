@@ -22,6 +22,7 @@ import asyncio
 import json
 import sys
 import uuid
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -32,12 +33,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from nightshift.adapters.ashby import AshbyAdapter
 from nightshift.adapters.base import BoardRef, FetchOutcome, RawJob
 from nightshift.adapters.geosearch import NycGeoSearchGeocoder, parse_search_response
-from nightshift.adapters.greenhouse import GreenhouseAdapter
+from nightshift.adapters.greenhouse import GreenhouseAdapter, html_to_text
 from nightshift.adapters.http import PoliteClient
 from nightshift.adapters.lever import LeverAdapter
 from nightshift.config import get_settings
 from nightshift.db.base import (
     ApplicationStage,
+    EmploymentType,
     EventActor,
     JobStatus,
     LocationConfidence,
@@ -48,6 +50,7 @@ from nightshift.db.base import (
     WorkAuthorization,
 )
 from nightshift.db.models import (
+    CapturedPosting,
     Company,
     CompanyLocation,
     Job,
@@ -61,6 +64,7 @@ from nightshift.db.models import (
 from nightshift.db.session import dispose_engine, session_scope
 from nightshift.db.types import utcnow
 from nightshift.domain.applications import change_stage, save_job
+from nightshift.domain.capture import confirm_capture, create_capture
 from nightshift.domain.companies import normalize_company_name
 from nightshift.domain.company_locations import DEFAULT_WORKSHEET_PATH, read_worksheet
 from nightshift.domain.geocode_cache import CachingGeocoder
@@ -447,6 +451,142 @@ async def seed_demo_applications(
     return tracked
 
 
+#: The recording the demo's captured posting is rendered from, and the posting
+#: inside it. Jump Trading's campus AI research internship, recorded verbatim
+#: from Greenhouse on 2026-08-04 for M3a's eligibility corpus.
+#:
+#: **Reused rather than re-recorded, deliberately.** A second copy of the same
+#: bytes would be a fixture that could drift from the one the eligibility
+#: answer key is labelled against, and neither copy would say which was right.
+#: `test_demo_capture.py` asserts every field of the demo capture against this
+#: file, so deleting the posting from the corpus fails a test rather than
+#: quietly seeding something else.
+DEMO_CAPTURE_RECORDING = (
+    Path(__file__).resolve().parent.parent
+    / "tests"
+    / "fixtures"
+    / "eligibility"
+    / "jumptrading_eligibility.json"
+)
+DEMO_CAPTURE_SOURCE_JOB_ID = "8052281"
+
+
+@dataclass(frozen=True, slots=True)
+class DemoCapture:
+    """One clipboard, and the four answers a person gave the confirmation form.
+
+    The split is the point and it is the same split `domain/capture.py` is
+    built around: ``raw_text`` and ``source_url`` are what arrived, and the
+    four fields below are what somebody *decided*. They are not the parser's
+    reading of the paste — they are read straight off the recording, which is
+    the closest thing this repo has to the posting itself.
+    """
+
+    raw_text: str
+    source_url: str
+    title: str
+    company_name: str
+    location_text: str
+    employment_type: EmploymentType
+
+
+def demo_capture() -> DemoCapture:
+    """Render a committed recording as the clipboard a person would have had.
+
+    **Nothing here is invented.** The title, employer, location, URL and body
+    all come out of `DEMO_CAPTURE_RECORDING` verbatim; the only thing this
+    function decides is the *layout* — title first, then "Employer · Location",
+    then the body — which is the shape every major board renders and the shape
+    `propose` is written against.
+
+    The body goes through the Greenhouse adapter's own ``html_to_text`` rather
+    than a converter written here, for a reason that outlives tidiness: that
+    function is what produces ``description_text`` for every polled posting, so
+    a capture of this opening and a poll of it hash to the same description and
+    dedupe onto one job. A second converter would make them two.
+    """
+    payload = json.loads(DEMO_CAPTURE_RECORDING.read_text())
+    postings = [
+        posting for posting in payload["jobs"] if str(posting["id"]) == DEMO_CAPTURE_SOURCE_JOB_ID
+    ]
+    if len(postings) != 1:
+        raise RuntimeError(
+            f"the demo capture names posting {DEMO_CAPTURE_SOURCE_JOB_ID} in "
+            f"{DEMO_CAPTURE_RECORDING.name} and found {len(postings)} of them"
+        )
+    posting = postings[0]
+
+    title = str(posting["title"])
+    company_name = str(posting["company_name"])
+    location_text = str(posting["location"]["name"])
+    body = html_to_text(posting["content"]) or ""
+
+    return DemoCapture(
+        raw_text=f"{title}\n{company_name} · {location_text}\n\n{body}\n",
+        source_url=str(posting["absolute_url"]),
+        title=title,
+        company_name=company_name,
+        location_text=location_text,
+        # Stated, not detected. A confirmation that re-ran the parser would not
+        # be a confirmation — it would be the parser's answer wearing a
+        # person's name, which is exactly what the confirmation step exists to
+        # prevent. `test_demo_capture.py` asserts the detector agrees, so the
+        # two cannot drift apart in silence.
+        employment_type=EmploymentType.INTERNSHIP,
+    )
+
+
+async def seed_demo_capture(session: AsyncSession, user_id: uuid.UUID, *, now: datetime) -> str:
+    """Paste one posting and confirm it, through the two functions the form calls.
+
+    **Why the seed does this at all.** M5a built a route, a form and a badge,
+    and none of them are reachable from `make demo` without a person opening
+    `/operate/capture` and finding something to paste. A path nobody can walk
+    from the demo is indistinguishable from an unbuilt one — the argument M4c
+    Task 5 made about the lifecycle marks, and the reason the seed already
+    plants an application at every stage.
+
+    **It is the real path, not a shortcut into `jobs`.** `create_capture` then
+    `confirm_capture`, in that order, with a decision between them, because a
+    row inserted straight into `captured_postings` with ``status=confirmed``
+    would demo a feature by faking its output. Everything downstream —
+    normalization, `job_locations`, requirement extraction, dedupe — is the
+    ordinary ingestion pipeline, so this job is as real as a polled one and
+    marked as differently-sourced, which is the whole of I7 here.
+
+    **Idempotent on the source URL.** `persist_source_job` already makes the
+    job idempotent, so a missing guard would not duplicate the *job*; it would
+    grow `captured_postings` by one row per `make seed`, and `reset-db`,
+    `demo` and `acceptance` all run it. A capture queue full of pastes nobody
+    made is a lie about who did what.
+    """
+    demo = demo_capture()
+    existing = (
+        await session.execute(
+            select(CapturedPosting).where(CapturedPosting.source_url == demo.source_url)
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        return f"captured posting: already present ({demo.title})"
+
+    capture = await create_capture(
+        session, user_id=user_id, raw_text=demo.raw_text, source_url=demo.source_url
+    )
+    job = await confirm_capture(
+        session,
+        capture=capture,
+        title=demo.title,
+        company_name=demo.company_name,
+        location_text=demo.location_text,
+        employment_type=demo.employment_type,
+        now=now,
+    )
+    return (
+        f"captured posting: 1 pasted and confirmed — {job.title} at "
+        f"{demo.company_name}, badged as added by hand"
+    )
+
+
 async def cmd_seed(args: argparse.Namespace) -> int:
     """Load the dev user and the three committed fixture boards.
 
@@ -538,6 +678,23 @@ async def cmd_seed(args: argparse.Namespace) -> int:
             f"updated, {ashby_stats.unchanged} unchanged, {ashby_stats.failed} failed "
             f"({ashby_run.status.value})"
         )
+
+        # -- one posting somebody pasted (M5a) --------------------------------
+        #
+        # Every source above is a board. This one is a person and a clipboard,
+        # and it is here because a path that can only be walked by opening
+        # `/operate/capture` and finding something to paste is a path `make
+        # demo` never shows — which is how a shipped feature and an unbuilt one
+        # come to look the same.
+        #
+        # Placed before the offices below rather than after, and that ordering
+        # is load-bearing: `load_offices` skips a worksheet entry whose company
+        # has never been ingested. A capture is the one way a company can enter
+        # this corpus with no board behind it at all, so a capture that ran
+        # afterwards would create the company too late to inherit the office
+        # somebody had already confirmed for it, and that company's roles would
+        # float for no reason a reader could see.
+        print(f"  {await seed_demo_capture(session, settings.dev_user_id, now=utcnow())}")
 
         # M1d: give every registry board its polling schedule, so `make demo`
         # shows the board table populated rather than empty. Every row reads
@@ -744,6 +901,33 @@ async def cmd_stats(args: argparse.Namespace) -> int:
     return 0
 
 
+#: What the seed's summary calls each kind of source, and it is exhaustive on
+#: purpose. This was `"fixture" if ... else "live"` until M5a, which was true
+#: while there were two kinds of source and false the moment there were three:
+#: a captured posting printed as a live feed, in the readout a developer scans
+#: after every seed, saying the opposite of what the job page's own badge says.
+#: Nothing re-reads a capture — that is the entire difference between it and
+#: every other row in the table.
+SOURCE_LABELS: dict[SourceType, str] = {
+    SourceType.ATS_GREENHOUSE: "live",
+    SourceType.ATS_LEVER: "live",
+    SourceType.ATS_ASHBY: "live",
+    SourceType.GOVERNMENT: "live",
+    SourceType.FIXTURE: "fixture",
+    SourceType.MANUAL_CAPTURE: "pasted by hand, never re-read",
+}
+
+
+def source_label(source_type: SourceType) -> str:
+    """How the summary describes a source. Total over `SourceType` by design.
+
+    A `dict` lookup rather than a chain of `if`s, and `KeyError` rather than a
+    default, because a default is what let the previous version answer "live"
+    for a kind of source it had never heard of.
+    """
+    return SOURCE_LABELS[source_type]
+
+
 async def _print_summary() -> None:
     """Print corpus counts, including the location-confidence breakdown.
 
@@ -789,8 +973,7 @@ async def _print_summary() -> None:
         print(f"    {confidence.value:<14} {count}{marker}")
     print("\n  sources")
     for source in sources:
-        label = "fixture" if source.source_type is SourceType.FIXTURE else "live"
-        print(f"    {source.name:<20} {label}")
+        print(f"    {source.name:<20} {source_label(source.source_type)}")
 
 
 async def cmd_poll(args: argparse.Namespace) -> int:
