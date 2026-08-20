@@ -251,3 +251,22 @@ async def test_the_list_is_scoped_and_filterable(client: AsyncClient) -> None:
     pending = await client.get("/capture", params={"status": "pending"})
     assert response_ids(pending.json()) == [first["id"]]
     assert pending.json()["total"] == 1
+
+
+async def test_the_internship_proposal_reaches_the_response(client: AsyncClient) -> None:
+    """The detection existed, was unit-tested, and reached nobody.
+
+    `propose()` has read "Intern" out of a title since the first commit, and
+    `test_capture.py` asserts it does. The route returned a hardcoded `None`
+    anyway, so the form opened on "Not stated" for every internship — a green
+    unit test sitting on top of a feature no person could see.
+
+    This asserts at the boundary the bug actually lived on. Internships are
+    most of what this product is for, so defaulting them to "Not stated" is
+    not a cosmetic miss.
+    """
+    body = await _paste(client, "Software Engineer Intern, Summer 2027\nRamp · New York, NY")
+    assert body["proposed"]["employment_type"] == "internship"
+
+    ordinary = await _paste(client, "Staff Backend Engineer\nRamp · New York, NY")
+    assert ordinary["proposed"]["employment_type"] is None

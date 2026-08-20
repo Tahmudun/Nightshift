@@ -8,11 +8,15 @@
 
 import type { z } from 'zod';
 
+import type { Capture, CaptureList, CaptureStatus, EmploymentType } from './schemas';
+
 import {
   applicationDetailSchema,
   applicationEventSchema,
   applicationListSchema,
   applicationSchema,
+  captureListSchema,
+  captureSchema,
   companyDetailSchema,
   companyListSchema,
   citySignalsSchema,
@@ -531,4 +535,52 @@ export async function fetchCitySignals(options?: {
 }): Promise<CitySignals> {
   const query = options?.includeClosed ? '?include_closed=true' : '';
   return request(`/city/signals${query}`, citySignalsSchema);
+}
+
+// ---------------------------------------------------------------------------
+// Manual capture (M5a)
+// ---------------------------------------------------------------------------
+
+/**
+ * Hand a pasted posting to the API and get back what it could read.
+ *
+ * Creates no job. The second call does that, and the split is deliberate —
+ * see `services/api/nightshift/api/routes/capture.py`.
+ */
+export function capturePosting(input: {
+  readonly raw_text: string;
+  readonly source_url?: string | null;
+}): Promise<Capture> {
+  return send('/capture', captureSchema, 'POST', {
+    raw_text: input.raw_text,
+    source_url: input.source_url ?? null,
+  });
+}
+
+export function fetchCaptures(status?: CaptureStatus): Promise<CaptureList> {
+  const query = status ? `?status=${status}` : '';
+  return request(`/capture${query}`, captureListSchema);
+}
+
+/**
+ * The second of the two calls that can turn a proposal into a fact.
+ *
+ * Sends what the *person* approved rather than what the parser proposed, so
+ * the request itself is the record that somebody looked. `confirmExtractions`
+ * above is the same idea for a résumé.
+ */
+export function confirmCapture(
+  captureId: string,
+  approved: {
+    readonly title: string;
+    readonly company_name: string;
+    readonly location_text: string | null;
+    readonly employment_type: EmploymentType;
+  },
+): Promise<Capture> {
+  return send(`/capture/${captureId}/confirm`, captureSchema, 'POST', approved);
+}
+
+export function discardCapture(captureId: string): Promise<Capture> {
+  return send(`/capture/${captureId}/discard`, captureSchema, 'POST', {});
 }

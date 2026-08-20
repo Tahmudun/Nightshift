@@ -1258,3 +1258,47 @@ export const citySignalsSchema = z.object({
   truncated: z.boolean(),
 });
 export type CitySignals = z.infer<typeof citySignalsSchema>;
+
+// ---------------------------------------------------------------------------
+// Manual capture (M5a)
+// ---------------------------------------------------------------------------
+
+/** Three values. A capture is a proposal until a person decides. */
+export const captureStatusSchema = z.enum(['pending', 'confirmed', 'discarded']);
+export type CaptureStatus = z.infer<typeof captureStatusSchema>;
+
+/**
+ * What the parser offered, and every field may be null.
+ *
+ * `.nullable()` here is not defensive typing — it is the contract. The parser
+ * is built to decline, and a client that treats null as "render an empty box"
+ * gets a person typing two words. One that treats it as "guess something"
+ * gets a job standing on the wrong building.
+ */
+export const captureProposalSchema = z.object({
+  title: z.string().nullable(),
+  company_name: z.string().nullable(),
+  location_text: z.string().nullable(),
+  employment_type: employmentTypeSchema.nullable(),
+});
+export type CaptureProposal = z.infer<typeof captureProposalSchema>;
+
+export const captureSchema = z.object({
+  id: z.string().uuid(),
+  status: captureStatusSchema,
+  source_url: z.string().nullable(),
+  raw_text: z.string(),
+  proposed: captureProposalSchema,
+  parser_version: z.string(),
+  /** Null until confirmed. The API's schema makes the other combination impossible. */
+  job_id: z.string().uuid().nullable(),
+  created_at: z.string().datetime({ offset: true }),
+  decided_at: z.string().datetime({ offset: true }).nullable(),
+});
+export type Capture = z.infer<typeof captureSchema>;
+
+export const captureListSchema = z.object({
+  captures: captureSchema.array(),
+  total: z.number(),
+});
+export type CaptureList = z.infer<typeof captureListSchema>;

@@ -48,6 +48,7 @@ from nightshift.domain.capture import (
     confirm_capture,
     create_capture,
     discard_capture,
+    employment_type_for_title,
 )
 
 router = APIRouter(prefix="/capture", tags=["capture"])
@@ -65,9 +66,11 @@ def _to_out(capture: CapturedPosting) -> CaptureOut:
             title=capture.proposed_title,
             company_name=capture.proposed_company_name,
             location_text=capture.proposed_location_text,
-            # Not stored: it is derived from the title and re-deriving it is
-            # cheaper than a column that can disagree with the title beside it.
-            employment_type=None,
+            # Derived rather than stored — a column could disagree with the
+            # title sitting beside it in the form. This read `None` in the
+            # first draft, which left the internship detection working,
+            # unit-tested, and invisible to every person who used the form.
+            employment_type=employment_type_for_title(capture.proposed_title),
         ),
         parser_version=capture.parser_version,
         job_id=capture.job_id,

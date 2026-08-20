@@ -42,6 +42,22 @@ export default function OperatePage() {
 
       <section className="border border-ink-700 bg-ink-900/40 p-5">
         <h2 className="font-mono text-[10px] uppercase tracking-[0.16em] text-paper-faint">
+          Add a posting
+        </h2>
+        <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-paper-dim">
+          Found something we do not carry? Paste it in. Most openings are not on a board anyone
+          polls, and a pasted one is a real posting here &mdash; searched, scored and on the map.
+        </p>
+        <Link
+          href="/operate/capture"
+          className="mt-3 inline-block border border-ink-700 px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-signal-400 hover:border-signal-400"
+        >
+          Paste a posting
+        </Link>
+      </section>
+
+      <section className="border border-ink-700 bg-ink-900/40 p-5">
+        <h2 className="font-mono text-[10px] uppercase tracking-[0.16em] text-paper-faint">
           Pipeline
         </h2>
         <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-paper-dim">

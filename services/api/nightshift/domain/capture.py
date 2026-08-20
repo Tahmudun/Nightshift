@@ -110,6 +110,24 @@ def _lines(raw_text: str) -> list[str]:
     return [line.strip() for line in raw_text.splitlines() if line.strip()]
 
 
+def employment_type_for_title(title: str | None) -> EmploymentType | None:
+    """The one employment type a title states outright, or None.
+
+    Public and named because two callers need the same answer: ``propose``
+    when the paste first arrives, and the route when it re-reads a stored
+    capture. The first draft kept this inline and had the route return a
+    hardcoded ``None``, so the detection worked, was unit-tested, and never
+    reached a single person — the form always opened on "Not stated".
+
+    Not stored as a column for the same reason it is derived here: it is a
+    function of the title, and a column could disagree with the title sitting
+    beside it in the form.
+    """
+    if title is None:
+        return None
+    return EmploymentType.INTERNSHIP if _INTERNSHIP.search(title) else None
+
+
 def _looks_like_a_location(candidate: str) -> bool:
     """Does this string name a place, as opposed to merely parsing as one?
 
@@ -181,15 +199,11 @@ def propose(raw_text: str) -> CaptureProposal:
         if location_text is not None:
             break
 
-    employment_type: EmploymentType | None = None
-    if title is not None and _INTERNSHIP.search(title):
-        employment_type = EmploymentType.INTERNSHIP
-
     return CaptureProposal(
         title=title,
         company_name=company_name,
         location_text=location_text,
-        employment_type=employment_type,
+        employment_type=employment_type_for_title(title),
     )
 
 
@@ -427,5 +441,6 @@ __all__ = [
     "confirm_capture",
     "create_capture",
     "discard_capture",
+    "employment_type_for_title",
     "propose",
 ]

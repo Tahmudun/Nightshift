@@ -30,6 +30,7 @@ from nightshift.db.base import (
     ApplicationEventType,
     ApplicationPriority,
     ApplicationStage,
+    CaptureStatus,
     EligibilityState,
     EmploymentType,
     EvidenceSource,
@@ -148,6 +149,9 @@ PAIRS: tuple[tuple[str, type[enum.Enum]], ...] = (
     # M4c Task 1. Not a database enum: the renderer branches on this and
     # nothing else, so a value it does not know is a beacon that does not draw.
     ("placementKindSchema", PlacementKind),
+    # M5a. Added in the same commit as the enum rather than a milestone later,
+    # which every comment above this line is a record of not doing.
+    ("captureStatusSchema", CaptureStatus),
 )
 
 
