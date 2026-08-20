@@ -33,9 +33,10 @@
 **M4c Task 5 is done: the city speaks §6, and says what it is saying.** The table is one pure function (`treatments.ts`), the beacons carry per-instance colour, strength and pulse rate through a shader, four instanced meshes draw the marks §6 puts *on* a body, and an in-interface legend documents all thirteen rows — including the four that are not drawn, each with its reason. ADR 0028. `docs/reviews/milestone-4c-treatments.png` is the screenshot. Three defects were found by looking rather than by a test: a closed torus whose rotation was invisible by construction, a spin folded into the billboard that rolled every arc out of the camera plane, and a saved outline drawn cyan — which is exactly what ADR 0027's standing instruction ruled out.
 **M4c: Tasks 1, 2, 3 and 4 are done. The placement join and `GET /city/signals` (ADR 0024, which resolves a real conflict between I1 and `city.md` §4.4 rather than papering over it), the Three.js signal layer in MapLibre's own context (ADR 0025), and the field made legible, navigable and sortable. New York now has every open role floating above it, untethered, and none on a building — see `docs/reviews/milestone-4c-signals.png` and `docs/reviews/milestone-4c-roster.png`. Task 4 then made a role reachable: picking by raycast against the frame's own matrix, a reticle, a detail panel, and one selection shared by the list and the map (ADR 0027) — `docs/reviews/milestone-4c-selection.png`.**
 **Docker's daemon is no longer wedged.** It was force-quit and relaunched on 2026-08-12. `make up` was then run **from cold** — containers removed with `docker compose down` first — and created both from scratch to healthy, exit 0. **That closes the last open step in M4b's acceptance chain**; container startup is now proven rather than assumed. The seeded corpus survived and matches what this file records: 31 canonical jobs, 62 `job_locations`, 44 `city_only` + 18 `remote`, 0 mappable.
-**Current milestone: M5 — The Open Hand (A16), on `m5a-manual-capture`.** M5a's
-domain, schema and 28 tests are committed at `af76777`; its API and form are
-next. **Superseded 2026-08-19:** this line read *"M4 — the living city, and the
+**Current milestone: M5 — The Open Hand (A16), on `m5a-manual-capture`.**
+**M5a is COMPLETE** — domain, schema, three routes, the paste form, the
+"added by hand" badge, and a seed that plants one captured posting. See
+"2026-08-19, later" below for what it caught. **Superseded 2026-08-19:** this line read *"M4 — the living city, and the
 shippable checkpoint (A15)"* until the project became a product. `AMENDMENTS`
 A16 re-cut M5 onward, moved the ship from M4 to M7, and narrowed §8's
 one-user anti-pattern; M4e is paused with its remaining tuning moved into M7 so
@@ -284,14 +285,138 @@ offices is still two buildings that can ever light. This restored the two; it
 did not add a third. Six of the eight recorded addresses belong to companies
 whose boards have never been polled.
 
-**Last updated: 2026-08-19** (M5a domain; A16 re-cut)
+**2026-08-19, later: M5a is complete. `make seed` now pastes a posting and
+confirms it, and doing that caught three surfaces calling a capture something
+untrue.** The corpus is 32 canonical jobs, and one of them is in the database
+because somebody pasted it rather than because a board was polled. The seed
+walks the real path — `create_capture`, then `confirm_capture`, the same two
+functions the form calls, with a decision between them — because a row
+inserted straight into `captured_postings` with `status=confirmed` would demo
+a feature by faking its output.
+
+**Where the paste comes from is the design, and it is not typed.** It is a real
+Greenhouse posting this repo already committed: Jump Trading's *Campus AI
+Research Engineer (Intern)*, recorded verbatim on 2026-08-04 for M3a's
+eligibility corpus, rendered the way a person copying that job page would have
+got it — title, then `Employer · Location`, then the body. Every fact in it
+traces to the recording and `test_demo_capture.py` asserts them field by field
+against that file rather than against a golden string, so deleting the posting
+from the corpus fails a test instead of quietly seeding something else. **The
+alternative was inventing a posting**, and that fails I7 in the way that is
+hardest to see later: a fabricated job sitting in a corpus of real ones with
+nothing on the page marking which it is.
+
+**The body goes through the Greenhouse adapter's own `html_to_text`**, not a
+converter written beside the seed, and that is load-bearing rather than tidy:
+that function is what produces `description_text` for every polled posting, so
+a capture of this opening and a poll of it hash to the same description and
+dedupe onto one job. A second converter would make them two.
+
+It is also the right posting for what this product is for. It is an
+internship — so the seed exercises the detection the route was returning a
+hardcoded `None` for one commit ago — and its text carries *"We accept students
+eligible for CPT/OPT and we sponsor work visas for full-time positions"*, which
+is exactly the sentence M3's authorization gate exists to read.
+
+**Three surfaces called it something untrue, and all three were the same
+binary.** `fixture, or else live` was a true statement while a source was
+either a committed recording or a board we poll. The day the seed planted a
+capture it became false in three places, and **not one of them raised, broke a
+type, or failed a test** — the I7-fails-quietly shape the badge commit named
+one screen over:
+
+- `cli.py`'s own seed summary printed `manual_capture   live`, in the readout a
+  developer scans after every seed. It is now `SOURCE_LABELS`, a `dict` total
+  over `SourceType` read through `source_label()`, with `KeyError` rather than
+  a default — a default is what let the old version answer "live" for a kind of
+  source it had never heard of.
+- `SourceHealthTable` on `/operate` printed the same word on screen, next to
+  `greenhouse`, about the one source in the table that is never read twice. It
+  is now `SourceKind`, three-way, badged **added by hand**.
+- `sourceHealthSchema.source_type` is a bare `z.string()`, so Zod would have
+  accepted any drift. `CAPTURE_SOURCE_TYPE` is now a shared constant with its
+  own parity test beside `CAPTURE_SOURCE_NAME`'s — **two strings with the same
+  value and different meanings**, kept apart because M5d's assisted capture
+  will be a new source *name* of this same *type*, and code that conflated them
+  would stop labelling it.
+
+**A near-tie that had never existed before.** `verify.py`'s "each band is
+ordered on the key the list says it uses" went red, and the cause is worth
+keeping. The list is ordered by Postgres evaluating
+`overall / (sqrt(assessed_out_of) * 10)`; the check re-derives the same
+quantity from the wire through `coverage_weighted_fraction`, which spells it
+`fraction * sqrt(assessed_out_of / 100)`. **Algebraically identical, and not
+bit-identical.** The captured role scores 15 of 90 and an existing role scores
+10 of 40 — both exactly `1/(2*sqrt(10))`. Postgres makes them equal to the last
+bit and orders them either way, correctly; Python makes them differ by one unit
+in the last place, and a strict `!= sorted(...)` read that as a broken list. The
+check is now a pairwise walk with a 1e-12 relative tolerance, because **only a
+pairwise walk can tell a tie from an inversion**. Shown able to fail by serving
+each band backwards: all three bands go red.
+
+**The seeded browser suite had been red since `95cc8bf` and nobody had run
+it.** Four tests in `e2e-seeded/city.spec.ts`, red since the offices came back
+on 2026-08-19 and twenty roles moved onto two roofs. **Proven pre-existing
+rather than assumed**: the work was stashed, the database reset at HEAD, and
+the same four failed. Three were tests that had stopped describing the product
+and are fixed — `expectedBeacons()` counted only `kind === 'unresolved'`, which
+was the whole corpus when nothing stood on a building and is now twenty short;
+and `altitudeOf(0)` asserted the unresolved field's floor against instance 0,
+which is now a role on a roof at 310 m and is entitled to be below it.
+
+**The fourth is the one worth reading.** *"Reordering the field changes the
+order and not the roles"* was passing nothing and failing for a reason the
+product had no part in: the unresolved field holds four employers with 9, 1, 1
+and 1 roles, and the one with 9 is also the alphabetically first — so ordering
+by openings is a stable sort over three ties and **correctly returns the order
+the name sort already gave**. The test asked for a change that could not
+happen. That is M4c Task 6's lesson arriving a second time: *a corpus that
+cannot produce a failure cannot test the guard against it.* The ordering claim
+moved to `e2e/city-acceptance.spec.ts`, against a corpus chosen to tell the two
+orderings apart (1, 5 and 3 roles across three employers), and its **first
+assertion is that the fixture discriminates** — set the spread to the seeded
+corpus's own `9, 1, 1` and the test goes red before anything is clicked. What
+stays in the seeded file is what the real corpus can still say: the default
+order is alphabetical, and switching the sort is not a filter.
+
+**Two more seeded assertions named the corpus instead of reading it**, and both
+were fixed rather than widened. The season caveat asserted the singular wording
+(*"does not say when it runs"*) and a second season-less internship correctly
+pluralised it; and the employer-page test clicked a link matching
+`/datadog|alloy|ramp/i`, which a fourth employer's role sorting first turned
+into a thirty-second wait for a name that was never going to be there. It now
+follows the link by where it goes — `a[href^="/explore/companies/"]` — because
+a suite that reads the corpus at run time everywhere else should not spell it
+out here.
+
+**Verified green on this machine, and the numbers are read rather than
+claimed.** `make check` exits 0: lint and typecheck clean, **2002 python
+tests** (8m54s) and **792 web tests** across 54 files. `make verify` exits 0 —
+every check, including `check_city_placement`. `make test-e2e-seeded` is **85
+passed / 1 skipped** with one load flake (`city.spec.ts:628`, which passes on
+its own). The seeded corpus is **32 canonical jobs, 4 companies, 64 job
+locations**, and `GET /city/signals` returns **20 on a building, 0 area, 12
+floating, 32 total** — one more floating than before, because Jump Trading is
+an employer nobody has confirmed an address for and I1 says its role floats.
+`GET /capture?status=confirmed` returns exactly **1**.
+
+**`e2e/` — the degraded, no-API suite — is flaky on this machine at full
+parallelism, and that is not this work.** Three runs produced three different
+failing sets among `city-acceptance.spec.ts:245`, `:385` and
+`city.spec.ts:362`; each passes in isolation; and the stashed-HEAD run above
+failed three of them too. They are frame-timing assertions on a software
+rasteriser running several browsers at once. **`make acceptance` therefore
+still exits non-zero on this machine**, at `test-e2e`, which runs before
+`verify` and the seeded suite — so both were run directly and both are green.
+
+**Last updated: 2026-08-19** (M5a complete: capture, badge and seed)
 
 ---
 
 
 ## Next exact action
 
-### Current milestone: **M5 — The Open Hand**, on `m5a-manual-capture`. M5a's domain is committed; the API and the form are next.
+### Current milestone: **M5 — The Open Hand**, on `m5a-manual-capture`. M5a is complete — domain, schema, routes, form, badge and seed. M5b (identity) is next.
 
 **2026-08-19: the project became a product, and the milestones were re-cut.**
 The goal is no longer a portfolio piece for one person — it is something other
@@ -373,15 +498,15 @@ parser that was never wrong.
 
 **Next, in order:**
 
-1. **M5a's remaining half — the provenance badge and the seed.** I7: a captured
-   job must never be indistinguishable from a polled one, and today the job
-   pages do not say where it came from. `make seed` should also plant one
-   captured posting so the demo shows the path without needing a person to
-   paste. ← **next**
+1. ~~**M5a's remaining half — the provenance badge and the seed.**~~ **DONE.**
+   The badge shipped at `1099fec`; the seed and the three mislabelled surfaces
+   are recorded above. `make seed` plants one captured posting, so the path is
+   walkable from `make demo` without a person having something in their
+   clipboard.
 2. **M5b — identity.** Replace `deps.py`'s one-line `current_user_id`. The
    two-user isolation test is the most important thing in the milestone: routes
    filter by convention today, and one missed filter leaks another person's
-   applications.
+   applications. ← **next**
 3. **M5c — the MCP server.** ADR required.
 4. **M5d — assisted capture from LinkedIn/Indeed**, user-initiated and
    session-bound, never a poller.
