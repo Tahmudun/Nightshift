@@ -523,8 +523,12 @@ def check_application_tracking() -> None:
     status code. `make acceptance` runs against the developer's own database
     and must not fail on its second invocation.
 
-    It leaves one archived application behind. That is stated rather than
-    hidden; `make reset-db` clears it.
+    It leaves the corpus as it found it — unarchived, at the stage it arrived
+    in. It used to leave one archived application behind at `preparing`, which
+    was stated rather than hidden but was still wrong: the row it borrows is
+    chosen by `last_seen_at` and the seed's demo stages are dealt by title, so
+    what it took away was whichever demo stage happened to sort first. See the
+    snapshot below.
     """
     print("\napplication tracking")
     status_code, jobs = get_json("/jobs?limit=1&status=open")
@@ -550,6 +554,19 @@ def check_application_tracking() -> None:
     if detail.get("archived_at") is not None:
         send_json(f"/applications/{application_id}/restore", "POST")
 
+    # The stage this row arrived in, so it can be handed back at the end.
+    #
+    # The same snapshot-and-restore this file already does for `GATE_FIELDS`,
+    # and it is here for a concrete failure. This check takes the *first* open
+    # job, and `nightshift seed` deals its five demo stages by title — two
+    # unrelated orderings, so the row this lands on is a coincidence. On
+    # 2026-08-20 the coincidence was the corpus's only `interview`, which this
+    # left at `preparing` and archived. `make seed` cannot put it back, so the
+    # skyline lost its one §6 arc and `city.spec.ts:837` went red until
+    # `make reset-db` — with nothing in this script's output saying it had
+    # taken anything away.
+    original_stage = detail["current_stage"]
+
     code, _ = send_json(
         f"/applications/{application_id}/stage", "PATCH", {"to_stage": "preparing"}
     )
@@ -569,7 +586,7 @@ def check_application_tracking() -> None:
     )
 
     code, _ = send_json(f"/applications/{application_id}/archive", "POST")
-    check(code == 200, "archiving succeeds", "leaves 1 archived row; make reset-db clears it")
+    check(code == 200, "archiving succeeds")
 
     code, listed = get_json("/applications")
     check(
@@ -577,6 +594,22 @@ def check_application_tracking() -> None:
         "an archived application is out of the default list",
     )
     check(listed["archived_count"] >= 1, "and is counted rather than forgotten")
+
+    # Put the row back exactly as it was found: unarchived, at its own stage.
+    # Asserted rather than fired and forgotten, because a restore that silently
+    # failed would leave the corpus damaged and this script still green — which
+    # is the shape of the bug this block was written to stop.
+    send_json(f"/applications/{application_id}/restore", "POST")
+    code, _ = send_json(
+        f"/applications/{application_id}/stage", "PATCH", {"to_stage": original_stage}
+    )
+    check(code in (200, 409), "the stage it borrowed is handed back", original_stage)
+    code, final = get_json(f"/applications/{application_id}")
+    check(
+        final["current_stage"] == original_stage and final["archived_at"] is None,
+        "and the corpus is exactly as this check found it",
+        f"{final['current_stage']}, archived={final['archived_at'] is not None}",
+    )
 
 
 #: The six `users` columns the gate reads, and the only ones this check writes.
