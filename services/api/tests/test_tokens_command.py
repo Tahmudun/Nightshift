@@ -98,6 +98,24 @@ def test_the_report_says_the_token_cannot_be_recovered() -> None:
     assert "cannot be recovered" in report
 
 
+def test_the_report_warns_against_replacing_the_config_file() -> None:
+    """The block is a fragment, and a reader who treats it as a file loses data.
+
+    A current Claude Desktop writes its own ``preferences`` object into
+    `claude_desktop_config.json` before Nightshift ever touches it. Pasting
+    this block *over* that file resets the app's settings and reports nothing —
+    found by doing the merge for real while closing M5c's Claude Desktop
+    deviation. The report has to say so, because the report is the only thing
+    a person reads before editing the file.
+    """
+    report = format_token_report(
+        _issued(), email="you@example.com", api_url="http://localhost:8000"
+    )
+
+    assert "merge" in report.lower()
+    assert "do not replace" in report.lower()
+
+
 def test_the_report_tells_you_how_to_end_it() -> None:
     """A credential you cannot find the id of is a credential you cannot revoke.
 

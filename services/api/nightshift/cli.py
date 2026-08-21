@@ -1294,6 +1294,13 @@ def format_token_report(issued: IssuedSession, *, email: str, api_url: str) -> s
 
     The token appears **twice** on purpose: once on its own line to read, once
     inside the JSON to paste.
+
+    It says **merge** rather than **add** because "add" is what the first
+    version said and it was not enough. A current Claude Desktop's config file
+    already exists and already holds the app's own ``preferences`` object, so a
+    reader who pastes this block over the file resets their settings and is
+    told nothing. The word costs a line; the mistake costs a person their
+    configuration.
     """
     return "\n".join(
         [
@@ -1301,7 +1308,9 @@ def format_token_report(issued: IssuedSession, *, email: str, api_url: str) -> s
             "",
             f"    {issued.token}",
             "",
-            "  add this to claude_desktop_config.json, then restart Claude Desktop:",
+            "  merge this into claude_desktop_config.json — do not replace the",
+            "  file, it already holds Claude Desktop's own settings — then quit",
+            "  Claude Desktop fully and reopen it:",
             "",
             _claude_desktop_block(issued.token, api_url=api_url),
             "",

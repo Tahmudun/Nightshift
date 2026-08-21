@@ -24,13 +24,43 @@ services/api/.venv/bin/python -m nightshift.cli tokens \
 It prints the token **once** — only its SHA-256 reaches the database, so there
 is no way to look it up again — followed by the exact JSON block to paste.
 
-### 2. Paste it into Claude Desktop's config
+### 2. Merge it into Claude Desktop's config
 
 macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
 Windows: `%APPDATA%\Claude\claude_desktop_config.json`
 
-If the file already has an `mcpServers` object, add the `"nightshift"` entry
-inside it rather than replacing the whole object.
+**Merge, do not paste over.** On a current Claude Desktop this file already
+exists before you touch it, and it is not empty and not only about MCP — it
+holds the app's own `preferences` object (sidebar mode, per-account settings,
+your user-files path). Replacing the file with the printed block silently
+throws all of that away, and nothing tells you: the app just comes back with
+its settings reset. The block is printed as a *fragment* to add, and the
+warning it deserves is stronger than the one about a second server.
+
+On macOS this merges it without disturbing anything else, backup first:
+
+```
+CFG=~/Library/Application\ Support/Claude/claude_desktop_config.json
+cp "$CFG" "$CFG.backup"
+python3 - "$CFG" <<'EOF'
+import json, sys
+path = sys.argv[1]
+cfg = json.load(open(path))
+cfg.setdefault("mcpServers", {})["nightshift"] = json.loads(input(
+    "paste the nightshift entry (the inner object), then Enter: "))
+json.dump(cfg, open(path, "w"), indent=2)
+EOF
+```
+
+Or edit it by hand: add an `mcpServers` key at the top level beside
+`preferences`, and put the `"nightshift"` entry inside it.
+
+**`"command"` must be an absolute path**, which is what `--create` prints.
+Claude Desktop is a GUI application: it launches the server with no login
+shell, so none of your `.zshrc` exists — no `PATH` you added, no `pyenv`, no
+activated virtualenv — and from a working directory that is not this
+repository. The absolute path to the repo's own venv is the only form that
+survives that.
 
 ### 3. Start Nightshift, then restart Claude Desktop
 
