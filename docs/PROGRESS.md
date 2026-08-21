@@ -767,12 +767,23 @@ last rung of the three rather than the next.
 > green. It now imports `nightshift.mcp.__main__`. **If you take one lesson
 > from this branch, it is that a guard must import the thing that runs.**
 >
-> **Blocker 1 — `make check` has not been run and must not be run yet.**
-> `make dev` is up for the Claude Desktop walk, and PROGRESS already records
-> what happens when a test run and a dev stack share one Postgres: *"a test run
-> that overlaps another test run is not evidence."* Three `make check` runs
-> were lost to exactly that in the previous session. **Stop `make dev` first,
-> confirm with `lsof -ti:3000 -ti:8000`, then run it.**
+> **Blocker 1 — CLEARED. Every gate but the live walk is green.** `make lint`
+> and `make typecheck` (mypy 85 files + tsc + Prettier) exit 0, `make test-web`
+> is **799 passed across 55 files**, and `make test-py` is **2180 passed, 0
+> failed, exit 0, 9m46s** — run with `make dev` stopped and `lsof -ti:3000
+> -ti:8000` confirmed clear, because the tests share the dev database and their
+> `TRUNCATE` takes an ACCESS EXCLUSIVE lock. (The truncation is inside the
+> per-test transaction and rolls back, so the seeded corpus survives; the
+> hazard is false failures and a hung dev stack, not data loss. Worth knowing
+> precisely — this session nearly deferred a gate over a risk that was not the
+> one it feared.)
+>
+> **One caveat on that number, stated rather than rounded off:** the seven
+> `--merge-config` tests were written *after* pytest collected, so they are not
+> among the 2180. They were run separately — `tests/test_tokens_command.py`,
+> 18 passed — and the merge was sabotaged back into a whole-file replacement to
+> confirm two of them go red. Re-run `make test-py` once before opening the PR
+> so a single number covers everything.
 >
 > **Blocker 2 — the live conversation is owed and is the human's.** Claude
 > Desktop is connected (`tools/list` answered) but has made **zero
@@ -790,8 +801,17 @@ last rung of the three rather than the next.
 > `~/Library/Application Support/Claude/claude_desktop_config.json` with the
 > app's `preferences` object preserved, verified against a backup.
 >
-> **After the walk:** finish §4 and §5 of the desktop-walk review, run
-> `make check` from a clean shell, open the PR, and then M5 continues with
+> **A tenth commit landed after those gates: `--merge-config`.** The merge
+> command this branch put in the runbook was **broken** — it fed its own script
+> in on stdin through a heredoc and then called `input()` on the same exhausted
+> stdin, failing with `EOFError` every time. Shipped one commit after fixing a
+> runbook defect, which is its own lesson: **a command in a runbook is code,
+> and code nobody executed is a guess.** Replaced with a flag, because a flag
+> has tests and a snippet does not. Walked for real against a file holding a
+> `preferences` object; the token minted for that walk was revoked afterwards.
+>
+> **After the walk:** finish §4 and §5 of the desktop-walk review, re-run
+> `make test-py` from a clean shell, open the PR, and then M5 continues with
 > **M5d — assisted capture from LinkedIn and Indeed**, which rides on this
 > server, and **M5e — addresses without typing**.
 >
