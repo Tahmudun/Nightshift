@@ -34,6 +34,7 @@
 **M4c: Tasks 1, 2, 3 and 4 are done. The placement join and `GET /city/signals` (ADR 0024, which resolves a real conflict between I1 and `city.md` §4.4 rather than papering over it), the Three.js signal layer in MapLibre's own context (ADR 0025), and the field made legible, navigable and sortable. New York now has every open role floating above it, untethered, and none on a building — see `docs/reviews/milestone-4c-signals.png` and `docs/reviews/milestone-4c-roster.png`. Task 4 then made a role reachable: picking by raycast against the frame's own matrix, a reticle, a detail panel, and one selection shared by the list and the map (ADR 0027) — `docs/reviews/milestone-4c-selection.png`.**
 **Docker's daemon is no longer wedged.** It was force-quit and relaunched on 2026-08-12. `make up` was then run **from cold** — containers removed with `docker compose down` first — and created both from scratch to healthy, exit 0. **That closes the last open step in M4b's acceptance chain**; container startup is now proven rather than assumed. The seeded corpus survived and matches what this file records: 31 canonical jobs, 62 `job_locations`, 44 `city_only` + 18 `remote`, 0 mappable.
 **Current milestone: M5 — The Open Hand (A16), on `m5b-identity`.**
+**M5a and M5b are built, reviewed and verified. [PR #18](https://github.com/Tahmudun/Nightshift/pull/18) is open against `main`** — 65 commits, 167 files, carrying M4d Task 1, M4e's built tasks, M5a and M5b; draft PR #17 is closed as superseded. All four local gates were re-run green on 2026-08-21: `make check` (2128 Python tests, 799 web), `make reset-db`, `make verify`, and `make test-e2e-seeded` at **87 passed, 1 skipped, 0 failed**. **CI then found what no local command could**: M5b added `argon2-cffi` and never regenerated CI's pin, so the pin had silently become partial — ADR 0016 §3's exact failure class, caught by the check written for it. See "Next exact action".
 **M5b is BUILT and REVIEWED** — `user_credentials`, `user_sessions`, argon2id,
 `/auth/sign-in|token|sign-out|me`, default-deny on every router,
 `nightshift users create`, a seed that plants **two** accounts, the Next.js
@@ -732,15 +733,89 @@ last rung of the three rather than the next.
 
 ## Next exact action
 
-### Current milestone: **M5 — The Open Hand**, on `m5b-identity`. M5a and M5b are both built and reviewed. **The three red seeded tests are answered and fixed: none of them were M5b's.** The next action is CI and the PR.
+### Current milestone: **M5 — The Open Hand**, on `m5b-identity`. Every local gate is green and **[PR #18](https://github.com/Tahmudun/Nightshift/pull/18) is open against `main`.** The next action is reading CI, then the merge.
 
-> **START HERE, NEXT SESSION.** `make lint` and `make typecheck` are green.
-> `make verify` is green and now leaves the corpus exactly as it found it.
-> `make test-e2e-seeded` is **86 passed, 1 failed, 1 skipped** — the three
-> tests this file sent the session to investigate all pass, and the one red
-> test is a *different*, already-known intermittent one (see "the fourth" at
-> the foot of this block). Run `make check` and the seeded suite once more,
-> then open the PR.
+> **START HERE, NEXT SESSION.** The full local gate was re-run on 2026-08-21
+> from a rebuilt corpus and **all four passed**:
+>
+> | Gate | Result |
+> |---|---|
+> | `make check` | **exit 0** — **2128 Python tests** (10m16s, 44 warnings), **799 web tests** across 55 files; ruff, Prettier, mypy (80 source files) clean |
+> | `make reset-db` | **exit 0** — 32 raw source records, 64 job locations, 2 confirmed offices both on a building |
+> | `make verify` | **exit 0** — all checks passed, corpus left as found |
+> | `make test-e2e-seeded` | **exit 0** — **87 passed, 1 skipped, 0 failed** (6.6m) |
+>
+> **Read CI on #18. If it is green, merge it.** Then M5's remaining work is
+> M5c — the MCP server — and M4e Tasks 8 and 9.
+
+**2026-08-21: the branch was verified, PR #18 is open, and CI caught the one
+thing no local command could.**
+
+**The seeded suite is 87/0/1, one better than the 86/1/1 this file recorded.**
+The test that changed is the `marks.ring` one: `648b051` made both writers hand
+back the `interview` stage they borrow, so a rebuilt corpus now survives the
+run. **The one-in-three intermittent (`a selection is a link you can send —
+§5.6`) passed this time**, which is what a one-in-three intermittent does and
+is **not** evidence it is fixed. It remains characterised and deliberately
+unfixed; see "the fourth" below. CI runs the seeded suite with `retries: 1`,
+so it has roughly a one-in-nine chance of turning a PR red — read a failure
+there against this paragraph before diagnosing it fresh.
+
+**The pin had silently become partial, and only CI could see it.** The `python`
+job went red on ADR 0016 §3's check — not on a test:
+
+> `the installed set does not match services/api/constraints-ci.txt` — run
+> `make constraints` and commit the result
+
+M5b added `argon2-cffi` to `pyproject.toml` for argon2id (ADR 0037) and nothing
+regenerated the constraints file, so four packages — `argon2-cffi`,
+`argon2-cffi-bindings`, `cffi`, `pycparser` — installed at whatever was newest
+while everything continued to call the set pinned. **This is the exact failure
+class ADR 0016 §3 was written to catch, caught by the check written for it**,
+which is the good outcome rather than an embarrassing one.
+
+**It is not reproducible locally by construction.** The pin is resolved on
+`linux/amd64` in a container and covers CI only (ADR 0016 §2) — so `make check`
+on this machine cannot fail this way, and no amount of local diligence would
+have found it. **Adding a Python dependency is two steps, and the second one has
+no local signal: edit `pyproject.toml`, then `make constraints`.**
+
+Fixed at `1655249`. The regeneration also carried ~20 incidental version bumps;
+ADR 0016 §4 treats that as the normal outcome of a regeneration rather than
+something to hand-trim, and the file is generated, so hand-editing it would make
+the next regeneration produce a diff nobody could explain.
+
+**The run also caught the thing `CLAUDE.md` §4 exists to catch.** Ports 3000 and
+8000 were held by a Next server up **1 day 4 hours** and a uvicorn up
+**23h40m** — both older than the M5b auth fixes committed the day before.
+`playwright.seeded.config.ts` sets `reuseExistingServer: !CI`, so the suite
+would have reused both and reported a green run *about day-old code*. They were
+killed before the suite started. **A stale server does not announce itself; the
+only defence is checking the ports before believing a green run.**
+
+`make reset-db` was used rather than `make seed`, deliberately: the Python suite
+shares the dev database, and `make seed` provably **cannot** repair a mutated
+application stage because `save_job` is idempotent by skipping. That is the
+property that made `marks.ring == 0` permanent rather than transient, so a
+PR-gating run gets a corpus rebuilt rather than patched.
+
+**A mistake worth recording, because it nearly went into the branch.** Running
+`npx prettier --write docs/PROGRESS.md` reformatted **the whole file** — 903
+insertions, 863 deletions. Prettier's glob is `apps/web`-relative, so nothing
+under `docs/` is linted and never has been. Reverted before it was committed.
+**Do not run a formatter at a path its project does not already cover**; the
+absence of a complaint from `make check` is what tells you the file is out of
+scope.
+
+**Draft PR #17 is closed as superseded.** Its three commits (M4d Task 1, the
+frame timer) are ancestors of `m5b-identity`, so nothing was lost; its title
+described M4d Tasks 2–7, which A16 paused into M7.
+
+**What PR #18 states as not done**, recorded here so it is not rediscovered:
+M4e Tasks 8 (reconciling `city.md` against ADRs 0033/0034/0035, which overrode
+it) and 9 (addresses without typing) remain; the roof wash shipped untuned; the
+1.65 km spires of ADR 0035 have never been seen on a real GPU, so what that
+overdraw costs at 5,000 roles is unmeasured and belongs with M7's quality tiers.
 
 **2026-08-20, later: the baseline was run, and the answer is no.**
 
