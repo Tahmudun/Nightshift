@@ -55,12 +55,26 @@ EOF
 Or edit it by hand: add an `mcpServers` key at the top level beside
 `preferences`, and put the `"nightshift"` entry inside it.
 
-**`"command"` must be an absolute path**, which is what `--create` prints.
-Claude Desktop is a GUI application: it launches the server with no login
-shell, so none of your `.zshrc` exists — no `PATH` you added, no `pyenv`, no
-activated virtualenv — and from a working directory that is not this
-repository. The absolute path to the repo's own venv is the only form that
-survives that.
+**`"command"` must be the absolute path to this repository's virtualenv**,
+which is what `--create` prints. Not `python`, not `python3`, not a path that
+relies on a shell.
+
+Claude Desktop does pass a reasonable `PATH` — it is close to your login
+shell's, and it logs the one it used. What it cannot do is *activate* a
+virtualenv, and that is the part that bites. A bare `python3` resolves to
+whichever system Python that `PATH` finds first, and on a machine where this
+repo has been installed in editable mode that interpreter **can still import
+`nightshift`** — the editable install leaves it on `sys.path` for every
+interpreter you own. So the obvious sanity check passes, and the server dies
+one import later:
+
+```
+ModuleNotFoundError: No module named 'httpx'
+```
+
+The venv's own interpreter is the only one with the dependencies. It also
+launches from a working directory that is not this repository, which the
+absolute path handles and a relative one does not.
 
 ### 3. Start Nightshift, then restart Claude Desktop
 
@@ -82,9 +96,27 @@ Ask Claude: **"which Nightshift account am I connected to?"** It should call
 
 ### Claude does not offer any Nightshift tools
 
-The server never started. Claude Desktop shows MCP server errors under its
-developer settings; the useful output is on **stderr**, which it captures to a
-log file.
+The server never started. Claude Desktop captures the server's **stderr** to a
+log file, and on macOS that file is:
+
+```
+~/Library/Logs/Claude/mcp-server-nightshift.log
+```
+
+`~/Library/Logs/Claude/mcp.log` beside it carries the same lines for every
+server plus the protocol traffic. A healthy connection looks like this — the
+absolute path it launched, then the handshake:
+
+```
+[nightshift] [info] Using MCP server command: /…/services/api/.venv/bin/python
+[nightshift] [info] Server started and connected successfully
+[nightshift] [info] Message from client: method="initialize" id=0 params
+[nightshift] [info] Message from server: id=0 result
+[nightshift] [info] Message from client: method="tools/list" id=1 params
+```
+
+If `tools/list` never gets a result, the process died during import and the
+traceback is above it in that same file.
 
 Run the server by hand to see the error directly:
 
