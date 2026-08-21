@@ -736,7 +736,7 @@ last rung of the three rather than the next.
 
 ## Next exact action
 
-### Current milestone: **M5 — The Open Hand**, on `m5c-the-open-hand`. **Tasks 1–4 of six are built and green. What remains is the live Claude Desktop walk (task 5) and the review (task 6).**
+### Current milestone: **M5 — The Open Hand**, on `m5c-the-open-hand`. **All six tasks are done, CI is green at `a59ce2f`, and the acceptance criterion is met by a real model. [PR #19](https://github.com/Tahmudun/Nightshift/pull/19) is a draft waiting on a human.**
 
 > **START HERE, NEXT SESSION.** The branch is off `main` at `1ab2bd9`.
 > **[PR #19](https://github.com/Tahmudun/Nightshift/pull/19) is open as a
@@ -744,9 +744,29 @@ last rung of the three rather than the next.
 > `MERGEABLE` / `CLEAN`. It is a draft **on purpose**: the acceptance criterion
 > has not been met, and a green suite is not it.
 >
-> The next action is **task 5's remaining half — connecting a real Claude
-> Desktop** — which is the milestone's acceptance criterion and cannot be a
-> unit test. It needs the human.
+> **M5c's acceptance criterion is met.** See
+> `docs/reviews/milestone-5c-acceptance.md`. A real Claude model, told *"don't
+> hedge, I need something concrete"*, still refused to invent Ramp's street
+> address and said so in the data's own terms — *"Nightshift marks that
+> location `city_only`, and I'm not going to hand you an address from memory
+> for a real company's office."* It read the `unknown` sentence back as *"an
+> admission of ignorance rather than a hint"*, refused to estimate a match
+> score, and reported a capture as *"a proposal, waiting for you. Nothing
+> more."*
+>
+> **The one deviation, stated rather than glossed: Claude Desktop is not
+> installed on this machine, so the client was Claude Code.** Same protocol,
+> same stdio server, same config shape — but Claude Desktop's own config
+> location, restart cycle and error surface are unwalked, and
+> `docs/runbooks/connecting-claude-desktop.md` documents a path nobody has
+> followed. `CLAUDE.md` §6 names Claude Desktop specifically; a sibling client
+> met it.
+>
+> **The next action is the human's: mark [#19](https://github.com/Tahmudun/Nightshift/pull/19)
+> ready and merge, or install Claude Desktop and close the deviation first.**
+> After that, M5 continues with **M5d — assisted capture from LinkedIn and
+> Indeed** — which rides on this server, and **M5e — addresses without
+> typing**.
 >
 > **The runbook is written and half-walked.**
 > `docs/runbooks/connecting-claude-desktop.md`, and
@@ -779,7 +799,7 @@ last rung of the three rather than the next.
 | 2 — server, transport, guards | **Done.** `nightshift/mcp/` in five files, stdio, the import guard and the stdout guard |
 | 3 — the read tools | **Done.** `search_jobs`, `get_job`, `explain_match`, `list_applications` |
 | 4 — capture | **Done.** `capture_posting`, and the tests that keep a confirm tool from ever existing |
-| 5 — the Claude Desktop walk | **Half done.** Everything up to the desktop app is proved against a live API over real stdio — `docs/reviews/milestone-5c-stdio-walk.md`. The app itself needs the human |
+| 5 — the client walk | **Done, with one stated deviation.** A real Claude model in front of the tools held I1 under an adversarial prompt and captured a posting end to end — `docs/reviews/milestone-5c-acceptance.md`. **Claude Desktop is not installed on this machine, so the client was Claude Code** |
 | 6 — review and docs | **Done.** ADR 0038, the runbook, and `docs/reviews/milestone-5c-review.md`, which found the closed-listing defect above |
 
 **ADR 0038** records the three decisions: the server is an HTTP client of the
