@@ -37,20 +37,19 @@ throws all of that away, and nothing tells you: the app just comes back with
 its settings reset. The block is printed as a *fragment* to add, and the
 warning it deserves is stronger than the one about a second server.
 
-On macOS this merges it without disturbing anything else, backup first:
+**The easiest way is to let step 1 do it.** Add `--merge-config` and the token
+lands in the file with everything else left alone, and a `.backup` written
+first:
 
 ```
-CFG=~/Library/Application\ Support/Claude/claude_desktop_config.json
-cp "$CFG" "$CFG.backup"
-python3 - "$CFG" <<'EOF'
-import json, sys
-path = sys.argv[1]
-cfg = json.load(open(path))
-cfg.setdefault("mcpServers", {})["nightshift"] = json.loads(input(
-    "paste the nightshift entry (the inner object), then Enter: "))
-json.dump(cfg, open(path, "w"), indent=2)
-EOF
+services/api/.venv/bin/python -m nightshift.cli tokens \
+  --email you@example.com --create --label "claude desktop" \
+  --merge-config ~/Library/Application\ Support/Claude/claude_desktop_config.json
 ```
+
+It refuses rather than overwrites if the file is not valid JSON, and it
+replaces an existing `nightshift` entry — re-minting a token is the ordinary
+reason to run it — while leaving any other MCP server alone.
 
 Or edit it by hand: add an `mcpServers` key at the top level beside
 `preferences`, and put the `"nightshift"` entry inside it.
