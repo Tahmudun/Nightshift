@@ -7,6 +7,48 @@ the date, because the reasoning is usually worth more than the decision.
 
 ---
 
+## Q12 — CI takes fifteen minutes against a five-minute target. Spend a slice on it, or accept it?
+
+**Raised:** 2026-08-21 (M5b, opening PR #18) · **Type:** working practice · **Blocking:** no
+
+**What happened.** The `python` job was cancelled mid-suite at exactly 10m00s,
+having reached 64% with **zero failures**. It was not a broken test — the suite
+outgrew `timeout-minutes: 10`. Raised to 20 in the same commit, which unblocks
+the PR and fixes nothing.
+
+**The measurement.** 2128 python tests, 10m16s locally; on the runner, 6% → 64%
+in 479s, extrapolating to ~12.7 minutes of pytest on ~2.5 minutes of setup. The
+`e2e` job is eleven minutes behind it. Jobs run in parallel, so **wall clock is
+about fifteen minutes** against A14's stated target of five.
+
+**Why it is a real question rather than a chore.** A14's reasoning is
+*"a slow CI is a CI you start skipping"*, and that is a claim about behaviour,
+not about seconds. Fifteen minutes is the range where a person stops waiting for
+the result and merges on local evidence — which is exactly the habit that let
+the partial pin ship, because the pin is checkable *only* in CI.
+
+**The options, with what each costs:**
+
+1. **Accept it and move the target.** Free. Amend A14 to say what is true. The
+   risk is the behavioural one above, and it compounds silently.
+2. **Parallelise with `pytest-xdist`.** Probably the largest win for the least
+   code — but the suite shares one Postgres, and this project has *already*
+   measured a real `DeadlockDetectedError` from two suites overlapping on one
+   database (2026-08-20). That makes xdist and **Q8's separate test database the
+   same piece of work**, which is an argument for doing Q8 first.
+3. **Find the slow tests.** The CI log has visible stalls — one stretch spent two
+   minutes on 3% of the suite. Nobody has looked at where the time actually goes,
+   so the cheapest honest first step is a `--durations` run.
+4. **Split the job.** Moves wall clock, adds runner minutes and a second place
+   for the pin to be checked.
+
+**My recommendation:** 3, then 2 — measure before optimising, and fold it into
+Q8 rather than treating them as two problems. But this is a slice of work with no
+product visible at the end of it, so it is the human's call whether it happens
+now or after M5c.
+
+---
+
 ## Q10 — Sending email costs money. Which means no password reset. For how long?
 
 **Raised:** 2026-08-20 (M5b) · **Type:** cost / account · **Blocking:** no

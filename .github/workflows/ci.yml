@@ -31,13 +31,33 @@ env:
 #
 # The `e2e` job is one addition to that list, argued for in the job's own comment:
 # it is the only automated check that a real board's jobs reach a browser, which
-# is an M0 acceptance criterion. Jobs run in parallel, so the target holds.
+# is an M0 acceptance criterion.
+#
+# **The five-minute target no longer holds, and saying so is the point.** Jobs do
+# run in parallel, so wall clock is the slowest job rather than the sum — but on
+# 2026-08-21 that slowest job was `python` at roughly fifteen minutes (2128 tests)
+# with `e2e` behind it at eleven. Parallelism bought time and has now been spent.
+# A14's reasoning still stands — a slow CI is a CI you start skipping — so this is
+# recorded as a debt with a number against it, not quietly redefined as fine.
 
 jobs:
   python:
     name: python — lint, types, tests
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Raised from 10 on 2026-08-21, when this job was cancelled mid-suite at
+    # exactly 10m00s having reached 64% with zero failures. The suite is now
+    # 2128 tests and takes 10m16s on a developer's machine; on the runner it
+    # went 6% -> 64% in 479s, which extrapolates to ~12.7 minutes of pytest on
+    # top of ~2.5 minutes of setup, model cache and migrations. A timeout that
+    # a passing suite cannot fit inside reports "cancelled" — not "slow" — and
+    # that is indistinguishable at a glance from a real failure.
+    #
+    # This is headroom for a slower runner, not a budget, and it is not a fix:
+    # AMENDMENTS A14 targets CI under five minutes and this job alone is three
+    # times that. Making the suite faster is real work and belongs in its own
+    # slice; raising the number here only stops the gate from lying about how
+    # long the suite it runs actually takes.
+    timeout-minutes: 20
     # A postgres service, so the database-backed tests (`requires_db` /
     # `pytest.mark.integration` in services/api/tests/conftest.py) actually run
     # here instead of silently skipping. Without this, `conftest.py`'s

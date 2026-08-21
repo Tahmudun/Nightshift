@@ -34,7 +34,7 @@
 **M4c: Tasks 1, 2, 3 and 4 are done. The placement join and `GET /city/signals` (ADR 0024, which resolves a real conflict between I1 and `city.md` §4.4 rather than papering over it), the Three.js signal layer in MapLibre's own context (ADR 0025), and the field made legible, navigable and sortable. New York now has every open role floating above it, untethered, and none on a building — see `docs/reviews/milestone-4c-signals.png` and `docs/reviews/milestone-4c-roster.png`. Task 4 then made a role reachable: picking by raycast against the frame's own matrix, a reticle, a detail panel, and one selection shared by the list and the map (ADR 0027) — `docs/reviews/milestone-4c-selection.png`.**
 **Docker's daemon is no longer wedged.** It was force-quit and relaunched on 2026-08-12. `make up` was then run **from cold** — containers removed with `docker compose down` first — and created both from scratch to healthy, exit 0. **That closes the last open step in M4b's acceptance chain**; container startup is now proven rather than assumed. The seeded corpus survived and matches what this file records: 31 canonical jobs, 62 `job_locations`, 44 `city_only` + 18 `remote`, 0 mappable.
 **Current milestone: M5 — The Open Hand (A16), on `m5b-identity`.**
-**M5a and M5b are built, reviewed and verified. [PR #18](https://github.com/Tahmudun/Nightshift/pull/18) is open against `main`** — 65 commits, 167 files, carrying M4d Task 1, M4e's built tasks, M5a and M5b; draft PR #17 is closed as superseded. All four local gates were re-run green on 2026-08-21: `make check` (2128 Python tests, 799 web), `make reset-db`, `make verify`, and `make test-e2e-seeded` at **87 passed, 1 skipped, 0 failed**. **CI then found what no local command could**: M5b added `argon2-cffi` and never regenerated CI's pin, so the pin had silently become partial — ADR 0016 §3's exact failure class, caught by the check written for it. See "Next exact action".
+**M5a and M5b are built, reviewed and verified. [PR #18](https://github.com/Tahmudun/Nightshift/pull/18) is open against `main`** — 65 commits, 167 files, carrying M4d Task 1, M4e's built tasks, M5a and M5b; draft PR #17 is closed as superseded. All four local gates were re-run green on 2026-08-21: `make check` (2128 Python tests, 799 web), `make reset-db`, `make verify`, and `make test-e2e-seeded` at **87 passed, 1 skipped, 0 failed**. **CI then found what no local command could**: M5b added `argon2-cffi` and never regenerated CI's pin, so the pin had silently become partial — ADR 0016 §3's exact failure class, caught by the check written for it. **CI then ran twice**: run 1 caught the partial pin, run 2 passed `web`, `migrations`, `e2e` and `secret scan` and lost `python` to a 10-minute timeout at 64% with zero failures — raised to 20, and raised as **Q12**, because CI is now ~15 minutes against A14's five. See "Next exact action".
 **M5b is BUILT and REVIEWED** — `user_credentials`, `user_sessions`, argon2id,
 `/auth/sign-in|token|sign-out|me`, default-deny on every router,
 `nightshift users create`, a seed that plants **two** accounts, the Next.js
@@ -745,8 +745,51 @@ last rung of the three rather than the next.
 > | `make verify` | **exit 0** — all checks passed, corpus left as found |
 > | `make test-e2e-seeded` | **exit 0** — **87 passed, 1 skipped, 0 failed** (6.6m) |
 >
-> **Read CI on #18. If it is green, merge it.** Then M5's remaining work is
-> M5c — the MCP server — and M4e Tasks 8 and 9.
+> **CI ran twice and is not green yet — read the block below before doing
+> anything.** Four of five jobs pass at `e55cbdc`; the fifth was a timeout,
+> not a failure, and the fix is pushed. **Re-read CI on #18; if it is green,
+> merge it.** Then M5's remaining work is M5c — the MCP server — and M4e
+> Tasks 8 and 9.
+
+**CI's verdict, and both things it caught were invisible locally.**
+
+**Run 1 (`a844c2d`) — the pin had gone partial.** Covered below.
+
+**Run 2 (`e55cbdc`) — four green, one timeout.** `web`, `migrations`, `e2e`
+and `secret scan` all passed. **`e2e` passing matters**: it runs the seeded
+corpus with the §5.6 intermittent in it, so that risk did not land this time.
+
+`python` was **cancelled at exactly 10m00s having reached 64% with zero
+failures** — `timeout-minutes: 10` against a suite that now takes 10m16s
+locally. **A timeout reports "cancelled", which at a glance is indistinguishable
+from a real failure**, and the first reading of it here was wrong: it was read
+as the *superseded* run's job, because `gh pr checks` blends checks from
+several runs and the previous run had genuinely been cancelled by the push.
+**Read a run by its id and its SHA, never a PR's blended check list.**
+
+Everything before pytest passed on the regenerated pin — `76 distributions, all
+pinned`, `187 files already formatted`, `All checks passed!`,
+`Success: no issues found in 80 source files`. So the ~20 incidental version
+bumps the regeneration carried, including **ruff 0.16.1 → 0.16.4** and
+**mypy 2.3.0 → 2.3.1** — the two that are themselves gates and the ones worth
+worrying about — broke nothing.
+
+**Raised to `timeout-minutes: 20`, and that is not a fix.** Measured on the
+runner: 6% → 64% in 479s, extrapolating to ~12.7 minutes of pytest on ~2.5
+minutes of setup, model cache and migrations. **CI wall clock is now about
+fifteen minutes against A14's stated five**, with `e2e` at eleven behind it.
+`ci.yml`'s own header used to claim "jobs run in parallel, so the target holds"
+— that claim is now false and has been corrected in place rather than left
+standing.
+
+**This is raised as Q12**, with the honest framing: A14's reasoning is *"a slow
+CI is a CI you start skipping"*, which is a claim about behaviour rather than
+seconds — and fifteen minutes is where somebody starts merging on local
+evidence instead, **which is exactly the habit that let the partial pin ship,
+because the pin is checkable only in CI.** Q12 also notes that `pytest-xdist`
+and Q8's separate test database are the same piece of work, since this project
+has already measured a real `DeadlockDetectedError` from two suites sharing one
+Postgres.
 
 **2026-08-21: the branch was verified, PR #18 is open, and CI caught the one
 thing no local command could.**
