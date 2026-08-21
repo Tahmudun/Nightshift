@@ -743,8 +743,23 @@ last rung of the three rather than the next.
 > **task 5 — connecting a real Claude Desktop** — which is the milestone's
 > acceptance criterion and cannot be a unit test.
 >
-> `docs/runbooks/connecting-claude-desktop.md` is written and unwalked. Walk it,
-> capture evidence, and expect it to find something the tests could not.
+> **The runbook is written and half-walked.**
+> `docs/runbooks/connecting-claude-desktop.md`, and
+> `docs/reviews/milestone-5c-stdio-walk.md` is the transcript: a real
+> subprocess, real pipes, a real MCP client, a real token from the real CLI,
+> and a real uvicorn. Six tools discovered, `whoami` returning
+> `dev@nightshift.local`, three `city_only` jobs each carrying their `means`
+> sentence and no coordinates, `explain_match` at 30/100 with six components
+> and a ruleset version, a capture landing `pending` with `job_id IS NULL`,
+> and — with the API genuinely stopped — a **tool error** naming the fix
+> rather than an empty list. Mint, list, revoke and refuse-after-revoke all
+> walked against the real database.
+>
+> **What is left is the part no test can reach**: whether a model reading
+> these descriptions says *"in New York, address unknown"* or invents a
+> street. That is this milestone's new failure class — a result can be correct
+> and its reading false — and it needs a person, the desktop app, and a
+> conversation. The runbook's setup section is what to follow.
 >
 > **Before any gating run: check that nothing else is touching Postgres.**
 > `lsof -ti:3000 -ti:8000` for a stale dev stack, and no second pytest. This
@@ -759,7 +774,7 @@ last rung of the three rather than the next.
 | 2 — server, transport, guards | **Done.** `nightshift/mcp/` in five files, stdio, the import guard and the stdout guard |
 | 3 — the read tools | **Done.** `search_jobs`, `get_job`, `explain_match`, `list_applications` |
 | 4 — capture | **Done.** `capture_posting`, and the tests that keep a confirm tool from ever existing |
-| 5 — the Claude Desktop walk | **Not started.** The acceptance criterion |
+| 5 — the Claude Desktop walk | **Half done.** Everything up to the desktop app is proved against a live API over real stdio — `docs/reviews/milestone-5c-stdio-walk.md`. The app itself needs the human |
 | 6 — review and docs | ADR 0038 and the runbook are written; the review is not |
 
 **ADR 0038** records the three decisions: the server is an HTTP client of the
