@@ -90,6 +90,23 @@ Claude Desktop reads its config only at launch, so quit it fully — on macOS
 Ask Claude: **"which Nightshift account am I connected to?"** It should call
 `whoami` and answer with your email. If it does, everything downstream works.
 
+### 5. Sign in to the website as that same account
+
+**The token's account and your browser session are independent, and nothing
+reconciles them.** A token minted for one account, and a browser signed in as
+another, is a working setup in which every capture Claude makes lands in a
+review queue you are not looking at. Nothing warns you — you see an empty
+queue, which is what an empty queue looks like.
+
+That separation is deliberate and it is M5b's isolation doing its job: a
+capture belongs to one account and no other account can see it, including
+yours. But it means the answer `whoami` gives you in step 4 is the account you
+must be signed in as at http://localhost:3000, or the last step of every
+capture goes somewhere you cannot reach.
+
+Mint the token for the account you actually use. If you are walking this with
+the seeded demo reader, `make seed` prints its password.
+
 ---
 
 ## When it does not work
