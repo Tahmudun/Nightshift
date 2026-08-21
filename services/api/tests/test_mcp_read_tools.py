@@ -20,6 +20,7 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from mcp.server import MCPServer
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nightshift.api.deps import current_user
@@ -303,3 +304,72 @@ async def test_no_tool_takes_a_user_id_argument(server: MCPServer) -> None:
         if key in ("user_id", "userId", "email", "account_id", "as_user")
     ]
     assert offenders == [], f"tools let the caller choose an identity: {offenders}"
+
+
+# --------------------------------------------------------------------------
+# I3: a closed listing is not an open one
+# --------------------------------------------------------------------------
+
+
+@_async
+async def test_search_does_not_return_closed_jobs_by_default(
+    db_session: AsyncSession, account: User, corpus: Job
+) -> None:
+    """Found by reading the route, not by running the walk — and that is the point.
+
+    `GET /jobs` applies a status filter only when one is given, so with none it
+    returns **every** status including `closed`. `search_jobs` said "Search open
+    New York technology jobs" in its description and passed no filter, so the
+    description made a claim the tool did not honour: a closed listing would
+    have reached a reader as an available role.
+
+    **The live walk could not have caught this.** The seeded corpus is 32 jobs
+    and all 32 are `open` — so this test has to build the failure the corpus
+    cannot produce, which is M4c's lesson arriving a third time in this
+    milestone.
+
+    A closed job is still reachable, deliberately: `status="closed"` asks for
+    it, and `get_job` on a known id always answers. I3 is about not *silently*
+    presenting one as open, not about hiding it.
+    """
+    company = (
+        await db_session.execute(select(Company).where(Company.id == corpus.company_id))
+    ).scalar_one()
+    now = utcnow()
+    closed = Job(
+        company_id=company.id,
+        title="Backend Engineer (this role has closed)",
+        normalized_title="backend engineer this role has closed",
+        status=JobStatus.CLOSED,
+        #  requires it: a job cannot be closed
+        # without recording when, which is I3 held in the schema.
+        closed_at=now,
+        first_seen_at=now,
+        last_seen_at=now,
+    )
+    db_session.add(closed)
+    await db_session.flush()
+
+    app = create_app()
+    app.dependency_overrides[get_db_session] = lambda: db_session
+    app.dependency_overrides[current_user] = lambda: account
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as http:
+        server = build_server(NightshiftClient("", "unused", http=http))
+        async with connected(server) as session:
+            default = await session.call_tool("search_jobs", {"q": "Backend"})
+            asked = await session.call_tool("search_jobs", {"q": "Backend", "status": "closed"})
+
+    assert not default.is_error, default.content
+    titles = [job["title"] for job in default.structured_content["jobs"]]
+    assert "Backend Engineer (this role has closed)" not in titles, (
+        "a closed listing reached a reader from a tool whose description says 'open'"
+    )
+    assert corpus.title in titles, "the open job vanished along with the closed one"
+
+    assert not asked.is_error, asked.content
+    asked_titles = [job["title"] for job in asked.structured_content["jobs"]]
+    assert "Backend Engineer (this role has closed)" in asked_titles, (
+        "a closed job must stay reachable when explicitly asked for — I3 forbids "
+        "presenting one as open, not knowing about it"
+    )

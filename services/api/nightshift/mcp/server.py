@@ -92,10 +92,14 @@ def build_server(
     @mcp.tool(
         name="search_jobs",
         description=(
-            "Search open New York technology jobs in Nightshift's corpus. Returns "
+            "Search New York technology jobs in Nightshift's corpus. Returns "
             "matching postings with their locations, each carrying a confidence and "
             "a plain-English `means` field saying what that confidence licenses you "
             "to claim about where the role is.\n\n"
+            "**Only open roles by default.** Nightshift tracks listings after they "
+            "close, and a closed one presented as available wastes a reader's "
+            "afternoon. Pass `status='closed'` to see those deliberately; every "
+            "result states its own `status` either way.\n\n"
             "Results carry NO match score, deliberately. Call explain_match with a "
             "job id for a score and the evidence behind it, and never estimate one "
             "yourself.\n\n"
@@ -112,9 +116,26 @@ def build_server(
         skill: str | None = None,
         employment_type: str | None = None,
         remote_policy: str | None = None,
+        status: str = "open",
         limit: int = 25,
     ) -> dict[str, Any]:
-        """`GET /jobs`, reshaped so every location states its own confidence."""
+        """`GET /jobs`, reshaped so every location states its own confidence.
+
+        **`status` defaults to `open` here and to nothing at the route**, which
+        is the fix for a defect this milestone shipped and then found by
+        reading rather than by running. `GET /jobs` filters on status only when
+        given one, so passing none returns every status — while this tool's
+        description promised open roles. A closed listing would have reached a
+        reader as an available job.
+
+        The seeded corpus is 32 jobs and all 32 are `open`, so the live walk
+        could not have surfaced it; `test_mcp_read_tools.py` builds the closed
+        job the corpus cannot supply.
+
+        The default is a **default and not a filter**: `status="closed"` still
+        works, and `get_job` on a known id always answers. I3 forbids
+        presenting a closed role as open, not knowing about one.
+        """
         payload = await client.get(
             "/jobs",
             q=q,
@@ -123,6 +144,7 @@ def build_server(
             skill=skill,
             employment_type=employment_type,
             remote_policy=remote_policy,
+            status=status,
             limit=limit,
         )
         return shapes.search_result(payload)
@@ -134,7 +156,9 @@ def build_server(
             "their confidences, the requirements Nightshift extracted, and which "
             "sources it was seen on.\n\n"
             "Use it after search_jobs when the reader asks about a specific role. "
-            "The score is NOT here — call explain_match for that."
+            "The score is NOT here — call explain_match for that.\n\n"
+            "This answers for a job at any status, including one that has closed. "
+            "Check `status` before describing a role as available."
         ),
     )
     async def get_job(job_id: str) -> dict[str, Any]:

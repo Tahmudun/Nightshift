@@ -775,7 +775,7 @@ last rung of the three rather than the next.
 | 3 — the read tools | **Done.** `search_jobs`, `get_job`, `explain_match`, `list_applications` |
 | 4 — capture | **Done.** `capture_posting`, and the tests that keep a confirm tool from ever existing |
 | 5 — the Claude Desktop walk | **Half done.** Everything up to the desktop app is proved against a live API over real stdio — `docs/reviews/milestone-5c-stdio-walk.md`. The app itself needs the human |
-| 6 — review and docs | ADR 0038 and the runbook are written; the review is not |
+| 6 — review and docs | **Done.** ADR 0038, the runbook, and `docs/reviews/milestone-5c-review.md`, which found the closed-listing defect above |
 
 **ADR 0038** records the three decisions: the server is an HTTP client of the
 API and may not import `nightshift.db.session` or `.models`; the credential is
@@ -788,7 +788,22 @@ them go red: the import guard, the stdout guard, the confidence-table
 exhaustiveness check, the no-score-outside-`explain_match` walk, the
 no-`user_id`-argument check, and the no-confirm-tool check.
 
-**Four findings worth keeping.**
+**A defect was found by review and fixed: a closed listing presented as an
+open role.** `search_jobs`'s description said *"Search open New York technology
+jobs"*; `GET /jobs` filters on status only when given one, and the tool passed
+none — so it returned **every** status including `closed`. A reader would have
+been handed listings that no longer exist, described as available. I3's shape,
+arriving through a description that promised what the implementation did not do.
+
+**The live walk could not have caught it**: the seeded corpus is 32 jobs and all
+32 are `open`, so `search_jobs` against real data cannot produce a single closed
+row. That is the **third** time in this one milestone that a corpus which cannot
+produce a failure failed to test the guard against it. Fixed with a `status`
+parameter defaulting to `open`, and a test that builds the closed job the corpus
+cannot supply — asserting **both** directions, because I3 forbids presenting a
+closed role as open, not knowing about one.
+
+**Five findings worth keeping.**
 
 **A test that could not fail, caught by sabotage rather than by review.** The
 enumerating tests in `test_mcp_read_tools.py` walk tool results looking for a
