@@ -33,8 +33,11 @@
 **M4c Task 5 is done: the city speaks §6, and says what it is saying.** The table is one pure function (`treatments.ts`), the beacons carry per-instance colour, strength and pulse rate through a shader, four instanced meshes draw the marks §6 puts *on* a body, and an in-interface legend documents all thirteen rows — including the four that are not drawn, each with its reason. ADR 0028. `docs/reviews/milestone-4c-treatments.png` is the screenshot. Three defects were found by looking rather than by a test: a closed torus whose rotation was invisible by construction, a spin folded into the billboard that rolled every arc out of the camera plane, and a saved outline drawn cyan — which is exactly what ADR 0027's standing instruction ruled out.
 **M4c: Tasks 1, 2, 3 and 4 are done. The placement join and `GET /city/signals` (ADR 0024, which resolves a real conflict between I1 and `city.md` §4.4 rather than papering over it), the Three.js signal layer in MapLibre's own context (ADR 0025), and the field made legible, navigable and sortable. New York now has every open role floating above it, untethered, and none on a building — see `docs/reviews/milestone-4c-signals.png` and `docs/reviews/milestone-4c-roster.png`. Task 4 then made a role reachable: picking by raycast against the frame's own matrix, a reticle, a detail panel, and one selection shared by the list and the map (ADR 0027) — `docs/reviews/milestone-4c-selection.png`.**
 **Docker's daemon is no longer wedged.** It was force-quit and relaunched on 2026-08-12. `make up` was then run **from cold** — containers removed with `docker compose down` first — and created both from scratch to healthy, exit 0. **That closes the last open step in M4b's acceptance chain**; container startup is now proven rather than assumed. The seeded corpus survived and matches what this file records: 31 canonical jobs, 62 `job_locations`, 44 `city_only` + 18 `remote`, 0 mappable.
-**Current milestone: M5 — The Open Hand (A16), on `m5b-identity`.**
-**M5a and M5b are built, reviewed and verified. [PR #18](https://github.com/Tahmudun/Nightshift/pull/18) is open against `main`** — 65 commits, 167 files, carrying M4d Task 1, M4e's built tasks, M5a and M5b; draft PR #17 is closed as superseded. All four local gates were re-run green on 2026-08-21: `make check` (2128 Python tests, 799 web), `make reset-db`, `make verify`, and `make test-e2e-seeded` at **87 passed, 1 skipped, 0 failed**. **CI then found what no local command could**: M5b added `argon2-cffi` and never regenerated CI's pin, so the pin had silently become partial — ADR 0016 §3's exact failure class, caught by the check written for it. **CI took three runs and is now green — all five jobs at `06725d6`, and PR #18 is `MERGEABLE`/`CLEAN`.** Run 1 caught a partial dependency pin; run 2 lost `python` to a 10-minute timeout at 64% with zero failures (raised to 20, and raised as **Q12**, because CI is now ~15 minutes against A14's five); run 3 passed everything. **#18 is deliberately not merged — that call is the human's**, because this branch carries M4e and M4e's acceptance is a human verdict on a screenshot. See "Next exact action".
+**Current milestone: M5 — The Open Hand (A16). M5a and M5b are merged; M5c — the MCP server — is next.**
+**M5a and M5b are COMPLETE and MERGED. [PR #18](https://github.com/Tahmudun/Nightshift/pull/18) merged to `main` as `414117c` on 2026-08-21, on the human's call.**
+**The human's verdict on the look, which is the thing that was being waited for: `make demo` was run, the city was looked at, and the report is *"it looks ok for now until a later polish and optimization phase."*** That is a **hold, not a sign-off** — it clears the merge and it does **not** discharge ADR 0031's standing commitment, which is a verdict against `docs/design/references/02-skyline-grid-plane-light-columns.jpg` specifically. **M4e's acceptance is still owed and now sits in M7 with the rest of the polish**, alongside the untuned roof wash and Q9's sky.
+**Three questions were answered in the same breath: Q12 (fifteen-minute CI — accept it, revisit if it irks), Q10 (email/password reset — deferred to the deploy) and Q2 (deployment target — deferred to M7, and A16 already moved the ship there).** Q11 loses one of its two branches to those answers and Q9 is deferred rather than answered; both stay open. See `docs/QUESTIONS.md`.
+**What #18 carried, for the record — 65 commits, 167 files:** M4d Task 1, M4e's built tasks, M5a and M5b; draft PR #17 is closed as superseded. All four local gates were re-run green on 2026-08-21: `make check` (2128 Python tests, 799 web), `make reset-db`, `make verify`, and `make test-e2e-seeded` at **87 passed, 1 skipped, 0 failed**. **CI then found what no local command could**: M5b added `argon2-cffi` and never regenerated CI's pin, so the pin had silently become partial — ADR 0016 §3's exact failure class, caught by the check written for it. **CI took three runs and is now green — all five jobs at `06725d6`, and PR #18 is `MERGEABLE`/`CLEAN`.** Run 1 caught a partial dependency pin; run 2 lost `python` to a 10-minute timeout at 64% with zero failures (raised to 20, and raised as **Q12**, because CI is now ~15 minutes against A14's five); run 3 passed everything, and #18 merged clean on the human's call.
 **M5b is BUILT and REVIEWED** — `user_credentials`, `user_sessions`, argon2id,
 `/auth/sign-in|token|sign-out|me`, default-deny on every router,
 `nightshift users create`, a seed that plants **two** accounts, the Next.js
@@ -733,31 +736,48 @@ last rung of the three rather than the next.
 
 ## Next exact action
 
-### Current milestone: **M5 — The Open Hand**, on `m5b-identity`. Every local gate is green and **[PR #18](https://github.com/Tahmudun/Nightshift/pull/18) is open against `main` with CI fully green.** The next action is the human's: whether to merge it.
+### Current milestone: **M5 — The Open Hand**. M5a and M5b are merged. **The next action is M5c — the MCP server, which needs an ADR before it needs code.**
 
-> **START HERE, NEXT SESSION.** The full local gate was re-run on 2026-08-21
-> from a rebuilt corpus and **all four passed**:
+> **START HERE, NEXT SESSION.** `main` is at `414117c` — PR #18 merged
+> 2026-08-21 with all five CI jobs green at `06725d6`. There is no open PR and
+> no branch waiting on anybody.
 >
-> | Gate | Result |
-> |---|---|
-> | `make check` | **exit 0** — **2128 Python tests** (10m16s, 44 warnings), **799 web tests** across 55 files; ruff, Prettier, mypy (80 source files) clean |
-> | `make reset-db` | **exit 0** — 32 raw source records, 64 job locations, 2 confirmed offices both on a building |
-> | `make verify` | **exit 0** — all checks passed, corpus left as found |
-> | `make test-e2e-seeded` | **exit 0** — **87 passed, 1 skipped, 0 failed** (6.6m) |
+> **Begin M5c on a branch off `main`.** It is the rung the rest of M5 hangs
+> from: A16's whole insight is that reading LinkedIn/Indeed (M5d), proposing
+> office addresses (M5e), rejection analysis (M9) and voice (M10) are **one MCP
+> server** exposing this domain to the user's own Claude. Built once, the others
+> are configuration.
 >
-> **CI is green.** Run `32476388882` at `06725d6` — the branch tip — is
-> `completed/success` with **all five jobs passing**: `python`, `web`,
-> `migrations`, `e2e` and `secret scan`. PR #18 reports `MERGEABLE` / `CLEAN`.
+> **The ADR comes first**, and the decisions it owes are not implementation
+> detail: what a tool is allowed to *write* without a human in the loop (I5),
+> how a session authenticates when the caller is a desktop app rather than a
+> browser with a cookie (M5b's sessions are cookie-shaped), and what an MCP
+> tool returns when the honest answer is `unknown` (I1, I2, I4 all land here at
+> once).
 >
-> **The next action is the human's, not mine: #18 is waiting on a decision to
-> merge.** It was deliberately not merged. The branch carries M4e, whose
-> acceptance criterion is a standing commitment that *the human* holds
-> `docs/design/references/02-skyline-grid-plane-light-columns.jpg` against a
-> screenshot and gives a verdict — and Tasks 8 and 9 of that milestone are not
-> done. A green gate is evidence the code works, not permission to ship a look.
->
-> After the merge, M5's remaining work is **M5c — the MCP server** — and **M4e
-> Tasks 8 and 9**.
+> **M5's acceptance criterion for this slice, from `CLAUDE.md` §6:** *Claude
+> Desktop connects and captures a posting end to end.* That is a live
+> integration, not a unit test, so plan for how it gets demonstrated.
+
+**What the human decided on 2026-08-21, so it is not re-asked.**
+
+- **The merge.** #18 is in. The look was reviewed via `make demo` and held at
+  *"ok for now until a later polish and optimization phase"* — a hold rather
+  than the reference-image sign-off ADR 0031 commits to, which stays owed.
+- **Q12 — CI.** Fifteen minutes is accepted. No slice on it now. Revisit when
+  the wait becomes annoying, which is the trigger the human named.
+- **Q10 and Q2 — email and the domain.** Both deferred to the deploy, which
+  A16 already put at M7. Do not buy, register or configure anything.
+- **The polish backlog now has three named items**, and they belong together in
+  M7 rather than scattered: Q9's sky proportion, ADR 0034's untuned roof wash,
+  and ADR 0035's 1.65 km spires which have never been seen on a real GPU.
+
+**M4e Task 8 is the one piece of the paused milestone still worth doing now**,
+and it is documentation rather than rendering: `city.md` §2.1, §4.4 and §6 were
+overridden by ADRs 0033, 0034 and 0035 and still describe a city that is not the
+one that ships. It is cheap, it stops a required-reading document lying to the
+next session, and it does not touch a shader. Do it when M5c is between slices,
+not before M5c starts.
 
 **CI's verdict, and both things it caught were invisible locally.**
 
