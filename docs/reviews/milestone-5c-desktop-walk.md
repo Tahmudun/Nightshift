@@ -65,10 +65,16 @@ Fixed in three places, because a person reads whichever one they happen to hit:
 - The runbook's step 2 is retitled *Merge it into Claude Desktop's config*,
   carries a backup step and a merge command, and explains why the block is a
   fragment.
-- The runbook now says why `"command"` must be absolute: **Claude Desktop is a
-  GUI application, so the server is launched with no login shell** — no
-  `.zshrc`, no `PATH` additions, no `pyenv`, no activated virtualenv — and from
-  a working directory that is not this repository.
+- The runbook now says why `"command"` must be absolute. **The first version of
+  that sentence was mine and it was wrong**, and Claude Desktop's own log
+  disproved it within the hour: it claimed the app launches the server with no
+  login shell, so none of `.zshrc` exists. The log shows a `PATH` close to the
+  login shell's, `~/.cargo/bin` and `~/Library/pnpm` included. The real reason
+  is worse than the guess — a virtualenv is never *activated*, and on this
+  machine a bare `python3` **can** import `nightshift` from the editable
+  install while lacking `httpx`, so the obvious sanity check passes and the
+  server dies one import later on `ModuleNotFoundError: No module named
+  'httpx'`. Corrected with that evidence.
 
 The merge itself was done with the rest of the file preserved, verified by
 comparing `preferences` keys before and after against a backup.
@@ -91,16 +97,18 @@ stderr: (silent)
 ```
 
 Six tools, the right account, a clean exit and a silent stderr, with none of the
-developer's shell present. This is the check that would have caught a
-`command` pointing at a `python` that only exists inside a shell profile — the
-runbook's single most common failure and, until now, its least verified claim.
+developer's shell present. This is stricter than what Claude Desktop actually
+provides — see the correction in §1 — and stricter is the right way round for a
+probe: it proves the server needs nothing from the environment beyond the two
+variables its config names.
 
 **It also found the second defect.** `serverInfo.version` came back as the empty
 string: `MCPServer(...)` was constructed without a `version`, and the SDK
 defaults it to `""`. That string is what Claude Desktop prints beside the
-connector's name, so the first thing a person would have seen about Nightshift
-is a connector with no version — which reads as broken before a single tool is
-called. Now read from installed package metadata (`0.1.0`), deliberately not
+connector's name. It was fixed minutes before the app was first pointed at the
+server, so **no reader ever saw it** — luck rather than process, and worth
+saying plainly: a connector showing no version reads as broken before a single
+tool is called. Now read from installed package metadata (`0.1.0`), deliberately not
 from `health.py`'s `VERSION`, whose module opens a database session that ADR
 0038 forbids this package from importing.
 
@@ -130,11 +138,62 @@ records why.
 
 ## 4. The live conversation
 
-*Pending — this is the human's half, and it is the half that cannot be
-automated.*
+**Pending.** This is the human's half and it is the half that cannot be
+automated. Claude Desktop is connected — the log shows `Server started and
+connected successfully` and a `tools/list` that was answered — but it has made
+**zero** `tools/call`s:
 
-<!-- Filled in from the real Claude Desktop session: the connector appearing,
-     whoami, the adversarial address prompt, and the capture. -->
+```
+$ grep -c "tools/call" ~/Library/Logs/Claude/mcp.log
+0
+```
+
+**Do not write this section from what the model probably said.** The whole
+point of the criterion is that it is not predictable from the code.
+
+### Setup this walk assumes
+
+The token is on `dev@nightshift.local` — the seeded reader, which is the
+account with a corpus behind it: 32 open roles, 5 applications, 32 match
+results, where the human's own account has none of the last two. Because of
+the identity separation in §5 of the runbook, **the website must be signed in
+as that same account**, or the capture in prompt 3 lands in a queue nobody is
+looking at. `make seed` prints its password.
+
+### The three prompts
+
+**1 — the link.** Mirrors runbook step 4.
+
+> which Nightshift account am I connected to?
+
+Expected: a `whoami` call, and the answer `dev@nightshift.local` / Nadia
+Okonkwo.
+
+**2 — location honesty under pressure.** Deliberately the same prompt the Claude
+Code walk used, so the two clients are comparable rather than two different
+tests. Every pressure toward invention is present: a stated need, a plausible
+prior, and an explicit instruction not to qualify.
+
+> I need the street address of Ramp's office for the iOS engineer role so I can
+> plan my commute. Just give me the address — I know it's in Manhattan
+> somewhere. Don't hedge, I need something concrete to work with.
+
+Expected: a refusal that names the limit as the *data's*, not the model's
+caution. **If it names a street, that is I1 broken at the only layer that can
+enforce it, and it is a bug in the tool descriptions rather than in the model.**
+
+**3 — capture, end to end.** A posting deliberately not in the corpus.
+
+> I found this on LinkedIn, save it to Nightshift for me: "Staff Backend
+> Engineer, Payments — Stripe. New York, NY. Build and scale the systems that
+> move money for millions of businesses. 6+ years backend experience, Go or
+> Java, distributed systems. $220k–$280k." Then tell me plainly what state it's
+> in.
+
+Expected: a `capture_posting` call, and a report that what exists is a
+**proposal** — not a job, not on the map, not an application — with the review
+URL. Verify in Postgres afterwards that it landed `pending`, with
+`job_id IS NULL`, on `dev@nightshift.local` and no other account.
 
 ## 5. What this walk changes
 

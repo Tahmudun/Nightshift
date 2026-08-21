@@ -66,9 +66,11 @@ def _server_version() -> str:
     database session. Metadata is the one copy of the number both can agree on
     without a dependency.
 
-    A blank version is what the first Claude Desktop connection showed, and it
-    is the kind of detail that reads as "this thing is broken" before a single
-    tool is called.
+    It was the empty string until 2026-08-21 — the SDK's default, never set.
+    Caught by a probe that launched this server the way Claude Desktop does,
+    minutes before the app was first pointed at it, so no reader ever saw it.
+    That is luck rather than process: a connector showing no version reads as
+    "this thing is broken" before a single tool is called.
     """
     try:
         return _package_version("nightshift")
