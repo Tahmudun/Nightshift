@@ -198,10 +198,22 @@ output — a job in `search_jobs` carries its match score **only** alongside a
 pointer to `explain_match`, because *"a bare number in the UI is a bug"* and a
 tool result is a UI.
 
-### I2 — an inferred fact is labelled where it is read
+### I2 — an inferred fact is labelled where it is read, and none is read here
 
-Anything `inferred_pending_confirmation` says so in its own object. Claude may
-report it as unconfirmed and may not report it as fact.
+The rule is: anything `inferred_pending_confirmation` says so in its own object,
+and Claude may report it as unconfirmed but never as fact.
+
+**No tool in this slice reaches one**, and that is worth stating rather than
+leaving as an unexplained silence in the task list. The four chosen families
+touch jobs, matches, applications and captures; the inferred facts live on the
+profile, behind `get_profile`, which is not built here. `UserSkill` is
+confirmed-by-construction — its docstring says *"A skill the user confirmed.
+Never a proposal (invariant I2)"* — so `explain_match`'s evidence rows cannot
+carry one either.
+
+**So I2 has no surface in M5c and gets no task.** It acquires one the moment
+`get_profile` is built, and whoever builds it owes the labelling above. Recorded
+here so that its absence from §5 reads as a decision rather than an oversight.
 
 ### I3 — an outage is not an empty result
 
@@ -231,81 +243,293 @@ this is the case where that lint has teeth.
 
 ---
 
-## 4. Tasks
+## 4. The files, and what each one is responsible for
+
+Six new modules, three touched. **`nightshift/mcp/` is four small files rather
+than one**, because the boundary between them is the boundary this milestone is
+about: `client.py` is the only thing that speaks HTTP, `shapes.py` is the only
+thing that decides what a qualifier means, and `server.py` may do neither.
+
+| File | Responsible for | May import |
+|---|---|---|
+| `nightshift/mcp/__init__.py` | Nothing. The package marker | — |
+| `nightshift/mcp/client.py` | The authenticated HTTP client. The only module that knows a URL | `httpx` |
+| `nightshift/mcp/shapes.py` | Turning API JSON into tool results with their qualifiers attached. **Pure** — no I/O, no network, no clock | `nightshift.db.base` enums **only** |
+| `nightshift/mcp/server.py` | The tool functions and their descriptions | `client`, `shapes`, `mcp` |
+| `nightshift/mcp/__main__.py` | The stdio entry point, stderr logging, and reading config from the environment | `server` |
+| `nightshift/domain/identity.py` | *(touched)* `origin`/`label` on `create_session`; `MCP_TOKEN_LIFETIME` | — |
+| `nightshift/db/models.py` | *(touched)* two columns on `UserSession` | — |
+| `nightshift/cli.py` | *(touched)* the `tokens` command | — |
+
+**`shapes.py` importing `nightshift.db.base` is the one exception to §1's rule**
+and it is deliberate: `LocationConfidence` is an enum of five members, and the
+`means` table must be **exhaustive over it** so a sixth member cannot ship
+without a sentence. Importing the enum is how that becomes a test rather than a
+hope. `nightshift.db.base` holds enums and no engine, no session and no model —
+task 2's import guard bans `nightshift.db.session` and `nightshift.db.models`,
+not the whole package, and says why in the test.
+
+---
+
+## 5. Tasks
 
 Each ends runnable and testable. Commits are scoped (`feat(mcp): …`).
 
 ### Task 1 — the credential
 
-- Migration: `session_origin` PG enum (`browser`, `mcp`); `user_sessions.origin`
-  (not null, default `browser`) and `user_sessions.label` (nullable). Reversible
-  and tested both directions (§7).
-- `create_session` takes `origin` and `label`; `MCP_TOKEN_LIFETIME = 365 days`
-  as a named constant beside `SESSION_LIFETIME`, not an argument at a call site.
-- `nightshift tokens` — `--create --label`, `--list`, `--revoke <id>`. Prints
-  the token **once**, then the `claude_desktop_config.json` block to paste.
-- Tests: a browser session and an MCP token resolve through the same
-  `resolve_session`; `--list` never prints a token or a hash; revoking an MCP
-  token leaves browser sessions alone, and the reverse.
+**Files**
+- Modify: `services/api/nightshift/db/base.py` (a `SessionOrigin` enum)
+- Modify: `services/api/nightshift/db/models.py` (`UserSession.origin`, `.label`)
+- Create: `services/api/migrations/versions/<rev>_session_origin_and_label.py`
+- Modify: `services/api/nightshift/domain/identity.py`
+- Modify: `services/api/nightshift/cli.py`
+- Test: `services/api/tests/test_mcp_tokens.py`, and the existing
+  `tests/test_identity.py` for `create_session`'s new arguments
+
+**Produces**, for tasks 2–5:
+
+```python
+class SessionOrigin(enum.StrEnum):
+    BROWSER = "browser"
+    MCP = "mcp"
+
+MCP_TOKEN_LIFETIME = timedelta(days=365)
+
+async def create_session(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    *,
+    now: datetime | None = None,
+    lifetime: timedelta = SESSION_LIFETIME,
+    origin: SessionOrigin = SessionOrigin.BROWSER,   # new
+    label: str | None = None,                        # new
+) -> IssuedSession: ...
+```
+
+`resolve_session` is **not** changed. That is the point of the design — one
+resolve path — and a diff that touches it means the design slipped.
+
+Steps:
+
+- [ ] **1.1** Write the failing test: a session created with
+      `origin=SessionOrigin.MCP` resolves through the same `resolve_session` as a
+      browser one, and `UserSession.origin` round-trips. Run it; expect a
+      `TypeError` on the unexpected keyword.
+- [ ] **1.2** Add `SessionOrigin` to `db/base.py` beside `CredentialMethod`,
+      with a docstring saying why these are one table (§1).
+- [ ] **1.3** Add the two columns to `UserSession`. `origin` not-null with a
+      server default of `browser`, so the migration does not have to invent a
+      value for existing rows; `label` nullable.
+- [ ] **1.4** `alembic revision --autogenerate`, then **read the generated file
+      and fix it by hand** — autogenerate does not create a PG enum type in the
+      right order. Downgrade must drop the column *and* the type.
+- [ ] **1.5** Test the migration **both directions** against a real database
+      (§7): `alembic upgrade head`, `downgrade -1`, `upgrade head`.
+- [ ] **1.6** Thread `origin` and `label` through `create_session`; add
+      `MCP_TOKEN_LIFETIME` beside `SESSION_LIFETIME` with its reasoning comment.
+      Run 1.1; expect PASS.
+- [ ] **1.7** Write the failing tests for the CLI: `--list` prints neither a
+      token nor a hash; revoking an MCP token leaves a browser session live, and
+      the reverse; `--create` prints the token exactly once.
+- [ ] **1.8** Implement `cmd_tokens` in `cli.py` following `cmd_users`'s shape —
+      `session_scope()`, print to stdout, errors to stderr, return an int.
+      Register in `COMMANDS` and add the subparser.
+- [ ] **1.9** `make check`. Commit.
+
+**The output that matters**, because task 5 pastes it:
+
+```
+$ nightshift tokens --email you@example.com --create --label "claude desktop"
+  token (shown once — it cannot be recovered):
+
+    nsk_live_<...>
+
+  add this to claude_desktop_config.json:
+
+  { "mcpServers": { "nightshift": {
+      "command": "…/.venv/bin/python", "args": ["-m", "nightshift.mcp"],
+      "env": { "NIGHTSHIFT_API_URL": "http://localhost:8000",
+               "NIGHTSHIFT_MCP_TOKEN": "nsk_live_<...>" } } } }
+```
 
 ### Task 2 — the server, the transport, and the guard rails
 
-- `mcp>=2.0` in `pyproject.toml` — **then `make constraints`, in the same
-  commit.** This is the two-step with no local signal that went red on PR #18
-  (`argon2-cffi`, run 1). It has now cost this project one CI run; it does not
-  get to cost a second.
-- `nightshift/mcp/`: `client.py` (the authenticated `httpx` client), `server.py`
-  (`MCPServer` and the tool functions), `__main__.py` (the stdio entry point and
-  its stderr-pinned logging).
-- One tool only — `whoami`, returning the signed-in account — so the whole path
-  is provable before any domain surface rides on it.
-- Tests: an in-memory MCP client completes the handshake, lists tools, calls
-  `whoami`, and gets the account the token belongs to; **the import guard**
-  (`nightshift.db` absent from `nightshift.mcp`'s module graph); **the stdout
-  guard**. Each shown able to fail.
+**Files**
+- Modify: `services/api/pyproject.toml` (`mcp>=2.0`)
+- Modify: `services/api/constraints-ci.txt` (**by `make constraints`, same commit**)
+- Create: the four `nightshift/mcp/` modules
+- Test: `services/api/tests/test_mcp_server.py`, `tests/test_mcp_boundaries.py`
+
+**Produces**, for tasks 3–4:
+
+```python
+# client.py
+class NightshiftUnavailableError(RuntimeError):
+    """The API could not be reached. Never raised for an empty result."""
+
+class NightshiftClient:
+    def __init__(self, base_url: str, token: str, *,
+                 http: httpx.AsyncClient | None = None) -> None: ...
+    async def get(self, path: str, **params: Any) -> dict[str, Any]: ...
+    async def post(self, path: str, json: dict[str, Any]) -> dict[str, Any]: ...
+```
+
+`http` is injectable **so the tests can hand it an `ASGITransport` pointed at the
+real FastAPI app** — real routes, real `require_session`, real auth, no network
+and no port. That is the seam this milestone is tested through.
+
+Steps:
+
+- [ ] **2.1** Add `mcp>=2.0` to `pyproject.toml`; run `make constraints`; commit
+      both together. **Verify the constraints diff is non-empty before
+      committing** — this is ADR 0016 §3's failure and it has no local signal.
+- [ ] **2.2** Confirm the v2 import surface against the installed package
+      (`python -c "from mcp.server import MCPServer"`). The SDK went 1.x → 2.0
+      and this plan was written from documentation, not from the wheel.
+- [ ] **2.3** Write the failing boundary tests — both, before any server code:
+
+```python
+def test_the_mcp_package_never_reaches_the_database() -> None:
+    """§1: the MCP server is a client of the API, not a second door into it.
+
+    `nightshift.db.base` is allowed and `session`/`models` are not. The enums
+    are a vocabulary; the engine and the tables are the door.
+    """
+    import nightshift.mcp  # noqa: F401
+    banned = {"nightshift.db.session", "nightshift.db.models"}
+    loaded = banned & set(sys.modules)
+    assert loaded == set(), f"the MCP package imported {sorted(loaded)}"
+
+
+@pytest.mark.asyncio
+async def test_a_tool_call_writes_nothing_to_stdout(capsys) -> None:
+    """§3: on stdio the protocol *is* stdout. One log line kills the session."""
+    ...  # drive a whoami call through an in-memory MCP client
+    assert capsys.readouterr().out == ""
+```
+
+      The first must be run in a **fresh interpreter** (`subprocess`), because
+      pytest has already imported half the codebase — a test that reads a dirty
+      `sys.modules` is a test that cannot fail.
+- [ ] **2.4** Write `client.py`. `httpx.AsyncClient` with
+      `Authorization: Bearer`; `httpx.ConnectError`/`ConnectTimeout` →
+      `NightshiftUnavailableError` naming the URL and `make dev`.
+- [ ] **2.5** Write `server.py` with **one** tool, `whoami`, calling `GET /auth/me`.
+- [ ] **2.6** Write `__main__.py`: read `NIGHTSHIFT_API_URL` and
+      `NIGHTSHIFT_MCP_TOKEN`, fail loudly on stderr if either is absent, pin
+      logging to stderr, run stdio.
+- [ ] **2.7** Write the protocol test: an in-memory MCP client completes the
+      handshake, lists tools, calls `whoami`, and gets back the account the
+      token belongs to. Run 2.3 and 2.7; expect PASS.
+- [ ] **2.8** `make check`. Commit.
 
 ### Task 3 — the read tools
 
-`search_jobs`, `get_job`, `list_applications`, `explain_match` — all four
-families, as chosen on 2026-08-21.
+**Files**
+- Modify: `nightshift/mcp/shapes.py`, `server.py`
+- Test: `tests/test_mcp_shapes.py`, `tests/test_mcp_read_tools.py`
 
-- The result shapes of §3, and the `means` table as one pure function.
-- Tests: every location result carries a confidence and a `means`; no tool but
-  `explain_match` returns a score; a closed port raises rather than returns
-  empty; another user's application is invisible through the MCP surface, using
-  M5b's enumerating pattern rather than one spot check.
+**Produces:**
+
+```python
+# shapes.py
+CONFIDENCE_MEANS: dict[LocationConfidence, str]   # exhaustive over the enum
+def location_result(text: str | None, confidence: LocationConfidence,
+                    coordinates: tuple[float, float] | None) -> dict[str, Any]: ...
+```
+
+Four tools: `search_jobs`, `get_job`, `list_applications`, `explain_match`.
+
+Steps:
+
+- [ ] **3.1** Write the failing exhaustiveness test — the one that makes §3's
+      rule structural rather than remembered:
+
+```python
+def test_every_location_confidence_has_a_sentence() -> None:
+    """I1 lives in the description here, not in a constraint. A sixth enum
+    member shipping without a sentence is how a reader gets told a `city_only`
+    job is at a street address."""
+    assert set(CONFIDENCE_MEANS) == set(LocationConfidence)
+    for value, sentence in CONFIDENCE_MEANS.items():
+        assert sentence.strip(), value
+```
+
+- [ ] **3.2** Write `CONFIDENCE_MEANS` and `location_result`. Run; expect PASS.
+- [ ] **3.3** Write the failing test that **no coordinate ships bare**: over
+      every read tool's output, any object with a `coordinates` key also has
+      `confidence` and `means`. Walk the result recursively rather than checking
+      one known path — a tool added at M5d must trip this too.
+- [ ] **3.4** Write the failing test that **no tool but `explain_match` returns a
+      score** (I4), asserted over the registered tool list.
+- [ ] **3.5** Write the failing outage test: a client pointed at a closed port
+      **raises `NightshiftUnavailableError`** and does not return `[]`. This is
+      I3 on a new surface and it is the one that will actually happen.
+- [ ] **3.6** Write the failing isolation test using M5b's **enumerating**
+      pattern — every tool, against a second user's data, rather than one spot
+      check.
+- [ ] **3.7** Implement the four tools against the existing routes. Run all;
+      expect PASS.
+- [ ] **3.8** `make check`. Commit.
 
 ### Task 4 — capture
 
-- `capture_posting` → a `pending` row and the confirm URL.
-- Tests: the tool creates nothing confirmed; **no tool named `confirm` exists**,
-  asserted over the registered tool list so a future addition trips it; pasting
-  the same posting twice creates no duplicate (M5's acceptance names this).
+**Files**
+- Modify: `nightshift/mcp/server.py`
+- Test: `tests/test_mcp_capture.py`
+
+Steps:
+
+- [ ] **4.1** Write the failing test that **no confirm tool exists**, asserted
+      over the registered tool list so a future addition trips it:
+
+```python
+@pytest.mark.asyncio
+async def test_no_tool_can_confirm_a_capture() -> None:
+    """I5, and the whole of M5a. Approving `confirm_capture` in a dialog is not
+    reviewing a parsed title, a company and a location string."""
+    names = {t.name for t in await client.list_tools()}
+    assert not [n for n in names if "confirm" in n or "approve" in n]
+```
+
+- [ ] **4.2** Write the failing test that `capture_posting` leaves the capture
+      `pending` and creates **no** job.
+- [ ] **4.3** Write the failing test that the same posting captured twice
+      creates no duplicate — M5's acceptance names this in as many words.
+- [ ] **4.4** Implement `capture_posting` against `POST /capture`, returning the
+      proposal and the confirm URL. Run; expect PASS.
+- [ ] **4.5** `make check`. Commit.
 
 ### Task 5 — the connection, walked in Claude Desktop
 
 The acceptance criterion is *"Claude Desktop connects and captures a posting end
-to end"*, which is a live integration and cannot be a unit test.
+to end"*. It is a live integration and cannot be a unit test.
 
-- `docs/runbooks/mcp-claude-desktop.md`: mint, paste, restart, verify.
-- Walk it, capture evidence, and record what breaks. **Expect this task to find
-  something the tests could not** — every milestone in this project that first
-  met a real client did.
+- [ ] **5.1** Write `docs/runbooks/mcp-claude-desktop.md`: mint, paste, restart,
+      verify, revoke.
+- [ ] **5.2** Walk it against a real Claude Desktop with `make dev` running.
+- [ ] **5.3** Capture evidence: the tool list, a search, and a capture appearing
+      in the web UI as `pending`.
+- [ ] **5.4** Walk it again with the API **stopped**, and confirm the failure
+      message names the cause and the fix rather than returning nothing.
+- [ ] **5.5** Record what broke. **Expect this task to find something the tests
+      could not** — every milestone here that first met a real client did.
 
 ### Task 6 — ADR 0038, the review, and the docs
 
-- **ADR 0038** owes three decisions and their rejected alternatives: the server
-  as an API client, the token as a session rather than a table, and why there is
-  no confirm tool.
-- `docs/reviews/milestone-5c-review.md`, hunting the failure classes `CLAUDE.md`
-  §5 names, plus this milestone's own: **a tool whose output is correct and
-  whose description permits a false reading.**
-- `docs/PROGRESS.md`, and `docs/spec/AMENDMENTS.md` if A16's "built once, the
-  other three are configuration" turns out to be optimistic.
+- [ ] **6.1** ADR 0038, owing three decisions with their rejected alternatives:
+      the server as an API client, the token as a session rather than a table,
+      and why there is no confirm tool.
+- [ ] **6.2** `docs/reviews/milestone-5c-review.md`, hunting `CLAUDE.md` §5's
+      failure classes plus this milestone's own: **a tool whose output is
+      correct and whose description permits a false reading.**
+- [ ] **6.3** `docs/PROGRESS.md`; `AMENDMENTS` only if A16's *"built once, the
+      other three are configuration"* turns out to be optimistic.
+- [ ] **6.4** `make check`, `make acceptance`, push, open the PR, watch CI.
 
 ---
 
-## 5. What this plan does not build, deliberately
+## 6. What this plan does not build, deliberately
 
 - **M5d — assisted capture from LinkedIn and Indeed.** It rides on this server
   and is the next slice. Nothing here reaches a third-party site.
@@ -318,7 +542,7 @@ to end"*, which is a live integration and cannot be a unit test.
   A resource is the right shape for "the corpus" eventually and there is no
   concrete need today (`CLAUDE.md` §8).
 
-## 6. The risk this plan is most likely to be wrong about
+## 7. The risk this plan is most likely to be wrong about
 
 **That the tool set is the right one.** Four families were chosen from a list I
 proposed, and a tool surface is only really testable by using it. If task 5's
