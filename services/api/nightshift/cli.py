@@ -23,6 +23,7 @@ import getpass
 import json
 import sys
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -47,6 +48,7 @@ from nightshift.db.base import (
     ProficiencyLevel,
     RemotePreference,
     ResolutionMethod,
+    SessionOrigin,
     SourceType,
     WorkAuthorization,
 )
@@ -60,6 +62,7 @@ from nightshift.db.models import (
     SourceJobRecord,
     User,
     UserProject,
+    UserSession,
     UserSkill,
 )
 from nightshift.db.session import dispose_engine, session_scope
@@ -74,7 +77,15 @@ from nightshift.domain.geocoding import (
     GeocodeOutcome,
     Unresolved,
 )
-from nightshift.domain.identity import normalize_email, set_password
+from nightshift.domain.identity import (
+    MCP_TOKEN_LIFETIME,
+    IssuedSession,
+    create_session,
+    list_mcp_tokens,
+    normalize_email,
+    revoke_session_by_id,
+    set_password,
+)
 from nightshift.domain.ingestion import get_or_create_source, ingest_boards
 from nightshift.domain.matching import recompute_pending
 from nightshift.domain.office_loading import LoadReport, load_offices
@@ -1238,6 +1249,159 @@ async def cmd_users(args: argparse.Namespace) -> int:
     return 0
 
 
+#: The environment variables `nightshift.mcp` reads. Named here because the
+#: config block below is the only place a person ever types them, and a drift
+#: between this and `__main__.py` is a runbook that silently stops working.
+MCP_ENV_API_URL = "NIGHTSHIFT_API_URL"
+MCP_ENV_TOKEN = "NIGHTSHIFT_MCP_TOKEN"
+
+
+def _claude_desktop_block(token: str, *, api_url: str) -> str:
+    """The `claude_desktop_config.json` fragment to paste. M5c task 1.
+
+    Printed rather than written: this command does not know where Claude
+    Desktop keeps its config on this machine, and a tool that edits somebody
+    else's application's configuration file without being asked is a worse
+    citizen than one that prints four lines.
+    """
+    block = {
+        "mcpServers": {
+            "nightshift": {
+                "command": str(Path(sys.executable)),
+                "args": ["-m", "nightshift.mcp"],
+                "env": {MCP_ENV_API_URL: api_url, MCP_ENV_TOKEN: token},
+            }
+        }
+    }
+    return json.dumps(block, indent=2)
+
+
+def format_token_report(issued: IssuedSession, *, email: str, api_url: str) -> str:
+    """Everything a person sees after minting one token. Pure, so it is testable.
+
+    This is a formatter rather than a series of ``print`` calls inside the
+    command for one reason: **the property worth testing is that the token
+    printed is the token stored**, and a typo in an f-string is invisible to
+    every other kind of test. `cmd_tokens` reaches the database through
+    ``session_scope``, whose engine binds to whichever event loop touches it
+    first — so a test that drives the whole command is a coin flip in a full
+    suite run (the hazard `test_seed_reports_its_own_failure.py` documents,
+    and one this milestone met rather than read about).
+
+    Lifting the formatting out leaves the command as three steps that cannot
+    disagree, and puts the interesting assertion on a function needing no
+    database at all.
+
+    The token appears **twice** on purpose: once on its own line to read, once
+    inside the JSON to paste.
+    """
+    return "\n".join(
+        [
+            "  token (shown once — it cannot be recovered):",
+            "",
+            f"    {issued.token}",
+            "",
+            "  add this to claude_desktop_config.json, then restart Claude Desktop:",
+            "",
+            _claude_desktop_block(issued.token, api_url=api_url),
+            "",
+            f"  expires {issued.expires_at:%Y-%m-%d}. End it with:",
+            f"    nightshift tokens --email {email} --revoke {issued.session_id}",
+        ]
+    )
+
+
+def format_token_listing(rows: Sequence[UserSession], *, email: str) -> str:
+    """Render `--list`. Pure, so "prints no secret" is testable without a database.
+
+    **Neither the token nor its hash appears here, and the hash matters as much
+    as the token**: `resolve_session` looks a session up *by* its hash, so a
+    listing that printed one would be a second copy of every live credential,
+    sitting in a terminal scrollback.
+    """
+    if not rows:
+        return f"  {email} has no live MCP tokens"
+
+    lines = [f"  {len(rows)} live MCP token(s) for {email}:"]
+    lines += [
+        f"    {row.id}  {row.label or '(unnamed)'}  expires {row.expires_at:%Y-%m-%d}"
+        for row in rows
+    ]
+    return "\n".join(lines)
+
+
+async def cmd_tokens(args: argparse.Namespace) -> int:
+    """Mint, list and revoke MCP tokens. M5c, ADR 0038.
+
+    There is no HTTP route for this, and that follows `cmd_users`: a route
+    that mints a year-long credential is a route worth attacking, and the
+    person who needs one has a shell.
+
+    **The token is printed exactly once and cannot be recovered.** Only its
+    SHA-256 reaches the database, which is `0024`'s decision and not this
+    command's to soften.
+    """
+    email = normalize_email(args.email)
+
+    async with session_scope() as session:
+        user = (await session.execute(select(User).where(User.email == email))).scalar_one_or_none()
+        if user is None:
+            # `--create` here creates a *token*, never an account. If it made
+            # people, a typo in an email would mint a year-long credential for
+            # an account nobody can sign in to. `nightshift users --create` is
+            # the only thing that makes a person.
+            print(
+                f"error: no account for {email}. Create it with "
+                f"`nightshift users --email {email} --create`.",
+                file=sys.stderr,
+            )
+            return 1
+
+        if args.revoke:
+            try:
+                session_id = uuid.UUID(args.revoke)
+            except ValueError:
+                print(f"error: {args.revoke!r} is not a session id", file=sys.stderr)
+                return 1
+
+            if not await revoke_session_by_id(session, session_id, user_id=user.id):
+                # One message for "not yours", "already revoked" and "no such
+                # id" — the same reasoning as `resolve_session` returning None
+                # for every way a token can fail to name somebody.
+                print(f"error: {email} has no live token {session_id}", file=sys.stderr)
+                return 1
+
+            print(f"  revoked {session_id}")
+            return 0
+
+        if args.list:
+            rows = await list_mcp_tokens(session, user_id=user.id)
+            print(format_token_listing(rows, email=email))
+            return 0
+
+        if not args.create:
+            print(
+                "error: pass --create to mint a token, --list to see them, "
+                "or --revoke <id> to end one.",
+                file=sys.stderr,
+            )
+            return 1
+
+        issued = await create_session(
+            session,
+            user.id,
+            lifetime=MCP_TOKEN_LIFETIME,
+            origin=SessionOrigin.MCP,
+            label=args.label,
+        )
+        report = format_token_report(
+            issued, email=email, api_url=f"http://localhost:{get_settings().api_port}"
+        )
+
+    print(report)
+    return 0
+
+
 COMMANDS = {
     "seed": cmd_seed,
     "offices": cmd_offices,
@@ -1247,6 +1411,7 @@ COMMANDS = {
     "enqueue": cmd_enqueue,
     "stats": cmd_stats,
     "users": cmd_users,
+    "tokens": cmd_tokens,
 }
 
 
@@ -1277,6 +1442,14 @@ def main(argv: list[str] | None = None) -> int:
     users.add_argument("--email", required=True)
     users.add_argument("--create", action="store_true", help="make the account if it is absent")
     users.add_argument("--display-name", default=None)
+    tokens = subparsers.add_parser(
+        "tokens", help="mint, list or revoke an MCP token (M5c). Registration is closed"
+    )
+    tokens.add_argument("--email", required=True)
+    tokens.add_argument("--create", action="store_true", help="mint one, printed once")
+    tokens.add_argument("--label", default=None, help='what to call it: "claude desktop"')
+    tokens.add_argument("--list", action="store_true", help="live MCP tokens; never a secret")
+    tokens.add_argument("--revoke", default=None, metavar="ID", help="end the token with this id")
     args = parser.parse_args(argv)
 
     configure_logging()

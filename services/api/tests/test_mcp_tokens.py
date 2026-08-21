@@ -28,8 +28,10 @@ from nightshift.domain.identity import (
     MCP_TOKEN_LIFETIME,
     SESSION_LIFETIME,
     create_session,
+    list_mcp_tokens,
     resolve_session,
     revoke_session,
+    revoke_session_by_id,
 )
 from tests.conftest import requires_db
 
@@ -128,6 +130,67 @@ async def test_an_mcp_token_outlives_a_browser_session(
     await db_session.flush()
 
     assert mcp.expires_at > browser.expires_at
+
+
+@_async
+async def test_the_listing_excludes_browser_sessions_and_revoked_tokens(
+    db_session: AsyncSession, user: User
+) -> None:
+    """Which sessions a shell should offer to end. See :func:`list_mcp_tokens`.
+
+    A listing whose purpose is "pick one to revoke" containing things that
+    cannot be revoked is how somebody spends a minute trying to end a session
+    that ended last week.
+    """
+    await create_session(db_session, user.id, label="a browser, not listed")
+    revoked = await create_session(
+        db_session,
+        user.id,
+        lifetime=MCP_TOKEN_LIFETIME,
+        origin=SessionOrigin.MCP,
+        label="revoked, not listed",
+    )
+    await create_session(
+        db_session,
+        user.id,
+        lifetime=MCP_TOKEN_LIFETIME,
+        origin=SessionOrigin.MCP,
+        label="live, listed",
+    )
+    await revoke_session(db_session, revoked.token)
+    await db_session.flush()
+
+    listed = await list_mcp_tokens(db_session, user_id=user.id)
+
+    assert [row.label for row in listed] == ["live, listed"]
+
+
+@_async
+async def test_revoking_by_id_refuses_another_persons_session(
+    db_session: AsyncSession, user: User
+) -> None:
+    """The isolation property at the one surface that takes an id from a human.
+
+    `--revoke` accepts a session id typed on a command line, where a transposed
+    character is ordinary. Without ``user_id`` in the WHERE clause, a mistyped
+    id ends a stranger's session and the operator sees success.
+    """
+    stranger = User(email=f"{uuid.uuid4()}@example.test", display_name="Somebody Else")
+    db_session.add(stranger)
+    await db_session.flush()
+    theirs = await create_session(
+        db_session,
+        stranger.id,
+        lifetime=MCP_TOKEN_LIFETIME,
+        origin=SessionOrigin.MCP,
+        label="not yours",
+    )
+    await db_session.flush()
+
+    ended = await revoke_session_by_id(db_session, theirs.session_id, user_id=user.id)
+
+    assert ended is False
+    assert await resolve_session(db_session, theirs.token) is not None
 
 
 @_async

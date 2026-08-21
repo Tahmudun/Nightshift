@@ -34,6 +34,14 @@ regex = '''nightshift_dev_only'''
     '''^\.gitleaks\.toml$''',
   ]
 
+[[rules]]
+id = "nightshift-session-token"
+description = "A Nightshift session or MCP token (identity.py TOKEN_PREFIX)"
+# 32 bytes through `secrets.token_urlsafe` is 43 characters; the floor is 40 so
+# the rule keeps matching if TOKEN_BYTES is ever raised, and stays clear of the
+# bare prefix, which appears in tests and documentation on purpose.
+regex = '''nsk_[A-Za-z0-9_-]{40,}'''
+
 [allowlist]
 description = "Local development defaults — not credentials to anything reachable"
 paths = [

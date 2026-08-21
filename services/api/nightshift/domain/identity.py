@@ -21,6 +21,7 @@ from __future__ import annotations
 import hashlib
 import secrets
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -36,6 +37,23 @@ from nightshift.db.types import utcnow
 #: Bytes of entropy in a session token, before hex encoding. 32 bytes is 256
 #: bits — far past the point where guessing is the attack anybody would choose.
 TOKEN_BYTES = 32
+
+#: What every session token starts with. M5c.
+#:
+#: The entropy is in the 32 bytes after it; the prefix carries no secrecy and is
+#: not meant to. It is there so a **leaked** token is findable: `.gitleaks.toml`
+#: matches on it, so a credential pasted into a commit, an issue or a log goes
+#: red in CI instead of sitting there looking like base64.
+#:
+#: It is on browser sessions too, not only MCP tokens, and that follows from the
+#: design rather than being a convenience — they are one kind of thing, and a
+#: scanner that finds only half the credentials this system mints would be worse
+#: than one that finds none, because it would be trusted.
+#:
+#: **Existing sessions are unaffected.** A stored row holds the SHA-256 of
+#: whatever string was minted, so tokens issued before this constant existed
+#: still hash to their own rows and still resolve. Nothing needs migrating.
+TOKEN_PREFIX = "nsk_"
 
 #: How long a session lives without being renewed. Thirty days is the ordinary
 #: "stay signed in" span; a shorter one would sign a person out mid-week for no
@@ -141,7 +159,7 @@ async def create_session(
     different default would mislabel every login in the product.
     """
     moment = now or utcnow()
-    token = secrets.token_urlsafe(TOKEN_BYTES)
+    token = TOKEN_PREFIX + secrets.token_urlsafe(TOKEN_BYTES)
     row = UserSession(
         user_id=user_id,
         token_hash=hash_token(token),
@@ -292,6 +310,80 @@ async def revoke_session(
     user_session = (
         await session.execute(
             select(UserSession).where(UserSession.token_hash == hash_token(token))
+        )
+    ).scalar_one_or_none()
+
+    if user_session is None or user_session.revoked_at is not None:
+        return False
+
+    user_session.revoked_at = moment
+    return True
+
+
+async def list_mcp_tokens(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    now: datetime | None = None,
+) -> Sequence[UserSession]:
+    """The live MCP tokens ``user_id`` holds, newest first. M5c.
+
+    **Browser sessions are excluded, and that is a product decision rather than
+    a filter of convenience.** This list exists so somebody can choose which
+    credential to end from a shell. A browser sign-in is not managed that way —
+    signing out is a button — and including them would bury the one or two
+    tokens a person is looking for under every laptop and phone they have ever
+    signed in on.
+
+    Revoked and expired rows are excluded for the same reason: a listing whose
+    purpose is "pick one to revoke" should contain only things that can be
+    revoked. `revoked_at` rows are kept in the table (`0024`'s decision, and
+    I3's distinction between "ended deliberately" and "never here") — they are
+    simply not what this question is asking.
+    """
+    moment = now or utcnow()
+    rows = await session.execute(
+        select(UserSession)
+        .where(
+            UserSession.user_id == user_id,
+            UserSession.origin == SessionOrigin.MCP,
+            UserSession.revoked_at.is_(None),
+            UserSession.expires_at > moment,
+        )
+        .order_by(UserSession.created_at.desc())
+    )
+    return rows.scalars().all()
+
+
+async def revoke_session_by_id(
+    session: AsyncSession,
+    session_id: uuid.UUID,
+    *,
+    user_id: uuid.UUID,
+    now: datetime | None = None,
+) -> bool:
+    """End the session ``session_id`` names, if ``user_id`` owns it. M5c.
+
+    :func:`revoke_session` takes a token, which is right for signing out: the
+    browser holds one. Nothing holds an MCP token after it is minted — that is
+    the point of only printing it once — so ending one has to be by id, read
+    off a listing.
+
+    **``user_id`` is in the WHERE clause rather than checked after the fetch**,
+    which makes somebody else's session id indistinguishable from one that does
+    not exist. The same reasoning as `capture.py`'s ``_own_capture``: returning
+    a different answer for "not yours" confirms the id is real. Here it matters
+    more than there, because the id arrives typed on a command line, where a
+    transposed character is ordinary — and without the scope, the operator
+    would see a success message for ending a stranger's session.
+    """
+    moment = now or utcnow()
+    user_session = (
+        await session.execute(
+            select(UserSession).where(
+                UserSession.id == session_id,
+                UserSession.user_id == user_id,
+            )
         )
     ).scalar_one_or_none()
 
