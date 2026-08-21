@@ -33,8 +33,11 @@
 **M4c Task 5 is done: the city speaks §6, and says what it is saying.** The table is one pure function (`treatments.ts`), the beacons carry per-instance colour, strength and pulse rate through a shader, four instanced meshes draw the marks §6 puts *on* a body, and an in-interface legend documents all thirteen rows — including the four that are not drawn, each with its reason. ADR 0028. `docs/reviews/milestone-4c-treatments.png` is the screenshot. Three defects were found by looking rather than by a test: a closed torus whose rotation was invisible by construction, a spin folded into the billboard that rolled every arc out of the camera plane, and a saved outline drawn cyan — which is exactly what ADR 0027's standing instruction ruled out.
 **M4c: Tasks 1, 2, 3 and 4 are done. The placement join and `GET /city/signals` (ADR 0024, which resolves a real conflict between I1 and `city.md` §4.4 rather than papering over it), the Three.js signal layer in MapLibre's own context (ADR 0025), and the field made legible, navigable and sortable. New York now has every open role floating above it, untethered, and none on a building — see `docs/reviews/milestone-4c-signals.png` and `docs/reviews/milestone-4c-roster.png`. Task 4 then made a role reachable: picking by raycast against the frame's own matrix, a reticle, a detail panel, and one selection shared by the list and the map (ADR 0027) — `docs/reviews/milestone-4c-selection.png`.**
 **Docker's daemon is no longer wedged.** It was force-quit and relaunched on 2026-08-12. `make up` was then run **from cold** — containers removed with `docker compose down` first — and created both from scratch to healthy, exit 0. **That closes the last open step in M4b's acceptance chain**; container startup is now proven rather than assumed. The seeded corpus survived and matches what this file records: 31 canonical jobs, 62 `job_locations`, 44 `city_only` + 18 `remote`, 0 mappable.
-**Current milestone: M5 — The Open Hand (A16), on `m5b-identity`.**
-**M5a and M5b are built, reviewed and verified. [PR #18](https://github.com/Tahmudun/Nightshift/pull/18) is open against `main`** — 65 commits, 167 files, carrying M4d Task 1, M4e's built tasks, M5a and M5b; draft PR #17 is closed as superseded. All four local gates were re-run green on 2026-08-21: `make check` (2128 Python tests, 799 web), `make reset-db`, `make verify`, and `make test-e2e-seeded` at **87 passed, 1 skipped, 0 failed**. **CI then found what no local command could**: M5b added `argon2-cffi` and never regenerated CI's pin, so the pin had silently become partial — ADR 0016 §3's exact failure class, caught by the check written for it. **CI took three runs and is now green — all five jobs at `06725d6`, and PR #18 is `MERGEABLE`/`CLEAN`.** Run 1 caught a partial dependency pin; run 2 lost `python` to a 10-minute timeout at 64% with zero failures (raised to 20, and raised as **Q12**, because CI is now ~15 minutes against A14's five); run 3 passed everything. **#18 is deliberately not merged — that call is the human's**, because this branch carries M4e and M4e's acceptance is a human verdict on a screenshot. See "Next exact action".
+**Current milestone: M5 — The Open Hand (A16). M5a and M5b are merged; M5c — the MCP server — is next.**
+**M5a and M5b are COMPLETE and MERGED. [PR #18](https://github.com/Tahmudun/Nightshift/pull/18) merged to `main` as `414117c` on 2026-08-21, on the human's call.**
+**The human's verdict on the look, which is the thing that was being waited for: `make demo` was run, the city was looked at, and the report is *"it looks ok for now until a later polish and optimization phase."*** That is a **hold, not a sign-off** — it clears the merge and it does **not** discharge ADR 0031's standing commitment, which is a verdict against `docs/design/references/02-skyline-grid-plane-light-columns.jpg` specifically. **M4e's acceptance is still owed and now sits in M7 with the rest of the polish**, alongside the untuned roof wash and Q9's sky.
+**Three questions were answered in the same breath: Q12 (fifteen-minute CI — accept it, revisit if it irks), Q10 (email/password reset — deferred to the deploy) and Q2 (deployment target — deferred to M7, and A16 already moved the ship there).** Q11 loses one of its two branches to those answers and Q9 is deferred rather than answered; both stay open. See `docs/QUESTIONS.md`.
+**What #18 carried, for the record — 65 commits, 167 files:** M4d Task 1, M4e's built tasks, M5a and M5b; draft PR #17 is closed as superseded. All four local gates were re-run green on 2026-08-21: `make check` (2128 Python tests, 799 web), `make reset-db`, `make verify`, and `make test-e2e-seeded` at **87 passed, 1 skipped, 0 failed**. **CI then found what no local command could**: M5b added `argon2-cffi` and never regenerated CI's pin, so the pin had silently become partial — ADR 0016 §3's exact failure class, caught by the check written for it. **CI took three runs and is now green — all five jobs at `06725d6`, and PR #18 is `MERGEABLE`/`CLEAN`.** Run 1 caught a partial dependency pin; run 2 lost `python` to a 10-minute timeout at 64% with zero failures (raised to 20, and raised as **Q12**, because CI is now ~15 minutes against A14's five); run 3 passed everything, and #18 merged clean on the human's call.
 **M5b is BUILT and REVIEWED** — `user_credentials`, `user_sessions`, argon2id,
 `/auth/sign-in|token|sign-out|me`, default-deny on every router,
 `nightshift users create`, a seed that plants **two** accounts, the Next.js
@@ -733,31 +736,183 @@ last rung of the three rather than the next.
 
 ## Next exact action
 
-### Current milestone: **M5 — The Open Hand**, on `m5b-identity`. Every local gate is green and **[PR #18](https://github.com/Tahmudun/Nightshift/pull/18) is open against `main` with CI fully green.** The next action is the human's: whether to merge it.
+### Current milestone: **M5 — The Open Hand**, on `m5c-the-open-hand`. **All six tasks are done, CI is green at `a59ce2f`, and the acceptance criterion is met by a real model. [PR #19](https://github.com/Tahmudun/Nightshift/pull/19) is a draft waiting on a human.**
 
-> **START HERE, NEXT SESSION.** The full local gate was re-run on 2026-08-21
-> from a rebuilt corpus and **all four passed**:
+> **START HERE, NEXT SESSION.** The branch is off `main` at `1ab2bd9`.
+> **[PR #19](https://github.com/Tahmudun/Nightshift/pull/19) is open as a
+> draft and CI is green — all five jobs at `a59ce2f`, first run, no retries.**
+> `MERGEABLE` / `CLEAN`. It is a draft **on purpose**: the acceptance criterion
+> has not been met, and a green suite is not it.
 >
-> | Gate | Result |
-> |---|---|
-> | `make check` | **exit 0** — **2128 Python tests** (10m16s, 44 warnings), **799 web tests** across 55 files; ruff, Prettier, mypy (80 source files) clean |
-> | `make reset-db` | **exit 0** — 32 raw source records, 64 job locations, 2 confirmed offices both on a building |
-> | `make verify` | **exit 0** — all checks passed, corpus left as found |
-> | `make test-e2e-seeded` | **exit 0** — **87 passed, 1 skipped, 0 failed** (6.6m) |
+> **M5c's acceptance criterion is met.** See
+> `docs/reviews/milestone-5c-acceptance.md`. A real Claude model, told *"don't
+> hedge, I need something concrete"*, still refused to invent Ramp's street
+> address and said so in the data's own terms — *"Nightshift marks that
+> location `city_only`, and I'm not going to hand you an address from memory
+> for a real company's office."* It read the `unknown` sentence back as *"an
+> admission of ignorance rather than a hint"*, refused to estimate a match
+> score, and reported a capture as *"a proposal, waiting for you. Nothing
+> more."*
 >
-> **CI is green.** Run `32476388882` at `06725d6` — the branch tip — is
-> `completed/success` with **all five jobs passing**: `python`, `web`,
-> `migrations`, `e2e` and `secret scan`. PR #18 reports `MERGEABLE` / `CLEAN`.
+> **The one deviation, stated rather than glossed: Claude Desktop is not
+> installed on this machine, so the client was Claude Code.** Same protocol,
+> same stdio server, same config shape — but Claude Desktop's own config
+> location, restart cycle and error surface are unwalked, and
+> `docs/runbooks/connecting-claude-desktop.md` documents a path nobody has
+> followed. `CLAUDE.md` §6 names Claude Desktop specifically; a sibling client
+> met it.
 >
-> **The next action is the human's, not mine: #18 is waiting on a decision to
-> merge.** It was deliberately not merged. The branch carries M4e, whose
-> acceptance criterion is a standing commitment that *the human* holds
-> `docs/design/references/02-skyline-grid-plane-light-columns.jpg` against a
-> screenshot and gives a verdict — and Tasks 8 and 9 of that milestone are not
-> done. A green gate is evidence the code works, not permission to ship a look.
+> **The next action is the human's: mark [#19](https://github.com/Tahmudun/Nightshift/pull/19)
+> ready and merge, or install Claude Desktop and close the deviation first.**
+> After that, M5 continues with **M5d — assisted capture from LinkedIn and
+> Indeed** — which rides on this server, and **M5e — addresses without
+> typing**.
 >
-> After the merge, M5's remaining work is **M5c — the MCP server** — and **M4e
-> Tasks 8 and 9**.
+> **The runbook is written and half-walked.**
+> `docs/runbooks/connecting-claude-desktop.md`, and
+> `docs/reviews/milestone-5c-stdio-walk.md` is the transcript: a real
+> subprocess, real pipes, a real MCP client, a real token from the real CLI,
+> and a real uvicorn. Six tools discovered, `whoami` returning
+> `dev@nightshift.local`, three `city_only` jobs each carrying their `means`
+> sentence and no coordinates, `explain_match` at 30/100 with six components
+> and a ruleset version, a capture landing `pending` with `job_id IS NULL`,
+> and — with the API genuinely stopped — a **tool error** naming the fix
+> rather than an empty list. Mint, list, revoke and refuse-after-revoke all
+> walked against the real database.
+>
+> **What is left is the part no test can reach**: whether a model reading
+> these descriptions says *"in New York, address unknown"* or invents a
+> street. That is this milestone's new failure class — a result can be correct
+> and its reading false — and it needs a person, the desktop app, and a
+> conversation. The runbook's setup section is what to follow.
+>
+> **Before any gating run: check that nothing else is touching Postgres.**
+> `lsof -ti:3000 -ti:8000` for a stale dev stack, and no second pytest. This
+> session lost three `make check` runs to that and every failure looked like a
+> real defect — see "the mistake this session repeated" below.
+
+**What M5c has built.**
+
+| Task | State |
+|---|---|
+| 1 — the credential | **Done.** Migration `0025`, `nightshift tokens`, the `nsk_` prefix and its gitleaks rule |
+| 2 — server, transport, guards | **Done.** `nightshift/mcp/` in five files, stdio, the import guard and the stdout guard |
+| 3 — the read tools | **Done.** `search_jobs`, `get_job`, `explain_match`, `list_applications` |
+| 4 — capture | **Done.** `capture_posting`, and the tests that keep a confirm tool from ever existing |
+| 5 — the client walk | **Done, with one stated deviation.** A real Claude model in front of the tools held I1 under an adversarial prompt and captured a posting end to end — `docs/reviews/milestone-5c-acceptance.md`. **Claude Desktop is not installed on this machine, so the client was Claude Code** |
+| 6 — review and docs | **Done.** ADR 0038, the runbook, and `docs/reviews/milestone-5c-review.md`, which found the closed-listing defect above |
+
+**ADR 0038** records the three decisions: the server is an HTTP client of the
+API and may not import `nightshift.db.session` or `.models`; the credential is
+a session that grew `origin` and `label` rather than a second table; and there
+is no confirm tool, because approving a tool call is not reviewing a parsed
+title.
+
+**Six guards were each shown able to fail** by sabotaging the code and watching
+them go red: the import guard, the stdout guard, the confidence-table
+exhaustiveness check, the no-score-outside-`explain_match` walk, the
+no-`user_id`-argument check, and the no-confirm-tool check.
+
+**A defect was found by review and fixed: a closed listing presented as an
+open role.** `search_jobs`'s description said *"Search open New York technology
+jobs"*; `GET /jobs` filters on status only when given one, and the tool passed
+none — so it returned **every** status including `closed`. A reader would have
+been handed listings that no longer exist, described as available. I3's shape,
+arriving through a description that promised what the implementation did not do.
+
+**The live walk could not have caught it**: the seeded corpus is 32 jobs and all
+32 are `open`, so `search_jobs` against real data cannot produce a single closed
+row. That is the **third** time in this one milestone that a corpus which cannot
+produce a failure failed to test the guard against it. Fixed with a `status`
+parameter defaulting to `open`, and a test that builds the closed job the corpus
+cannot supply — asserting **both** directions, because I3 forbids presenting a
+closed role as open, not knowing about one.
+
+**Five findings worth keeping.**
+
+**A test that could not fail, caught by sabotage rather than by review.** The
+enumerating tests in `test_mcp_read_tools.py` walk tool results looking for a
+leaked score or a bare coordinate. `db_session` truncates, so `search_jobs`
+returned `{"jobs": []}` — and **a walk over an empty list finds nothing**.
+Sabotaging `job_summary` to leak a score left the file green. The fixture now
+plants a job, two locations and an application, and the same sabotage goes red.
+This is `CLAUDE.md` §7 and M4c's lesson in a new place: *a corpus that cannot
+produce a failure cannot test the guard against it.*
+
+**Postgres already enforces I1 harder than this milestone assumed.** The corpus
+fixture tried to plant a `city_only` row *with* coordinates — the combination
+`shapes.py` defensively drops — and the INSERT was refused by
+`job_locations.confidence_matches_coordinates`, which requires a latitude for
+`verified`/`approximate` and forbids one for `city_only`/`remote`/`unknown`.
+The defensive drop is kept and is now honestly labelled belt-and-braces rather
+than a last line.
+
+**The first enum column this project has added to a table that already exists.**
+Autogenerate emits `sa.Enum` inside `add_column` **without** the `CREATE TYPE`
+before it, so migration `0025`'s first draft could not run at all. `0023` and
+`0024` never met it because `create_table` does emit the type. Created and
+dropped by hand now, up-down-up walked locally.
+
+**ADR 0016 §2's platform split now bites a developer, not only CI.** `mcp`
+pulls `cryptography`, whose pinned version has no macOS x86_64 wheel, so the
+pinned set CI installs **cannot be installed on this machine** and local dev
+runs an older `cryptography`. Same shape as onnxruntime, same answer: the pin
+covers CI and not a developer's machine.
+
+**The mistake this session repeated, and the rule that prevents it.** Three
+`make check` runs reported errors in unrelated suites — `test_closure_pipeline`,
+`test_admin_rows_carry_provenance` — and all three were **lock contention I
+caused** by running a background `pytest` and a stale dev stack against the same
+Postgres. PROGRESS already said so: *"a test run that overlaps another test run
+is not evidence."* Read that before diagnosing a `TRUNCATE` failure as a defect.
+**And a second one: `git checkout HEAD -- <file>` to undo a deliberate sabotage
+discards uncommitted work in that file.** It cost this session two rewrites of
+`identity.py` and `cli.py`. Sabotage by copying the file aside, or commit first.
+
+---
+
+### The previous action, kept because its answers still stand
+
+> **START HERE, NEXT SESSION.** `main` is at `414117c` — PR #18 merged
+> 2026-08-21 with all five CI jobs green at `06725d6`. There is no open PR and
+> no branch waiting on anybody.
+>
+> **Begin M5c on a branch off `main`.** It is the rung the rest of M5 hangs
+> from: A16's whole insight is that reading LinkedIn/Indeed (M5d), proposing
+> office addresses (M5e), rejection analysis (M9) and voice (M10) are **one MCP
+> server** exposing this domain to the user's own Claude. Built once, the others
+> are configuration.
+>
+> **The ADR comes first**, and the decisions it owes are not implementation
+> detail: what a tool is allowed to *write* without a human in the loop (I5),
+> how a session authenticates when the caller is a desktop app rather than a
+> browser with a cookie (M5b's sessions are cookie-shaped), and what an MCP
+> tool returns when the honest answer is `unknown` (I1, I2, I4 all land here at
+> once).
+>
+> **M5's acceptance criterion for this slice, from `CLAUDE.md` §6:** *Claude
+> Desktop connects and captures a posting end to end.* That is a live
+> integration, not a unit test, so plan for how it gets demonstrated.
+
+**What the human decided on 2026-08-21, so it is not re-asked.**
+
+- **The merge.** #18 is in. The look was reviewed via `make demo` and held at
+  *"ok for now until a later polish and optimization phase"* — a hold rather
+  than the reference-image sign-off ADR 0031 commits to, which stays owed.
+- **Q12 — CI.** Fifteen minutes is accepted. No slice on it now. Revisit when
+  the wait becomes annoying, which is the trigger the human named.
+- **Q10 and Q2 — email and the domain.** Both deferred to the deploy, which
+  A16 already put at M7. Do not buy, register or configure anything.
+- **The polish backlog now has three named items**, and they belong together in
+  M7 rather than scattered: Q9's sky proportion, ADR 0034's untuned roof wash,
+  and ADR 0035's 1.65 km spires which have never been seen on a real GPU.
+
+**M4e Task 8 is the one piece of the paused milestone still worth doing now**,
+and it is documentation rather than rendering: `city.md` §2.1, §4.4 and §6 were
+overridden by ADRs 0033, 0034 and 0035 and still describe a city that is not the
+one that ships. It is cheap, it stops a required-reading document lying to the
+next session, and it does not touch a shader. Do it when M5c is between slices,
+not before M5c starts.
 
 **CI's verdict, and both things it caught were invisible locally.**
 

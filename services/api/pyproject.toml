@@ -38,6 +38,11 @@ dependencies = [
   # a password hash is malpractice. Wheels are prebuilt, so `make setup` does
   # not need a compiler and `make demo` stays offline.
   "argon2-cffi>=23.1",
+  # M5c: the MCP server (ADR 0038). This is the *server* half of MCP — it
+  # exposes Nightshift's domain to the user's own Claude and never calls a
+  # model, which is why A16 says the AI in this product is free. Pure Python
+  # over stdio, so `make demo` stays offline and no key is added.
+  "mcp>=2.0",
 ]
 
 # Deliberately absent until the milestone that needs them, per CLAUDE.md §8:

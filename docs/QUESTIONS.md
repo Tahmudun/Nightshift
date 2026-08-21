@@ -9,7 +9,28 @@ the date, because the reasoning is usually worth more than the decision.
 
 ## Q12 — CI takes fifteen minutes against a five-minute target. Spend a slice on it, or accept it?
 
-**Raised:** 2026-08-21 (M5b, opening PR #18) · **Type:** working practice · **Blocking:** no
+**Raised:** 2026-08-21 (M5b, opening PR #18) · **Answered:** 2026-08-21 · **Type:** working practice · **Blocking:** no
+
+**ANSWERED 2026-08-21 — option 1, accept it, with the door left open.** The
+human's words: *"the 15 min ci is fine for now, if it irks me later we can do
+something about it."*
+
+**What that decides and what it does not.** It decides that no slice is spent on
+CI speed now. It does **not** retire the reasoning below — the behavioural risk
+is real and is now carried deliberately rather than unnoticed. The trigger for
+revisiting is stated in the answer itself: **the human finding the wait
+annoying.** That is a legitimate trigger, because A14's argument was always about
+behaviour rather than seconds, and the person whose behaviour is at stake is the
+one who just answered.
+
+**A14 is not amended.** Its five-minute figure now describes an intention this
+repo misses by three times, and saying so in `ci.yml`'s header — which was
+corrected in place at `06725d6` — is more honest than editing the target down to
+whatever today happens to cost. A target you move to meet is not a target.
+
+**What is preserved for whenever it is picked up:** the cheapest honest first
+step is still a `--durations` run, and `pytest-xdist` is still the same piece of
+work as Q8's separate test database. Nothing below is stale.
 
 **What happened.** The `python` job was cancelled mid-suite at exactly 10m00s,
 having reached 64% with **zero failures**. It was not a broken test — the suite
@@ -51,7 +72,24 @@ now or after M5c.
 
 ## Q10 — Sending email costs money. Which means no password reset. For how long?
 
-**Raised:** 2026-08-20 (M5b) · **Type:** cost / account · **Blocking:** no
+**Raised:** 2026-08-20 (M5b) · **Answered:** 2026-08-21 · **Type:** cost / account · **Blocking:** no
+
+**ANSWERED 2026-08-21 — deferred to the deploy, deliberately.** The human's
+words: *"the domain and email thing are future concerns i wanna make sure things
+are polished before worrying about that."*
+
+**Which lands it at M7**, the milestone that already owns the first public
+deploy, and it is the right home on the merits rather than a punt: an email
+sender, a domain to send *from*, and HTTPS are one purchase and one afternoon,
+and buying a sender before there is a deployed thing to send about would be
+paying early for nothing.
+
+**What is now true and must stay written down until then:** an account whose
+password is forgotten is **unrecoverable except by `nightshift users create`
+against the database**, and an address typed wrong is never checked. That is
+tolerable for a user who is also the operator and stops being tolerable the
+moment somebody else has an account. **It is therefore a gate on inviting a
+second person, not on M7's calendar** — see Q11, which has the same gate.
 
 M5b built accounts. It did **not** build password reset or email verification,
 and both are blocked on the same thing: something that can send an email.
@@ -99,6 +137,18 @@ blocks, and it is the last one on your list rather than the next.
 
 **Raised:** 2026-08-20 (M5b) · **Type:** security / scope · **Blocking:** no
 
+> **STILL OPEN, but one of its two branches is now closed — 2026-08-21.** The
+> human deferred the domain and the deploy to the polish phase (Q2, Q10), which
+> removes the *"if you intend to hand somebody an invite before M7"* branch
+> below. **Nothing is reachable from outside this machine, so there is no
+> attacker with a route to the endpoint**, and the answer defaults to M7.
+>
+> **This is an inference from an adjacent answer, not the human's words on this
+> question**, which is why it stays open. It closes for real on the same trigger
+> as Q10: **the first invited user.** If somebody else is ever given an account,
+> a rate limiter and a password reset both become due in the same breath, before
+> the invite rather than after it.
+
 A real gap, named rather than discovered later.
 
 **What is true.** Sign-in has no rate limit. Somebody can try passwords against
@@ -132,6 +182,18 @@ If you plan to invite somebody sooner, say so and I will move it.
 ## Q9 — The reference's sky is 70% of the frame. Ours can be 17% or 36%. Which?
 
 **Raised:** 2026-08-18 (M4e Task 3) · **Type:** product / look · **Blocking:** no
+
+> **STILL OPEN, and deferred rather than answered — 2026-08-21.** The human ran
+> `make demo`, looked at the city, and reported *"it looks ok for now until a
+> later polish and optimization phase."* That is a verdict on the whole frame
+> and it is not an answer to this question, which asks for one number.
+>
+> **It belongs to that polish phase, and it now has company there**: the untuned
+> roof wash and the 1.65 km spires of ADR 0035 are the same kind of open —
+> decided, shipped, never looked at hard. **Do not raise `maxPitch` on a guess
+> in the meantime.** The cost below is unmeasured and the machine is an Intel
+> Iris Plus 645; measuring 82 against 78 is the first move whenever this is
+> picked up, not choosing between them.
 
 You approved the sky on 2026-08-18. This is the one thing about it I cannot
 decide for you, because it is a trade and both sides of the trade are yours.
@@ -506,7 +568,23 @@ trading firms or AI labs. Whatever M3d reports is a measurement over that slice.
 
 ## Q2 — Deployment target for the M4 ship
 
-**Raised:** 2026-07-29 (M0) · **Type:** cost · **Blocking:** no
+**Raised:** 2026-07-29 (M0) · **Answered:** 2026-08-21 · **Type:** cost · **Blocking:** no
+
+**ANSWERED 2026-08-21 — not yet, and the question has moved milestones.** The
+human's words: *"the domain and email thing are future concerns i wanna make
+sure things are polished before worrying about that."*
+
+**The question outlived its own premise.** It was raised against A15, where M4
+was the ship. **A16 moved the ship to M7**, so the deadline this question was
+written to beat no longer exists, and "$0 until then" is the answer for every
+milestone between here and there. `make demo` stays the only way to see
+Nightshift, which is what A9's $0 target always intended.
+
+**What still needs deciding, unchanged, when M7 arrives:** a monthly figure or
+"local only". The four options below are still the options, and the PostGIS +
+pgvector constraint is still the one that eliminates most free tiers. **Nothing
+about the answer got easier by waiting** — but nothing got more expensive
+either, which is what makes deferring it free.
 
 A15 says M0–M4 is the portfolio project and M4 should be a real ship — deployed,
 case study written, on the resume. That is the first point where this project can

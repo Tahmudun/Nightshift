@@ -80,6 +80,7 @@ from nightshift.db.base import (
     ResumeVariant,
     RoleFamily,
     Seniority,
+    SessionOrigin,
     SkillSourceType,
     SourceStatus,
     SourceType,
@@ -286,6 +287,24 @@ class UserSession(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     #: "this session ended, deliberately" stays distinguishable from "this
     #: session was never here" — the same reasoning as invariant I3.
     revoked_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+
+    #: Which kind of client holds this. A label on the answer, never a second
+    #: way to reach it — ``resolve_session`` does not read it, and nothing
+    #: branches on it to decide whether a request is authenticated. M5c added
+    #: it so an MCP token could live here instead of in a second table. The
+    #: server default is what lets the migration land without inventing a value
+    #: for every session already signed in.
+    origin: Mapped[SessionOrigin] = mapped_column(
+        _enum(SessionOrigin, "session_origin"),
+        nullable=False,
+        server_default=SessionOrigin.BROWSER.value,
+    )
+    #: What a person calls this, when they gave it a name: ``"claude desktop —
+    #: laptop"``. Nullable because a browser sign-in has nothing to say here.
+    #: It exists for exactly one reason: a revocation list somebody can *aim*.
+    #: Without it, ending one of four MCP tokens means picking a UUID out of a
+    #: column of UUIDs, which is how a person ends the wrong one.
+    label: Mapped[str | None] = mapped_column(String(120), nullable=True)
 
     user: Mapped[User] = relationship(back_populates="sessions")
 
