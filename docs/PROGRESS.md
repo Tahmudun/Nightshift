@@ -739,9 +739,14 @@ last rung of the three rather than the next.
 ### Current milestone: **M5 — The Open Hand**, on `m5c-the-open-hand`. **Tasks 1–4 of six are built and green. What remains is the live Claude Desktop walk (task 5) and the review (task 6).**
 
 > **START HERE, NEXT SESSION.** The branch is off `main` at `1ab2bd9`.
-> Tasks 1–4 are committed; `make check` is green after each. The next action is
-> **task 5 — connecting a real Claude Desktop** — which is the milestone's
-> acceptance criterion and cannot be a unit test.
+> **[PR #19](https://github.com/Tahmudun/Nightshift/pull/19) is open as a
+> draft and CI is green — all five jobs at `a59ce2f`, first run, no retries.**
+> `MERGEABLE` / `CLEAN`. It is a draft **on purpose**: the acceptance criterion
+> has not been met, and a green suite is not it.
+>
+> The next action is **task 5's remaining half — connecting a real Claude
+> Desktop** — which is the milestone's acceptance criterion and cannot be a
+> unit test. It needs the human.
 >
 > **The runbook is written and half-walked.**
 > `docs/runbooks/connecting-claude-desktop.md`, and
