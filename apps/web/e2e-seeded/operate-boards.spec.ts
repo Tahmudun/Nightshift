@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { API, apiFetch } from './api';
+
 /**
  * M1d's UI half: per-board polling state reaches a screen.
  *
@@ -14,8 +16,6 @@ import { expect, test } from '@playwright/test';
  * it teaches them to ignore the colour that means something is actually wrong.
  */
 
-const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000';
-
 interface Board {
   readonly ats: string;
   readonly token: string;
@@ -27,7 +27,7 @@ interface Board {
 }
 
 async function fetchBoards(): Promise<readonly Board[]> {
-  const response = await fetch(`${API}/boards`);
+  const response = await apiFetch(`${API}/boards`);
   expect(response.ok, `GET ${API}/boards failed — is the seeded stack up?`).toBe(true);
   return (await response.json()) as readonly Board[];
 }

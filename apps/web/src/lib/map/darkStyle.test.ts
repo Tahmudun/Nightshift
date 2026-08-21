@@ -3,13 +3,18 @@
  *
  * A map style is data, and a broken one rarely throws. A filter naming a `kind`
  * the archive stopped emitting draws an empty layer. A `glyphs` URL slipped in
- * by a copied snippet makes `make demo` reach the network. A colour brighter
- * than the cap steals the brightness M4c's beacons need, and nobody notices
- * until there are beacons to lose. And drawing the archive's own OSM buildings
- * would put a second, guessed skyline underneath the measured one.
+ * by a copied snippet makes `make demo` reach the network. A colour that climbs
+ * past the headroom rule steals the brightness M4c's beacons need, and nobody
+ * notices until there are beacons to lose — and a style that quietly goes dark
+ * again satisfies that rule perfectly, which is how the city spent four
+ * milestones grey under a green suite. And drawing the archive's own OSM
+ * buildings would put a second, guessed skyline underneath the measured one.
  *
  * None of those show up as an error. All four show up here.
  */
+
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
@@ -20,6 +25,23 @@ import { MAP_PALETTE } from './palette';
 
 const style = buildDarkStyle();
 const json = JSON.stringify(style);
+
+const CSS = readFileSync(resolve(process.cwd(), 'src', 'app', 'globals.css'), 'utf8');
+
+/**
+ * A token the map palette deliberately does not carry, read from the
+ * stylesheet. `signal-400` is the ceiling every assertion below is stated
+ * against, and writing its hex here would mean the ceiling could drift away
+ * from the colour a beacon is actually drawn in without a test noticing.
+ */
+function cssToken(name: string): string {
+  const hex = CSS.match(new RegExp(`--color-${name}:\\s*(#[0-9a-f]{6})`, 'i'))?.[1];
+  if (hex === undefined) throw new Error(`--color-${name} is not in globals.css`);
+  return hex;
+}
+
+/** ADR 0029. The margin every colour in the style keeps below `signal-400`. */
+const MIN_HEADROOM_L = 20;
 
 /** Every layer in the archive, measured from its own metadata. */
 const ARCHIVE_LAYERS = [
@@ -46,6 +68,24 @@ function luminance(hex: string): number {
     0.7152 * channel(parseInt(h.slice(2, 4), 16)) +
     0.0722 * channel(parseInt(h.slice(4, 6), 16))
   );
+}
+
+/**
+ * CIE L*, not a WCAG contrast ratio.
+ *
+ * The ratio used everywhere else in this repository is the right tool for text
+ * and the wrong one here. Its `+0.05` flare term dominates at these luminances:
+ * `ink-800` against `ink-950` scores 1.09:1, which sounds like "invisible" and
+ * is in fact a perfectly visible step between two large fills. Judging the map
+ * by that number would push the whole basemap several shades brighter.
+ *
+ * L* is perceptually uniform. A ΔL* of 2-3 is roughly the smallest difference a
+ * person can see between two large adjacent areas, so every threshold below is
+ * a multiple of a just-noticeable difference rather than a matter of taste.
+ */
+function lightness(hex: string): number {
+  const y = luminance(hex);
+  return y <= 0.008856 ? 903.3 * y : 116 * Math.cbrt(y) - 16;
 }
 
 function layer(id: string) {
@@ -137,10 +177,42 @@ describe('the basemap never draws a building', () => {
     expect(offenders.map((l) => l.id)).toEqual([]);
   });
 
-  it('extrudes exactly one layer, from the measured archive', () => {
+  it('extrudes exactly these layers, all from the measured archive', () => {
+    // An explicit list rather than a count. `buildings-crown` joined `buildings`
+    // in M4e and a third arrives with the hiring building — the thing worth
+    // pinning is that every extrusion reads the *measured* archive, because one
+    // reading the basemap's OSM heights would draw a guessed skyline while
+    // looking exactly like these.
     const extrusions = style.layers.filter((l) => l.type === 'fill-extrusion');
-    expect(extrusions.map((l) => l.id)).toEqual(['buildings']);
-    expect(extrusions[0]).toMatchObject({ source: BUILDINGS_SOURCE });
+    expect(extrusions.map((l) => l.id)).toEqual(['buildings', 'buildings-crown']);
+    for (const extrusion of extrusions) {
+      expect(extrusion, extrusion.id).toMatchObject({ source: BUILDINGS_SOURCE });
+    }
+  });
+
+  it('stacks the crown on the mass instead of overlapping it', () => {
+    // Two coplanar extrusion walls at identical depth resolve differently per
+    // driver, and the symptom is a band that flickers or mottles as the camera
+    // moves — which reads as a GPU problem and is a geometry problem. The mass
+    // stops where the crown starts, so they share a plane and no volume.
+    const mass = JSON.stringify(
+      (layer('buildings') as unknown as { paint: Record<string, unknown> }).paint[
+        'fill-extrusion-height'
+      ],
+    );
+    const crownBase = JSON.stringify(
+      (layer('buildings-crown') as unknown as { paint: Record<string, unknown> }).paint[
+        'fill-extrusion-base'
+      ],
+    );
+    expect(mass).toBe(crownBase);
+  });
+
+  it('lights only the towers, so the low-rise stays a dark mat', () => {
+    // A crown on everything is a bright fog at head height: most of New York is
+    // under 60 feet, so the band would land in a continuous sheet across the
+    // low-rise and read as haze rather than as a skyline.
+    expect(JSON.stringify(filterOf('buildings-crown'))).toContain('height_roof');
   });
 });
 
@@ -199,38 +271,78 @@ describe('the skyline is the measured one, in the units it was measured in', () 
 });
 
 describe('nothing on the map is as bright as a job will be', () => {
-  const CAP = luminance(MAP_PALETTE.ink400);
+  /**
+   * This block used to hold the two assertions that made the city grey, and
+   * replacing them is ADR 0029 rather than a loosened test.
+   *
+   * The first capped every colour outside the buildings source at `ink-400`.
+   * The second required the brightest colour anywhere in the style to sit 40 L*
+   * below `signal-400`. Both were written to protect one real thing — a beacon
+   * must be the brightest object in frame — and both did it by proxy, through a
+   * token that happened to be dim. The proxy then became the design: `ink-450`
+   * at 44.3 L* was the brightest pixel on the map, and it is a desaturated grey.
+   *
+   * What replaces them is the rule itself, stated twice from opposite ends:
+   * every colour keeps a **stated margin below `signal-400`**, and the style may
+   * only paint with colours from `MAP_PALETTE`, whose every entry is held to
+   * that margin at the source (`palette.test.ts`). A neon street cannot get in
+   * by being written inline, and cannot get in through the palette either.
+   */
+  const beacon = lightness(cssToken('signal-400'));
 
-  it('caps every colour on the ground at ink-400', () => {
-    // The brightness budget belongs to the data (§2.2), and ADR 0023 spends part
-    // of it on the skyline rather than the ground: buildings may reach ink-450,
-    // everything you look *down* at stops where it always did. A road that crept
-    // up to meet the towers would take the depth cue away from height and give
-    // it to nothing.
-    const drawn = style.layers
-      .filter((l) => !('source' in l) || l.source !== BUILDINGS_SOURCE)
-      .flatMap((l) => ('paint' in l ? colours(l.paint) : []));
+  it('paints with the palette and nothing else', () => {
+    // The structural half. `palette.test.ts` holds every MAP_PALETTE entry a
+    // stated distance below `signal-400`; this holds the style to MAP_PALETTE.
+    // Between them, no colour can reach a layer without having cleared the
+    // ceiling — including one typed straight into a paint property, which is
+    // how a "just this once" cyan arrives.
+    const allowed = new Set(Object.values(MAP_PALETTE).map((hex) => hex.toLowerCase()));
+    const drawn = style.layers.flatMap((l) => ('paint' in l ? colours(l.paint) : []));
     expect(drawn.length, 'the style must actually contain colours').toBeGreaterThan(5);
 
-    const tooBright = drawn.filter((hex) => luminance(hex) > CAP + 1e-9);
-    expect(tooBright, 'the ground may not outshine ink-400').toEqual([]);
+    const strangers = [...new Set(drawn)].filter((hex) => !allowed.has(hex));
+    expect(strangers, 'every colour on a layer must be a MAP_PALETTE token').toEqual([]);
   });
 
-  it('lets the skyline past that cap, and only the skyline', () => {
-    // The other direction of the same rule. If this ever passes trivially —
-    // because the building ramp was flattened back down to ink-400 — the city
-    // has quietly gone back to being unlit and ADR 0023 has been reversed by
-    // accident rather than by decision.
-    const buildings = colours(
-      (layer('buildings') as unknown as { paint: Record<string, unknown> }).paint,
+  it('keeps a stated margin below the colour a beacon is drawn in', () => {
+    // The numeric half, and the one that actually protects M4c. 20 L* is not a
+    // round guess: `alert-400` — the hiring building, the brightest thing the
+    // city itself is allowed to draw — sits 22.0 below `signal-400`, so 20
+    // admits it and admits nothing above it.
+    const brightest = Math.max(
+      ...style.layers.flatMap((l) => ('paint' in l ? colours(l.paint).map(lightness) : [])),
     );
-    expect(buildings.some((hex) => luminance(hex) > CAP)).toBe(true);
+    expect(beacon - brightest).toBeGreaterThan(MIN_HEADROOM_L);
+  });
+
+  it('is a city with the lights on, not a headroom rule satisfied by darkness', () => {
+    // The direction that would otherwise never fail.
+    //
+    // Every assertion above is satisfied perfectly by a map drawn entirely in
+    // `ink-950`, which is the city M4e exists to replace — and for four
+    // milestones a suite of exactly those assertions was green over exactly
+    // that city. A test that cannot fail is not a test (CLAUDE.md §7), and a
+    // one-sided bound on brightness cannot fail in the direction the product
+    // went wrong.
+    //
+    // 50 L*, and the number was chosen by finding out what a weaker one lets
+    // through. The first draft of this test said 40, which passed on `ink-400`
+    // at 40.2 — the *old* motorway grey, the exact colour ADR 0029 exists to
+    // replace. It would have gone green over the unlit city it was written to
+    // catch. 50 is above every shade in the ink family and is reached only by
+    // `neon-400`, so it fails the moment the neon comes back out.
+    const brightest = Math.max(
+      ...style.layers.flatMap((l) => ('paint' in l ? colours(l.paint).map(lightness) : [])),
+    );
+    expect(brightest, 'nothing on this map is lit; see ADR 0029').toBeGreaterThan(50);
   });
 
   it('keeps the road ramp in order, so a motorway reads as one', () => {
-    // Importance is carried by *weight*, not brightness — the cap leaves no
-    // brighter shade to promote a motorway into. So the rule is: never darker,
-    // and always wider.
+    // Importance is carried by weight *and* brightness, and the rule is that
+    // the two never disagree: never darker, and always wider. Under the old
+    // `ink-400` cap there was no brighter shade to promote a motorway into and
+    // width was carrying the whole read; the `neon-*` family gives the ramp its
+    // other half back. Either alone is legible. The two inverted is soup.
     const RAMP = ['road-path', 'road-minor', 'road-major', 'road-highway'];
     const rungs = RAMP.map((id) => {
       const paint = (layer(id) as unknown as { paint: Record<string, unknown> }).paint;
@@ -262,25 +374,6 @@ describe('the ground is visible against the void', () => {
    * is about the *brightness budget*, not about being unreadable, and the
    * difference between the two is a number rather than a matter of taste.
    */
-  /**
-   * CIE L*, not a WCAG contrast ratio.
-   *
-   * The ratio used everywhere else in this repository is the right tool for
-   * text, and the wrong one here. Its `+0.05` flare term dominates at these
-   * luminances: `ink-800` against `ink-950` scores 1.09:1, which sounds like
-   * "invisible" and is in fact a perfectly visible step between two large
-   * fills. Judging the map by that number would push the whole basemap several
-   * shades brighter and spend the budget §2.2 reserves for jobs.
-   *
-   * L* is perceptually uniform. A ΔL* of 2-3 is roughly the smallest difference
-   * a person can see between two large adjacent areas, so these thresholds are
-   * stated as multiples of a just-noticeable difference rather than as taste.
-   */
-  function lightness(hex: string): number {
-    const y = luminance(hex);
-    return y <= 0.008856 ? 903.3 * y : 116 * Math.cbrt(y) - 16;
-  }
-
   function delta(a: string, b: string): number {
     return Math.abs(lightness(a) - lightness(b));
   }
@@ -308,15 +401,10 @@ describe('the ground is visible against the void', () => {
     expect(delta(highway, fillOf('earth'))).toBeGreaterThan(20);
   });
 
-  it('leaves the brightness budget the signal layer needs', () => {
-    // The other half of the same constraint. A basemap that cleared every
-    // threshold above by simply getting brighter would pass those tests and
-    // ruin M4c. `signal-400` is the cyan a beacon is drawn in.
-    const brightest = Math.max(
-      ...style.layers.flatMap((l) => ('paint' in l ? colours(l.paint).map(lightness) : [])),
-    );
-    expect(lightness('#5ce8ff') - brightest).toBeGreaterThan(40);
-  });
+  // The brightness ceiling that used to live here — "brightest colour anywhere
+  // sits 40 L* below signal-400" — moved to `nothing on the map is as bright as
+  // a job will be` above, at the margin ADR 0029 states, alongside the floor
+  // that keeps it from being satisfied by darkness.
 });
 
 describe('dusk stays in the air', () => {

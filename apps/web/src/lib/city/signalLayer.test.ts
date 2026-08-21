@@ -8,7 +8,7 @@ import type { CitySignal } from '@/lib/schemas';
 
 import { MAX_LABELS } from './labelAtlas';
 import { signalFixture } from './signal.fixture';
-import { ARCHIVED_COLOR, BEACON_RADIUS, DIM_FACTOR, MAX_BEACONS, SIGNAL_COLOR } from './beacon';
+import { ARCHIVED_COLOR, COLUMN_RADIUS, DIM_FACTOR, MAX_BEACONS, SIGNAL_COLOR } from './beacon';
 import {
   anchorTransform,
   createSignalLayer,
@@ -18,7 +18,8 @@ import {
 } from './signalLayer';
 import { SELECTION_COLOR, SELECTION_INNER_RADIUS } from './selectionMesh';
 import { treatmentFor, type SignalTreatment, type TreatmentContext } from './treatments';
-import { COMPANIES_PER_ROW } from './unresolvedField';
+import { DEFAULT_ROOF_METRES, ROOF_CLEARANCE } from './buildingField';
+import { COMPANIES_PER_ROW, FIELD_BASE_ALTITUDE } from './unresolvedField';
 
 /**
  * What jsdom can and cannot answer here, stated once.
@@ -41,6 +42,23 @@ function signal(jobId: string, companyId = 'company-a', companyName = 'Alloy'): 
     company_id: companyId,
     company_name: companyName,
   });
+}
+
+/** The same role, inheriting a confirmed office: 620 8th Avenue, BIN 1087186. */
+function onABuilding(jobId: string, companyId = 'company-a', companyName = 'Alloy'): CitySignal {
+  const role = signal(jobId, companyId, companyName);
+  return {
+    ...role,
+    placement: {
+      ...role.placement,
+      kind: 'building' as const,
+      latitude: 40.755913,
+      longitude: -73.989658,
+      building_id: '1087186',
+      location_confidence: 'verified' as const,
+      inherited: true,
+    },
+  };
 }
 
 describe('createSignalLayer', () => {
@@ -68,27 +86,100 @@ describe('createSignalLayer', () => {
     expect(layer.drawn).toBe(3);
   });
 
-  it('draws no beacon for a role that is standing on a building', () => {
+  it('draws a role that is standing on a building', () => {
     const layer = createSignalLayer({ anchor: ANCHOR });
-    const placed = signal('placed');
-    const onABuilding = {
-      ...placed,
-      placement: {
-        ...placed.placement,
-        kind: 'building' as const,
-        latitude: 40.755913,
-        longitude: -73.989658,
-        building_id: '1087186',
-        location_confidence: 'verified' as const,
-      },
-    };
 
-    layer.setSignals([signal('floating'), onABuilding]);
+    layer.setSignals([signal('floating'), onABuilding('placed')]);
 
-    // Not yet drawn anywhere — the building treatment is a later task. What
-    // matters now is that it is not drawn *here*, floating above the city,
-    // which would say the opposite of what its placement says.
-    expect(layer.drawn).toBe(1);
+    // This asserted `drawn === 1` until 2026-08-17 — "not yet drawn anywhere,
+    // the building treatment is a later task". That task is this one. The
+    // corpus had no placed role in it at the time, so the assertion cost
+    // nothing to keep and would have cost a milestone to forget.
+    expect(layer.drawn).toBe(2);
+  });
+
+  it('stands a placed role on its roof rather than up in the field', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+
+    layer.setSignals([onABuilding('placed'), signal('floating')]);
+
+    // The two fields are at different heights by construction: the unresolved
+    // field starts at 700 m, above everything the skyline can put in front of
+    // it, and a roof stack starts just above its own roof. Reading the buffer
+    // back is what catches a placed role written into the floating field —
+    // which draws the right number of beacons in a place that means the
+    // opposite of what the placement says.
+    const placedIndex = layer.jobAt(0) === 'placed' ? 0 : 1;
+    expect(layer.altitudeOf(placedIndex)).toBe(DEFAULT_ROOF_METRES + ROOF_CLEARANCE);
+    expect(layer.altitudeOf(1 - placedIndex)).toBe(FIELD_BASE_ALTITUDE);
+  });
+
+  it('names the buildings it lit, so something can point at them', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+
+    layer.setSignals([onABuilding('placed')]);
+
+    expect(layer.buildings.map((b) => b.buildingId)).toEqual(['1087186']);
+  });
+
+  it('settles a stack onto the roof once a tile reports how tall it is', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    layer.setSignals([onABuilding('placed')]);
+
+    layer.setRoofHeights(new Map([['1087186', 226.2]]));
+
+    // The building tiles load as the camera moves, so the measured height
+    // arrives after the layout that needed it. A layer that only read heights
+    // at `setSignals` would leave every stack at the default until something
+    // else happened to re-set the signals — which on a still map is never.
+    // Three decimals rather than exact: this is read back out of the instance
+    // matrix, which is Float32, so a metre value arrives with about seven
+    // significant figures. Sub-millimetre on a skyscraper.
+    expect(layer.altitudeOf(0)).toBeCloseTo(226.2 + ROOF_CLEARANCE, 3);
+  });
+
+  it('does no work when a roof height arrives that it already had', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    layer.setSignals([onABuilding('placed')]);
+    layer.setRoofHeights(new Map([['1087186', 226.2]]));
+    const before = layer.altitudeOf(0);
+
+    layer.setRoofHeights(new Map([['1087186', 226.2]]));
+
+    // `refreshRoofHeights` runs on every camera settle and the answer is
+    // usually the one it got last time — the tiles under a hiring building do
+    // not change because somebody panned. Without this the whole corpus is
+    // re-laid-out and every instance buffer rewritten on each pan-stop, which
+    // at `MAX_BEACONS` is five thousand transforms to arrive at the identical
+    // city.
+    expect(layer.altitudeOf(0)).toBe(before);
+    expect(layer.layouts).toBe(2);
+  });
+
+  it('lays out again when a roof height actually changes', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    layer.setSignals([onABuilding('placed')]);
+    layer.setRoofHeights(new Map([['1087186', 100]]));
+
+    layer.setRoofHeights(new Map([['1087186', 226.2]]));
+
+    // The guard must compare *values*, not identity. A new Map with the same
+    // contents arrives on every settle, and a reference check would treat each
+    // one as a change — which is the bug this test's sibling describes, kept
+    // alive by a guard that never fires.
+    expect(layer.altitudeOf(0)).toBeCloseTo(226.2 + ROOF_CLEARANCE, 3);
+  });
+
+  it('leaves the floating field where it is when a roof height arrives', () => {
+    const layer = createSignalLayer({ anchor: ANCHOR });
+    layer.setSignals([signal('floating')]);
+
+    layer.setRoofHeights(new Map([['1087186', 226.2]]));
+
+    // Nothing in the unresolved field has a roof, a building or a position. A
+    // height update that moved it would be the renderer inventing exactly the
+    // relationship I1 forbids.
+    expect(layer.altitudeOf(0)).toBe(FIELD_BASE_ALTITUDE);
   });
 
   it('empties when it is given nothing, rather than keeping the last city', () => {
@@ -469,9 +560,12 @@ describe('the §6 treatments, as buffers', () => {
   });
 
   it('keeps the outline on the body and the reticle in the air around it', () => {
-    // What makes two white marks legible as different things: one is a
-    // wireframe on the beacon itself, the other an annulus clear of it.
-    expect(BEACON_RADIUS * 1.34).toBeLessThan(SELECTION_INNER_RADIUS);
+    // What makes two white marks legible as different things: one is a collar
+    // on the beacon itself at 1.9 radii, the other an annulus clear of it.
+    // Against the column's *radius* rather than its height — see the note in
+    // `selectionMesh.test.ts` for why the height stopped being a usable proxy
+    // once the column became a spire.
+    expect(COLUMN_RADIUS * 1.9).toBeLessThan(SELECTION_INNER_RADIUS);
   });
 
   it('gives an offer a core in the green nothing else uses', () => {

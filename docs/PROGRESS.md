@@ -33,51 +33,1399 @@
 **M4c Task 5 is done: the city speaks §6, and says what it is saying.** The table is one pure function (`treatments.ts`), the beacons carry per-instance colour, strength and pulse rate through a shader, four instanced meshes draw the marks §6 puts *on* a body, and an in-interface legend documents all thirteen rows — including the four that are not drawn, each with its reason. ADR 0028. `docs/reviews/milestone-4c-treatments.png` is the screenshot. Three defects were found by looking rather than by a test: a closed torus whose rotation was invisible by construction, a spin folded into the billboard that rolled every arc out of the camera plane, and a saved outline drawn cyan — which is exactly what ADR 0027's standing instruction ruled out.
 **M4c: Tasks 1, 2, 3 and 4 are done. The placement join and `GET /city/signals` (ADR 0024, which resolves a real conflict between I1 and `city.md` §4.4 rather than papering over it), the Three.js signal layer in MapLibre's own context (ADR 0025), and the field made legible, navigable and sortable. New York now has every open role floating above it, untethered, and none on a building — see `docs/reviews/milestone-4c-signals.png` and `docs/reviews/milestone-4c-roster.png`. Task 4 then made a role reachable: picking by raycast against the frame's own matrix, a reticle, a detail panel, and one selection shared by the list and the map (ADR 0027) — `docs/reviews/milestone-4c-selection.png`.**
 **Docker's daemon is no longer wedged.** It was force-quit and relaunched on 2026-08-12. `make up` was then run **from cold** — containers removed with `docker compose down` first — and created both from scratch to healthy, exit 0. **That closes the last open step in M4b's acceptance chain**; container startup is now proven rather than assumed. The seeded corpus survived and matches what this file records: 31 canonical jobs, 62 `job_locations`, 44 `city_only` + 18 `remote`, 0 mappable.
-**Current milestone: M4 — the living city, and the shippable checkpoint (A15). M4a, M4b and M4c are closed and on `main`; M4d is what remains.**
+**Current milestone: M5 — The Open Hand (A16), on `m5b-identity`.**
+**M5a and M5b are built, reviewed and verified. [PR #18](https://github.com/Tahmudun/Nightshift/pull/18) is open against `main`** — 65 commits, 167 files, carrying M4d Task 1, M4e's built tasks, M5a and M5b; draft PR #17 is closed as superseded. All four local gates were re-run green on 2026-08-21: `make check` (2128 Python tests, 799 web), `make reset-db`, `make verify`, and `make test-e2e-seeded` at **87 passed, 1 skipped, 0 failed**. **CI then found what no local command could**: M5b added `argon2-cffi` and never regenerated CI's pin, so the pin had silently become partial — ADR 0016 §3's exact failure class, caught by the check written for it. **CI took three runs and is now green — all five jobs at `06725d6`, and PR #18 is `MERGEABLE`/`CLEAN`.** Run 1 caught a partial dependency pin; run 2 lost `python` to a 10-minute timeout at 64% with zero failures (raised to 20, and raised as **Q12**, because CI is now ~15 minutes against A14's five); run 3 passed everything. **#18 is deliberately not merged — that call is the human's**, because this branch carries M4e and M4e's acceptance is a human verdict on a screenshot. See "Next exact action".
+**M5b is BUILT and REVIEWED** — `user_credentials`, `user_sessions`, argon2id,
+`/auth/sign-in|token|sign-out|me`, default-deny on every router,
+`nightshift users create`, a seed that plants **two** accounts, the Next.js
+proxy, a sign-in gate, and the enumerating isolation test that is the
+milestone's whole point. ADR 0037. See "2026-08-20" below.
+**The review found three defects and all three are fixed**, each shown red
+first: a cookie lifetime and a session-row lifetime kept as two constants and a
+comment, a `seed` command that planted a published password in any environment
+including production, and a config comment describing a variable the same slice
+deleted. `docs/reviews/milestone-5b-review.md`. **What remains for M5b is CI
+and the PR, not code.**
+**The three red seeded tests were investigated and none of them were M5b's** —
+proved by checking out the commit before M5b's first identity commit and
+watching two of them fail there too. Both root causes are fixed: a demo
+`interview` stage that two other test paths destroyed and `make seed` could
+not repair, and a city that renders at **1.8fps** on a GPU-less rasteriser, so
+a single click cost 6.5-9.6s against a 10s budget. `make test-e2e-seeded` is
+**86 passed, 1 failed, 1 skipped**, the one red test being a separate,
+pre-existing intermittent. See "Next exact action".
+**AMENDMENTS A3 is retired.** Single-user mode is over: `current_user_id` no
+longer returns `settings.dev_user_id` and no setting restores it.
+**M5a is COMPLETE** — domain, schema, three routes, the paste form, the
+"added by hand" badge, and a seed that plants one captured posting. See
+"2026-08-19, later" below for what it caught. **Superseded 2026-08-19:** this line read *"M4 — the living city, and the
+shippable checkpoint (A15)"* until the project became a product. `AMENDMENTS`
+A16 re-cut M5 onward, moved the ship from M4 to M7, and narrowed §8's
+one-user anti-pattern; M4e is paused with its remaining tuning moved into M7 so
+it is measured against a real corpus rather than 31 postings. See "Next exact
+action".
 **PR #16 was the largest thing this project has merged — 43 commits, 106 files, ~20,700 lines, two milestones — because M4b and M4c are one renderer and merging a map with nothing on it would have been merging half of it.**
 **The finding that shaped the milestone: no ATS posting names a street. 0 of 247, 139 distinct location strings, 10 fields, three providers. A job can never place itself on a building, so every building comes from an address a human confirmed.**
 **Task 11 measured the embedding proposal path and declined to ship it — ADR 0018.**
 **Task 12 gave the seed a reader to be about, and found three false claims on the page — ADR 0019.**
-**Last updated: 2026-08-12**
+**M4e — the synthwave city — is sequenced ahead of M4d Tasks 2–7, on the human's call.** The city renders, is honest and is measured, and does not look like the thing it was specified to look like. One of the reference images filed at `docs/design/references/` on 2026-08-11 was handed back on 2026-08-13 with the note that the vision has not been met — **the target was recorded correctly and the implementation did not reach it.** Task 1 (the worksheet and its loader) is done; see "M4e Task 1" below.
+**The worksheet is filled and loaded. Two buildings are placed — Datadog at 620 8th Avenue (BIN 1087186) and Ramp at 28 West 23rd Street (BIN 1080672), both `verified`.** `GET /city/signals` went from 0 on a building / 31 floating to **20 on a building / 11 floating**, and the map draws none of the 20 because the renderer for a `building` placement is M4e Task 6. See "M4e Task 1 — the human filled it in" below.
+**2026-08-18: a full project audit was delivered and its plan adopted.** The audit's
+three findings: the city's emptiness is a data-supply cap (2 confirmed offices = at
+most 2 buildings that can ever light, and no rendering work moves that number); the
+look is mid-surgery and the undone pieces — sky, bloom, beam shape, building
+material — are the ones that carry the feeling; the matching engine and command
+center are complete, off-vision, and frozen. **ADR 0031 is the consequential
+outcome**: buildings move from MapLibre `fill-extrusion` into the Three.js layer
+(same tiles, our shader — windows, rim light, gradient, haze), and **M4e's
+acceptance test is the human judging screenshots against
+`docs/design/references/02-skyline-grid-plane-light-columns.jpg`** — a standing
+commitment, made in exchange for the human continuing at all. Aesthetic work runs
+screenshot-first; tests pin semantics (ADR 0029's margins), never taste.
+**2026-08-18, later: M4e Task 3 — the sky — shipped and was approved.** ADR 0032:
+our own custom layer for the gradient, the starfield, the sun over the Hudson,
+and the distance haze that closed ADR 0029's hard edge. It also produced the
+finding that bounds ADR 0031's commitment — **reference 02's framing is not
+reachable at any pitch MapLibre has** (its horizon sits 70% down the frame; ours
+can reach 17% at today's cap and 36% at MapLibre's ceiling). Open as Q9.
+**The remaining M4e order is the audit's and is not to be resequenced: Task 10,
+then 7, then 8, then 9.**
+**2026-08-18, later still: M4e Task 10 — the buildings became ours (ADR 0031) —
+is built and awaiting the human's verdict.** New York is no longer MapLibre's
+`fill-extrusion`. Every footprint is Three.js geometry in the layer that already
+drew the beacons, with a shader that gives a tower dark glass, procedural
+windows, lit corners and rooflines, and its own haze into the same horizon the
+sky fades the ground into. 32,686 buildings, 47 cells, 1.07M vertices at the
+opening pose, assembled on a share of each frame. **It costs 0.6 ms a frame more
+than the flat boxes it replaced** — measured on a real GPU, both skylines in the
+same window: ours p50 27.2 ms, MapLibre's p50 26.6 ms. Screenshots:
+`docs/reviews/milestone-4e-buildings-ours.png` (the opening pose),
+`milestone-4e-buildings-skyline.png` (the reference's own framing, as close as
+MapLibre's pitch allows — Q9), `milestone-4e-buildings-close.png` (street scale).
+**Two findings are recorded in ADR 0031 rather than here**: the extrusion layers
+cannot be retired with `visibility: none` — doing so starves the tile source our
+own geometry reads, and the first run drew an empty New York — and a fixed
+per-frame build budget is wrong on a slow machine, so it is now a share of the
+frame that actually elapsed.
+**2026-08-18, and the milestone's largest visual step: M4e Task 10 was signed
+off and Task 7's bloom shipped with it.** The human's verdict on ADR 0031's
+city was *"much, much closer to the vision. It's just missing color and glow"*
+— and the two turned out to be one problem. **ADR 0033** is the outcome:
+`lib/city/bloom.ts` blooms the whole composited frame (not just our scene, so
+MapLibre's streets and our own sun glow too), and the scenery gets a second
+saturated hue — an `ember-*` family — after two milestones in which
+`palette.ts` reserved every one of them for data. Cost, measured on the real
+GPU, both samples in the same window: **p50 37.9 ms with bloom, 35.8 without —
+2.1 ms**, behind `signals.setBloom()` for M4d Task 2's tiers. Screenshots:
+`docs/reviews/milestone-4e-glow-opening.png`,
+`milestone-4e-glow-midtown.png`, `milestone-4e-glow-skyline.png`.
+**Three things went wrong in ways that produce no error**, and all three are in
+ADR 0033 rather than here: an effect that ran for an hour drawing nothing
+because it inherited Three's bound vertex array and its instancing divisor; a
+bright-pass threshold of 0.5 against a palette whose brightest colour is 0.488,
+which excluded the entire city; and warm windows that are invisible from the
+opening pose, because a bay is a third of a pixel there — the edge light is what
+draws the city at that distance, and warming a third of the towers is what
+finally put colour in the frame. **ADR 0029's brightness stack is untouched and
+one of its margins is tightened**: `cityBuildings.test.ts` now demands 3 L*
+under `alert-400` rather than a bare `<`, because this ADR's first draft cleared
+it by 0.8 and that passes the assertion while defeating its purpose.
+**Task 7 is not finished: it also owns the beam redesign, and the diamond stack
+is still a diamond stack.**
+**2026-08-18/19: the facade pass was approved and shipped, and it took the
+beacons with it.** The ADR 0033 city read as *"a realistic nighttime Manhattan
+render"*; the counter-proposal came from the human as literal hexes, was built
+behind `setBuildingStyle(1)`, judged against four poses photographed in one
+window, and signed off — *"a drastic improvement"*. The switch is gone and the
+palette is the city's only one. Twelve new tokens: `mass-*` (a seven-step
+near-black ramp, a per-building seed picks a family, which is what stops a
+skyline of 25,000 boxes reading as one extruded material) and
+`aqua/azure/iris/fuchsia-400` plus `ember-350` for window light. Density cut
+62%, windows lit per *group* of bays in three shapes chosen per wall, warm
+rooflines from 33% of towers to 8%.
+**Two of the five proposed window colours could not ship as proposed**, both
+caught by measuring: ADR 0029 sets two ceilings and the binding one is
+`alert-400` minus 3, at 60.6 L\*. `#00dfff` measured 81.8 and `#ffb84a` 79.6.
+They became `aqua-400` #0096cc and `ember-350` #bf7d2a. **The rule was not
+relaxed to fit the colours; the colours moved.**
+
+**ADR 0034 is the consequential outcome, and it is not about colour.** The
+beacons were losing to the city because *"brightest thing on screen"* is not a
+durable way to say "this is a job" in a city whose whole direction is neon —
+every tuning pass will push on that rule and the answer will always be "dim the
+city", which is what made the city grey for two milestones. ADR 0023 made the
+same argument one level up and gave the hiring beam shape and behaviour; the
+beacons never got it. **A role is now a column of light**: 9 m by 90 m in the
+world with a seven-pixel floor in the vertex shader, which closes the M4c
+defect where a beacon is several times the size of the building it stands on at
+street zoom. The rise is ambient and identical on every role — it says "this is
+a job" — and **the base never leaves**, because §6 spends disappearance on
+`closed` and `rejection` and a mark that vanishes every five seconds tells a lie
+about a listing. Recency stays on the brightness pulse and `NEW_SCALE`.
+**The colour rule that replaces the brightness rule is narrow: cyan is a role,
+and a scenery colour within 20° of the signal hue must clear 25 L\* rather than
+the general 20.** Same-hue confusion is the worse failure.
+**Three defects and one rejection are recorded in ADR 0034 rather than here.**
+The dark halo was built, photographed and rejected on sight — *"shadowy
+horizontal slits"* — and the rejection was right for a reason worth keeping: a
+mark that darkens is correct, a *separate object* that darkens is not, because
+separate objects overlap and their edges band. **The human found a real bug in
+a screenshot**: every mark was billboarded *and* spun for the sake of the
+interview arc, so §6's "gold vertical beacon" has been drawn as a slowly
+rotating diagonal bar since M4c. It is deleted rather than corrected — the gold
+is now a spine inside the role's own column. And the hiring beam became a
+*wash*, because a role becoming a column made the two the same object.
+Screenshots: `docs/reviews/milestone-4e-facade-shipped.png`,
+`milestone-4e-columns-field.png`, `milestone-4e-columns-street.png`.
+**Four tests were added that would have caught what a human had to**: the mark
+orientation at a pitched-and-rotated pose, the collar and core staying in the
+world, the column's world size, and its pixel floor. Each shown able to fail.
+**Still open on this work**: the roof wash's strength is untuned — it reads
+faintly at the pose the city opens at and needs a look rather than a number.
+
+**2026-08-19: the columns were never on the screen.** The human's report was
+that the beacons are short, hard to spot at city scale, and not animated. All
+three were true and the second and third had a cause nobody had guessed:
+**ADR 0034's beacon bodies drew nothing at all, at any zoom, since the day they
+shipped.** What had been looked at for two days were §6's marks and the roof
+beams, which are also vertical cyan things standing on the same anchors.
+**ADR 0035** has the whole of it. The short version is that the shader asked
+two questions a conventional Three.js scene answers and this one does not —
+ADR 0025 gives the layer *one composed matrix* and leaves the model-view alone,
+so there is no view matrix here at all. `normalMatrix * normal` for the soft
+edge came out **exactly zero at every vertex** and every body multiplied to
+alpha 0; `projectionMatrix[1][1]` read as a field of view produced a growth
+factor in the thousands and scaled every column to hundreds of kilometres.
+**The two defects were each other's alibi** — with alpha 0 you cannot see that
+the geometry is a continent, and fixing only the size gives a solid white
+window. Both are now measured out of the frame's own matrix rather than assumed
+from its elements: the camera position `signalLayer` already computes for the
+building haze, and one projected metre for each pixel floor.
+**The height was a design error rather than a bug.** 90 m was the width rule
+applied to the wrong axis — a mark whose width belongs to its building reads as
+standing on it, a mark whose *height* does reads as part of it — and it came to
+about fifty pixels at the opening pose. `COLUMN_HEIGHT` is now **1,650 m**,
+three times One World Trade's spire, and the test that pinned a ceiling of 120 m
+now pins a floor of twice 541: the rule inverted, because that is the rule
+`docs/design/references/02-*.jpg` and `city.md` §2.1 both already stated.
+`COLUMN_BASE` (90 m) is new and is what the marks and the reticle are cut
+against — the job is at the bottom of the column, the spire is the flag.
+**The animation had two things wrong and only one was the gate.** The repaint
+request still asked whether a role was *new*, which ADR 0034 had stopped being
+the question; the seeded corpus hid it because 27 of 30 roles are inside
+`NEW_WINDOW_DAYS`. And the rise cycles the column's *top*, which at 1.65 km is
+off the top of the frame at every pose this city is read at — two frames 2.5 s
+apart were pixel-identical along the whole visible length. Bands now scroll up
+the shaft, and **they modulate rather than add**, because light added to an
+already-clipped additive pixel changes nothing.
+**The new acceptance test is the useful artefact.** `city-acceptance.spec.ts`
+serves a corpus where the beacon is the only thing that *can* move — every role
+old, unresolved and untouched, so no pulse, no mark, no roof beam — then keeps
+a frame and counts what fraction of the map changes. Every threshold was
+calibrated by running it against the broken renderer: as shipped the field
+painted 0.5% of the map (three name plates) and moved **0.0%**; fixed it paints
+2.9% and moves 0.46%; size-broken alone paints 100%. It also forced a finding
+that would have made every future frame comparison worthless — **the city has
+to have finished assembling first**, because a mid-build frame differs from the
+next by 354,665 pixels against the 4,257 a field of columns moves.
+Screenshots: `docs/reviews/milestone-4e-spires-opening.png`,
+`milestone-4e-spires-midtown.png`, `milestone-4e-spires-skyline.png`, and
+`milestone-4e-spires-motion.png`, which is four stills across one cycle.
+`.rise.mjs` is the tool that makes them.
+**A third defect came out of running a suite that had not been run.**
+`make test-e2e-seeded` needs a database, so it is the one that gets skipped —
+and it is the only one that clicks a beacon. It was **18 passed / 10 failed**
+before this session and the ten had been red since ADR 0034 merged: *"no
+reachable pixel on the canvas was beacon"*. Same root cause one level over —
+`pick.ts` raycasts three's geometry, ADR 0034 moved the column's size into the
+shader, and what was left on the CPU was a **unit cylinder**, a metre across in
+a city where a metre is a sixth of a pixel. The geometry now carries the *click
+target's* size and the shader scales from it to the light. A whole-spire target
+was tried first and is wrong: roles at one employer stack coaxially 45 m apart,
+so 1.65 km tubes all occupy each other's sky and one role answers for the whole
+company. At 45 m — the spacing itself — the targets tile. Now **28 passed**.
+
+**Not verified**: none of this has been seen on a real GPU — every capture in
+this session is headless Chromium's software rasteriser, so the bloom around a
+spire and the frame cost of 1.65 km of overdraw at 5,000 roles are both
+unmeasured. The frame cost belongs with M4d Task 2's quality tiers.
+
+**2026-08-19, and the first defect in this milestone that was not a renderer
+defect: every beacon was floating, and the renderer was right.** Reported as
+*"the beacons look better but should be attached to real buildings and not just
+floating in air"*. `GET /city/signals` returned **31 signals, 31 of them
+`unresolved`**, so `arrangeUnresolved` — whose rule 2 is that nothing in that
+field touches the ground — drew thirty-one untethered columns, correctly.
+`company_locations` was **empty**, and so was `geocode_cache`.
+
+**The offices had no way back.** They are written by `make offices`, which is
+not part of `seed`, `demo`, `reset-db` or `acceptance` — a separate command,
+run by hand, once, on 2026-08-17. The database was re-seeded on 2026-08-19 and
+nothing re-ran it. That alone is an operator error; what makes it **ADR 0036**
+is the second half: `CachingGeocoder` promised "every address is requested once
+ever" and `cmd_offices` promised "`make demo` stays offline afterwards", and
+both are void the moment somebody runs `make reset-db`, because `geocode_cache`
+is a Postgres table and `reset-db` is `docker compose down -v`. **The cache
+protecting the offline path lived inside the thing being destroyed.** A clean
+clone could never have had a role on a building at all.
+
+**Nothing was red.** Not a unit test, not a browser test, not `make verify`,
+not CI. Each of the promotion path's four hops — `read_worksheet`,
+`parse_search_response`, `load_offices`, `buildingField.ts` — has its own tests
+and passes them; the chain between them was tested nowhere. **A subsystem whose
+degraded mode is beautiful cannot be trusted to report its own starvation**,
+and that is the lesson worth more than the fix.
+
+**The fix, ADR 0036.** `scripts/record_office_geocodes.py` records NYC
+GeoSearch's answer for all eight confirmed addresses, verbatim and with
+provenance — all eight resolve to real BINs, and Datadog → 1087186 /
+Ramp → 1080672 are the same two the live run produced two days earlier.
+`FixtureNycGeoSearchGeocoder` replays them through the *production*
+`parse_search_response`, finally implementing the fixture rung
+`domain/geocoding.py`'s Protocol docstring has promised since M4a. `cmd_seed`
+now runs `load_offices` beside the three fixture boards, so `demo`, `reset-db`
+and `acceptance` all inherit it with no Makefile change and no network.
+**`GET /city/signals` is back to 20 on a building / 11 floating**, from a
+committed file rather than from somebody's memory of a command.
+Evidence: `docs/reviews/milestone-4e-beacons-on-buildings.png` (a spire
+descending into Midtown and terminating on the roof of 28 West 23rd Street)
+and `-close.png`.
+
+**Two new assertions, at the two altitudes the failure needed.**
+`test_every_confirmed_address_in_the_worksheet_has_a_recording` catches the
+next occurrence — a ninth address typed in with no recording made, that
+company's roles silently back to floating — and was verified able to fail by
+deleting Ramp's recording. `check_city_placement` in `verify.py` is the
+end-to-end one that was missing entirely: at least one role on a real building,
+every placed role carrying a `verified` coordinate *and* a BIN, and no unplaced
+role acquiring a coordinate on its way to the map. It deliberately does **not**
+demand that every role be placed — eleven of the thirty-one are at an employer
+nobody has confirmed an address for, and I1 says those float.
+
+**The data-supply cap the 2026-08-18 audit named is unchanged.** Two confirmed
+offices is still two buildings that can ever light. This restored the two; it
+did not add a third. Six of the eight recorded addresses belong to companies
+whose boards have never been polled.
+
+**2026-08-19, later: M5a is complete. `make seed` now pastes a posting and
+confirms it, and doing that caught three surfaces calling a capture something
+untrue.** The corpus is 32 canonical jobs, and one of them is in the database
+because somebody pasted it rather than because a board was polled. The seed
+walks the real path — `create_capture`, then `confirm_capture`, the same two
+functions the form calls, with a decision between them — because a row
+inserted straight into `captured_postings` with `status=confirmed` would demo
+a feature by faking its output.
+
+**Where the paste comes from is the design, and it is not typed.** It is a real
+Greenhouse posting this repo already committed: Jump Trading's *Campus AI
+Research Engineer (Intern)*, recorded verbatim on 2026-08-04 for M3a's
+eligibility corpus, rendered the way a person copying that job page would have
+got it — title, then `Employer · Location`, then the body. Every fact in it
+traces to the recording and `test_demo_capture.py` asserts them field by field
+against that file rather than against a golden string, so deleting the posting
+from the corpus fails a test instead of quietly seeding something else. **The
+alternative was inventing a posting**, and that fails I7 in the way that is
+hardest to see later: a fabricated job sitting in a corpus of real ones with
+nothing on the page marking which it is.
+
+**The body goes through the Greenhouse adapter's own `html_to_text`**, not a
+converter written beside the seed, and that is load-bearing rather than tidy:
+that function is what produces `description_text` for every polled posting, so
+a capture of this opening and a poll of it hash to the same description and
+dedupe onto one job. A second converter would make them two.
+
+It is also the right posting for what this product is for. It is an
+internship — so the seed exercises the detection the route was returning a
+hardcoded `None` for one commit ago — and its text carries *"We accept students
+eligible for CPT/OPT and we sponsor work visas for full-time positions"*, which
+is exactly the sentence M3's authorization gate exists to read.
+
+**Three surfaces called it something untrue, and all three were the same
+binary.** `fixture, or else live` was a true statement while a source was
+either a committed recording or a board we poll. The day the seed planted a
+capture it became false in three places, and **not one of them raised, broke a
+type, or failed a test** — the I7-fails-quietly shape the badge commit named
+one screen over:
+
+- `cli.py`'s own seed summary printed `manual_capture   live`, in the readout a
+  developer scans after every seed. It is now `SOURCE_LABELS`, a `dict` total
+  over `SourceType` read through `source_label()`, with `KeyError` rather than
+  a default — a default is what let the old version answer "live" for a kind of
+  source it had never heard of.
+- `SourceHealthTable` on `/operate` printed the same word on screen, next to
+  `greenhouse`, about the one source in the table that is never read twice. It
+  is now `SourceKind`, three-way, badged **added by hand**.
+- `sourceHealthSchema.source_type` is a bare `z.string()`, so Zod would have
+  accepted any drift. `CAPTURE_SOURCE_TYPE` is now a shared constant with its
+  own parity test beside `CAPTURE_SOURCE_NAME`'s — **two strings with the same
+  value and different meanings**, kept apart because M5d's assisted capture
+  will be a new source *name* of this same *type*, and code that conflated them
+  would stop labelling it.
+
+**A near-tie that had never existed before.** `verify.py`'s "each band is
+ordered on the key the list says it uses" went red, and the cause is worth
+keeping. The list is ordered by Postgres evaluating
+`overall / (sqrt(assessed_out_of) * 10)`; the check re-derives the same
+quantity from the wire through `coverage_weighted_fraction`, which spells it
+`fraction * sqrt(assessed_out_of / 100)`. **Algebraically identical, and not
+bit-identical.** The captured role scores 15 of 90 and an existing role scores
+10 of 40 — both exactly `1/(2*sqrt(10))`. Postgres makes them equal to the last
+bit and orders them either way, correctly; Python makes them differ by one unit
+in the last place, and a strict `!= sorted(...)` read that as a broken list. The
+check is now a pairwise walk with a 1e-12 relative tolerance, because **only a
+pairwise walk can tell a tie from an inversion**. Shown able to fail by serving
+each band backwards: all three bands go red.
+
+**The seeded browser suite had been red since `95cc8bf` and nobody had run
+it.** Four tests in `e2e-seeded/city.spec.ts`, red since the offices came back
+on 2026-08-19 and twenty roles moved onto two roofs. **Proven pre-existing
+rather than assumed**: the work was stashed, the database reset at HEAD, and
+the same four failed. Three were tests that had stopped describing the product
+and are fixed — `expectedBeacons()` counted only `kind === 'unresolved'`, which
+was the whole corpus when nothing stood on a building and is now twenty short;
+and `altitudeOf(0)` asserted the unresolved field's floor against instance 0,
+which is now a role on a roof at 310 m and is entitled to be below it.
+
+**The fourth is the one worth reading.** *"Reordering the field changes the
+order and not the roles"* was passing nothing and failing for a reason the
+product had no part in: the unresolved field holds four employers with 9, 1, 1
+and 1 roles, and the one with 9 is also the alphabetically first — so ordering
+by openings is a stable sort over three ties and **correctly returns the order
+the name sort already gave**. The test asked for a change that could not
+happen. That is M4c Task 6's lesson arriving a second time: *a corpus that
+cannot produce a failure cannot test the guard against it.* The ordering claim
+moved to `e2e/city-acceptance.spec.ts`, against a corpus chosen to tell the two
+orderings apart (1, 5 and 3 roles across three employers), and its **first
+assertion is that the fixture discriminates** — set the spread to the seeded
+corpus's own `9, 1, 1` and the test goes red before anything is clicked. What
+stays in the seeded file is what the real corpus can still say: the default
+order is alphabetical, and switching the sort is not a filter.
+
+**Two more seeded assertions named the corpus instead of reading it**, and both
+were fixed rather than widened. The season caveat asserted the singular wording
+(*"does not say when it runs"*) and a second season-less internship correctly
+pluralised it; and the employer-page test clicked a link matching
+`/datadog|alloy|ramp/i`, which a fourth employer's role sorting first turned
+into a thirty-second wait for a name that was never going to be there. It now
+follows the link by where it goes — `a[href^="/explore/companies/"]` — because
+a suite that reads the corpus at run time everywhere else should not spell it
+out here.
+
+**Verified green on this machine, and the numbers are read rather than
+claimed.** `make check` exits 0: lint and typecheck clean, **2002 python
+tests** (8m54s) and **792 web tests** across 54 files. `make verify` exits 0 —
+every check, including `check_city_placement`. `make test-e2e-seeded` is **85
+passed / 1 skipped** with one load flake (`city.spec.ts:628`, which passes on
+its own). The seeded corpus is **32 canonical jobs, 4 companies, 64 job
+locations**, and `GET /city/signals` returns **20 on a building, 0 area, 12
+floating, 32 total** — one more floating than before, because Jump Trading is
+an employer nobody has confirmed an address for and I1 says its role floats.
+`GET /capture?status=confirmed` returns exactly **1**.
+
+**`e2e/` — the degraded, no-API suite — is flaky on this machine at full
+parallelism, and that is not this work.** Three runs produced three different
+failing sets among `city-acceptance.spec.ts:245`, `:385` and
+`city.spec.ts:362`; each passes in isolation; and the stashed-HEAD run above
+failed three of them too. They are frame-timing assertions on a software
+rasteriser running several browsers at once. **`make acceptance` therefore
+still exits non-zero on this machine**, at `test-e2e`, which runs before
+`verify` and the seeded suite — so both were run directly and both are green.
+
+**Last updated: 2026-08-19** (M5a complete: capture, badge and seed)
 
 ---
 
 
+**2026-08-20: M5b — identity. A3 is retired and the door is shut by default.**
+ADR 0037. The milestone's acceptance is *"two users cannot see each other's
+data, proved by a test shown able to fail"*, and that test is the artifact
+worth reading rather than the login form.
+
+**A3's promise held on the schema and not on the tests, and I predicted the
+wrong number.** A3 said auth would be *"an adapter plus a middleware, not a
+migration of every table"*. On the schema that is exactly right: two new tables
+and **no existing table altered**, because every user-owned table has carried a
+real `user_id` since its own first migration.
+
+**On the test suite I claimed the blast radius was "≈ zero" and it was 145
+failures.** Recording the mistake rather than the tidy version, because the
+cause was a design flaw and not a test-fixture detail:
+
+- Seven route-test files already override `current_user_id`, which is what led
+  me to the estimate. But `require_session` — the new router-level guard —
+  depended on `current_user`, **a different function**. Overriding one left the
+  other resolving a real session that was not there, so every one of those
+  tests 401ed.
+- The failure is the smaller half. The shape it implies is the larger one: two
+  independent entry points into "who is this" that anything replacing one can
+  desynchronise, so a handler could believe it is serving A while the guard
+  believes nobody is signed in. **Fixed by making `require_session` depend on
+  `CurrentUserId`** — one seam, so the two cannot disagree. That single line
+  turned 84 of the failures green.
+- The rest were `test_routes.py`, `test_city_routes.py` and
+  `test_company_routes.py`, which test the corpus routes — open before this
+  milestone, closed by it. Those failures are the decision working, not a
+  defect, and each fixture now names a caller.
+
+**What was built:**
+
+- `user_credentials` — `(user_id, method)` with `method` a PG enum holding one
+  value. **`users` has no `password_hash` and will not get one**, which is the
+  direct answer to *"can be email + password for now but eventually that should
+  change"*: adding Google later is an INSERT, not an `ALTER TABLE`, and a
+  person who uses both is still one person.
+- `user_sessions` — a hashed token, an expiry, a revocation stamp. Rows rather
+  than JWTs because a JWT cannot be revoked and M13 will ask for "sign out
+  everywhere". SHA-256 rather than argon2, deliberately the opposite of the
+  choice one table over: a password is short and human-chosen so slowness is
+  the defence, a 256-bit CSPRNG token has no dictionary to slow down.
+- **Default-deny at the router**, not per handler. `/jobs` and `/city/signals`
+  are behind it too — a deployed product has no business handing its whole
+  corpus to a stranger. A route added in M5c is protected because it exists.
+- **`current_user_id` raises.** No flag, no environment, no fallback.
+- **No `POST /auth/register`, and no disabled one.** Registration is closed on
+  the human's call — *"for now, just me. soon invite-only, eventually anyone"* —
+  so accounts come from `nightshift users create`, which prompts rather than
+  taking `--password` (a flag lands in shell history and in `ps`).
+- The browser now reaches the API through **the web app's own origin**, via a
+  Next.js rewrite. Not cosmetic: `localhost:3000` and `127.0.0.1:8000` are
+  different *sites*, so a `SameSite=Lax` cookie set by the API is never sent
+  back, and the alternative needs HTTPS that local development does not have.
+
+**The isolation test enumerates rather than lists.** It reads the application's
+own route table out of its OpenAPI schema and requires **every one of 48
+routes** to carry an explicit classification — `open`, `owned`, `listing`,
+`global` or `writes`. A route with no entry fails the suite, so adding an
+endpoint in M5c without deciding what isolation means for it turns CI red
+instead of passing quietly. Signed in as A, every route is called with B's
+identifiers, and the assertion is **a substring scan of the whole response
+body** for any UUID B owns — not a field check, because a field check only
+inspects the fields somebody thought of.
+
+It also does **not** override `current_user_id`. It signs in over HTTP like a
+person. Overriding it would be testing the route filters against a stub of the
+very thing this milestone built.
+
+**Shown able to fail, four ways:**
+
+| Mutation | Result |
+|---|---|
+| Delete one `.where(Application.user_id == user_id)` in `_load` | **7 routes red** |
+| Restore the dev-user fallback in `deps.py` | **43 routes red** |
+| Include the `jobs` router outside the default-deny loop | **3 routes red** |
+| Add a route with no isolation case | **classification test red** |
+
+**The third mutation is the finding, and it was produced rather than
+reasoned.** Removing `require_session` from the `jobs` router turned three of
+its four routes red — not four. `GET /jobs/{job_id}` stayed green because its
+handler *also* declares `CurrentUserId` and 401s on its own. The two guards
+overlap, neither is redundant, and neither alone covers the surface. That is
+the argument for keeping both, and I did not have it until the mutation
+produced it.
+
+**The worst defect in the slice: a 200 carrying a credential that was never
+real.** `get_db_session` deliberately commits nothing — *"read paths get a
+plain session and commit nothing; write routes commit explicitly. An implicit
+commit-on-response makes it impossible to tell from a handler's body whether it
+writes."* `/auth/sign-in` and `/auth/token` flushed and never committed, so the
+token went back to the browser and **the row it named was rolled back when the
+request ended.** Sign-out had the same shape: it cleared the cookie and left
+the session usable by anybody holding the token.
+
+**Every test passed.** They pass because the fixture yields one open
+transaction shared by the sign-in and the request after it, so the uncommitted
+row is visible to both. `make verify` is what caught it — it starts a real
+server and signs in over a real socket, and eleven checks came back 401 after a
+green "✓ signed in". This is the M5a lesson again in a new place: *a green test
+sitting on top of a feature no person could use*, and the only instrument that
+finds it is the one that does not share the harness.
+
+**`last_seen_at` is gone, for the same reason, found while fixing the first.**
+`resolve_session` stamped it on every resolution, for a future "signed in on
+these devices" screen. Resolving a session is a read path, so the stamp was
+never persisted — and on any request that *did* commit for unrelated reasons,
+it would have been. A column written non-deterministically is worse than no
+column. M13 can add one with a write path that runs.
+
+**Three more things went wrong that produce no error, and one of them was mine
+in the design rather than in the code.**
+
+1. **The session gate blanked the honest degraded path, and that was the real
+   defect.** The first draft of `SessionGate` replaced the whole application
+   whenever `/auth/me` failed *for any reason* — including "the API is not
+   running". M0 built the opposite on purpose: with no API the shell renders,
+   the nav works, the telemetry strip says "api unreachable", and each region
+   says it could not load rather than showing an empty state that reads as
+   "there are no jobs". `e2e/shell.spec.ts` is entirely about that behaviour,
+   and the first draft would have taken all of it out — while sending a person
+   whose server is down to type credentials at something that cannot check
+   them, so they conclude their password is wrong. **The gate now keys on a
+   definite 401 and never on "I could not ask."** Found by reading the offline
+   suite rather than by running it.
+2. **`GET /auth/me` returned the account's `created_at` under the name
+   `expires_at`.** `SessionOut` carried an expiry, `/auth/me` knows the account
+   and not the session row, and rather than run a second query the first draft
+   filled the field with the nearest timestamp to hand. That is a fabricated
+   field of exactly the kind I1 exists to forbid, in a schema rather than in a
+   location. Split into `IdentityOut` and `SessionOut`.
+3. **`NIGHTSHIFT_ENV=test` would have set `Secure` on the cookie, and CI runs
+   over plain HTTP.** The first rule was `secure = env != "development"`, which
+   reads sensibly and signs out CI: a browser does not store a `Secure` cookie
+   from an `http://` origin. Chrome happens to except `localhost`, so it might
+   have passed — relying on one browser's exception to keep CI green is not a
+   policy. The rule is now `env == "production"`.
+
+**A stated limit, recorded as a test rather than as prose.** The enumeration
+reads the OpenAPI schema, and FastAPI's own `/docs`, `/redoc`,
+`/openapi.json` and the OAuth redirect are not in it — so they are open and
+this module does not cover them. They describe the API's shape rather than
+anybody's data. `test_the_only_uncovered_routes_are_fastapis_own_docs` pins the
+set at exactly those four, so a fifth cannot appear quietly. Closing them
+belongs with M7's deploy, beside HTTPS and the `secure` flag.
+
+**Two seeded accounts changed arithmetic three checks depended on**, and each
+was the check asking the wrong question rather than the seed being wrong.
+`match_results` is per (user, job), so the corpus holds 64 rows and not 32.
+`verify.py`'s `score_count()` counted everybody's, and its sweep comparison used
+`recompute_pending`'s **global** return value against a per-person expectation —
+so "editing a scoring input withdraws every score" read 64 → 32 and called it a
+failure, when the other person's scores were correctly still there. Both are now
+scoped to the signed-in account, which is what they always meant.
+
+**`NEXT_PUBLIC_API_BASE_URL` is retired.** Nothing read it once the browser
+started calling `/api/ns/*` on its own origin. It is replaced by `API_ORIGIN`,
+which is deliberately **not** a `NEXT_PUBLIC_` variable — that prefix inlines a
+value into the browser bundle, which would publish the API's internal address
+to every visitor.
+
+**One red test was found during M5b's acceptance and it was M4c's, not
+M5b's.** `city-acceptance.spec.ts`'s scale guard — *"fifty times the markers is
+the same DOM"* — failed `expected 279, received 270`. It is fixed at `4c700ac`,
+and it is worth reading because of how the diagnosis went rather than what it
+was.
+
+**It was proved to be pre-existing before anything was changed.** The identical
+spec run on `m5a-manual-capture`, the commit this branch starts from, produced
+the byte-identical failure. "It was probably already broken" is not evidence;
+the run is.
+
+**The cause: the guard was counting its own instrument.** `CityPerformance`
+sits inside `#main` and changes *shape*, not just numbers, depending on whether
+the map presented a frame in the last 500 ms — one `<p>` with no report, a
+`<dl>` of four `dt`/`dd` pairs with one, **exactly 8 elements** — plus a ninth
+when frames were discarded as pauses, which is the ±1 that moved the baseline
+between runs. So the test compared a 100-role page that had painted against a
+5,000-role reload that had not.
+
+**The failure pointed the wrong way, which is why it survived.** The guard
+exists to catch the DOM *growing* per marker. A count that shrank was never the
+property under test, so the message — *"the DOM grew when the corpus did"* —
+described the opposite of what happened.
+
+**Only load reveals it.** Alone, the test passes in 31 s and the per-selector
+DOM fingerprint at 100 and 5,000 roles is identical. Beside a Python suite it
+fails. Three runs under three back-to-back pytest suites and four CPU burners
+now pass at 2.0 m, 1.3 m and 1.7 m — slow enough to prove the contention was
+real. **This guard has been load-sensitive since M4c and nobody had run it on a
+busy machine.**
+
+**My first fix was wrong and the docstring says so.** I diagnosed a mid-render
+race and wrote a settle-and-retry helper. The loaded run disproved it: the
+*baseline* moved too, 278 → 279, which a sampling race cannot explain. No
+amount of waiting settles a panel whose content depends on whether frames
+happened to be drawn, and shipping it would have left a plausible workaround
+carrying a false explanation — worse than the flake. The docstring had already
+recorded this class of bug once, at M4c: *"the first version of this counted the
+document and failed by a handful of elements between two loads of the same
+corpus."* It escaped by scoping to `#main` and missed that `#main` still holds a
+live instrument.
+
+**`make test-e2e`'s city specs are flaky on this machine, on both branches,
+and the numbers say so.** The full offline suite was run on `m5b-identity` and
+on `m5a-manual-capture` back to back:
+
+| | baseline (`m5a`) | `m5b-identity` |
+|---|---|---|
+| passed | 27 | **29** |
+| failed | **3** | **1** |
+| wall clock | 6:23 | ~6:36 |
+
+The baseline fails the scale guard (fixed at `4c700ac`), *"the frame timer
+measures frames the map really presented"*, **and** a keyboard-gesture test in
+`city.spec.ts` that passes on this branch. So M5b removes two failures and adds
+none.
+
+**The frame timer is the one that remains, and it is not fixed here.** It times
+out at 180 s in a full-suite run and passes when its own spec runs alone — on
+both branches. It needs twelve real frames out of a software rasteriser drawing
+32,686 buildings with bloom, after five minutes of other city specs have already
+loaded the browser. That is a performance fact about the machine, not a logic
+fault, and **raising the timeout until it passes would hide the real regression
+it exists to catch.** It belongs with M7's performance work, beside the M4d
+tiers A16 moved there.
+
+**A hypothesis worth recording as disproven.** The proxy means every page load
+in the offline suite now reaches a *dead upstream through Next* rather than
+failing in the browser, so Next connects, fails and logs a stack trace per
+request — real added server work in exactly the suite designed to run with no
+API. The two runs above are 13 seconds apart on six minutes, which is noise. It
+costs nothing measurable.
+
+**The milestone's real regression, and it was mine: a shared city link
+deselected itself.** Fixed at `dbc036a`. Opening `/explore/city?job=…` cold
+adopted the selection, showed the detail panel, and a second later deleted the
+parameter from the URL and cleared the selection — `city.md` §5.6's shareable
+selection, broken by a login screen.
+
+**The bug is M4c's; the reachability is M5b's.** `CityDetail`'s sync effect can
+re-run between `select()` and React re-rendering with the result. In that window
+the render's `selected` is still `null` while the store already holds the
+adopted deep link, so the write-back branch read that as "the city deselected"
+and wrote the emptiness out. Without an auth gate the second run always landed
+*after* the re-render, so the race never fired. Putting a session check ahead of
+the page changed the mounting order and made it certain.
+
+**That is the generalisable part and it is not about auth.** An async gate in
+front of a page does not merely delay the page — it re-orders effect runs
+against state propagation, and turns latent races into reliable failures. M5c's
+MCP surface and M9's Overworld will both put more gates in front of more pages.
+
+**The codebase had already solved half of it.** The adopt branch three lines
+above reads `useCityScene.getState().selected`, commented *"Read the live value
+rather than the render's."* Whoever wrote that understood the hazard exactly and
+fixed the branch where it had bitten them; the write-back branch kept comparing
+the stale value. Both read live now.
+
+**Found by instrumentation, not by reading.** Two confident theories were both
+wrong: a scene-store reset (`scene.ts` explicitly refuses to clear the selection
+and its comment names this exact URL-deletion symptom), and Fast Refresh
+remounting (a real confound — creating a file anywhere in `apps/web` rebuilds
+the dev server mid-test — but not the cause). Logging what the effect actually
+decided gave the answer in one run:
+
+```
+run 1: first=true  url=<jobId> agreed=undefined selected=null  live=null     -> adopt
+run 2: first=false url=<jobId> agreed=<jobId>   selected=null  live=<jobId>  -> WRITES URL null
+```
+
+**`make test-e2e-seeded` is green: 87 passed, 1 skipped, 0 failed** — under a
+load average of 27, so the result is robust rather than lucky. `city.spec.ts`
+is 29/29.
+
+**The four defects in the seeded suite's own sign-in scaffolding are recorded at
+`3b7a7a1`**, and they share one cause worth stating: `make lint` and `make
+typecheck` are green on every one, because neither loads a Playwright config. A
+config-load crash is the worst shape of failure available there — `EXIT=2` with
+a Node stack trace and no test counts reads as "something went wrong" rather
+than "nothing was verified." **A check is not an execution**, and for anything
+that only runs inside another program's loader — a Playwright config, a FastAPI
+request, a migration — running it is the only verification that counts. That is
+the same lesson the uncommitted session token taught earlier in this slice, in a
+different place.
+
+**Two questions were opened rather than answered quietly** — Q10 (password
+reset needs an email sender, which needs a domain and an account) and Q11
+(nothing rate-limits sign-in; my recommendation is M7 unless somebody gets an
+invite sooner). Neither blocks. Open sign-up is blocked on Q10, and it is the
+last rung of the three rather than the next.
+
+---
+
 ## Next exact action
 
-### M4b and M4c are merged. Next: M4d — measured, accessible, shipped.
+### Current milestone: **M5 — The Open Hand**, on `m5b-identity`. Every local gate is green and **[PR #18](https://github.com/Tahmudun/Nightshift/pull/18) is open against `main` with CI fully green.** The next action is the human's: whether to merge it.
+
+> **START HERE, NEXT SESSION.** The full local gate was re-run on 2026-08-21
+> from a rebuilt corpus and **all four passed**:
+>
+> | Gate | Result |
+> |---|---|
+> | `make check` | **exit 0** — **2128 Python tests** (10m16s, 44 warnings), **799 web tests** across 55 files; ruff, Prettier, mypy (80 source files) clean |
+> | `make reset-db` | **exit 0** — 32 raw source records, 64 job locations, 2 confirmed offices both on a building |
+> | `make verify` | **exit 0** — all checks passed, corpus left as found |
+> | `make test-e2e-seeded` | **exit 0** — **87 passed, 1 skipped, 0 failed** (6.6m) |
+>
+> **CI is green.** Run `32476388882` at `06725d6` — the branch tip — is
+> `completed/success` with **all five jobs passing**: `python`, `web`,
+> `migrations`, `e2e` and `secret scan`. PR #18 reports `MERGEABLE` / `CLEAN`.
+>
+> **The next action is the human's, not mine: #18 is waiting on a decision to
+> merge.** It was deliberately not merged. The branch carries M4e, whose
+> acceptance criterion is a standing commitment that *the human* holds
+> `docs/design/references/02-skyline-grid-plane-light-columns.jpg` against a
+> screenshot and gives a verdict — and Tasks 8 and 9 of that milestone are not
+> done. A green gate is evidence the code works, not permission to ship a look.
+>
+> After the merge, M5's remaining work is **M5c — the MCP server** — and **M4e
+> Tasks 8 and 9**.
+
+**CI's verdict, and both things it caught were invisible locally.**
+
+**Run 1 (`a844c2d`) — the pin had gone partial.** Covered below.
+
+**Run 2 (`e55cbdc`) — four green, one timeout.** `web`, `migrations`, `e2e`
+and `secret scan` all passed. **`e2e` passing matters**: it runs the seeded
+corpus with the §5.6 intermittent in it, so that risk did not land this time.
+
+**Run 3 (`06725d6`) — green.** All five jobs passed with the raised timeout.
+
+`python` in run 2 was **cancelled at exactly 10m00s having reached 64% with zero
+failures** — `timeout-minutes: 10` against a suite that now takes 10m16s
+locally. **A timeout reports "cancelled", which at a glance is indistinguishable
+from a real failure**, and the first reading of it here was wrong: it was read
+as the *superseded* run's job, because `gh pr checks` blends checks from
+several runs and the previous run had genuinely been cancelled by the push.
+**Read a run by its id and its SHA, never a PR's blended check list.**
+
+Everything before pytest passed on the regenerated pin — `76 distributions, all
+pinned`, `187 files already formatted`, `All checks passed!`,
+`Success: no issues found in 80 source files`. So the ~20 incidental version
+bumps the regeneration carried, including **ruff 0.16.1 → 0.16.4** and
+**mypy 2.3.0 → 2.3.1** — the two that are themselves gates and the ones worth
+worrying about — broke nothing.
+
+**Raised to `timeout-minutes: 20`, and that is not a fix.** Measured on the
+runner: 6% → 64% in 479s, extrapolating to ~12.7 minutes of pytest on ~2.5
+minutes of setup, model cache and migrations. **CI wall clock is now about
+fifteen minutes against A14's stated five**, with `e2e` at eleven behind it.
+`ci.yml`'s own header used to claim "jobs run in parallel, so the target holds"
+— that claim is now false and has been corrected in place rather than left
+standing.
+
+**This is raised as Q12**, with the honest framing: A14's reasoning is *"a slow
+CI is a CI you start skipping"*, which is a claim about behaviour rather than
+seconds — and fifteen minutes is where somebody starts merging on local
+evidence instead, **which is exactly the habit that let the partial pin ship,
+because the pin is checkable only in CI.** Q12 also notes that `pytest-xdist`
+and Q8's separate test database are the same piece of work, since this project
+has already measured a real `DeadlockDetectedError` from two suites sharing one
+Postgres.
+
+**2026-08-21: the branch was verified, PR #18 is open, and CI caught the one
+thing no local command could.**
+
+**The seeded suite is 87/0/1, one better than the 86/1/1 this file recorded.**
+The test that changed is the `marks.ring` one: `648b051` made both writers hand
+back the `interview` stage they borrow, so a rebuilt corpus now survives the
+run. **The one-in-three intermittent (`a selection is a link you can send —
+§5.6`) passed this time**, which is what a one-in-three intermittent does and
+is **not** evidence it is fixed. It remains characterised and deliberately
+unfixed; see "the fourth" below. CI runs the seeded suite with `retries: 1`,
+so it has roughly a one-in-nine chance of turning a PR red — read a failure
+there against this paragraph before diagnosing it fresh.
+
+**The pin had silently become partial, and only CI could see it.** The `python`
+job went red on ADR 0016 §3's check — not on a test:
+
+> `the installed set does not match services/api/constraints-ci.txt` — run
+> `make constraints` and commit the result
+
+M5b added `argon2-cffi` to `pyproject.toml` for argon2id (ADR 0037) and nothing
+regenerated the constraints file, so four packages — `argon2-cffi`,
+`argon2-cffi-bindings`, `cffi`, `pycparser` — installed at whatever was newest
+while everything continued to call the set pinned. **This is the exact failure
+class ADR 0016 §3 was written to catch, caught by the check written for it**,
+which is the good outcome rather than an embarrassing one.
+
+**It is not reproducible locally by construction.** The pin is resolved on
+`linux/amd64` in a container and covers CI only (ADR 0016 §2) — so `make check`
+on this machine cannot fail this way, and no amount of local diligence would
+have found it. **Adding a Python dependency is two steps, and the second one has
+no local signal: edit `pyproject.toml`, then `make constraints`.**
+
+Fixed at `1655249`. The regeneration also carried ~20 incidental version bumps;
+ADR 0016 §4 treats that as the normal outcome of a regeneration rather than
+something to hand-trim, and the file is generated, so hand-editing it would make
+the next regeneration produce a diff nobody could explain.
+
+**The run also caught the thing `CLAUDE.md` §4 exists to catch.** Ports 3000 and
+8000 were held by a Next server up **1 day 4 hours** and a uvicorn up
+**23h40m** — both older than the M5b auth fixes committed the day before.
+`playwright.seeded.config.ts` sets `reuseExistingServer: !CI`, so the suite
+would have reused both and reported a green run *about day-old code*. They were
+killed before the suite started. **A stale server does not announce itself; the
+only defence is checking the ports before believing a green run.**
+
+`make reset-db` was used rather than `make seed`, deliberately: the Python suite
+shares the dev database, and `make seed` provably **cannot** repair a mutated
+application stage because `save_job` is idempotent by skipping. That is the
+property that made `marks.ring == 0` permanent rather than transient, so a
+PR-gating run gets a corpus rebuilt rather than patched.
+
+**A mistake worth recording, because it nearly went into the branch.** Running
+`npx prettier --write docs/PROGRESS.md` reformatted **the whole file** — 903
+insertions, 863 deletions. Prettier's glob is `apps/web`-relative, so nothing
+under `docs/` is linted and never has been. Reverted before it was committed.
+**Do not run a formatter at a path its project does not already cover**; the
+absence of a complaint from `make check` is what tells you the file is out of
+scope.
+
+**Draft PR #17 is closed as superseded.** Its three commits (M4d Task 1, the
+frame timer) are ancestors of `m5b-identity`, so nothing was lost; its title
+described M4d Tasks 2–7, which A16 paused into M7.
+
+**What PR #18 states as not done**, recorded here so it is not rediscovered:
+M4e Tasks 8 (reconciling `city.md` against ADRs 0033/0034/0035, which overrode
+it) and 9 (addresses without typing) remain; the roof wash shipped untuned; the
+1.65 km spires of ADR 0035 have never been seen on a real GPU, so what that
+overdraw costs at 5,000 roles is unmeasured and belongs with M7's quality tiers.
+
+**2026-08-20, later: the baseline was run, and the answer is no.**
+
+**M5b did not cause any of the three.** The question this file blocked the PR
+on is settled by evidence rather than by argument:
+
+- `apps/web/e2e-seeded/city.spec.ts` is **byte-identical** between M5b and the
+  commit before M5b's first identity commit — same tests at the same line
+  numbers, so nothing in the slice edited them.
+- Checked out at `e9042cd` (the commit before `6e787ef`, "a password is a row,
+  and a session is one too") with both servers restarted on that code, **both
+  rail tests fail there too**, and again at a *different* control each run.
+- The third test's two causes are dated `6a10bb6` (2026-08-03) and `a62a9af`
+  (2026-08-12) — eight days and two milestones before M5b.
+
+The earlier session's instinct — "nothing in a cookie `max_age` plausibly
+reaches MapLibre" — was right. It was still right to demand the baseline: the
+reason it is now *known* is that somebody ran it.
+
+**Root cause 1 — `marks.ring == 0`: three writers, one row, and no owner.**
+
+`nightshift seed` deals its five demo stages over jobs ordered by `(title,
+id)`; `GET /jobs` orders by `last_seen_at DESC`. Two unrelated orderings, so
+**which demo application the write-heavy tests land on is a coincidence** —
+and the coincidence was the corpus's only `interview`, which is exactly what
+§6 draws a ring for. `scripts/verify.py` took it to `preparing` and archived
+it; `pipeline.spec.ts` then walked it and left it at `saved`, while its own
+comment claimed "the run must end in the state it began in".
+
+The property that made this permanent rather than transient: **`make seed`
+cannot repair it.** `save_job` is idempotent by skipping — `if not created:
+continue` — so a re-seed leaves a mutated stage exactly where it was. The city
+lost its one §6 arc, and only `make reset-db` put it back. That is why the
+test passed the day it was written and has been red ever since.
+
+The append-only event trail is what made this readable at all: 29 rows naming
+every transition, its actor and its second. A corpus without that history
+would have offered nothing but "the number is 0".
+
+Fixed in both writers, so each hands back what it borrowed:
+`verify.py` snapshots `current_stage` and restores it — the same
+snapshot-and-restore it already did for `GATE_FIELDS` — and now asserts the
+restore rather than firing it and hoping; `pipeline.spec.ts` reads the stage
+before normalising to `saved` and puts it back at the end.
+
+**Root cause 2 — the two rail tests: the city runs at 1.8fps in this browser.**
+
+Not a navigation, not the auth gate, not occlusion. The city animates
+continuously, so every frame re-renders the whole Three.js scene and the bloom
+pass over it — and the suite's Chromium has no GPU, so that is a software
+rasteriser doing **~600-800ms of work per frame**. Measured on the running
+page: **6-9 map renders in 5 seconds, with `requestAnimationFrame` pinned to
+the same rate**, so the main thread is never free for more than a fraction of
+a second. Single blocking tasks up to **2588ms**. Individual clicks measured
+at **6.5s, 9.6s, 7.1s, 9.6s** against a 10s budget.
+
+That explains the shape that made this look like four different bugs: *which*
+control went red was decided by which stall the click landed in, so the
+failure moved between runs — `Keyboard`, then `Openings`, then `Reset view`,
+then `Hide keys` — and each move invited a fresh wrong diagnosis.
+
+**This is not the product being slow.** `milestone-4e-*` records p50 37.9ms on
+a real GPU, and `debug.ts` already refuses to assert a frame-time threshold
+here for exactly this reason.
+
+Fixed by raising those clicks to a 30s budget, which **cannot** mask the thing
+they exist to catch: a covered control fails with "intercepts pointer events",
+so a longer budget makes such a run slower to go red, never green.
+
+**A thing that was tried, did nothing, and is recorded rather than deleted.**
+`reducedMotion: 'reduce'` is the better lever — it stops the map repainting and
+the same four clicks drop to 48ms-1.3s, measured. Applied through
+`test.use({ reducedMotion: 'reduce' })` inside a `describe` it **never reached
+the page**: the run still rendered the orbit button, `matchMedia` was false,
+and the raised budget was quietly doing all the work. It was only caught
+because an assertion had been added for the notice that replaces that button —
+without it, the suite would have gone green carrying a line that did nothing.
+Building the context by hand does work, and the existing
+`the city stops moving under prefers-reduced-motion` is the shape that proves
+it.
+
+**The fourth test — now characterised, deliberately not fixed.**
+`a selection is a link you can send — §5.6` (:662) fails about **one run in
+three** (measured: `--repeat-each=3`, one red). It is pre-existing and
+untouched by this session.
+
+What is now known, from the failing run's own page snapshot: **the selection
+happens and the URL never receives it.** The detail panel is open — `Close`,
+`Save` and `Open the full role` are all in the accessibility tree — so the
+click landed on a beacon and the store holds the role. `?job=` is simply
+absent 15 seconds later.
+
+That puts it inside `CityDetail`'s one sync effect, and there is a shape there
+worth looking at: `agreed.current` is set to the value being written
+**before** `router.replace` commits. A replace that is starved — and at 1.8fps
+a Next transition can be starved for a long time — leaves the ref already
+claiming agreement, so nothing ever retries it. The store says X, the URL says
+nothing, and the effect believes they match. The neighbouring hazard is the
+opposite one: any re-render landing in that same window sees `urlSelection`
+still null, takes the "the URL is the truth" branch, and would `select(null)`
+— which is the deselecting-deep-link bug M5b already fixed once (`dbc036a`).
+
+**This is a hypothesis with good evidence, not a diagnosis** — the starvation
+half is not proven, and this effect has already produced one confident wrong
+reading. It wants its own slice rather than a fix bolted onto the end of a
+session, because the last two bugs in this effect both came from making it
+converge faster.
+
+**2026-08-20, this session: M5b was reviewed and it found three defects, all
+fixed, each shown red first.** `docs/reviews/milestone-5b-review.md` has the
+whole of it. The review's own finding is that the slice diagnosed one problem
+correctly and then did not carry the diagnosis across itself:
+
+> **A fact that lives in two places is not one fact. It is two facts that
+> happen to agree today, and nothing tells you the day they stop.**
+
+ADR 0037 §4a is that argument, about `require_session` and `current_user_id`.
+Two more instances of the identical shape shipped anyway.
+
+1. **The cookie's lifetime and the session row's lifetime were two constants
+   and a comment.** `_set_cookie` sized `Max-Age` from
+   `Settings.session_lifetime_days`; `create_session` set `expires_at` from
+   `identity.SESSION_LIFETIME`. Both default to 30, so every test agreed and
+   the disagreement was only reachable by editing `.env` — where it is
+   silent in both directions and reads as a bug rather than as configuration.
+   Set to 7, the test printed **"the cookie lasts 604800s and the session row
+   lasts 2592000s"**. Fixed structurally: the setting is the authority, both
+   routes pass it through one `_lifetime()` helper, and the cookie's `max_age`
+   is computed from the row that was actually minted. `/auth/token` did not
+   read `Settings` at all before this — the same divergence a second time.
+2. **`nightshift seed` created accounts with a published password in any
+   environment, and this is the serious one.** It plants two accounts at fixed
+   UUIDs, gives both `dev_user_password` (default `nightshift-demo-password`)
+   and prints it, against whatever database `NIGHTSHIFT_DATABASE_URL` names.
+   **The dangerous shape is the second run**: `set_password` is an upsert
+   sitting outside the "already exists" branch, so seeding a live deployment
+   *resets* those two logins to the published default rather than skipping
+   them. Forced to `production`, the unfixed command ran to completion and
+   printed `both accounts sign in with the password 'nightshift-demo-password'`.
+   Now exits 1, naming `nightshift users create`. The precedent was already in
+   the codebase — `Settings._forbid_dev_password_in_production` refuses to
+   *start* with a dev database password; this refuses to *seed*.
+3. **`next.config.ts` documented a variable the same slice deleted** — it
+   claimed `NEXT_PUBLIC_API_BASE_URL` "still exists for the Playwright specs",
+   and both halves are false. Trivial except for where it sits: four lines
+   above the rewrite that makes the cookie work, in the file somebody opens
+   when a session breaks in a deployment.
+
+**Two things the review left open on purpose**, both recorded so M13 need not
+rediscover them: a session is never *renewed* (the expiry is absolute, because
+renewal is a write on a read path — which is what got `last_seen_at` deleted
+earlier in this same slice), and expired sessions are never collected (one row
+a month at one account; a sweeper now would be §8's imaginary scale).
+
+**The stale-shell finding, and it is a real trap rather than an anecdote.**
+**Twenty-nine** background shells were left running by the previous session,
+every one of them a wait loop of the form:
+
+```
+until ! pgrep -f "playwright test"; do sleep 15; done
+```
+
+`pgrep -f` matches the pattern against *full command lines* — **including the
+waiting shell's own**, which contains the literal text `playwright test`. Every
+one matched itself, so the condition was never false and none of them ever
+exited. Some had been spinning for hours. Write it as
+`pgrep -f "playwright[ ]test"` — the bracket makes the shell's own copy of the
+string not match the regex — or match on a PID instead of a pattern.
+
+They are invisible in casual inspection because they are just `zsh`, so a
+`ps | grep pytest` does not show them. `ps -eo pid,command | grep shell-snapshots`
+is what finds them.
+
+**A second process finding, and it cost this session its clean evidence.**
+Ad-hoc `pytest` runs and `make check` share one Postgres, and running both at
+once produced a real `DeadlockDetectedError` inside the suite. **A test run that
+overlaps another test run is not evidence** — the first `make check` of the
+session had to be thrown away and re-run with nothing else touching the
+database. This is Q8 with a second face: Q8 is about `make check` wiping
+`company_locations`, this is about two suites corrupting each other's results,
+and both come from the suite and the dev stack sharing a database. It
+strengthens the case for the separate test database Q8 asks about.
+
+**The session's own worst mistake, recorded because the next one should not
+repeat it.** All of this work sat uncommitted for hours, and was then
+`git stash`ed in order to run a baseline comparison — putting finished,
+verified work at risk to answer a question that could have been answered after
+committing it. Nothing was lost. **Commit verified work before running the next
+experiment**, always: the experiment is the thing that might go wrong, not the
+work.
+
+**`company_locations` was wiped by `make check` and is back to 2 rows** —
+`make seed` replants the offices (ADR 0036, "a confirmed office is seeded, not
+remembered"), so the Q8 wipe self-heals on the next seed. `geocode_cache` is
+still cold; `make offices` refills it and needs the network to do so. See
+`docs/runbooks/the-city-went-empty.md`.
+
+**2026-08-19: the project became a product, and the milestones were re-cut.**
+The goal is no longer a portfolio piece for one person — it is something other
+people can use, smooth and deployable, with Claude integration, an island for
+location-less roles, a rejection realm, voice and hand tracking, and eventually
+more than one state. **`AMENDMENTS` A16 is the re-cut** and carries the old→new
+milestone mapping; `CLAUDE.md` §6 is rewritten to match. **The ship moved from
+M4 to M7.**
+
+The re-cut's one real insight is a scope *reduction*: reading LinkedIn, linking
+the app to Claude, AI rejection analysis and a voice assistant look like four
+features and are **one MCP server**. Built once, the other three are
+configuration. It is also why the AI costs nothing — the user's own Claude is
+the model and this domain supplies the evidence. Server-side inference is
+deferred until there is revenue for it (measured: ~$0.24–$1.16 per user per
+month, before caching and batch discounts — hosting the tile archive is the
+larger number, which is why deployment pins tiles to zero-egress storage).
+
+**M5a — manual capture — has its domain, schema and tests on `main`'s branch
+(`af76777`).** `data/company-locations.yaml` could only ever light a building
+for a company whose board is polled; this is the path that needs no board at
+all. Paste a posting, confirm what it says, and it is a real job with real
+provenance. 28 tests; migration verified up, down and up again.
+
+**Two things in it were found rather than designed, and both are the kind that
+produce no error until they do:**
+
+- `merge_jobs` deletes the losing job and `captured_postings.job_id` is
+  `ON DELETE SET NULL` under a constraint that a confirmed row must carry a job
+  — so a capture whose job lost a dedupe merge **aborted the merge**, which
+  would have taken down ordinary polling of any board duplicating something
+  somebody had pasted. Found by reading the constraint against the delete rather
+  than by a failing test. Fixed beside the source links already re-pointed
+  there, and the test is shown red under a mutation that removes the loop.
+- The location proposal deferred to `parse_location_segment`'s confidence, and
+  that parser's own docstring says junk corroborates junk: any comma yields a
+  city, so the first draft proposed the **job title** as the location
+  (`"Senior Software Engineer, Platform"` → city `"Platform"`). The
+  discriminator is whether anything *recognised* came back — a state, a country,
+  or an enumerated NYC name.
+
+**M5a is feature-complete: domain, schema, three routes and the form.**
+`/operate/capture` takes a paste, shows what was read, and creates a job only
+when somebody confirms. There is deliberately **no one-shot endpoint** that
+parses and commits together — that would make the parser's reading
+indistinguishable from a decision at exactly the point where the difference
+decides which building a job stands on.
+
+**Verified green on this machine:** `make lint` and `make typecheck` clean,
+**1994 python tests pass** (8m37s), **788 web tests** across 53 files. Migration
+verified up, down and up again.
+
+**A fourth defect, and the only one in this slice that was mine in the test
+rather than in the code.** The constraint test provoked its expected
+`IntegrityError` and called `db_session.rollback()` to recover. That fixture
+already runs each test inside an outer transaction it rolls back itself, on a
+**session-scoped** engine — so the rollback tore down the outer transaction
+rather than the failed statement, and the damage outlived the test. It surfaced
+as `test_seed_reports_its_own_failure` failing about five hundred tests later.
+
+**The first diagnosis was wrong and worth recording as such.** That test passed
+in isolation, passed beside the capture tests, and its own docstring documents
+fragility to event-loop ordering — so "pre-existing flakiness" was plausible and
+false. What settled it was excluding only the two new files and re-running the
+whole suite: 1954 passed, which made the attribution unambiguous.
+
+**The tell was in the output of every run already read:** `SAWarning: transaction
+already deassociated from connection`, naming the exact test and the exact
+mechanism. It was treated as noise four times. `begin_nested()` unwinds the
+failed statement and leaves the fixture intact; the warning count went 45 → 44.
+
+**A third defect, found by re-reading rather than by a test.** `propose()` has
+detected internships from the title since the first commit and `test_capture.py`
+asserts it does — but the route returned a hardcoded `None`, so the form opened
+on "Not stated" for every internship. **A green unit test sitting on top of a
+feature no person could see**, and internships are most of what this product is
+for. The new assertion is at the route boundary where the bug lived, not on the
+parser that was never wrong.
+
+**Next, in order:**
+
+1. ~~**M5a's remaining half — the provenance badge and the seed.**~~ **DONE.**
+   The badge shipped at `1099fec`; the seed and the three mislabelled surfaces
+   are recorded above. `make seed` plants one captured posting, so the path is
+   walkable from `make demo` without a person having something in their
+   clipboard.
+2. **M5b — identity.** Replace `deps.py`'s one-line `current_user_id`. The
+   two-user isolation test is the most important thing in the milestone: routes
+   filter by convention today, and one missed filter leaks another person's
+   applications. ← **next**
+3. **M5c — the MCP server.** ADR required.
+4. **M5d — assisted capture from LinkedIn/Indeed**, user-initiated and
+   session-bound, never a poller.
+5. **M5e — addresses without typing. Promoted on the human's call 2026-08-19:
+   *"it's a prominent problem and needs to be fixed."*** This was M4e Task 9 and
+   I had argued its priority *drops* under A16. **That was wrong, and for a
+   reason I missed rather than a matter of taste**: the worksheet is a file one
+   person edits. It was adequate for one user and it cannot ship in a product,
+   because no product asks its users to research and type their employers'
+   street addresses. It is not tedious, it is structurally blocking.
+
+   The architecture already sanctions the fix and nobody built it —
+   `city.md` §4.4 decided "OSM proposing and a human confirming", and
+   `company_locations` has carried `confirmed_by` and `confirmed_at` since M4a
+   waiting for it. What A16 adds is the part that makes it *scale*:
+
+   - **A proposal ladder, none of it authoritative.** Nominatim/OSM and Wikidata
+     both name company offices, both are free and keyless, and both are — in
+     §4.4's words — good enough to propose and never to confirm. When the user's
+     Claude is linked, it proposes too: "where is Ramp's New York office" is
+     exactly the question the MCP surface is for, and it is the same pattern as
+     M5d's capture.
+   - **Confirmation stays, and gets cheap.** I1 does not bend: a building is
+     still a fact somebody agreed to. But confirming a proposed address is one
+     click against a map, not twenty minutes of research and a YAML edit.
+   - **A confirmation is shared, and that is the whole unlock.** `companies` and
+     `company_locations` are global, exactly like `jobs`. One person confirming
+     Ramp's office lights that building **for everyone**, permanently. Two
+     confirmed offices is a one-person ceiling; it is not a hundred-person one,
+     and the corpus gets better as the product gets used rather than as one
+     person types.
+
+   Sequenced after M5c because the MCP rung is the best of the three and comes
+   free once that server exists. Needs its own ADR — the proposal ladder, why a
+   proposal may never auto-promote, and what `confirmed_by` means when the
+   confirmer is not the reader.
+
+**M4e is paused, not abandoned.** What remains of it is below and is still
+correct; A16 moves the M4d tuning work into M7 so it is measured against a real
+corpus on a real GPU rather than against 31 postings.
+
+### M4e — the synthwave city — was under way on `m4d-measured`, draft PR #17. Task 10 is signed off and Task 7's bloom has shipped; next is Task 7's other half, the beam.
+
+**Task 7 is now done, both halves.** Bloom shipped as ADR 0033; the beam
+redesign shipped as ADR 0034 and turned out to be larger than the task
+described — it took the beacon body, the four marks, the selection reticle
+and the hiring building's mark with it, because all of them were sized or
+shaped against an octahedron.
+
+**Next: the spires want a real GPU, and then the roof wash wants a look.**
+
+ADR 0035 put the beacon bodies on the screen for the first time and made them
+1.65 km tall, and **every capture of that was taken on a software rasteriser**.
+Two things are unmeasured because of it: how the bloom reads around a spire on
+real hardware, and what 1.65 km of additive overdraw costs at 5,000 roles. The
+second belongs with M4d Task 2's quality tiers and should be measured with
+`.measure.mjs` in a headed window before those tiers are tuned.
+
+The roof wash is still the one thing in ADR 0034 that shipped untuned.
+Everything else in that ADR was decided against a screenshot; the wash was
+decided against an argument, and at the pose the city opens at it reads
+faintly. Take it to the human with a close crop before touching the number.
+
+**Then Task 8** — the documents that said not to do this. ADR 0034 and 0035
+both add themselves to what that task has to reconcile: `city.md` §6's table
+now has a form column that is load-bearing rather than descriptive, §6's "Gold
+vertical beacon" row describes a mark that no longer exists as a separate
+object, and §2.1's *"narrow column of light leaving a rooftop and dissipating
+with height"* is now literally what is drawn rather than an aspiration the
+implementation missed by a factor of eighteen.
+
+**M4d Task 1 (the frame timer) is done and M4d Tasks 2–7 are deliberately
+paused.** The overhaul below changes what a frame costs, so tuning the adaptive
+quality tiers and the field-at-scale fix against the grey renderer would mean
+measuring twice and believing the wrong number. The frame timer stays the
+instrument every M4e task reports against.
+
+**M4e Tasks 1, 2, 3, 4, 5, 6 and 10 are built. The rest of the milestone runs in
+the 2026-08-18 audit's order, and a later session should not resequence it:**
+
+1. ~~**Task 10 — the buildings become ours (ADR 0031).**~~ **Signed off**
+   2026-08-18 — *"much, much closer to the vision"* — with one note, *"missing
+   color and glow"*, which became ADR 0033 and is done. The tuning pass ADR 0031
+   predicted did happen and it moved the constants that ADR predicted: window
+   tone, the far-field window term (0.17 → 0.24) and the edge/crown colour.
+2. **Task 7 — bloom, which also owns the beam redesign.** **Half done.**
+   Bloom shipped (ADR 0033, measured at 2.1 ms). **The beam redesign did not**,
+   and it is the next thing in this milestone: the diamond stack becomes a
+   narrow soft-edged column, intense at the roof and dissipating with height,
+   scale-aware so it belongs to its building at every zoom — which is the fix
+   for the roofs-close defect Task 6 recorded and which is still open. It is
+   worth doing now rather than later for the reason the task was written with:
+   the beam has bloom under it now, and a shape tuned without the glow would be
+   tuned twice. ← **next**
+3. **Task 8 — the documents that said not to do this.** ADR 0033 adds itself to
+   what this task has to reconcile: `city.md` §3 ring-fences hue by family and
+   now has a warm family it does not mention.
+4. **Task 9 — addresses without typing. Promoted; may no longer slip.**
+
+Then M4d Tasks 2–7. **The milestone's acceptance test is the human holding
+`docs/design/references/02-skyline-grid-plane-light-columns.jpg` against a
+screenshot and saying it matches — not a checklist of mine.** Show screenshots
+at every meaningful step and wait for the verdict before calling a look task
+done.
+
+**How to work on a look task**, settled by ADR 0031 and used for the first time
+on Task 3:
+
+- `make dev`, then `node apps/web/.look.mjs out.png <lng> <lat> <zoom> <pitch>
+  <bearing> [bare] [headed]`. `bare` hides the panels; `headed` opens a real
+  window on a real GPU.
+- **Headless Chromium here is a software rasteriser** reporting ~600 ms frames
+  over a city that draws in 16. Its numbers are evidence about nothing; the
+  frame report says so out loud. Measure with `node apps/web/.measure.mjs
+  <lng> <lat> <zoom> <pitch> <bearing> [sky|buildings]`, which runs the M4d
+  Task 1 instrument twice in the same window on the same GPU, so the difference
+  is the change and not the weather. `.look.mjs` now waits for the city to
+  report itself built rather than for a fixed number of seconds — a screenshot
+  taken on a timer is a picture of a half-assembled New York.
+- Tests pin semantics only — ADR 0029's brightness margins, `neon-*` and
+  `dusk-*` carrying no meaning. Never a gradient stop, a density or a position.
+- `make check` still wipes `company_locations` (Q8). Rerun `make offices`
+  after; `docs/runbooks/the-city-went-empty.md` is the runbook.
+
+**Still open, and Task 7 inherits it** —
+`docs/reviews/milestone-4e-roofs-close.png`: at street-level zoom a beacon is
+several times the size of the building it stands on. It is fine at the opening
+pose and wrong up close, and it is a tuning decision rather than a bug — the
+beacon has been a fixed 40 m since M4c, which nothing noticed while the whole
+field sat 700 m up and was never approached.
+
+- **Task 1 — the worksheet, and the loader that was never wired up.**
+  `data/company-locations.yaml` covers all 23 registry boards, and `make offices`
+  runs it, verified live against NYC GeoSearch. **The human filled it in on
+  2026-08-17 and it is loaded**: 8 addresses confirmed, 15 deliberately blank,
+  0 refused, 2 placed on real buildings. See "M4e Task 1" below.
+- **Tasks 2, 4, 5 — the city is neon.** ADR 0029. A `neon-*` family that carries
+  no meaning; the two assertions that made the city grey replaced by the rule
+  they stood in for, plus the floor that never existed; the road ramp and the
+  shoreline lit; the building mass dropped four shades with the light moved to
+  the roofline. Screenshots: `docs/reviews/milestone-4e-ground.png`,
+  `milestone-4e-buildings.png`.
+- **Task 7 (bloom) and Task 10's colour pass — done, 2026-08-18.** ADR 0033.
+  `lib/city/bloom.ts` is four passes over the finished frame at the end of the
+  signal layer's render — a hardware downsample, a soft-knee bright pass, three
+  blurred octaves, added back additively. It blooms the *composited* frame
+  rather than our scene, so MapLibre's streets and the sky's own sun glow too;
+  that works only because the signal layer is the last layer in the style, which
+  is now load-bearing and asserted nowhere. The scenery gained a warm family
+  (`ember-*`) for windows and edges. **The one performance note worth carrying
+  forward**: the same run measured p50 35.8 ms *without* bloom at the opening
+  pose under a spinning camera, against ADR 0031's 27.2 ms for the same city
+  weeks earlier. The A/B is controlled and the absolute drift is not — different
+  session, different machine load — but M4d Task 2 should re-measure from cold
+  before it tunes tiers against either number.
+- **Task 3 — the sky — is done and was approved on 2026-08-18.** ADR 0032.
+  `map/skyLayer.ts` is a custom layer: one full-screen triangle, one shader,
+  raw WebGL. Gradient, world-anchored starfield, a sun at azimuth 285° /
+  elevation 0.7° — west and a little north, which from Midtown is over the
+  Hudson — and **distance haze that finally closes ADR 0029's hard edge**,
+  because the layer is inserted below the buildings and draws over ground
+  MapLibre has already painted. Evidence: `docs/reviews/m4e-task3-sky/`,
+  before and after, judged by the human against reference 02.
+  **And the finding that bounds the whole milestone: the reference's framing is
+  not reachable.** MapLibre's pitch is measured from straight down, so the
+  horizon sits 12% from the top at the opening pose and 17% at the cap of 78;
+  reference 02 puts its horizon at 70%, which needs a pitch near 94°. The
+  gradient, the sun and the stars can match that image. The *proportion of sky*
+  cannot, beyond 36% at MapLibre's own ceiling of 85. Open as **Q9**.
+- **Task 6 — the hiring building — is done** (`368a2d4`). The 20 placed roles
+  stand on their own roofs, at heights measured off the building tiles: Datadog
+  on 620 8th Avenue at 230.1 m, Ramp on 28 West 23rd Street at 52.5 m. ADR 0023's
+  beam rises from each roof through its stack. See "M4e Task 6" below, including
+  **the defect it found and did not fix** — a beacon is far larger than the
+  building it stands on at street-level zoom.
+
+**The M4e task order**, from the slice plan:
+
+1. ~~**The worksheet and its loader.**~~ **Done** (`3c25704`), and **filled in and
+   loaded on 2026-08-17**. First because the human is typing addresses now and the
+   file they type into must lead somewhere — it led somewhere on the first try,
+   with 0 entries refused.
+2. ~~**A `neon-*` palette family**, and replacing the two `darkStyle.test.ts`
+   assertions that turn "the city stays grey" into a build failure.~~ **Done**
+   (`c8b9e0d`). ADR 0029.
+3. ~~**A sky, not a rectangle** — a custom layer with a gradient, a starfield,
+   and a sun fixed due west over the Hudson.~~ **Done**, approved 2026-08-18.
+   ADR 0032. Cost 12 ms a frame in its first version and nothing measurable in
+   its second: computing the alpha before the colour skips the sun, the glow and
+   the starfield for the ground pixels where the haze is invisible, which is
+   most of a pitched frame. 25.8 ms with the sky against 26.2 ms without, same
+   run, real GPU.
+4. ~~**The ground** — neon streets at graded intensity, a glowing shoreline.~~
+   **Done** (`c8b9e0d`).
+5. ~~**The buildings** — near-black saturated mass, neon crowns via a second
+   extrusion layer.~~ **Done** (`1413c02`). **Window speckle was not built and is
+   not currently planned**: `fill-extrusion-pattern` overrides
+   `fill-extrusion-color`, so a patterned layer cannot also carry the height
+   ramp, and the edge-lit read the references are actually built from came from
+   the crown instead. If it is revisited it needs a same-origin baked sprite on
+   the ADR 0022 pattern, or the offline guarantee goes.
+6. ~~**The hiring building** — `arrangeOnBuildings`, a BIN-filtered extrusion
+   layer, roof beacons.~~ **Done** (`368a2d4`), the day Task 1's worksheet came
+   back filled. **The BIN-filtered extrusion layer was not built and is not
+   planned**: ADR 0023 already decided a hiring building is marked by a *beam*
+   rather than by being brighter, on a ratio argument this milestone did not
+   change — tens of thousands of footprints in view, tens ever hiring, and a
+   brightness difference cannot carry ten in fifty thousand against a lit city.
+   The slice plan asked for both; building both would have spent the encoding
+   twice.
+7. ~~**Bloom**, behind the quality tier, measured before and after.~~ **Done**,
+   ADR 0033. **The other half of this task is not**: the diamond stack becomes a
+   narrow soft-edged column of light, intense at the roof and dissipating with
+   height, scale-aware so it belongs to its building at every zoom — which is
+   the fix for the roofs-close defect Task 6 recorded. Bloom and beam shape are
+   tuned together because neither reads right without the other.
+8. **The documents that said not to do this** — ADR 0029 and the rewrites it
+   forces in `city.md` §2.2/§3/§5.3 and `docs/design/references/README.md`,
+   plus the two-speed working method ADR 0031 states: screenshot-first for
+   aesthetics, full rigor for data honesty.
+9. **Addresses without typing** — `make propose-offices`, OSM proposes and a
+   human confirms. **Promoted by the 2026-08-18 audit: this may no longer slip.**
+   It is the first task after the look lands, because the audit's structural
+   finding is that the city is capped at as many lit buildings as there are
+   confirmed offices (currently 2), and no rendering work changes that. It
+   arrives with two companions, sequenced before M4d Tasks 2–7: an ADR putting
+   the approximate-placement question to the human (may a machine-checked but
+   unconfirmed address place a company, drawn visibly softer?), and registry
+   growth through the discovery pipeline that has idled at 23 boards since it
+   measured 2,605.
+10. **The buildings become ours** — ADR 0031. Building rendering moves from
+   MapLibre `fill-extrusion` into the Three.js layer: same pinned tiles, our
+   shader — dark glass mass, procedural window speckle (no sprite, offline
+   intact), rim light on silhouettes, distance haze. The extrusion layers stay
+   until parity, judged by the human against reference 02. Runs after Task 3
+   and before Task 7, because bloom should be tuned over the real material.
+
+**M4d Task 1's numbers, which still stand**: p50 16.6–16.7 ms in every scenario
+at both 200 and 5,000 roles on an Intel Iris Plus 645, 0–3% of frames missing
+the next refresh. See "M4d Task 1" below for the tables, the method, the one
+191.7 ms hitch it found, and the defect it found **in the instrument** before it
+found anything in the city.
 
 **PR #16 is in `main` (`dfd4973`), all five CI jobs green at `7dfdaef` and green again on `main` after the merge.** M4a,
 M4b and M4c are closed. `city.md` §7's remaining slice is the last one in this
 milestone, and it is the one that turns impressions into numbers.
 
-**M4d's deliverables**, from `city.md` §7 and `CLAUDE.md` §6:
+**M4d's tasks, in order. Tasks 2–7 resume after M4e.** Deliverables from
+`city.md` §7 and `CLAUDE.md` §6.
 
-1. **Frame-time instrumentation, and recorded metrics.** The acceptance
-   criterion is *"60fps desktop and 30fps mobile are numbers in `PROGRESS.md`
-   rather than impressions"*. The trap is already visible from here: the
-   machine that runs the browser suite is headless Chromium with no GPU, so a
-   number measured there is a number about ANGLE on a CPU. Whatever this
-   measures has to be honest about what it measured — the M4c review's finding
-   in a new coat.
-2. **Adaptive quality tiers.** And the place they first pay for themselves is
-   the limit M4c recorded: the field is legible at 31 roles and not at 5,000
-   (`docs/reviews/milestone-4c-review.md` §4.1). Level-of-detail on the name
-   plates, a camera that can frame the whole field, and clustering.
-3. **Reduced motion end to end.** The camera and the layer both honour it
-   today, asserted from the instance data rather than from a flag. What is not
-   yet walked is the whole page under the preference — panels, transitions,
-   the roster's fly-to.
-4. **A keyboard path to every map action.** Most of it exists (the camera's
-   keyboard surface, the roster, the sort radio group, selection without the
-   canvas). This is the audit that says *every*, and names what is missing.
-5. **Automated accessibility tests** — A14 puts them here, and they do not
-   exist. This is the largest genuinely-absent piece.
-6. **The M4 review, the deploy, and the case study.** **Q2 blocks the deploy
-   and nothing else**: a paid target (~$5–10/month) ends M4d with a live link,
+1. ~~**Frame-time instrumentation, and a machine that admits what it is.**~~ **Done** — see "M4d Task 1" below. The criterion is met on this machine at both 200 and 5,000 roles, and the first run caught the instrument itself reporting a 60fps city as missing half its frames.
+2. **Adaptive quality tiers** — Ultra / High / Balanced / Battery saver, over
+   pixel ratio, animation density and label detail (§5.5). Chosen from what
+   Task 1 measures, overridable by hand, and **named on screen**: a tier that
+   silently downgrades the city is a city quietly lying about what it can do.
+3. **The field at scale**, which is the limit M4c recorded rather than fixed
+   (`docs/reviews/milestone-4c-review.md` §4.1): legible at 31 roles, not at
+   5,000. Level-of-detail on the name plates, a camera that can frame the whole
+   field, clustering. Third rather than first because the right fix depends on
+   Task 1's numbers.
+4. **Reduced motion, end to end.** The camera and the layer both honour it and
+   both are asserted from data rather than a flag. What is not walked is the
+   rest of the page — panels, transitions, the roster's fly-to.
+5. **A keyboard path to every map action.** Most exists; this is the audit that
+   earns the word *every*, and names what is missing rather than implying it is
+   complete.
+6. **Automated accessibility tests** (A14). The largest genuinely-absent piece.
+7. **The M4 review, the deploy, and the case study.** **Q2 blocks the deploy and
+   nothing else**: a paid target (~$5–10/month) ends M4d with a live link;
    local-only ends it with a recorded walkthrough and A9's $0 target held
-   literally. It is the only open question that blocks anything, and an ADR
-   gets written either way.
+   literally. An ADR gets written either way.
 
 **Start by branching off `main`** — `m4d-measured` or similar — and by reading
 `docs/architecture/city.md` §7's M4d entry and §8's deferred list before
@@ -613,13 +1961,541 @@ Four things carry in from M4a and Tasks 1-2:
   that can produce a building, and rungs 2–3 produce `approximate` points the
   office loader refuses by design.
 
-**`data/company-locations.yaml` is with the human and blocks nothing.** Nine NYC
-registry companies, `street_address` blank, and blank is a correct answer.
-Until a row is filled the honest render is every job in the unresolved layer,
-which §4.8 designs as the default view rather than the sad one.
+**`data/company-locations.yaml` came back from the human filled in on
+2026-08-17.** All 23 registry boards: 8 with a confirmed street address, 15
+deliberately blank, 0 refused. `make offices` geocoded it against live NYC
+GeoSearch and wrote two `verified` offices with real BINs. **The unresolved
+layer is no longer the whole city** — 20 of 31 roles now resolve to a building
+and 11 still float, which is exactly the mix §4.8 designs for.
 
 **Q2 (deployment target) is the only open question that blocks anything**, and
 only M4d.
+
+---
+
+## M4e Task 10 — the buildings become ours, and two things that failed silently
+
+**Built 2026-08-18. ADR 0031. The look is not signed off** — the acceptance test
+for it is the human holding
+`docs/design/references/02-skyline-grid-plane-light-columns.jpg`, and they have
+not yet given a verdict. Everything below is what is *true*, not what is
+approved.
+
+New York is no longer MapLibre's `fill-extrusion`. Every footprint is Three.js
+geometry inside the layer that already drew the beacons (ADR 0025), built from
+the same pinned tile archive (ADR 0022), the same measured `height_roof` and the
+same documented 25 ft default. What changed is what a tower is *made of*.
+
+**Three new pieces.** `buildingGeometry.ts` turns tile features into vertex
+arrays — walls with a per-wall coordinate system, roofs triangulated with
+Three's own earcut, no new dependency. `cityBuildings.ts` owns the chunking, the
+eviction and the shader. `signalLayer.ts` puts the group in the same scene, so
+there is still exactly one `WebGLRenderer` on MapLibre's context and the
+buildings share the depth buffer with the beacons standing on them.
+
+**What the shader owes ADR 0031, and where each one lives:** dark glass mass
+with a gradient we author; procedural window bays computed from world position,
+no sprite and no network; edge light on corners, rooflines and the line where a
+wall meets the street; and haze into the same horizon colour, at the same
+quadratic rate and off the same `HAZE_CAMERA_DISTANCES`, that `skyLayer.ts`
+fades the ground into.
+
+**What it draws, measured, not estimated.** 32,686 buildings in 47 cells and
+1,073,870 vertices at the opening pose; 43,948 / 82 / 1,386,130 after a full
+rotation loads more tiles.
+
+**What it costs: 0.6 ms a frame.** Both skylines, same window, same GPU, same
+camera, spinning the bearing — ours p50 27.2 ms / p95 36.5, MapLibre's p50
+26.6 / p95 35.0. The table is in ADR 0031. Neither holds 60fps while
+continuously rotating a full city on this Intel Iris, which is what M4d Task 2
+exists for.
+
+### The two failures, both silent, both now tested
+
+**1. `visibility: none` starves the tiles the new renderer reads.** The first
+implementation retired MapLibre's two extrusion layers by hiding them. MapLibre
+only fetches and parses tiles for a source a *visible* layer uses, and those two
+layers are the only consumers of the buildings archive — so hiding them stopped
+the archive loading, `querySourceFeatures` answered 0, and the Three.js city had
+nothing to build. **The screenshot was New York with no buildings on it at all**,
+and nothing in the console said so. They are retired instead by a filter no
+feature can satisfy: nothing is drawn, nothing is uploaded, and the tile's own
+feature index still answers with all 35,413 footprints. `e2e/city.spec.ts` now
+fails if either layer is ever set to `visibility: none`.
+
+**2. "Ready" meant "the queue is empty", which is also true of a city that never
+started.** The first drain runs before any tile has loaded. It found nothing to
+do, reported ready, and retired the extrusions in exchange for an empty scene —
+which is how failure 1 got as far as a screenshot. Ready now requires at least
+one built cell, and `cityBuildings.test.ts` asserts the empty case reports *not*
+ready with the group still hidden.
+
+**A third thing was wrong and only slow, not invisible.** The build budget was a
+fixed 4 ms a frame — a quarter of a 60fps frame, three seconds for the whole
+city. On a machine whose frames take 600 ms it is 0.7% of each one, and the city
+takes a hundred seconds to appear. It is now a quarter of whatever the last
+frame actually cost, floored at 4 ms and capped at 60. The browser acceptance
+test went from timing out at 90 s to passing in 5.7 s on the same rasteriser.
+
+### What is pinned, and what is deliberately not
+
+`buildingGeometry.test.ts` (21) and `cityBuildings.test.ts` (11) pin only what
+fails silently: the inlined projection against the shared one, ring winding in
+both directions, the 25 ft default read out of `darkStyle.ts`'s own source, the
+roof sentinel, multi-polygon buildings staying separate polygons, byte-identical
+output for identical input, ADR 0029's brightness stack over every colour, and
+the camera position recovered from a known projection matrix. Each was checked
+against a mutation: brightening one window colour fails three assertions;
+removing the retirement filter fails the browser test.
+
+**Nothing pins a window density, an edge width, a gradient stop or a haze.**
+ADR 0031 is explicit about why, and it is the same sentence that got the city out
+of two grey milestones: a test that pins taste is how it stayed that way.
+
+---
+
+## M4e Tasks 2, 4, 5 — the city is neon, and three wrong diagnoses on the way
+
+**Done 2026-08-16.** ADR 0029. Screenshots: `docs/reviews/milestone-4e-ground.png`
+(the ground), `milestone-4e-buildings.png` (the whole thing).
+
+**What was wrong, and it was not an oversight.** Three documents I wrote forbade
+the look the reference images set, and two assertions in `darkStyle.test.ts`
+turned that into a build failure. The proxy those assertions used — "stay below
+`ink-400`" — became the design, and `ink-450`, a desaturated blue-grey, ended up
+the brightest pixel on the map. On 2026-08-13 the human handed back
+`04-edge-outlined-towers-starfield.jpg`, **byte-for-byte the same file this
+repository filed on 2026-08-11**, saying the vision had not been met. The target
+was recorded correctly and the implementation did not reach it.
+
+**What shipped:**
+
+| Piece | Where |
+|---|---|
+| A `neon-*` family — electric indigo, hue ~252, carrying **no meaning** | `globals.css`, `lib/map/palette.ts` |
+| The road ramp and the shoreline lit; the water fill still `ink-950` | `lib/map/darkStyle.ts` |
+| The building mass dropped `ink-800`→`ink-450` to `ink-950`→`ink-600` | `HEIGHT_STOPS` |
+| `buildings-crown` — a second extrusion lighting the top 7 m of anything over 400 ft | `crownLayer()` |
+| A declared `light`, at `intensity: 0.18` | the style's `light` block |
+| The two grey-enforcing assertions replaced, **and a floor added** | `darkStyle.test.ts`, `palette.test.ts`, `colour-contrast.test.ts` |
+
+**The brightness stack, asserted at both ends**: city (≤55.2 L\*) < hiring
+building (`alert-400`, 63.6) < open role (`signal-400`, 85.6). The margin is 20
+L\* because `alert-400` sits 22.0 below `signal-400` — 20 admits it and admits
+nothing above it.
+
+**The floor is the half that never existed, and it is the finding worth keeping
+from this slice.** Every brightness assertion this suite has ever held is
+satisfied perfectly by a map drawn entirely in `ink-950` — and for four
+milestones a suite of exactly those assertions was green over exactly that city.
+A one-sided bound cannot fail in the direction the product actually went wrong.
+The floor now requires something in the style to exceed 50 L\*. **The first draft
+said 40 and passed on `ink-400` at 40.2** — the exact grey being replaced. It
+would have gone green over the city it was written to catch.
+
+**Three wrong diagnoses, each of which cost a round.**
+
+*A style that omits `light` does not get no light — it gets MapLibre's.* White,
+`intensity: 0.5`, viewport-anchored, added to every extrusion face, setting a
+floor no paint can go below. The ramp was dropped four full shades and the
+towers came back the same pale grey, because what was on screen was mostly the
+light and not the colour. Found by hiding the crown layer and looking at what was
+left. One attempt to tint the light `neon-700` turned the whole city olive —
+roughly the complement of the light colour — so it ships white until that is
+understood rather than worked around.
+
+*A `let`/`var` expression is fine in `paint` and matches everything in a
+`filter`.* The crown filtered on `HEIGHT_FEET`, which wraps the lookup in a
+`let`, and every structure in New York got a neon roof: a sub-threshold building
+still draws its top cap, and with base equal to height that is invisible from the
+side and a solid lit polygon from above. **Nothing errored. It looked
+deliberate.**
+
+*The crown threshold came from a count, after being picked by eye twice and being
+wrong twice.* Of 25,176 footprints at the opening pose: 3,181 over 150 ft, 1,107
+over 250, 408 over 400, 103 over 600; tallest 1,550. At 150 the frame is a carpet
+of lit roofs; at 400 it is Midtown and the Financial District glowing over a dark
+city.
+
+**Not measured yet: what this costs a frame.** The crown is a second full
+extrusion pass, and M4d Task 1's tables were taken against the grey renderer. The
+headed Playwright readout during these screenshots showed 26–30 ms typical at
+1600×1000, but that is a screenshot harness competing with a dev server and is
+**not** the measurement config. Re-running `e2e/city-metrics.spec.ts --headed` at
+200 and 5,000 roles is the next number this milestone owes, and it is the reason
+M4d Tasks 2–7 were paused rather than done first.
+
+---
+
+## M4e Task 1 — the worksheet, and the loader that was never wired up
+
+**Done 2026-08-16.** The promotion path in `city.md` §4.4 has four steps between
+a human typing an address and a beacon standing on a roof. Steps 1 and 3 shipped
+in M4a, `read_worksheet` and `load_offices` shipped tested in M4b — and
+**nothing outside the test suite called either of them.** The worksheet was a
+file you could fill in that led nowhere.
+
+That is the finding worth keeping, because it is I7's shape without a mock in
+sight: two complete modules, two green test files, a documented design, and a
+subsystem that could not run. From the outside it read exactly like a working
+feature. `docs/QUESTIONS.md` Q7 asked the human how many addresses to curate,
+and the honest answer at the time was that **no number would have changed a
+single pixel.**
+
+**What landed:**
+
+| Piece | Where |
+|---|---|
+| The worksheet, widened from 9 entries to all **23** registry boards | `data/company-locations.yaml` |
+| `nightshift offices` — read, refuse, geocode, write, report per row | `services/api/nightshift/cli.py` |
+| `make offices` | `Makefile` |
+| The two files held equal in both directions | `tests/test_company_locations_worksheet.py` |
+| The command's own tests — five, offline, no database | `tests/test_offices_command.py` |
+
+`read_worksheet` and `load_offices` were **not** rewritten. They were correct;
+the wiring around them was what was missing.
+
+**The 23 are two groups, and the second is the change of mind.** The file held
+only the nine boards whose *posting text* parses to NYC. `nyc_presence` is
+derived from posting text, and posting text is not a company directory — a board
+whose postings all say "Remote" can still be run out of an office on Lafayette
+Street. The other fourteen are listed with `city` and `state` left **blank**
+rather than pre-filled with "New York", because a prefilled locality on a
+company headquartered in Oslo is a small lie that would send the geocoder
+looking in the wrong place.
+
+**Three properties, each one a decision:**
+
+- **A human runs it; it is never scheduled, and it is in neither `make demo` nor
+  `make acceptance`.** Geocoding is a live request to
+  `geosearch.planninglabs.nyc`, gated on `OUTBOUND_HTTP_ENABLED` exactly as
+  `ingest` and `poll` are. `CachingGeocoder` writes every answer to
+  `geocode_cache`, so an address is requested once ever and the buildings it
+  placed survive into an offline `make demo` — ADR 0022's guarantee for tiles,
+  applied to addresses.
+- **The network gate is checked lazily**, only when an entry actually names an
+  address. The committed file was all-blank when this shipped, so `make offices`
+  on a clean clone reported what it was asking for and exited 0 with no database
+  and no network. A command that demanded both before it could tell you the file
+  is empty would be unusable for the first thing anybody uses it for. (The file
+  has had addresses in it since 2026-08-17; the lazy gate still matters for the
+  15 rows that are blank on purpose.)
+- **A refusal exits 1; an unresolved address exits 0.** A refused entry is a
+  defect in a file a person wrote — an address with no date, a "New York, NY"
+  that names no street — and the exit code is what makes it as loud as a failing
+  test. An unresolved one is the world answering. Most of the registry has no NYC
+  office; conflating the two would make the command red by default and therefore
+  ignored.
+
+**Verified end to end against the live geocoder**, on a scratch worksheet, one
+run:
+
+```
+  placed on a building
+    Datadog                  620 8th Ave  ->  verified, BIN 1087186
+  address recorded but the company has no jobs yet (board not polled)
+    1Password, 1X
+  refused — fix these in the worksheet
+    Stripe    'New York, NY' names no street, so it cannot reach `verified`…
+    Ramp      an address with no `confirmed_on` date is a claim with no age…
+  blank (1) — a correct answer; these jobs stay unplaced
+    Abound
+```
+
+One HTTP request was made, for Datadog. `load_offices` looks the company up
+*before* it geocodes, so the two not-yet-ingested rows cost nothing. **The
+scratch row was deleted afterwards** — the address is the human's to confirm,
+and a verification run must not leave a `confirmed_by` behind naming nobody
+real.
+
+**The BIN question is settled, and Task 6 depends on it.** A probe against the
+live buildings archive at the opening pose returned **3,110 of 3,110 rendered
+features carrying a `bin`**; the property set is `feature_code`, `height_roof`,
+`last_status_type`, `bin`. So the hiring-building layer can filter on the real
+footprint rather than fall back to a column at a coordinate. Two details that
+each cost a debugging session:
+
+- **`bin` is a string** (`"1086193"`), as is `height_roof` (`"339.64"`). A
+  MapLibre filter must compare string literals or wrap in `['to-number', …]` the
+  way `HEIGHT_FEET` already does.
+- The first probe returned **0 features** — at pitch 76 a whole-viewport
+  `queryRenderedFeatures` returns nothing while 30,000 features are loaded and
+  visibly drawn, because the corners above the horizon unproject onto no ground.
+  `e2e/city.spec.ts:143-160` had already written this down and it caught me
+  anyway. Query a box below the horizon.
+
+**Not verified**: whether BIN 1087186 in particular is present in the baked
+archive. GeoSearch and the NYC footprint dataset share the identifier, but
+whether that specific building survived the extract is a Task 6 check, not a
+Task 1 claim.
+
+**`make check`**: lint and typecheck green; 1943 Python tests passed with one
+error, `test_closure_pipeline.py::test_three_misses_makes_a_job_stale_not_closed`
+— a `TRUNCATE` deadlock against the live dev stack sharing the same Postgres,
+which is the trap this file already records. Re-run alone: **11 passed.** Web
+unit tests green.
+
+---
+
+## M4e Task 1 — the human filled it in, and the city got emptier
+
+**2026-08-17.** The worksheet came back with 8 of 23 rows carrying a street
+address, 15 deliberately blank, and every filled row carrying a `confirmed_on`
+date. **`make offices` refused nothing** — the first run of a file a person
+wrote by hand against four kinds of refusal, and it passed clean.
+
+```
+23 companies: 8 with a confirmed address, 15 blank, 0 refused
+  placed on a building
+    Datadog   620 8th Avenue       ->  verified, BIN 1087186
+    Ramp      28 West 23rd Street  ->  verified, BIN 1080672
+  address recorded but the company has no jobs yet (board not polled)
+    Stripe, a16z New Media, 9fin, 3i Members, Abacum, Aaron School
+  blank (15) — a correct answer; these jobs stay unplaced
+```
+
+Two HTTP requests, both to `geosearch.planninglabs.nyc`, both cached
+permanently. The six recorded-but-not-ingested rows cost nothing, exactly as the
+lazy lookup promised.
+
+**`GET /city/signals`, before and after:**
+
+| | before | after |
+|---|---|---|
+| `kind: building` | 0 | **20** |
+| `kind: unresolved` | 31 | 11 |
+
+The 11 that still float decompose honestly: **4 `remote`** and **7 `city_only`**.
+All 9 of Alloy's roles are among them, and that is correct — see the identity
+correction in the worksheet, which caught that `jobs.lever.co/alloy` is Alloy.ai
+of San Francisco and not the NYC fintech of the same name. Two real, geocodable
+Manhattan addresses were available for the wrong company and the file rejected
+both. That is I1 working in the one form that is hard to test for.
+
+**And the map got worse.** The floating field fell from 31 signals to 11 and
+nothing took the place of the 20 that left. Datadog's stack went from 10
+diamonds to 1, Ramp's from 12 to 1. **The renderer cannot draw a `building`
+placement at all** — the page says so in its own words ("20 of these are not
+drawn on this map yet") because M4c Task 6 built that sentence rather than
+letting the count quietly disagree with the picture. Screenshot:
+`docs/reviews/milestone-4e-addresses-loaded.png`.
+
+**This is the shape of the thing M4c's review named**: a page that counts roles
+the renderer does not draw. It was built to be loud, and the first time it had
+something real to be loud about, it was.
+
+**One unrelated defect found while looking**, and it is live on `main`:
+`apps/web/src/lib/city/useTreatments.ts:49` calls `fetchMatches(500)` while
+`GET /matches` caps `limit` at 200, so **every city page load 422s** and the
+match-based visual treatments silently never apply. TanStack Query swallows it
+into an error state the layer treats as "no matches". Filed as a Task 6
+prerequisite rather than a separate slice — the treatments are what make a roof
+beacon mean something.
+
+---
+
+## M4e Task 6 — the hiring building, and the two tests that had to be rewritten
+
+**Done 2026-08-17** (`368a2d4`), hours after the worksheet came back filled.
+ADR 0030. `GET /city/signals` had been reporting 20 roles on a building and the
+renderer had been drawing none of them.
+
+**`buildingField.ts` is `unresolvedField.ts` with its first rule inverted, and
+the inversion is the whole design.** That module arranges roles with no
+position: every number in it is a layout decision and none is a claim about New
+York. Every number in this one **is** a claim about New York. The ground
+position comes from `placement.latitude` / `placement.longitude` and passes
+through `sceneFromLngLat` unmodified — no nudging apart of overlapping stacks,
+no jitter to make a crowd legible, no snap to a grid. What is chosen is the
+vertical only, and the file says so at the top so the next person to want a
+prettier layout knows which numbers are theirs to move.
+
+| Piece | Where |
+|---|---|
+| `arrangeOnBuildings` — pure, deterministic, 16 tests | `lib/city/buildingField.ts` |
+| `sceneFromLngLat`, the direction a placed role travels | `lib/city/mercator.ts` |
+| `readRoofHeights` — `height_roof` off the loaded tiles | `lib/city/roofHeights.ts` |
+| ADR 0023's beam, one per building, height sized to its stack | `lib/city/roofBeamMesh.ts` |
+| Two fields into one instance buffer, placed roles first | `lib/city/signalLayer.ts` |
+| `setRoofHeights`, and the `idle` listener that feeds it | `components/CityMap.tsx` |
+
+**Verified in a browser against the seeded stack.** Datadog's eight open roles
+stand on 620 8th Avenue at a roof of **230.1 m**; Ramp's eleven stand on 28 West
+23rd Street at **52.5 m**. Both numbers are read off the building archive, not
+assumed — the Flatiron building being a fifth the height of the Times Building
+is the check that says the lookup is real. Screenshots:
+`docs/reviews/milestone-4e-roofs.png`, `milestone-4e-roofs-close.png`.
+
+**The height arrives late and that is designed for rather than worked around.**
+`querySourceFeatures` answers from *loaded* tiles, so a building the camera has
+never been near has no measured roof. `DEFAULT_ROOF_METRES` (250 m) fills in,
+and the substitution moves a marker **up or down its own building** — it can
+never move one off a building, which is the property that keeps a partial
+lookup from touching I1. The default is deliberately high: too low buries a
+beacon inside its tower and hides the role completely, too high briefly
+resembles the floating field, and only one of those two failures is silent.
+
+**Two tests went red because the thing they described started working**, which
+is the second time that happened today (the first was the worksheet's own pair,
+`146dfc9`).
+
+- `signalLayer.test.ts` asserted `drawn === 1` for a corpus of one floating and
+  one placed role — "not yet drawn anywhere, the building treatment is a later
+  task". The corpus had no placed role in it when that was written, so the
+  assertion cost nothing to keep and would have cost a milestone to forget.
+- `CitySignals.test.tsx` asserted that `building + area` roles are named as
+  undrawn. `building` came out of that sum; **`area` stayed**, because removing
+  it would be the same defect pointing the other way — claiming a role is drawn
+  when §6's translucent radius still does not exist.
+
+**A third test was rewritten for a better reason: it could not fail.** The
+building field's "ignores an approximate placement" test passed with the `kind`
+check deleted, because the `area` fixture it used had a null `building_id` and
+the *other* guard caught it. The replacement constructs an area carrying a BIN —
+a payload `placementSchema` rejects and the API cannot send — precisely so the
+guard is exercised. Every guard added in this task was then mutation-checked the
+same way: the kind filter, the determinism sort, the beam's roof offset and the
+instance count reset were each shown able to fail.
+
+**One identity rule worth keeping.** A building with two employers hiring is
+labelled `2 employers`, counted by `company_id` rather than by name. The
+alternative — the first name found — puts "Datadog" over the New York Times
+Building, which asserts an address for the other tenant that nobody made. 620
+8th Avenue is exactly that kind of building, so the case is real rather than
+hypothetical.
+
+**The acceptance chain, run after the task and after the fix below** (`6e97690`):
+
+```
+make test-e2e         28 passed, 2 skipped
+make test-e2e-seeded  84 passed, 1 skipped
+make verify           all checks passed
+```
+
+**One defect found by running the chain, and it was mine.**
+`refreshRoofHeights` fires on every camera settle and re-queries the same tiles,
+so it hands the layer a fresh `Map` with identical contents each time —
+and `setRoofHeights` re-ran the whole layout for it. At `MAX_BEACONS` that is
+five thousand transforms to arrive at the identical city, on every pan-stop.
+Compared by value now, and mutation-checked: a reference check turns the new
+test red, which is the version of the fix that looks right and is not. `layouts`
+is exposed on the layer for that one assertion, because the effect is invisible
+by construction — the same city, drawn again — so a count is the only evidence
+available.
+
+**A note on how three of the four first e2e failures were diagnosed, since the
+wrong answer was cheap and available.** The first `make test-e2e` after this task
+failed four tests. One was real (the acceptance test above). The other three
+passed when run alone, and the tempting conclusion was "flaky under load, my
+change is fine". They were a stale `.next` — I had started a second dev server
+against the same directory, which corrupted the build the first one was serving,
+and the page began returning 500 with 404s on its own chunks. Clearing `.next`
+and restarting the dev server made all three pass. **The lesson is the one
+`CLAUDE.md` §4 already records in the other direction**: a server you did not
+start cleanly makes a passing target look broken just as readily as it makes a
+broken one look fine.
+
+**`make check` destroys `make offices`, and this is the session that noticed.**
+After the acceptance chain the city showed "on a building: 0" again.
+`company_locations` was empty and **so was `geocode_cache`**. The Python suite
+runs against the same Postgres the dev stack uses — the fact PROGRESS already
+records as "the `TRUNCATE` deadlock trap" — and the tables it truncates now
+include the two that hold a day of a human's work.
+
+Nothing was lost that could not be rebuilt, and rebuilding took one command
+(`make offices`, back to 20 on a building). But two things make it worth writing
+down rather than shrugging at:
+
+- **The failure is silent and looks like a product state.** The city does not
+  error; it draws the honest "nothing is on a building yet" screen, which is a
+  sentence this project deliberately made convincing. There is no way to tell it
+  from the true version by looking.
+- **`geocode_cache` going with it costs the offline guarantee.** ADR 0022's
+  bargain is that an address is geocoded once ever and the buildings survive into
+  an offline `make demo`. A wiped cache means the next `make offices` needs the
+  network again, so `make check` can quietly make a later demo require it.
+
+**Not fixed here**, because the fix is a separate test database and that is an
+ADR rather than a patch — it changes `make test`, CI, and the two documented
+traps that exist because the suite shares the dev stack. Filed in
+`docs/QUESTIONS.md` as Q8. The recovery in the meantime is one line, and it is
+in the runbook rather than in somebody's memory.
+
+**The defect this found and did not fix.** At street-level zoom a beacon is
+several times the size of the building it stands on — `BEACON_RADIUS` has been a
+fixed 40 m since M4c, and nothing noticed while the entire field sat 700 m up
+and was never approached. Standing roles on roofs is what made the camera able
+to get near one. It is fine at the opening pose and wrong up close, it is a
+tuning decision rather than a bug, and it is recorded rather than guessed at.
+
+---
+
+## M4d Task 1 — the frame timer, and the first number it caught being wrong
+
+**M4's desktop criterion is met, with numbers rather than an impression.**
+Measured on 2026-08-12 on this machine, headed, on a real GPU:
+
+**ANGLE (Intel, ANGLE Metal Renderer: Intel(R) Iris(TM) Plus Graphics 645)** —
+an integrated GPU from 2018, which makes the result stronger rather than weaker.
+
+### 200 roles
+
+| Scenario | Frames | p50 ms | p95 ms | Worst ms | Missed |
+|---|---|---|---|---|---|
+| Idle, pulses only | 120 | 16.7 | 17.6 | 18.5 | 0% |
+| Pan | 120 | 16.6 | 21.9 | 79.3 | 3% |
+| Orbit (right-drag) | 120 | 16.6 | 19.0 | 64.7 | 1% |
+| Zoom | 120 | 16.7 | 17.8 | 18.9 | 0% |
+| Re-sort the whole field | 120 | 16.6 | 18.0 | 27.6 | 1% |
+
+### 5,000 roles — the ceiling, `MAX_BEACONS`
+
+| Scenario | Frames | p50 ms | p95 ms | Worst ms | Missed |
+|---|---|---|---|---|---|
+| Idle, pulses only | 120 | 16.7 | 18.1 | 18.5 | 0% |
+| Pan | 120 | 16.7 | 19.3 | 33.1 | 3% |
+| Orbit (right-drag) | 120 | 16.7 | 17.7 | 27.0 | 1% |
+| Zoom | 120 | 16.6 | 17.7 | 18.1 | 0% |
+| Re-sort the whole field | 120 | 16.6 | 17.9 | **191.7** | 2% |
+
+**p50 is 16.6–16.7 ms in every scenario at both sizes** — pinned to the 60 Hz
+refresh — and **the 5,000-role city is not measurably slower than the 200-role
+one**, which is what one geometry and N transforms was for (§5.5). Reproduce
+with:
+
+```
+cd apps/web && NIGHTSHIFT_METRICS=1 npx playwright test e2e/city-metrics.spec.ts --headed
+```
+
+**`--headed` is the measurement, not a convenience.** Headless Chromium has no
+GPU and rasterises through SwiftShader on the CPU. The run prints its renderer
+with every table, the page prints it beside every number, and
+`city-acceptance.spec.ts` asserts that a software rasteriser is *named as one*
+on screen — so the caveat cannot be lost between the machine and the document.
+
+**One hitch the numbers found, and it is real:** re-sorting 5,000 roles costs a
+single **191.7 ms** frame. Every beacon, mark, plate and the label atlas are
+rewritten in one synchronous pass. It is one frame per deliberate action rather
+than a sustained cost, which is why it does not move p95 — and it is exactly the
+kind of thing task 2's quality tiers and task 3's field work should be judged
+against.
+
+**And one defect in the instrument, caught by the first real run.** The first
+table reported *"53% over budget"* beside a p50 of 16.7 ms — a city pinned at
+exactly 60fps, reported as missing half its frames. Both numbers were computed
+correctly and one was nonsense: a 60 Hz display presents frames 16.67 ms apart
+and the intervals jitter either side, so counting everything strictly greater
+than the budget counts vsync noise as failure. A missed frame is the renderer
+failing to present in time for the *next refresh* — `MISS_FACTOR = 1.5` — and
+the corrected column reads 0–3%. **The instrument was wrong before the product
+was, for the second milestone running.**
+
+Also in this task: the timer refuses to report from fewer than twelve frames,
+discards gaps over a second as pauses rather than counting a backgrounded tab as
+the worst frame of the window, reports percentiles instead of a mean, and lives
+outside React — the panel polls it twice a second, because a frame time written
+into the store would re-render every subscriber sixty times a second and the
+instrument would become the largest thing it measures.
 
 ---
 
@@ -690,10 +2566,12 @@ reticle on `placements[0]` turns null into `[-620, 0, 700]` and the test red.
 
 **The page counted roles it does not draw — FIXED.** `CitySignals` printed "On a
 building: *n*" from the endpoint's counts while `arrangeUnresolved` draws the
-unresolved field and nothing else. It is 0 today because
-`data/company-locations.yaml` is empty; it stops being 0 the first time a human
-confirms one address, and the failure would have been a quiet, permanent,
-plausible undercount rather than a crash. **I7 in the form it actually arrives
+unresolved field and nothing else. It was 0 at the time because
+`data/company-locations.yaml` was empty; the prediction was that it stops being 0
+the first time a human confirms one address, and the failure would have been a
+quiet, permanent, plausible undercount rather than a crash. **That happened on
+2026-08-17 and the count is now 20** — the sentence this fix added is currently
+the only thing on the page telling the truth about 20 of 31 roles. **I7 in the form it actually arrives
 in: not a mock presented as working, but a renderer presented as complete.** The
 fix is a sentence.
 
@@ -6849,8 +8727,8 @@ presented to a user as working.
 
 | Thing | What it actually is | Real at |
 |---|---|---|
-| Four rows of `city.md` §6 | **Not drawn, named as not drawn in the interface's own legend** (ADR 0028). *Approximate location*: no role in this corpus resolves to an area — it takes a confirmed office at approximate confidence and there are none. *Closed / fading afterimage*: an afterimage belongs to the session that watched a role close, and closed listings are absent from a cold load by design. *Applied as a "solid illuminated **building**"*: nothing here stands on a building, so the beacon's own body fills instead. *Urgent deadline*: drawn, but no posting in the corpus carries `application_deadline`, so the legend counts it rather than implying it is live | The first two at **M5**; the third when a confirmed office exists; the fourth if any provider ever publishes a deadline |
-| Roles at a confirmed office, or in an area | **Counted, named, and not drawn.** `arrangeUnresolved` lays out the unresolved field and ignores every other placement kind, so a `building` or `area` role appears in the census panel's counts and nowhere on the city. It is **0 today** — `data/company-locations.yaml` is blank and no posting names a street — and the panel now says *"n of these are not drawn on this map yet… missing from the sky, not from the corpus"* the moment it stops being 0. Found by the M4c acceptance walk, which is the only thing that has ever executed that branch | The renderer's building and area treatments are **M4d/M5**, and arrive with the first confirmed address |
+| Four rows of `city.md` §6 | **Not drawn, named as not drawn in the interface's own legend** (ADR 0028). *Approximate location*: no role in this corpus resolves to an area — it takes a confirmed office at approximate confidence and there are none. *Closed / fading afterimage*: an afterimage belongs to the session that watched a role close, and closed listings are absent from a cold load by design. *Applied as a "solid illuminated **building**"*: the roof beam (M4e Task 6) now marks a hiring building, but "applied" is still carried by the beacon's own body rather than by lighting the footprint — one beam per building cannot say which of the roles standing on it you applied to. *Urgent deadline*: drawn, but no posting in the corpus carries `application_deadline`, so the legend counts it rather than implying it is live | The first two at **M5**; the third when a mark can distinguish one role on a shared roof; the fourth if any provider ever publishes a deadline |
+| Roles in an *area* (approximate placement) | **Counted, named, and not drawn**, and now the only half of this row still true. `buildingField.ts` (M4e Task 6) draws a `building` role on its roof, so 20 of 31 are on the city; `area` has no renderer, and `arrangeUnresolved` ignores it. It is **0 today** and stays 0 until an office resolves at `approximate` confidence, which `load_offices` refuses by design — so this is unreachable rather than merely empty. The panel says *"n of these are not drawn on this map yet… missing from the sky, not from the corpus"* the moment it stops being 0. Found by the M4c acceptance walk, which is the only thing that has ever executed that branch | The area treatment is **M5**, and needs rungs 2–3 of the geocoding ladder first |
 | The unresolved field's legibility past a few hundred roles | **Real, and measured at the wrong size until now.** The layout wraps at six employers per row, so 200 employers recede 34 rows deep: the name plates at the back overlap into an unreadable strip and a column of 25 roles is ~1,125 m tall. Legible at the 31 roles this corpus has, and `docs/reviews/milestone-4c-scale.png` shows what 5,000 looks like. The roster stays usable at either size, so the *information* is never lost — only the view | **M4d**, beside the adaptive quality tiers: level-of-detail on the plates, a camera that frames the field, clustering |
 | The city's five demo applications | Real `Application` rows with real append-only event trails, written by `make seed` through `save_job` and `change_stage` — the same functions the UI calls, no shortcut. They are **seeded data, not a user's**: one at each stage §6 draws, so the encoding has something to encode in `make demo` and something to assert in the seeded browser suite | Permanent. This is the demo path, not a stopgap |
 | `data/skills.yaml` coverage against real postings | **Largely addressed at M3a.1, and the remainder is now a decision rather than a gap.** The vocabulary went from **73 entries to 107** — 34 added, counted from the file
@@ -6858,8 +8736,9 @@ rather than from memory, because the commit message for this work says 36 and is
 wrong: ML frameworks (JAX, LangChain, HuggingFace, DSPy), accelerators (CUDA, ROCm, Triton, SYCL), HDLs (Verilog, VHDL, SystemVerilog), Windows/network/security administration (Active Directory, SIEM, EDR, SSO, MFA, VPN, DNS, TCP/IP, PowerShell, Windows, macOS, firewalls), and business systems (Salesforce, Google Sheets, Microsoft 365). Recall moved 0.459 → 0.861. **What is deliberately still absent**: structural engineering codes (ACI 318, ASCE 7, IBC, IFC, AISC, FM Global), treasury systems (Kyriba, GTreasury, Trovata, TMS), accounting standards (US GAAP, IFRS), and words too ordinary to match safely (`Word`, `MS Office`). Those are real requirements of real postings in the corpus and are not software skills — adding them would raise recall by teaching the product a domain it does not serve | Closed as vocabulary work. The residual absences are a scope decision, revisited only if the product's scope changes |
 | Eligibility answer key (`tests/fixtures/eligibility/labels.yaml`) | **Filled in, and model-labeled rather than human-verified.** All 60 postings × 9 fields were labeled 2026-08-04 by a browser-side Claude reading the recorded excerpts, with the web explicitly off — the grader compares against text the extractor also sees, so a label sourced from outside that text marks a correct extractor wrong. Audited on install: 0 of 199 named technologies absent from the posting text, and no sponsorship, graduation-window, internship or years claim unsupported by the text. Two `+equivalent` calls read an escape hatch worded without the word "equivalent" (`akunacapital/8035515`, `openai/8fb1615c…`) and are the entries most likely to be wrong. Not spot-checked by a human | Human spot-check of ~10 entries, unscheduled |
 | `FixtureGreenhouseAdapter` (`cli.py`) | Subclasses the real adapter, overrides only `fetch_board` to read a committed JSON file. Constructed with no HTTP client, so it cannot make a request. Attributed to source `greenhouse_fixture` with `source_type='fixture'`, badged **"committed fixture"** in the Operate UI. ADR 0004 | Permanent — this is the offline demo path, not a stopgap |
+| `FixtureNycGeoSearchGeocoder` (`cli.py`) | The geocoding counterpart, added **2026-08-19** (ADR 0036), and the thing `domain/geocoding.py`'s Protocol docstring had promised since M4a while nothing implemented it. Holds no client; replays one recorded NYC GeoSearch response per confirmed worksheet address into the *production* `parse_search_response`, so every acceptance rule the live rung runs, this one runs. Recorded verbatim with provenance by `scripts/record_office_geocodes.py`; all 8 addresses resolve to real BINs. **A missing recording is reported as `PROVIDER_UNAVAILABLE` — "we could not look" — never as "no building found"**, which is I3's distinction one subsystem over and is also what stops an offline run poisoning `geocode_cache` | Permanent — this is what makes `make demo` show a city with roles on buildings, offline, from a clean clone |
 | Geocoding | **Built in M4a and correct to say so.** `domain/geocoding.py` behind a Protocol, the NYC GeoSearch adapter with committed fixtures, the permanent cache that refuses to store an outage, and the office loader. **What is still true: no coordinate has been written**, because the worksheet below is blank — not because the geocoder is missing. `mappable_locations` reads 0 and the page now says *"no posting states a street"* rather than *"nothing geocoded yet"*, which is the difference between a property of the data and a missing feature. Rungs 2–3 (Nominatim, neighbourhood centroids) are still unbuilt and stay deferred: they produce `approximate` points the office loader refuses by design | Done at **M4a**. Coordinates appear when the worksheet has a row |
-| `company_locations` table and `data/company-locations.yaml` | **Both exist as of M4a.** The table, its migration and its constraints are in; the worksheet ships pre-filled with the nine NYC registry companies and every `street_address` **blank**, which is a correct answer rather than a gap (Q7 answered: "as many as you'd like"). `read_worksheet` refuses four kinds of entry, the sharpest being an address that names no street — somebody typing here is asserting *an office is at this address*, and a weaker version of that assertion is not what they meant. Until a row is filled, the honest render is every job in the unresolved layer | Table and promotion path **done at M4a**. The row count is the human's, and blocks nothing |
+| `company_locations` table and `data/company-locations.yaml` | **Table, worksheet and loader all exist and are now connected.** The table, its migration and its constraints landed at M4a; `read_worksheet` and `load_offices` at M4a/M4b; **`make offices`, the thing that calls them, at M4e Task 1 on 2026-08-16** — until then the worksheet led nowhere and no number of typed addresses could have changed a pixel. The file covers all **23** registry boards and **the human filled it in on 2026-08-17**: 8 confirmed addresses, 15 blank, 0 refused (Q7 answered: "as many as you'd like"). `read_worksheet` refuses four kinds of entry, the sharpest being an address that names no street — somebody typing here is asserting *an office is at this address*, and a weaker version of that assertion is not what they meant; the first hand-written file it ever saw tripped none of the four. **Since 2026-08-19 the table is filled by `make seed`, not by anybody remembering to run `make offices`** (ADR 0036) — the table and `geocode_cache` both live in Postgres, so one `make reset-db` erased the offices *and* the cached answers that could have rebuilt them, and the only route back was a network call `make demo` is forbidden to make | Table and promotion path **done**; end to end, verified live twice on 2026-08-17 and re-verified from committed recordings on 2026-08-19 (Datadog → BIN 1087186, Ramp → BIN 1080672 — the same BINs both times). **20 of 31 roles resolve to `kind: building` and stand on their own roofs** at heights measured off the building archive — M4e Task 6 (`368a2d4`), restored to a fresh database offline at ADR 0036. The promotion path runs end to end from a line somebody typed in a YAML file to a beacon on a roof in Manhattan, and `verify.py`'s `check_city_placement` now asserts that it does |
 | Street-level placement of any job | **Impossible from this data, and now measured rather than assumed.** 0 of 247 postings, 139 distinct location strings, 10 fields, 3 providers. Reproduce with `./.venv/bin/python scripts/census_location_text.py`, which refuses to print a count until it has proved on that run that it can see a real address | Not a gap — a property of ATS data. Named on `/analyze/coverage` at **M4a** |
 | Dedupe similarity threshold | **Real, thinly calibrated, and now with one real-world data point.** `SIMILARITY_THRESHOLD = 0.85` was derived from three labelled pairs. M1d's live Datadog poll merged two genuine postings on `similar_description` at **0.864** — the first evidence from outside the labelled set, and it landed close to the line. One observation is not a calibration and nothing was changed on the strength of it, but it is the first sign the number is doing real work at a real boundary. Re-derive as the fixture set grows | Unscheduled; revisit when more live boards are polled |
 | ~~Merge concurrency~~ | **Fixed in M1d** (`408c768`). The defect was reproduced before being fixed — Postgres reported a real `DeadlockDetectedError` between two workers merging the same pair in opposite directions. Both rows are now locked in primary-key order, as two statements rather than one `IN` clause, because a single statement's lock acquisition follows the query plan rather than the sort. Mutation-checked: the caller's order deadlocks on 3 of 3 runs; the fix passed 8 consecutive | Done |
@@ -6876,7 +8755,7 @@ wrong: ML frameworks (JAX, LangChain, HuggingFace, DSPy), accelerators (CUDA, RO
 | The 2,605-token figure | Not re-measured by M1c and never claimed by it. The committed slice is **400 rows → 23 tokens**, the alphabetical head of one provider (`0g`…`abridge`). Common Crawl's index 504s at `limit=6000`, so a full harvest needs paging that does not exist | M1d |
 | ~~Discovered boards in the registry~~ | **19 promoted in M1d** (`d3738b6`), on the human's decision. 4 boards → 23, 171 insertions and 0 deletions, nothing lost or modified. Two `Abridge` candidates and two `empty` boards remain withheld for individual review under ADR 0005 | Done |
 | Ashby's `address.postalAddress` | Still deliberately unread by `AshbyAdapter.normalize`, and **M4a closed the question in the opposite direction to the one this row expected**. It was waiting for geocoding to exist; the census then showed the field carries `addressLocality`/`addressRegion`/`addressCountry` and **never `streetAddress`**, on any posting, from any employer. So reading it would upgrade nothing — it resolves to the same city name the free-text string already gives | Not a gap. Closed by measurement at **M4a** |
-| 3D city, map, MapLibre, Three.js | **The city renders, can be driven, and has roles on it.** `/explore/city` draws New York offline from two local archives on `maplibre-gl@5.24.0` — streets, water, and 1,083,024 extruded structures at measured heights — with the full §9.3 gesture surface, a keyboard, and a control panel, all proved in a browser by `e2e/city.spec.ts`. **Three.js and the job data arrived at M4c Tasks 1-2**: every open role is a floating beacon above the skyline and none is on a building, which the page states in those words — a map that looks finished and is empty is indistinguishable from one that is broken. **This row said "no camera controller" for two days after the controller shipped** — the sixth time a list here has quietly stopped describing the thing it names, and again in the same direction | Buildings **done, M4b Task 4**; camera **done, M4b Task 5**; signal layer drawing at **M4c Task 2**; labels, sorting and the roster at **Task 3**; picking, the reticle and the shared selection at **Task 4**; §6's treatments and the in-interface legend at **Task 5**; the acceptance walk at **Task 6**. **M4c is complete.** What remains for M4d: frame-time numbers, adaptive quality tiers and automated accessibility tests |
+| 3D city, map, MapLibre, Three.js | **The city renders, can be driven, and has roles on it.** `/explore/city` draws New York offline from two local archives on `maplibre-gl@5.24.0` — streets, water, and 1,083,024 extruded structures at measured heights — with the full §9.3 gesture surface, a keyboard, and a control panel, all proved in a browser by `e2e/city.spec.ts`. **Three.js and the job data arrived at M4c Tasks 1-2**: every open role was a floating beacon above the skyline and none was on a building, which the page stated in those words — a map that looks finished and is empty is indistinguishable from one that is broken. **Since M4e Task 6 (2026-08-17) a role whose employer has a confirmed address stands on that building's roof**, under a beam, at a roof height read from the archive; the rest still float and the page still says which is which. **This row said "no camera controller" for two days after the controller shipped** — the sixth time a list here has quietly stopped describing the thing it names, and again in the same direction | Buildings **done, M4b Task 4**; camera **done, M4b Task 5**; signal layer drawing at **M4c Task 2**; labels, sorting and the roster at **Task 3**; picking, the reticle and the shared selection at **Task 4**; §6's treatments and the in-interface legend at **Task 5**; the acceptance walk at **Task 6**. **M4c is complete.** What remains for M4d: frame-time numbers, adaptive quality tiers and automated accessibility tests |
 | The signal layer's renderer | **Built and drawing (M4c Task 2).** Three.js in MapLibre's context, one instanced mesh, one draw call, N transforms — every unresolved role is a floating beacon above the skyline, grouped into a column per employer. What is **not** built: labels (a column is an anonymous stack until you know what it is), picking, selection, the §6 treatments and the legend. Nothing is on a building, and nothing may be until an office is confirmed | Tasks 3-5 |
 | Window speckle on buildings | Not built. §2.1's treatment is edge light *plus* lit windows; the extrusion delivers the first via `fill-extrusion-vertical-gradient` and a height-driven colour ramp. The speckle needs a texture, a texture needs a sprite, and a sprite is a network call this style has spent three tasks refusing | The Three.js layer — **M5**, not scheduled sooner |
 | ~~The published buildings artifact~~ | **Published 2026-08-12** as release `buildings-20260812`, 109,555,308 bytes — the size the manifest pins. Proved by deleting the local copy and re-fetching from the public URL, which is the clean-clone path, digest and all. The optional/required split built while it was unpublished stays: a re-bake reopens the same window every time, and `make tiles-strict` in CI is what closes it | Done |

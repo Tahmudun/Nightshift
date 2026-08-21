@@ -131,55 +131,82 @@ test.describe('the city renders', () => {
     expect(tiles.some((name) => name.includes('/api/tiles/buildings'))).toBe(true);
   });
 
-  test('the skyline is an extrusion with real features on screen', async ({ page }) => {
+  test('the skyline is our own geometry, built from the pinned archive', async ({ page }) => {
+    // Longer than the suite's default, and the reason is measured rather than
+    // defensive: this browser has no GPU. Headless Chromium here falls back to
+    // a software rasteriser reporting ~600 ms frames over a city that draws in
+    // 16, and the city assembles on a share of each frame — so the wall clock
+    // for a build that takes about three seconds on a real GPU is tens of
+    // seconds in here. The frame report says the same thing out loud in
+    // `city-metrics.spec.ts`.
+    test.setTimeout(180_000);
     await openCity(page);
 
-    const layer = await page.evaluate((key) => {
-      const city = window[key as typeof CITY_DEBUG_KEY]!;
-      return city.map.getLayer('buildings')?.type ?? null;
+    // **This test used to assert the opposite**, and the change is ADR 0031.
+    // Until 2026-08-18 the skyline was MapLibre's `fill-extrusion` and this
+    // asserted that it was — a flat-shaded solid whose one expressive channel
+    // is a colour ramp, which is why the human's verdict on it was "the same
+    // old grey buildings with a neon slab placed on top". The buildings now
+    // live in the Three.js layer with a shader of our own: dark glass,
+    // procedural windows, edge light, haze. So what is asserted is that they
+    // reached the GPU, and that MapLibre's own skyline stopped drawing only
+    // because ours started.
+    const city = await page.evaluate(async (key) => {
+      const handle = window[key as typeof CITY_DEBUG_KEY]!;
+      // The city assembles on a per-frame budget, so this waits on the
+      // renderer's own readiness rather than on a number of seconds.
+      const started = Date.now();
+      while (!handle.signals.city.ready && Date.now() - started < 90_000) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+      return handle.signals.city;
     }, CITY_DEBUG_KEY);
-    expect(layer, 'the buildings layer must be a fill-extrusion, not a flat fill').toBe(
-      'fill-extrusion',
-    );
 
-    // Features *rendered*, not features declared. This is the assertion that
-    // fails if the archive is missing, the source-layer name is wrong, or the
-    // opening pose is looking at water — none of which the style tests can see.
-    //
-    // **The box is not a convenience and removing it makes this test always
-    // fail.** MapLibre's whole-viewport query returns zero at this pitch, at
-    // every zoom, while the same frame has thirty thousand building features
-    // loaded and visibly drawn. Measured on 2026-08-12:
-    //
-    //   pitch 76, z13.6 → viewport 0, lower box 1,599, source 30,573
-    //   pitch 76, z15   → viewport 0, lower box   351, source 18,533
-    //   pitch  0, z13.6 → viewport 9,225
-    //
-    // The city opens at 76°, so most of the viewport rect is sky: the query
-    // unprojects its corners onto the ground plane and the ones above the
-    // horizon have no ground to land on. A box below the horizon has an answer,
-    // and it is the honest place to ask the question.
-    //
-    // This outlives the test. M4c needs picking and list↔map sync, and the
-    // obvious implementation of "which roles are on screen" is a viewport
-    // query — which will return nothing here, silently, in the default view.
-    await expect
-      .poll(
-        async () =>
-          page.evaluate((key) => {
-            const city = window[key as typeof CITY_DEBUG_KEY]!;
-            const box = city.map.getContainer().getBoundingClientRect();
-            return city.map.queryRenderedFeatures(
-              [
-                [box.width * 0.15, box.height * 0.65],
-                [box.width * 0.85, box.height * 0.98],
-              ],
-              { layers: ['buildings'] },
-            ).length;
-          }, CITY_DEBUG_KEY),
-        { timeout: 60_000, message: 'no building was ever rendered at the opening pose' },
-      )
-      .toBeGreaterThan(100);
+    expect(city.ready, 'the Three.js city never finished building').toBe(true);
+    // One view of New York at the opening pose is 32,686 distinct BINs, and a
+    // count that collapsed to a handful is exactly the failure M4c's
+    // acceptance suite caught once already: a page reporting a city it is not
+    // drawing.
+    expect(city.buildings, 'far too few buildings reached the buffer').toBeGreaterThan(10_000);
+    expect(city.meshes, 'the city is not chunked into cells').toBeGreaterThan(1);
+    expect(city.vertices).toBeGreaterThan(100_000);
+    expect(city.pending, 'the city still owes footprints it never built').toBe(0);
+
+    // And MapLibre's extrusions are retired — by a filter no feature can
+    // satisfy, never by `visibility: none`. Hiding them stops MapLibre
+    // fetching the buildings archive at all, which is where our own geometry
+    // comes from; the first draft did exactly that and drew an empty New York.
+    const retired = await page.evaluate((key) => {
+      const map = window[key as typeof CITY_DEBUG_KEY]!.map as unknown as {
+        getStyle(): { layers: Array<{ id: string; layout?: { visibility?: string } }> };
+        queryRenderedFeatures(
+          box: readonly [readonly [number, number], readonly [number, number]],
+          options?: { layers?: string[] },
+        ): readonly unknown[];
+        getContainer(): HTMLElement;
+      };
+      const box = map.getContainer().getBoundingClientRect();
+      const layers = map.getStyle().layers.filter((l) => l.id.startsWith('buildings'));
+      return {
+        // The box, not the viewport: MapLibre's whole-viewport query returns
+        // zero at this pitch over a fully drawn skyline. Measured 2026-08-12,
+        // and the reason is in `city-acceptance.spec.ts`.
+        drawn: map.queryRenderedFeatures(
+          [
+            [box.width * 0.15, box.height * 0.65],
+            [box.width * 0.85, box.height * 0.98],
+          ],
+          { layers: layers.map((l) => l.id) },
+        ).length,
+        hidden: layers.map((l) => l.layout?.visibility ?? 'visible'),
+      };
+    }, CITY_DEBUG_KEY);
+
+    expect(retired.drawn, "MapLibre's extrusions are still drawing over ours").toBe(0);
+    expect(
+      retired.hidden.every((v) => v === 'visible'),
+      'the extrusion layers were hidden, which starves the tile source they share with us',
+    ).toBe(true);
   });
 
   test('the canvas paints, and repaints when the camera moves', async ({ page }) => {

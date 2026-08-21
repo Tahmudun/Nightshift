@@ -25,6 +25,7 @@ from nightshift.db.base import (
     ApplicationPriority,
     ApplicationStage,
     BoardTier,
+    CaptureStatus,
     EligibilityState,
     EmploymentType,
     EventActor,
@@ -1303,3 +1304,129 @@ class CitySignalsOut(BaseModel):
     truncated: bool = Field(
         description="True when more roles matched than were returned. The map says so on screen."
     )
+
+
+# ---------------------------------------------------------------------------
+# Manual capture (M5a)
+# ---------------------------------------------------------------------------
+
+
+class CaptureIn(BaseModel):
+    """A paste. The only required field is the text itself."""
+
+    raw_text: str = Field(min_length=1, max_length=200_000)
+    source_url: str | None = Field(default=None, max_length=1000)
+
+
+class CaptureProposalOut(BaseModel):
+    """What the parser offered, and nothing it did not.
+
+    Every field is nullable and ``null`` is the parser declining rather than a
+    missing key — A10's rule, and here it is load-bearing rather than cosmetic:
+    a client that renders ``null`` as an empty box gets a person typing two
+    words, and a client that renders a guess gets a job on the wrong building.
+    """
+
+    title: str | None
+    company_name: str | None
+    location_text: str | None
+    employment_type: EmploymentType | None
+
+
+class CaptureOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    status: CaptureStatus
+    source_url: str | None
+    raw_text: str
+    proposed: CaptureProposalOut
+    parser_version: str
+    #: Set only once a person has confirmed. Until then there is no job, and
+    #: the schema refuses to let there be one.
+    job_id: UUID | None
+    created_at: datetime
+    decided_at: datetime | None
+
+
+class CaptureListOut(BaseModel):
+    captures: list[CaptureOut]
+    total: int
+
+
+class CaptureConfirmIn(BaseModel):
+    """What the **person** approved. Not what the parser proposed.
+
+    These are separate on purpose. The proposal is stored so a bad parse stays
+    diagnosable; this is what actually becomes a job, and it is user-entered
+    data even when the person changed nothing.
+    """
+
+    title: str = Field(min_length=1, max_length=500)
+    company_name: str = Field(min_length=1, max_length=300)
+    location_text: str | None = Field(default=None, max_length=500)
+    employment_type: EmploymentType = EmploymentType.UNKNOWN
+
+
+# -- M5b: identity (ADR 0037) ----------------------------------------------
+
+
+class SignInIn(BaseModel):
+    """Credentials offered at the door.
+
+    No `min_length` on the password. The floor lives in
+    `domain.identity.MIN_PASSWORD_LENGTH` and applies when one is *set*;
+    applying it here would make a too-short attempt fail with a different
+    status and a different message than a wrong one, which tells an attacker
+    something about the account they are guessing at.
+    """
+
+    #: A plain `str`, not pydantic's `EmailStr`. That type needs the
+    #: `email-validator` package, and CLAUDE.md §8 forbids a dependency for a
+    #: problem not yet confirmed: a malformed address already fails sign-in
+    #: correctly, because no credential matches it. The check worth having is
+    #: at account creation, and there is no password-reset flow yet for a typo
+    #: to strand. Revisit when one exists.
+    email: str = Field(min_length=3, max_length=320)
+    password: str = Field(max_length=1024)
+
+
+class IdentityOut(BaseModel):
+    """Who you are. What `GET /auth/me` answers.
+
+    The token is deliberately absent: it goes back as an httpOnly cookie, where
+    script on the page cannot read it. `POST /auth/token` is the one route that
+    puts it in a body, for clients that are not browsers.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    email: str
+    display_name: str | None
+
+
+class SessionOut(IdentityOut):
+    """Who you are *and* how long this sign-in lasts.
+
+    Separate from `IdentityOut` because only the route that just minted a
+    session knows its expiry. `/auth/me` would have to run a second query for a
+    field nothing reads — and the first draft of this schema instead returned
+    the account's `created_at` under the name `expires_at`, which is a
+    fabricated field of exactly the kind invariant I1 exists to forbid.
+    """
+
+    expires_at: datetime
+
+
+class TokenOut(BaseModel):
+    """A bearer token, for a client with no cookie jar.
+
+    `scripts/verify.py` and M5c's MCP server are the callers. Same sessions
+    table and same lifetime as a browser's — one way to end a session, one
+    place to look when asking who is signed in.
+    """
+
+    access_token: str
+    token_type: Literal["bearer"] = "bearer"
+    expires_at: datetime

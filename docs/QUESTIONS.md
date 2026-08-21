@@ -7,6 +7,205 @@ the date, because the reasoning is usually worth more than the decision.
 
 ---
 
+## Q12 — CI takes fifteen minutes against a five-minute target. Spend a slice on it, or accept it?
+
+**Raised:** 2026-08-21 (M5b, opening PR #18) · **Type:** working practice · **Blocking:** no
+
+**What happened.** The `python` job was cancelled mid-suite at exactly 10m00s,
+having reached 64% with **zero failures**. It was not a broken test — the suite
+outgrew `timeout-minutes: 10`. Raised to 20 in the same commit, which unblocks
+the PR and fixes nothing.
+
+**The measurement.** 2128 python tests, 10m16s locally; on the runner, 6% → 64%
+in 479s, extrapolating to ~12.7 minutes of pytest on ~2.5 minutes of setup. The
+`e2e` job is eleven minutes behind it. Jobs run in parallel, so **wall clock is
+about fifteen minutes** against A14's stated target of five.
+
+**Why it is a real question rather than a chore.** A14's reasoning is
+*"a slow CI is a CI you start skipping"*, and that is a claim about behaviour,
+not about seconds. Fifteen minutes is the range where a person stops waiting for
+the result and merges on local evidence — which is exactly the habit that let
+the partial pin ship, because the pin is checkable *only* in CI.
+
+**The options, with what each costs:**
+
+1. **Accept it and move the target.** Free. Amend A14 to say what is true. The
+   risk is the behavioural one above, and it compounds silently.
+2. **Parallelise with `pytest-xdist`.** Probably the largest win for the least
+   code — but the suite shares one Postgres, and this project has *already*
+   measured a real `DeadlockDetectedError` from two suites overlapping on one
+   database (2026-08-20). That makes xdist and **Q8's separate test database the
+   same piece of work**, which is an argument for doing Q8 first.
+3. **Find the slow tests.** The CI log has visible stalls — one stretch spent two
+   minutes on 3% of the suite. Nobody has looked at where the time actually goes,
+   so the cheapest honest first step is a `--durations` run.
+4. **Split the job.** Moves wall clock, adds runner minutes and a second place
+   for the pin to be checked.
+
+**My recommendation:** 3, then 2 — measure before optimising, and fold it into
+Q8 rather than treating them as two problems. But this is a slice of work with no
+product visible at the end of it, so it is the human's call whether it happens
+now or after M5c.
+
+---
+
+## Q10 — Sending email costs money. Which means no password reset. For how long?
+
+**Raised:** 2026-08-20 (M5b) · **Type:** cost / account · **Blocking:** no
+
+M5b built accounts. It did **not** build password reset or email verification,
+and both are blocked on the same thing: something that can send an email.
+
+**What is missing today, stated plainly.** If you mistype your address when
+creating an account, or forget your password, nothing in this system can help
+you. There is no reset link because there is nowhere to send one. That is
+tolerable right now — you are the only account and it is created at a prompt on
+your own machine — and it is a hard blocker for the "eventually anyone" you
+asked for.
+
+**What it costs.** All three usual options have a free tier that comfortably
+covers a product with tens of users:
+
+| | Free tier | Then |
+|---|---|---|
+| Resend | 3,000 emails/month, 100/day | $20/month |
+| AWS SES | 3,000/month for 12 months | ~$0.10 per 1,000 |
+| Postmark | 100/month | $15/month |
+
+**Why it is not free the way everything else here is.** Every other dependency
+in this project runs on your machine — the tiles, the embeddings, the geocoder
+fallback. Email cannot: sending mail that arrives requires a reputable IP, and
+that is the thing you are renting. Running our own mail server is possible and
+lands in spam folders, which is worse than not sending.
+
+**Two things I need from you, and you can answer either separately:**
+
+1. **A domain.** Reset mail from `@gmail.com` gets filtered. This needs an
+   address at a domain you control, which is also the thing M7's deploy will
+   need — so it is one purchase, not two.
+2. **Which provider**, and an account on it. I would take **Resend**: the free
+   tier is the largest of the three at the volume that matters, and it is the
+   least configuration.
+
+**What I will do until you answer**, and it is not nothing: accounts stay
+closed, created by `nightshift users create`, which prompts rather than mailing.
+Invite-only can also ship without email if the invite is a link you hand
+somebody directly. **Open sign-up cannot** — that is the rung this question
+blocks, and it is the last one on your list rather than the next.
+
+---
+
+## Q11 — Nothing rate-limits sign-in. Before or after the first deploy?
+
+**Raised:** 2026-08-20 (M5b) · **Type:** security / scope · **Blocking:** no
+
+A real gap, named rather than discovered later.
+
+**What is true.** Sign-in has no rate limit. Somebody can try passwords against
+`/auth/sign-in` as fast as the API answers. argon2id makes each attempt cost
+real CPU — roughly 50ms — so this is expensive rather than free, and the 12
+character minimum means a dictionary is not enough. But "expensive" is not
+"prevented", and enough attempts against a weak password will find it.
+
+**Why it is not built.** It needs somewhere to count attempts, Redis is already
+running, and it is perhaps an afternoon. I did not build it in M5b because M5b
+had one acceptance criterion — two users cannot see each other's data — and a
+rate limiter does not move it. Doing it badly is also worse than not doing it:
+a limiter keyed on IP alone locks out an office, and one keyed on email alone
+lets anybody lock **you** out of your own account by failing your sign-in.
+
+**The actual question is when, and there are only two sensible answers:**
+
+- **Now**, if you intend to hand somebody an invite before M7. The moment a
+  second person has an account on a machine you do not own, this stops being
+  theoretical.
+- **At M7**, with the first public deploy, which is where it belongs on the
+  merits — alongside HTTPS, a real domain, and the `secure` cookie flag that
+  only becomes true off `localhost`.
+
+**What I would pick, asked directly:** M7. Nothing is reachable from outside
+your machine until then, so there is no attacker with a route to the endpoint.
+If you plan to invite somebody sooner, say so and I will move it.
+
+---
+
+## Q9 — The reference's sky is 70% of the frame. Ours can be 17% or 36%. Which?
+
+**Raised:** 2026-08-18 (M4e Task 3) · **Type:** product / look · **Blocking:** no
+
+You approved the sky on 2026-08-18. This is the one thing about it I cannot
+decide for you, because it is a trade and both sides of the trade are yours.
+
+**The measurement.** MapLibre's pitch is the angle from straight *down*, so the
+camera always looks below horizontal and the horizon sits near the top of the
+frame. `docs/adr/0032` has the table; the short version:
+
+| Pitch | Sky, as a share of the frame |
+|---|---|
+| 76 — today's opening pose | 12% |
+| 78 — `CAMERA_LIMITS.maxPitch` today | 17% |
+| 85 — MapLibre's own ceiling | 36% |
+
+`02-skyline-grid-plane-light-columns.jpg` puts its horizon about **70%** down the
+frame. That needs a pitch near 94°, which does not exist. So the gradient, the
+sun and the stars can look like the reference; the *proportion of sky* can only
+go as far as 36%, and only by raising the cap.
+
+**What raising it costs.** The cap is 78 because the tile budget explodes past
+it: a flatter camera sees much further, so many more tiles are in view for a
+view of mostly nothing. I have not measured how much worse 85 is — I would
+before changing it — but the direction is certain and the machine is an Intel
+Iris Plus 645.
+
+**What I would pick, asked directly:** raise it to 82. That is most of the gain
+— roughly 27% of frame — at meaningfully less tile cost than 85, and it keeps a
+hard stop before the ground goes fully edge-on. But you filed the reference and
+you are the acceptance test, so if the sky should be as big as it can possibly
+be, say 85 and I will measure what it costs and tier it.
+
+---
+
+## Q8 — `make check` wipes the offices you typed. Separate test database?
+
+**Raised:** 2026-08-17 (M4e Task 6) · **Type:** engineering, with a cost in your
+time · **Blocking:** no
+
+The Python suite runs against the same Postgres the dev stack uses. This is
+already known — PROGRESS records it as the `TRUNCATE` deadlock trap, where a
+test and a live dev session fight over the same table and one of them hangs.
+Today it did something else: `make check` emptied `company_locations` **and**
+`geocode_cache`, so the city went back to "nothing is on a building yet" hours
+after you filled the worksheet in.
+
+Recovery is one command — `make offices` — and everything came back. Two things
+still make it worth your decision rather than mine:
+
+- **It is silent and it looks like a product state.** The city does not error.
+  It draws the honest empty-city screen, which is a sentence this project
+  deliberately made convincing, and nothing distinguishes it from the true
+  version by looking.
+- **A wiped `geocode_cache` costs the offline guarantee.** ADR 0022's bargain is
+  that an address is geocoded once, ever, and the buildings it placed survive
+  into an offline `make demo`. After a wipe the next `make offices` needs the
+  network again, so `make check` can quietly make a later demo require it.
+
+**Why I have not just done it.** A separate test database is the obvious fix and
+it is not a patch: it changes `make test`, the CI job, `conftest.py`'s session
+fixture, and it retires two documented traps that only exist because the suite
+shares the dev stack. That is an ADR and a migration of the developer workflow,
+and it is the kind of change that is annoying to have done to you mid-milestone
+without being asked. The options, roughly:
+
+- **A second database on the same container** (`nightshift_test`), created by
+  `make up` and used by `pytest`. Cheapest, ~an hour, no new infrastructure.
+- **A throwaway schema per test session.** Cleaner isolation, more machinery.
+- **Leave it and document the recovery.** Free. Costs a rerun of `make offices`
+  after every `make check`, forever, and relies on somebody noticing.
+
+I would take the first. Say the word and it is the next thing I do.
+
+---
+
 ## Q7 — No ATS posting names a street. How many company addresses will you type?
 
 **Raised:** 2026-08-11 (M4a Task 1) · **Type:** product + your time · **Blocking:** no,
@@ -15,9 +214,45 @@ until the city needs a building
 them relatively fast."**
 
 Which answers the scope question by removing it, so the shape was mine to pick.
-`data/company-locations.yaml` ships as a **worksheet**, pre-filled with the nine
-registry companies whose postings parse to NYC, with `street_address` blank. Same
-pattern that answered Q5, which worked.
+`data/company-locations.yaml` ships as a **worksheet** with `street_address`
+blank. Same pattern that answered Q5, which worked.
+
+**Updated 2026-08-16 (M4e Task 1), and the update is a correction of my own
+work.** The worksheet was pre-filled with the nine registry companies whose
+postings parse to NYC. It now carries **all 23 registry boards**: `nyc_presence`
+is derived from posting text, and posting text is not a company directory — a
+board whose postings all say "Remote" can still be run out of an office on
+Lafayette Street. The other fourteen have `city` and `state` left blank rather
+than pre-filled with "New York", so nothing prompts an address in a city the
+company may not be in.
+
+**And the file now leads somewhere.** `read_worksheet` and `load_offices` were
+complete and tested from M4a/M4b, and nothing outside the test suite called
+either of them — so the answer above could not have changed a single pixel no
+matter how many addresses were typed. `make offices` is the caller, added
+2026-08-16 and verified live end to end (Datadog → `620 8th Ave` → `verified`,
+BIN 1087186). The remaining gap is the renderer: a `building` placement is still
+not drawn, which is M4e Task 6.
+
+**CLOSED 2026-08-17: the worksheet came back filled.** 8 of 23 rows carry a
+confirmed street address, 15 are deliberately blank, and `make offices` refused
+none of them. Two offices are placed on real buildings (Datadog → BIN 1087186,
+Ramp → BIN 1080672) and 20 of 31 seeded roles now resolve to `kind: building`.
+
+**The answer to "how far do you want to take it" turned out to be the wrong
+axis.** The filled rows are not 8 addresses; they are 23 decisions, and the
+blanks carry more information than the fills. Three of them are reasoned refusals
+written into the file — 1Password (remote-first, no street published anywhere),
+A.Team (genuinely NYC, publishes no address), Abound (three conflicting
+headquarters and an acquisition that invalidates some of them). And one is the
+case §4.4 was written for: `jobs.lever.co/alloy` is **Alloy.ai of San Francisco**,
+not the NYC identity-decisioning fintech that shares the name. Searching "Alloy"
+surfaces two real, geocodable Manhattan addresses, both completely wrong for that
+board. The file rejected both and said why.
+
+That is the argument for a human-confirmed file, stated better by the file than
+by the ADR: **the failure mode is not a missing address, it is a confident wrong
+one**, and no automated proposer would have caught the Alloy collision.
 
 Two things written into the file rather than assumed:
 

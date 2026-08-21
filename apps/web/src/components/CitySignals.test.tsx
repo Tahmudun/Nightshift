@@ -65,21 +65,35 @@ describe('the census panel', () => {
   });
 
   /**
-   * The renderer draws the unresolved field and nothing else. A role that
-   * reaches a building or an area is therefore counted on this panel and drawn
+   * A role the renderer counts and does not draw is counted here and drawn
    * nowhere, and the honest form of that is a sentence rather than a silence —
    * see the comment beside `undrawn` in the component.
+   *
+   * The set shrank on 2026-08-17. Roles on a building are now drawn on it, so
+   * only `area` remains, and this test was rewritten rather than deleted: the
+   * sentence is the guard, and the guard has to keep naming the right rows or
+   * it starts lying in the other direction — claiming a role is missing from a
+   * sky it is standing in.
    */
   it('names the roles it counts but cannot place, rather than counting them and drawing nothing', async () => {
     payload.signals = [signalFixture({ job_id: 'a' })];
-    payload.counts = { building: 1, area: 1, unresolved: 5, total: 7 };
+    payload.counts = { building: 3, area: 1, unresolved: 5, total: 9 };
     act(() => useCityScene.setState({ signals: payload.signals }));
 
     show();
 
-    expect(
-      await screen.findByText(/2 of these are not drawn on this map yet/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/1 of these is not drawn on this map yet/i)).toBeInTheDocument();
+  });
+
+  it('stops calling a placed role undrawn now that it is drawn on its building', async () => {
+    payload.signals = [signalFixture({ job_id: 'a' })];
+    payload.counts = { building: 4, area: 0, unresolved: 5, total: 9 };
+    act(() => useCityScene.setState({ signals: payload.signals }));
+
+    show();
+
+    await screen.findByText(/roles, grouped by employer/i);
+    expect(screen.queryByText(/not drawn on this map/i)).toBeNull();
   });
 
   it('says nothing about undrawn roles when the whole corpus is in the field', async () => {

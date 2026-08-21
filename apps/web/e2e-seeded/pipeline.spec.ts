@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { API, apiFetch } from './api';
+
 /**
  * M2's headline acceptance criterion, walked in a browser:
  *
@@ -26,8 +28,6 @@ import { expect, test, type Page } from '@playwright/test';
 
 test.describe.configure({ mode: 'serial' });
 
-const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000';
-
 /** `next dev` compiles a dynamic route on first request (see search-and-detail.spec.ts). */
 const FIRST_COMPILE = 30_000;
 
@@ -40,17 +40,29 @@ const STAGE_CHIP =
   /^(discovered|saved|preparing|applied|assessment|interview|offer|rejected|withdrawn|closed)( · archived)?$/i;
 
 async function jobAt(offset: number): Promise<{ id: string; title: string }> {
-  const response = await fetch(`${API}/jobs?limit=1&offset=${offset}&status=open`);
+  const response = await apiFetch(`${API}/jobs?limit=1&offset=${offset}&status=open`);
   const body = (await response.json()) as { items: { id: string; title: string }[] };
   expect(body.items.length, 'the seeded corpus has fewer jobs than this test needs').toBe(1);
   return body.items[0]!;
 }
 
+/** The stage words the seeded corpus can hold, for reading one back off the page. */
+const STAGE_WORD =
+  /discovered|saved|preparing|applied|assessment|interview|offer|rejected|withdrawn|closed/i;
+
 /**
  * Open a job, save it if it is not already tracked, and land on its
  * application page with the application in a restored (non-archived) state.
+ *
+ * **Returns the stage it found**, and the caller is expected to put it back.
+ * See the restore step at the foot of each test for why that matters: the
+ * corpus is shared, and the row this file normalises to `saved` is not
+ * necessarily a row this file owns.
  */
-async function openApplication(page: Page, job: { id: string; title: string }): Promise<void> {
+async function openApplication(
+  page: Page,
+  job: { id: string; title: string },
+): Promise<string | null> {
   await page.goto(`/explore/jobs/${job.id}`);
   await expect(page.getByRole('heading', { name: job.title })).toBeVisible({
     timeout: FIRST_COMPILE,
@@ -83,16 +95,37 @@ async function openApplication(page: Page, job: { id: string; title: string }): 
   // up after itself. A test that only survives its own tidy exit is a test
   // that fails the first time somebody interrupts it — and the developer's
   // database is shared with whatever they were doing by hand.
-  if (!/saved/i.test((await page.getByTestId('current-stage').textContent()) ?? '')) {
+  //
+  // Read it *before* normalising, and hand it back to the caller. This file
+  // picks its roles by offset into `/jobs`, which is ordered by `last_seen_at`;
+  // the seed deals its five demo stages by title. Neither knows about the
+  // other, so which demo row this lands on is a coincidence of two unrelated
+  // orderings — and on 2026-08-20 the coincidence was the corpus's only
+  // `interview`, which this file then left at `saved`. `make seed` cannot put
+  // it back (`save_job` skips an application that already exists), so the one
+  // §6 arc on the skyline stayed gone until `make reset-db`, and
+  // `city.spec.ts:837` was red for eight days describing it.
+  const found = (await page.getByTestId('current-stage').textContent()) ?? '';
+  const foundStage = STAGE_WORD.exec(found)?.[0].toLowerCase() ?? null;
+  if (foundStage !== 'saved') {
     await page.getByLabel('Stage').selectOption('saved');
     await page.getByRole('button', { name: /set stage/i }).click();
     await expect(page.getByTestId('current-stage')).toContainText(/saved/i);
   }
+  return foundStage;
+}
+
+/** Put back the stage `openApplication` found, so the corpus survives this file. */
+async function restoreStage(page: Page, stage: string | null): Promise<void> {
+  if (stage === null || stage === 'saved') return;
+  await page.getByLabel('Stage').selectOption(stage);
+  await page.getByRole('button', { name: /set stage/i }).click();
+  await expect(page.getByTestId('current-stage')).toContainText(new RegExp(stage, 'i'));
 }
 
 test('discover, save, apply, track — the whole loop', async ({ page }) => {
   const job = await jobAt(0);
-  await openApplication(page, job);
+  const foundStage = await openApplication(page, job);
 
   // -- apply: we record it, we never submit it -----------------------------
   // Invariant I5, asserted in the browser: there is no control that applies.
@@ -145,17 +178,26 @@ test('discover, save, apply, track — the whole loop', async ({ page }) => {
   await page.getByRole('button', { name: /set stage/i }).click();
   await expect(page.getByTestId('current-stage')).toContainText(/saved/i);
   await expect(history.getByText(/^correction$/i).first()).toBeVisible();
+
+  // And *then* the stage this row actually arrived in. "The state it began in"
+  // was `saved` only by assumption; this file said so for eight days while the
+  // row it began on was the seed's `interview`.
+  await restoreStage(page, foundStage);
 });
 
 test('history cannot be rewritten from the UI', async ({ page }) => {
   const job = await jobAt(1);
-  await openApplication(page, job);
+  const foundStage = await openApplication(page, job);
 
   // No edit and no delete anywhere in the history. The trigger refuses both at
   // the database, and the UI must not offer what the database will refuse.
   const history = page.getByRole('list', { name: /history/i });
   await expect(history.getByRole('button', { name: /edit|delete|remove/i })).toHaveCount(0);
   await expect(page.getByText(/there is no delete/i)).toBeVisible();
+
+  // This test reads rather than writes, but `openApplication` normalised the
+  // stage to get here, so it owes the corpus the same restore.
+  await restoreStage(page, foundStage);
 });
 
 test('the application page names what tracking cannot record yet', async ({ page }) => {

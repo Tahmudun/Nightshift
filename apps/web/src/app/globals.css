@@ -88,6 +88,83 @@
   --color-dusk-500: #5a1d94;
   --color-dusk-300: #a63398;
 
+  /* The city's own light. Surfaces and lines, never a mark, never text.
+   *
+   * M4e. The city renders, is honest, is measured — and looks like a grey model
+   * of New York rather than the thing it was specified to be. The reason is not
+   * an oversight: `city.md` §2.2 said "every building glows is the one thing
+   * this city may never do", and two assertions in `darkStyle.test.ts` turned
+   * that into a build failure. ADR 0029 reverses it. What is left is the
+   * question that rule was answering, which is real: if the streets and the
+   * rooflines light up, what colour are they?
+   *
+   * Not `signal-*`. Four milestones have established that cyan means a job, and
+   * a cyan street grid spends that.
+   *
+   * Not `dusk-*`. Dusk is atmosphere and may never touch an object (§3), and
+   * that ring-fence is the only reason the sky is allowed to be magenta at all.
+   *
+   * Not `alert-*`. Magenta means "something is wrong and you can act on it",
+   * and it is what a hiring building is drawn in.
+   *
+   * So: a family of its own. Electric indigo, hue ~252 — 64 degrees off the
+   * signal cyan and 81 off the alert magenta, far enough from both that a lit
+   * street can never be mistaken for either. It carries **no meaning**. It says
+   * "this is the city", the way a streetlight does.
+   *
+   * The ceiling is a number rather than a taste: every shade stays at least
+   * 20 L* below `signal-400`, and `neon-400` — the brightest — sits 30.4 below.
+   * The stack, brightest last: city (neon, <=55.2 L*) < hiring building
+   * (alert-400, 63.6) < job beacon (signal-400, 85.6). See darkStyle.test.ts
+   * and colour-contrast.test.ts, which hold all three in place. */
+  /**
+   * The city's own *warm* light — lit windows, and nothing else. ADR 0033.
+   *
+   * `neon-*` is the electric indigo everything infrastructural is lit with, and
+   * for two milestones it was the only saturated hue the scenery had, because
+   * every other one carries meaning. The result was a frame with no warm in it
+   * anywhere: two hues thirty degrees apart is not colour, it is a tint. This
+   * family is the opposition — a sodium-lamp amber that no mark may ever be.
+   *
+   * It obeys the same ceiling every scenery colour does: `ember-400` sits 22.9
+   * L* below `signal-400`, so an open role is still the brightest thing on
+   * screen. `palette.test.ts` holds it there.
+   *
+   * Ordered dimmest-first, and the window ramp reads straight down it.
+   */
+  --color-ember-900: #4a2711;
+  --color-ember-700: #8a4a1a;
+  --color-ember-500: #b0611f;
+  /* The warm window — ADR 0034. More golden than `ember-400` and 1.6 L*
+     brighter, still 5.6 under a hiring building. */
+  --color-ember-350: #bf7d2a;
+  --color-ember-400: #cd6e2b;
+
+  --color-neon-900: #2f2170;
+  --color-neon-700: #4733ad;
+  --color-neon-500: #6547d1;
+  /* The building mass — ADR 0034. Seven near-blacks from navy to indigo, and
+     the reason there are seven rather than one is that a skyline of 25,000
+     boxes in a single shade reads as one extruded material. Every step is
+     under 16 L*, so the whole family clears every ceiling trivially. */
+  --color-mass-950: #07061a;
+  --color-mass-900: #0a0924;
+  --color-mass-800: #0d0b32;
+  --color-mass-700: #111044;
+  --color-mass-600: #18104f;
+  --color-mass-500: #21105d;
+  --color-mass-400: #2a1268;
+
+  /* Window light — ADR 0034. Four hues rather than one, because a lit city is
+     polychrome and `neon-*` was written when it was not. Each is a single step
+     because each is a light, not a ramp: nothing dims a window but distance. */
+  --color-aqua-400: #0096cc;
+  --color-azure-400: #168bff;
+  --color-iris-400: #7040ff;
+  --color-fuchsia-400: #e82cff;
+
+  --color-neon-400: #8a6bff;
+
   /* Thin white highlights. Exactly three text weights, and every one of them is
      readable: 17.7:1, 8.1:1, 5.4:1 against ink-950. paper-faint was #5d6e88
      (3.89:1) and failed WCAG AA for the 9-11px labels it is used on, so it was

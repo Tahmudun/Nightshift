@@ -8,11 +8,17 @@
 
 import type { z } from 'zod';
 
+import type { Capture, CaptureList, CaptureStatus, EmploymentType } from './schemas';
+
 import {
   applicationDetailSchema,
   applicationEventSchema,
   applicationListSchema,
   applicationSchema,
+  captureListSchema,
+  captureSchema,
+  identitySchema,
+  sessionSchema,
   companyDetailSchema,
   companyListSchema,
   citySignalsSchema,
@@ -39,6 +45,8 @@ import {
   type Coverage,
   type DailyQueue,
   type Health,
+  type Identity,
+  type Session,
   type JobDetail,
   type JobAdminList,
   type JobList,
@@ -65,7 +73,17 @@ import {
   type WorkAuthorization,
 } from './schemas';
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000';
+/**
+ * Where the browser sends its requests: this app's own origin, under a prefix
+ * that `next.config.ts` rewrites to the API.
+ *
+ * A relative path and not an absolute one, deliberately (M5b, ADR 0037). The
+ * session cookie is only first-party — and therefore only ever sent — because
+ * these requests do not cross an origin. Restoring an absolute URL here signs
+ * everybody out, and the symptom is a 401 on every page rather than a CORS
+ * error naming the cause.
+ */
+export const API_BASE_URL = '/api/ns';
 
 /** Thrown for any non-2xx or unparseable response. Carries the status. */
 export class ApiError extends Error {
@@ -217,6 +235,29 @@ export function fetchJob(jobId: string): Promise<JobDetail> {
 export function fetchMatches(limit = 100): Promise<MatchRanking> {
   return request(`/matches?limit=${limit}`, matchRankingSchema);
 }
+
+/**
+ * The most this endpoint will return, which is the API's `MAX_LIMIT`.
+ *
+ * Here because a caller asked for 500 and got a 422 on every single page load
+ * for as long as that code existed. Nothing broke visibly: TanStack Query turned
+ * the rejection into an error state, the city read it as "no matches", and every
+ * gold beam silently stopped being drawn. **A ceiling one side does not know is
+ * a ceiling that is enforced by an error nobody reads.**
+ *
+ * `tests/test_match_limit_agrees_across_the_stack.py` holds this equal to
+ * `MAX_LIMIT` in `services/api/nightshift/api/routes/matches.py` in both
+ * directions, for the same reason `MAX_BEACONS` and `MAX_SIGNALS` are held
+ * equal: M4c found those two coupled by nothing but a comment, and a comment
+ * does not fail a build.
+ *
+ * It is a real truncation and worth naming: a corpus larger than this gets
+ * treatments for its top-ranked 200 roles and plain beacons for the rest. That
+ * is the honest degradation — an unranked role is drawn as a role nobody has
+ * scored, which is what it is — and it is the reason the number lives somewhere
+ * visible rather than inline at a call site.
+ */
+export const MATCH_LIMIT = 200;
 
 /** Every employer we have ingested a role from. */
 export function fetchCompanies(q?: string): Promise<CompanyList> {
@@ -508,4 +549,105 @@ export async function fetchCitySignals(options?: {
 }): Promise<CitySignals> {
   const query = options?.includeClosed ? '?include_closed=true' : '';
   return request(`/city/signals${query}`, citySignalsSchema);
+}
+
+// ---------------------------------------------------------------------------
+// Manual capture (M5a)
+// ---------------------------------------------------------------------------
+
+/**
+ * Hand a pasted posting to the API and get back what it could read.
+ *
+ * Creates no job. The second call does that, and the split is deliberate —
+ * see `services/api/nightshift/api/routes/capture.py`.
+ */
+export function capturePosting(input: {
+  readonly raw_text: string;
+  readonly source_url?: string | null;
+}): Promise<Capture> {
+  return send('/capture', captureSchema, 'POST', {
+    raw_text: input.raw_text,
+    source_url: input.source_url ?? null,
+  });
+}
+
+export function fetchCaptures(status?: CaptureStatus): Promise<CaptureList> {
+  const query = status ? `?status=${status}` : '';
+  return request(`/capture${query}`, captureListSchema);
+}
+
+/**
+ * The second of the two calls that can turn a proposal into a fact.
+ *
+ * Sends what the *person* approved rather than what the parser proposed, so
+ * the request itself is the record that somebody looked. `confirmExtractions`
+ * above is the same idea for a résumé.
+ */
+export function confirmCapture(
+  captureId: string,
+  approved: {
+    readonly title: string;
+    readonly company_name: string;
+    readonly location_text: string | null;
+    readonly employment_type: EmploymentType;
+  },
+): Promise<Capture> {
+  return send(`/capture/${captureId}/confirm`, captureSchema, 'POST', approved);
+}
+
+export function discardCapture(captureId: string): Promise<Capture> {
+  return send(`/capture/${captureId}/discard`, captureSchema, 'POST', {});
+}
+
+// -- M5b: identity (ADR 0037) ------------------------------------------------
+
+/**
+ * Who the caller is, or `null` when nobody.
+ *
+ * A 401 is an ordinary answer here rather than an error — it is precisely the
+ * question being asked — so it is translated to `null` instead of thrown. Every
+ * other status still throws, because "the API is down" and "you are signed out"
+ * must not look the same to the caller deciding whether to show a sign-in page.
+ */
+export async function fetchMe(): Promise<Identity | null> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/auth/me`, {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+    });
+  } catch {
+    throw new ApiError(`cannot reach the API — is it running? (\`make dev\`)`, null);
+  }
+
+  if (response.status === 401) return null;
+
+  const body: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new ApiError(`/auth/me failed: ${response.statusText}`, response.status);
+  }
+  const parsed = identitySchema.safeParse(body);
+  if (!parsed.success) {
+    throw new ApiError('/auth/me returned an unexpected shape', 200);
+  }
+  return parsed.data;
+}
+
+/** Exchange an email and a password for a session cookie. */
+export async function signIn(email: string, password: string): Promise<Session> {
+  return request('/auth/sign-in', sessionSchema, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+}
+
+/**
+ * End the session and drop the cookie.
+ *
+ * Always succeeds, including when there was no session — the API is deliberately
+ * idempotent here, so a stale cookie can always be shed.
+ */
+export async function signOut(): Promise<void> {
+  await fetch(`${API_BASE_URL}/auth/sign-out`, { method: 'POST', cache: 'no-store' });
 }

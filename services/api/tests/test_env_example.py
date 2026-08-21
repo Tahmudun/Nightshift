@@ -110,7 +110,9 @@ def test_no_key_is_declared_twice() -> None:
         "HTTP_USER_AGENT",
         "OUTBOUND_HTTP_ENABLED",
         "DEV_USER_ID",
-        "NEXT_PUBLIC_API_BASE_URL",
+        # M5b: the browser reaches the API through the web app's own origin,
+        # so what the deployment needs is the rewrite target, not a public URL.
+        "API_ORIGIN",
     ],
 )
 def test_required_key_is_present(key: str) -> None:

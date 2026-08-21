@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { API, apiFetch } from './api';
+
 /**
  * M1b's UI half: "ingestion failures are visible in the UI, not just logs."
  *
@@ -12,8 +14,6 @@ import { expect, test } from '@playwright/test';
  * in the same words then the invariant holds in the database and fails for the
  * person actually reading it.
  */
-
-const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000';
 
 interface AdminRow {
   readonly title: string;
@@ -28,7 +28,7 @@ interface AdminList {
 }
 
 async function fetchAdmin(): Promise<AdminList> {
-  const response = await fetch(`${API}/jobs/admin`);
+  const response = await apiFetch(`${API}/jobs/admin`);
   expect(response.ok, `GET ${API}/jobs/admin failed — is the seeded stack up?`).toBe(true);
   return (await response.json()) as AdminList;
 }

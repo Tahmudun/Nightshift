@@ -28,11 +28,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 import yaml
 
 from nightshift.domain.geocoding import names_a_street
+
+# `parents[4]` from `nightshift/domain/company_locations.py` is the repo root,
+# matching `domain/registry.py`. `parents[3]` is `services/`.
+_REPO_ROOT = Path(__file__).resolve().parents[4]
+DEFAULT_WORKSHEET_PATH = _REPO_ROOT / "data" / "company-locations.yaml"
 
 
 @dataclass(frozen=True, slots=True)

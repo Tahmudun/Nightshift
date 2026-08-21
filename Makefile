@@ -28,7 +28,7 @@ LOADENV := set -a && source .env && set +a
         test-e2e check fmt lint typecheck reset-db ingest logs ps clean doctor \
         verify acceptance test-e2e-seeded browsers drift constraints \
         discover registry-validate registry-approve registry-approve-write coverage \
-        worksheets score tiles tiles-strict
+        worksheets score tiles tiles-strict offices
 
 help: ## Show available targets
 	@echo "Nightshift — make targets"
@@ -121,6 +121,21 @@ seed: setup ## Load fixture data (dev user, demo profile, sources, companies, jo
 
 score: setup ## Run the match sweep now instead of waiting for the worker's cron
 	@$(LOADENV) && $(PY) -m nightshift.cli score
+
+# The one command that can put a building under a job. `city.md` §4.4: no ATS
+# posting names a street, so a beacon reaches a roof only by inheriting an
+# office a named human wrote down and dated in data/company-locations.yaml.
+#
+# Run by a person, never scheduled, and deliberately not part of `demo` or
+# `acceptance`: geocoding is a live request to NYC GeoSearch, and a target that
+# reaches the network on every run would break the offline guarantee. The
+# answers are cached permanently, so once this has run the buildings it placed
+# survive into an offline `make demo`.
+#
+# Exits 1 if the worksheet refused an entry — that is a defect in the file, and
+# it should be as loud as a failing test.
+offices: setup ## Load data/company-locations.yaml -> geocode -> company_locations
+	@$(LOADENV) && $(PY) -m nightshift.cli offices
 
 reset-db: ## Drop, recreate, migrate, seed
 	@$(COMPOSE) down -v

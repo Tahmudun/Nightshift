@@ -4,6 +4,8 @@ import { join } from 'node:path';
 
 import { expect, test } from '@playwright/test';
 
+import { API, apiFetch } from './api';
+
 /**
  * M3c in a browser: the score, and everything it is made of.
  *
@@ -37,8 +39,6 @@ import { expect, test } from '@playwright/test';
  * that it would report "the corpus is not scored" and be telling the truth
  * about a database another spec emptied thirty seconds earlier.
  */
-
-const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000';
 
 /** `next dev` compiles a dynamic route on first request (see search-and-detail.spec.ts). */
 const FIRST_COMPILE = 30_000;
@@ -117,7 +117,7 @@ const collapse = (s: string) => s.replace(/\s+/g, ' ').trim();
 async function readJson<T>(path: string): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     try {
-      return (await (await fetch(`${API}${path}`)).json()) as T;
+      return (await (await apiFetch(`${API}${path}`)).json()) as T;
     } catch (error) {
       if (attempt > 0) throw error;
     }

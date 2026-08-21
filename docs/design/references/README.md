@@ -1,9 +1,18 @@
 # Visual references
 
 Four images supplied by the human on 2026-08-11, before M4 began, as the intended
-feel for the city. They are reference, not target: none of them is a picture of
-what Nightshift should look like, because all four light every building and
-Nightshift lights only the ones with something to say.
+feel for the city.
+
+> **This file used to say "they are reference, not target", and that sentence
+> was wrong — ADR 0029, 2026-08-16.** The reasoning was that all four light
+> every building while Nightshift lights only the ones with something to say, so
+> the images could set a mood and never a goal. It was tidy and it cost two
+> milestones. On 2026-08-13 `04-edge-outlined-towers-starfield.jpg` was handed
+> back, byte-for-byte the same file, with the note that the vision had not been
+> met. **These are the target.** What the old sentence was actually protecting —
+> that a lit building must mean something — is protected now by hue, shape and a
+> stated brightness margin instead: the scenery is neon and carries nothing, a
+> hiring building is magenta, an open role is cyan and brighter than either.
 
 What each one is here for is written in `docs/architecture/city.md` §2, which is
 the document that turns them into rules. Summary:

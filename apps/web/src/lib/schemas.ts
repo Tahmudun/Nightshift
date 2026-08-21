@@ -1258,3 +1258,92 @@ export const citySignalsSchema = z.object({
   truncated: z.boolean(),
 });
 export type CitySignals = z.infer<typeof citySignalsSchema>;
+
+// ---------------------------------------------------------------------------
+// Manual capture (M5a)
+// ---------------------------------------------------------------------------
+
+/**
+ * The `sources.name` every captured posting is attributed to.
+ *
+ * Mirrors `CAPTURE_SOURCE_NAME` in `nightshift/domain/capture.py`, and
+ * `test_enum_parity.py` asserts the two agree. A drift here does not raise —
+ * it silently stops rendering the "added by hand" badge, which is I7 failing
+ * quietly, which is the worst way for it to fail.
+ */
+export const CAPTURE_SOURCE_NAME = 'manual_capture';
+
+/**
+ * The `sources.source_type` a captured posting carries.
+ *
+ * The same string as `CAPTURE_SOURCE_NAME` and a different fact: one is which
+ * source it is, the other is what kind of source that is. Compared separately
+ * because they are free to diverge — a second capture surface (M5d's assisted
+ * capture) would be a new source *name* of this same *type*, and code that had
+ * conflated them would stop labelling it.
+ */
+export const CAPTURE_SOURCE_TYPE = 'manual_capture';
+
+/** Three values. A capture is a proposal until a person decides. */
+export const captureStatusSchema = z.enum(['pending', 'confirmed', 'discarded']);
+export type CaptureStatus = z.infer<typeof captureStatusSchema>;
+
+/**
+ * What the parser offered, and every field may be null.
+ *
+ * `.nullable()` here is not defensive typing — it is the contract. The parser
+ * is built to decline, and a client that treats null as "render an empty box"
+ * gets a person typing two words. One that treats it as "guess something"
+ * gets a job standing on the wrong building.
+ */
+export const captureProposalSchema = z.object({
+  title: z.string().nullable(),
+  company_name: z.string().nullable(),
+  location_text: z.string().nullable(),
+  employment_type: employmentTypeSchema.nullable(),
+});
+export type CaptureProposal = z.infer<typeof captureProposalSchema>;
+
+export const captureSchema = z.object({
+  id: z.string().uuid(),
+  status: captureStatusSchema,
+  source_url: z.string().nullable(),
+  raw_text: z.string(),
+  proposed: captureProposalSchema,
+  parser_version: z.string(),
+  /** Null until confirmed. The API's schema makes the other combination impossible. */
+  job_id: z.string().uuid().nullable(),
+  created_at: z.string().datetime({ offset: true }),
+  decided_at: z.string().datetime({ offset: true }).nullable(),
+});
+export type Capture = z.infer<typeof captureSchema>;
+
+export const captureListSchema = z.object({
+  captures: captureSchema.array(),
+  total: z.number(),
+});
+export type CaptureList = z.infer<typeof captureListSchema>;
+
+// -- M5b: identity (ADR 0037) ------------------------------------------------
+
+/** Who the caller is. What `GET /api/ns/auth/me` answers. */
+export const identitySchema = z.object({
+  id: z.string().uuid(),
+  email: z.string(),
+  display_name: z.string().nullable(),
+});
+export type Identity = z.infer<typeof identitySchema>;
+
+/**
+ * Identity plus how long this sign-in lasts. Only the route that just minted a
+ * session knows the expiry, which is why it is a separate shape from
+ * `identitySchema` rather than an optional field on it.
+ *
+ * There is deliberately no token here. It arrives as an httpOnly cookie that
+ * this code cannot read, and that is the property that makes an XSS on any page
+ * unable to walk off with a login.
+ */
+export const sessionSchema = identitySchema.extend({
+  expires_at: z.string().datetime({ offset: true }),
+});
+export type Session = z.infer<typeof sessionSchema>;

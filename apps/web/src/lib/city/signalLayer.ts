@@ -3,12 +3,19 @@
  *
  * `city.md` §5.1 calls this the single most consequential technical decision in
  * M4 and asks for an ADR; it is ADR 0025. The short version: MapLibre owns the
- * projection, the camera, the basemap and the building extrusion, and Three.js
- * draws the signal layers **into MapLibre's own context** rather than onto a
- * second canvas stacked over it. One context, one camera, one depth buffer —
- * two stacked canvases would drift out of register on every gesture and would
- * share no depth, so a beacon could not be occluded by a building in front of
- * it, and occlusion is most of what makes a scene read as three-dimensional.
+ * projection, the camera and the basemap, and Three.js draws everything above
+ * it **into MapLibre's own context** rather than onto a second canvas stacked
+ * over it. One context, one camera, one depth buffer — two stacked canvases
+ * would drift out of register on every gesture and would share no depth, so a
+ * beacon could not be occluded by a building in front of it, and occlusion is
+ * most of what makes a scene read as three-dimensional.
+ *
+ * **Since ADR 0031 the buildings are here too.** MapLibre used to own the
+ * skyline as well, as a `fill-extrusion`; it is now `cityBuildings.ts` in this
+ * scene, for the reason that decision spells out at length — an extrusion's one
+ * expressive channel is a colour ramp, and everything the reference images
+ * build a tower out of is beyond it. So this file's scene is the whole visible
+ * city, not just what is floating over it.
  *
  * **Scene coordinates are metres, relative to a fixed anchor.** Mercator units
  * are a fraction of the world and vary in metres-per-unit with latitude, which
@@ -39,11 +46,14 @@ import type {
 } from 'maplibre-gl';
 import { Camera, Matrix4, Scene, Vector3, WebGLRenderer } from 'three';
 
+import { cameraDistanceMetres, HAZE_CAMERA_DISTANCES } from '@/lib/map/skyLayer';
 import type { CitySignal } from '@/lib/schemas';
 
 import {
   ARCHIVED_COLOR,
-  BEACON_RADIUS,
+  COLUMN_BASE,
+  COLUMN_HEIGHT,
+  COLUMN_RADIUS,
   createBeaconMesh,
   DIM_FACTOR,
   MAX_BEACONS,
@@ -52,12 +62,17 @@ import {
   SIGNAL_COLOR,
   type Beacon,
 } from './beacon';
+import { createBloom, type Bloom } from './bloom';
 import { createLabelMesh } from './labelMesh';
 import { createMarkMesh, MARK_KINDS, type Mark, type MarkKind } from './markMesh';
 import { mercatorFromLngLat, metreInMercatorUnits } from './mercator';
 import { pickInstance, sceneRayFromPointer, type PointerPoint, type Viewport } from './pick';
 import { createSelectionMesh } from './selectionMesh';
 import type { SignalTreatment } from './treatments';
+import { arrangeOnBuildings, type HiringBuilding } from './buildingField';
+import type { TileFootprint } from './buildingGeometry';
+import { cameraPositionFrom, createCityBuildings } from './cityBuildings';
+import { createRoofBeamMesh } from './roofBeamMesh';
 import {
   arrangeUnresolved,
   type FieldColumn,
@@ -65,13 +80,30 @@ import {
   type FieldSort,
 } from './unresolvedField';
 
+/**
+ * Do two roof-height lookups say the same thing?
+ *
+ * By value rather than by reference, because `refreshRoofHeights` builds a
+ * fresh `Map` from the same tiles on every camera settle and would otherwise
+ * look like a change every single time.
+ */
+function sameHeights(
+  a: ReadonlyMap<string, number> | undefined,
+  b: ReadonlyMap<string, number>,
+): boolean {
+  if (a === undefined) return false;
+  if (a.size !== b.size) return false;
+  for (const [bin, metres] of b) if (a.get(bin) !== metres) return false;
+  return true;
+}
+
 /** The layer's id in the style, and the handle every test reaches for. */
 export const SIGNAL_LAYER_ID = 'nightshift-signals';
 
 // Re-exported rather than moved-and-forgotten: these lived here for two tasks
 // and `beacon.ts` is where they belong now, but every caller that had the old
 // import is still right about what it wanted.
-export { BEACON_RADIUS, MAX_BEACONS, SIGNAL_COLOR };
+export { COLUMN_BASE, COLUMN_HEIGHT, COLUMN_RADIUS, MAX_BEACONS, SIGNAL_COLOR };
 
 /**
  * `verdant-400` — an offer, and nothing else in the product (§6).
@@ -128,9 +160,51 @@ export const MAX_MARKS = 500;
  */
 const RING_TURNS_PER_SECOND = 1 / 6;
 
+/**
+ * What share of a frame may go on building city, and the floor and ceiling.
+ *
+ * **A share rather than a fixed number, and the fixed number was the
+ * instructive mistake.** The first draft spent 4 ms a frame: a quarter of a
+ * 60fps frame, which assembles the whole of New York — 35,413 footprints,
+ * 269,439 points, something under a second of work — over about three seconds
+ * of frames, with every one of them still landing on time. On a machine whose
+ * frames take 600 ms, the same 4 ms is 0.7% of each one, and the city takes a
+ * hundred seconds to appear. That is not a hypothetical: it is what headless
+ * Chromium does here, and it is what a genuinely slow GPU would do to a user.
+ *
+ * Taking a quarter of whatever the last frame actually cost makes the wall
+ * clock roughly constant instead: fast machines get many small slices, slow
+ * ones get few large ones, and neither ever gives up more than a quarter of a
+ * frame to it. The ceiling stops a single stalled frame — a tab coming back
+ * from the background, where the delta is seconds — from turning into one very
+ * long block of work.
+ */
+const BUILD_FRAME_SHARE = 0.25;
+const BUILD_BUDGET_MIN_MS = 4;
+const BUILD_BUDGET_MAX_MS = 60;
+
+/**
+ * The haze scale used before the map can be asked for one.
+ *
+ * Only reachable on a frame rendered without a map — which is how the unit
+ * tests drive this layer. A zero would divide the fog by nothing and paint
+ * every building flat magenta, which is a wrong picture that looks deliberate.
+ */
+const DEFAULT_HAZE_METRES = 25_000;
+
 export interface SignalLayerOptions {
   /** Scene origin. Everything is metres from here. */
   readonly anchor: readonly [number, number];
+  /**
+   * Called once, the first time the whole city has been built and drawn.
+   *
+   * This is how ADR 0031's "the city never goes buildingless in between" is
+   * made mechanical: MapLibre's own extrusion layers stay in the style and
+   * stay visible until this fires, and only then does the caller retire them.
+   * A boolean the caller polls would be the same rule enforced by remembering
+   * to look, which is not enforcement.
+   */
+  readonly onBuildingsReady?: () => void;
 }
 
 /**
@@ -148,6 +222,20 @@ export interface SignalLayer extends CustomLayerInterface {
    * after — see `arrangeUnresolved`.
    */
   setSignals(signals: readonly CitySignal[], sort?: FieldSort): void;
+  /**
+   * Tell the layer how tall the hiring buildings are, by BIN, in metres.
+   *
+   * Separate from `setSignals` because the two arrive from different places
+   * and in either order: the roles come from `/city/signals` and the heights
+   * come from building tiles the map loads as the camera moves, which on a
+   * still map may be long after. A layer that read heights only at
+   * `setSignals` would strand every stack at `DEFAULT_ROOF_METRES` until
+   * something else happened to re-set the signals.
+   *
+   * It moves markers **up and down their own building** and can move nothing
+   * else. The floating field has no roof to settle onto and is untouched.
+   */
+  setRoofHeights(heights: ReadonlyMap<string, number>): void;
   /**
    * Apply §6's encoding: which role carries which mark, colour and pulse.
    *
@@ -191,8 +279,36 @@ export interface SignalLayer extends CustomLayerInterface {
    * repainting is how a pulse freezes mid-breath.
    */
   readonly animating: boolean;
+  /**
+   * The clock the beacon shader is currently drawing with, in seconds.
+   *
+   * Exposed because "the city animates" is otherwise a claim only a person
+   * watching it can check, and the thing that broke it — a repaint that stops
+   * being asked for — leaves a perfectly correct shader drawing one frame
+   * forever. `city-acceptance.spec.ts` reads this twice and requires it to have
+   * moved.
+   */
+  readonly clockAt: number;
   /** The columns as laid out, in order: what the roster panel navigates by. */
   readonly columns: readonly FieldColumn[];
+  /**
+   * The buildings with somebody hiring in them, in the order they were laid
+   * out.
+   *
+   * Exposed for the same reason `columns` is: the beam layer and anything that
+   * flies a camera to a building need the BIN and the position this layout
+   * already computed, and recomputing them elsewhere would be a second
+   * implementation free to disagree with this one.
+   */
+  readonly buildings: readonly HiringBuilding[];
+  /**
+   * How many times the layout has actually run.
+   *
+   * Exposed for one assertion nothing else can make: a roof height arriving
+   * *unchanged* must not rebuild the city. The effect of the bug is invisible —
+   * the same city, drawn again — so the count is the only evidence there is.
+   */
+  readonly layouts: number;
   /** How many employers have a name plate. */
   readonly labelled: number;
   /** Employers past the atlas ceiling, which have no plate. */
@@ -245,6 +361,56 @@ export interface SignalLayer extends CustomLayerInterface {
   readonly selectionAt: readonly [number, number, number] | null;
   /** Has a frame been drawn? Until it has, `pick` cannot answer. */
   readonly canPick: boolean;
+  /**
+   * Hand the layer whatever building footprints the map currently has loaded.
+   *
+   * ADR 0031: the towers are ours now, and they are built from the same tiles
+   * MapLibre parsed for its own extrusions rather than from a second copy of
+   * NYC's building table. Footprints already known are ignored, so this is
+   * safe — and cheap — to call on every tile arrival.
+   */
+  ingestFootprints(features: readonly TileFootprint[]): void;
+  /**
+   * Switch the glow on or off.
+   *
+   * M4d Task 2 owns the quality tiers and has not run yet, so this is the knob
+   * that task will reach for rather than a setting with a home of its own. It
+   * exists now for two reasons that cannot wait for it: bloom is the most
+   * expensive thing this layer does per pixel and the frame report has to be
+   * able to measure the city with and without it in the same window, and the
+   * screenshot loop ADR 0031 works by needs a before to put beside the after.
+   */
+  setBloom(enabled: boolean): void;
+  /**
+   * What the glow is doing: whether it is on, whether this GPU can run it at
+   * all, and how many frames it has actually drawn on.
+   *
+   * `available` is false on a WebGL 1 context, where `blitFramebuffer` does not
+   * exist. That is a real machine — MapLibre asks for WebGL 2 and falls back —
+   * and the honest behaviour there is a city with no glow, said out loud,
+   * rather than a city that renders black or an effect that silently does
+   * nothing while the page claims it is on.
+   */
+  readonly bloom: {
+    readonly enabled: boolean;
+    readonly available: boolean;
+    readonly drawn: number;
+  };
+  /**
+   * What the city renderer has on the GPU, and what it still owes.
+   *
+   * Exposed for the same reason `drawn` is: a page that says "35,000
+   * buildings" while the buffer holds four is the failure mode M4c's
+   * acceptance suite caught once already, and a count nothing can read is a
+   * count nothing can contradict.
+   */
+  readonly city: {
+    readonly ready: boolean;
+    readonly pending: number;
+    readonly buildings: number;
+    readonly meshes: number;
+    readonly vertices: number;
+  };
 }
 
 /**
@@ -289,16 +455,63 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
   const labels = createLabelMesh();
   scene.add(labels.mesh);
 
+  // The hiring buildings' beams. Added before the reticle and after the marks
+  // so it draws in the same pass; it writes no depth, so its order among the
+  // transparent meshes decides only how it blends, not what hides it.
+  const beams = createRoofBeamMesh();
+  scene.add(beams.mesh);
+
   // The reticle. In the same scene for the same reason the plates are: it
   // shares the depth buffer, so a ring around a role behind a tower is hidden
   // by that tower exactly as the role is.
   const reticle = createSelectionMesh();
   scene.add(reticle.mesh);
 
+  // New York itself — ADR 0031. It joins this scene rather than getting a
+  // custom layer of its own for one reason: a second `WebGLRenderer` on
+  // MapLibre's context would be two libraries caching two beliefs about the
+  // same GL state, and this one already pays `resetState()` once a frame to
+  // settle that argument with MapLibre alone. Sharing the scene also means the
+  // buildings share the depth buffer with the beacons standing on them, which
+  // is the whole reason ADR 0025 put Three in MapLibre's context at all.
+  //
+  // It is opaque and depth-writing, so Three draws it before every transparent
+  // mesh above regardless of the order things were added here.
+  const cityBuildings = createCityBuildings({ anchor: options.anchor });
+  scene.add(cityBuildings.group);
+  /** Fired once, when the city has been built end to end. See the option. */
+  let announcedBuildings = false;
+  /** Where the camera stood on the last frame, in scene metres. */
+  const eye = new Vector3();
+  /** When the last frame was drawn, for the build budget's share of one. */
+  let lastRenderAt: number | null = null;
+
   let renderer: WebGLRenderer | null = null;
+  /**
+   * The glow. Built in `onAdd` against MapLibre's own context, because it reads
+   * the frame back out of that context and cannot be given one of its own.
+   */
+  let bloom: Bloom | null = null;
+  let bloomEnabled = true;
   let map: MapLibreMap | null = null;
   let drawn = 0;
   let columns: readonly FieldColumn[] = [];
+  /** The buildings with somebody hiring in them, as the last layout found them. */
+  let buildings: readonly HiringBuilding[] = [];
+  /**
+   * Measured roof heights by BIN, as the loaded building tiles report them.
+   *
+   * Empty until something fills it, and a miss is a documented default rather
+   * than an error — see `DEFAULT_ROOF_METRES`. It decides how high a marker
+   * hangs and never where it stands, so a stale or absent height cannot move a
+   * role off its building.
+   */
+  let roofHeights: ReadonlyMap<string, number> | undefined;
+  /** The last corpus and sort, so a roof height can re-run the layout. */
+  let lastSignals: readonly CitySignal[] = [];
+  let lastSort: FieldSort = 'company';
+  /** How many times the layout has run. Read by one test; see `layouts`. */
+  let layouts = 0;
   /** Where each drawn role is, in the buffer's own order. Index ↔ instance. */
   let placements: readonly FieldPlacement[] = [];
   let selected: string | null = null;
@@ -358,10 +571,19 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       if (treatment === undefined) continue;
       const at = { x: placement.x, y: placement.y, z: placement.altitude };
       if (treatment.track === 'saved') byKind.outline.push({ ...at, tint: SAVED_COLOR });
-      // §6 asks an applied role to be "solid illuminated". Nothing here stands
-      // on a building to illuminate, so the beacon itself fills in: a core at
-      // most of the body's own radius, which reads as solid matter rather than
-      // as more glow. At the small default size it read as nothing at all.
+      // §6 asks an applied role to be "solid illuminated". The beacon's own
+      // body fills instead: a core at most of its radius, which reads as solid
+      // matter rather than as more glow. At the small default size it read as
+      // nothing at all.
+      //
+      // The original reason was that nothing in this corpus stood on a building
+      // to illuminate. Since M4e Task 6 some roles do, and the translation is
+      // kept for a better reason: **an application's state must not be drawn
+      // differently depending on whether the employer published an address.**
+      // Lighting the building for a placed role and filling the beacon for a
+      // floating one would make the same fact about you look like two facts,
+      // and would make the loudest version of it the one that happens to have
+      // a street address.
       if (treatment.track === 'applied') {
         byKind.core.push({ ...at, tint: SIGNAL_COLOR, scale: APPLIED_CORE_SCALE });
       }
@@ -483,6 +705,42 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       return marks[kind].scaleAt(index);
     },
 
+    ingestFootprints(features) {
+      cityBuildings.ingest(features);
+      // The build happens inside the render loop, on a frame budget — so
+      // something has to ask for a frame, or a city handed footprints while
+      // nothing is animating waits for the next gesture to draw itself.
+      map?.triggerRepaint();
+    },
+
+    setBloom(enabled) {
+      bloomEnabled = enabled;
+      // A repaint, because nothing else is going to ask for one: the city is
+      // deliberately still when nothing animates, so switching the glow off on
+      // an idle map would leave the last bloomed frame on screen until the
+      // next gesture — which reads as the setting having no effect.
+      map?.triggerRepaint();
+    },
+
+    get bloom() {
+      return {
+        enabled: bloomEnabled,
+        available: bloom?.available ?? false,
+        drawn: bloom?.drawn ?? 0,
+      };
+    },
+
+    get city() {
+      const stats = cityBuildings.stats;
+      return {
+        ready: cityBuildings.ready,
+        pending: cityBuildings.pending,
+        buildings: stats.buildings,
+        meshes: stats.meshes,
+        vertices: stats.vertices,
+      };
+    },
+
     tintAt(index) {
       return beacons.tintAt(index);
     },
@@ -505,8 +763,20 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       return !reducedMotion && (beacons.animating || marks.ring.drawn > 0);
     },
 
+    get clockAt() {
+      return beacons.timeAt;
+    },
+
     get columns() {
       return columns;
+    },
+
+    get buildings() {
+      return buildings;
+    },
+
+    get layouts() {
+      return layouts;
     },
 
     get labelled() {
@@ -554,13 +824,42 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
     },
 
     setSignals(signals, sort = 'company') {
+      // Two fields, one buffer. `arrangeOnBuildings` takes the roles somebody
+      // confirmed an address for and stands them on it; `arrangeUnresolved`
+      // takes the rest. Each owns its own filter, so a role appears in exactly
+      // one of them — and neither can be forgotten by a caller, which is the
+      // failure that draws a role twice and reads as two openings.
+      //
+      // **Placed roles come first in the buffer**, ahead of the floating field.
+      // Any fixed order would do; what matters is that there *is* one, because
+      // `jobAt`, `pick` and the reticle all index into this array and a buffer
+      // whose order depended on which field happened to be non-empty would put
+      // the reticle on a different role than the one that was clicked.
+      // Kept so a later roof height can re-run this layout without the caller
+      // having to hold the corpus and hand it back. The two inputs arrive from
+      // different fetches in either order and each has to be able to produce
+      // the finished city on its own — the same rule `writeTreatments` follows
+      // one setter over.
+      lastSignals = signals;
+      lastSort = sort;
+      layouts += 1;
+
+      const roofs = arrangeOnBuildings(signals, options.anchor, roofHeights);
       const field = arrangeUnresolved(signals, sort);
-      const count = Math.min(field.placements.length, MAX_BEACONS);
+      const all = [...roofs.placements, ...field.placements];
+
+      const count = Math.min(all.length, MAX_BEACONS);
       columns = field.columns;
+      buildings = roofs.buildings;
+      // One beam per hiring building, rewritten with the layout rather than
+      // edited alongside it: a beam left at the last city's coordinates would
+      // stand over a building nobody is hiring in, which is the exact class of
+      // stale-instance bug the reticle and the marks have each paid for once.
+      beams.set(roofs.buildings);
       // Truncated to what is actually in the buffer, so index ↔ instance holds
       // at the ceiling too. Keeping the full list here would let `pick` name a
       // role that was never drawn, for a click that hit the beacon after it.
-      placements = field.placements.slice(0, count);
+      placements = all.slice(0, count);
 
       // Every body and every mark, from the field and §6's table. The marks
       // are rewritten here and not only in `setTreatments` because a sort
@@ -582,6 +881,23 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       map?.triggerRepaint();
     },
 
+    setRoofHeights(heights) {
+      // Compared by value, because a fresh `Map` with identical contents is
+      // what arrives on every camera settle — `refreshRoofHeights` re-queries
+      // the same tiles and gets the same answer. A reference check would treat
+      // each one as a change and rebuild the whole corpus on every pan-stop,
+      // which at `MAX_BEACONS` is five thousand transforms to arrive at the
+      // identical city.
+      if (sameHeights(roofHeights, heights)) return;
+      roofHeights = heights;
+      // Re-runs the whole layout rather than editing altitudes in place. The
+      // stacks are the only thing a height can move, but re-arranging is the
+      // version that cannot drift from `arrangeOnBuildings` — an in-place edit
+      // would be a second implementation of the same sum, free to disagree
+      // with it the first time the clearance changes.
+      this.setSignals(lastSignals, lastSort);
+    },
+
     setTreatments(next) {
       treatments = next;
       writeTreatments();
@@ -599,6 +915,13 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       // uniform would have been one line and would have left the *data* saying
       // the city is animating while the shader quietly ignored it.
       writeTreatments();
+      // The ambient rise is the exception, and it is the exception for the
+      // reason the rule exists: it is not a fact about any role, so there is
+      // nothing in the buffer for it to be honest about. Switching it off has
+      // to draw every column *whole* — without this the shader keeps the last
+      // clock it was handed and a reduced-motion city is a field of columns
+      // cut off a third of the way up.
+      beacons.setMotion(!reduced);
       orientMarks();
       map?.triggerRepaint();
     },
@@ -622,6 +945,12 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       // MapLibre has already drawn the city into this buffer. Clearing would
       // erase it and leave beacons floating on black.
       renderer.autoClear = false;
+
+      // The glow reads the finished frame back out of this same buffer, which
+      // is only the finished frame because this layer is the last one in the
+      // style — see `bloom.ts`. If anything is ever inserted above it, the
+      // glow stops covering whatever that is, silently.
+      bloom = createBloom(gl);
     },
 
     render(_gl: WebGLRenderingContext | WebGL2RenderingContext, args: CustomRenderMethodInput) {
@@ -659,9 +988,60 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       // second one from the map's pose — see the head of `pick.ts`.
       projection = camera.projectionMatrix;
 
-      if (!renderer || drawn === 0) return;
+      if (!renderer) return;
 
-      if (layer.animating) {
+      // **Not `drawn === 0`, which is what this used to return on.** The scene
+      // held nothing but signals then, so an empty corpus meant an empty
+      // frame. It now holds New York (ADR 0031), and a city that refused to
+      // draw itself until somebody was hiring would be the most confusing
+      // possible expression of I7.
+
+      // Where the camera is, out of the matrix this frame will draw with —
+      // never out of a second derivation from the pose. The haze needs it per
+      // pixel and the eviction needs it per cell, and a camera position that
+      // disagreed with the projection by a metre would fog the city from
+      // slightly the wrong place, which reads as nothing at all being wrong.
+      cameraPositionFrom(camera.projectionMatrix, eye);
+      // The beacons need it too, and for a reason that is not the haze's: a
+      // column's soft edge is the fraction of the tube the eye looks through,
+      // and this renderer's model-view carries no view rotation to derive that
+      // from. See `vThickness` in `beacon.ts`.
+      beacons.setEye(eye.x, eye.y, eye.z);
+      cityBuildings.setCamera(
+        eye,
+        map === null
+          ? DEFAULT_HAZE_METRES
+          : HAZE_CAMERA_DISTANCES *
+              cameraDistanceMetres(
+                map.getZoom(),
+                map.getCenter().lat,
+                map.getCanvas().clientHeight,
+                args.fov,
+              ),
+      );
+
+      // The column's two pixel floors need the surface's size in both
+      // directions — see `MIN_COLUMN_WIDTH_PX` and `MIN_COLUMN_HEIGHT_PX`.
+      // Read from the same canvas the haze above reads.
+      if (map !== null) {
+        const canvas = map.getCanvas();
+        beacons.setViewport(canvas.clientWidth, canvas.clientHeight);
+      }
+
+      // A slice of city per frame. The budget is what keeps 35,000 footprints
+      // from arriving as one dropped second — see `cityBuildings.ts`.
+      const now = performance.now();
+      const frameMs = lastRenderAt === null ? 16.7 : now - lastRenderAt;
+      lastRenderAt = now;
+      const building = cityBuildings.step(
+        Math.min(BUILD_BUDGET_MAX_MS, Math.max(BUILD_BUDGET_MIN_MS, BUILD_FRAME_SHARE * frameMs)),
+      );
+      if (!building && !announcedBuildings) {
+        announcedBuildings = true;
+        options.onBuildingsReady?.();
+      }
+
+      if (layer.animating && drawn > 0) {
         if (clockStartedAt === null) clockStartedAt = performance.now();
         beacons.tick(elapsed());
         orientMarks();
@@ -674,13 +1054,25 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       renderer.resetState();
       renderer.render(scene, camera);
 
+      // **Last, and it has to be last.** This reads the colour buffer back and
+      // adds a blurred copy of its bright half on top, so anything drawn after
+      // it is a thing with no glow sitting on a city that has one. The signal
+      // layer being the final layer in the style is what makes that true, and
+      // it is asserted nowhere — a `beforeId` in `CityMap` would break it
+      // without failing anything.
+      if (bloomEnabled) bloom?.apply();
+
       // Deliberately *not* unconditional. A `triggerRepaint()` on every frame
       // is how every Three-in-MapLibre example animates, and it is also how a
       // map pins a core at 60fps forever with nothing moving on it. The next
       // frame is asked for only while something is actually moving — a pulse
       // or a ring — and under `prefers-reduced-motion` nothing ever is, so the
       // city goes completely still rather than animating invisibly.
-      if (layer.animating) map?.triggerRepaint();
+      //
+      // A city still assembling counts as moving, and stops counting the frame
+      // it finishes. That is a bounded number of frames after a tile lands,
+      // not a standing subscription to the display's refresh rate.
+      if (layer.animating || building) map?.triggerRepaint();
     },
 
     onRemove(removedMap) {
@@ -695,7 +1087,11 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       beacons.dispose();
       for (const kind of MARK_KINDS) marks[kind].dispose();
       labels.dispose();
+      beams.dispose();
       reticle.dispose();
+      // The largest allocation this layer holds by a wide margin — a hundred
+      // megabytes of New York across a few dozen buffers.
+      cityBuildings.dispose();
       // The geometries and materials above are this layer's; the compiled
       // programs and render lists behind them are the *renderer's*, and nulling
       // the reference leaves them on the GPU. It is a bounded leak today
@@ -707,10 +1103,16 @@ export function createSignalLayer(options: SignalLayerOptions): SignalLayer {
       //
       // `dispose()` and not `forceContextLoss()`: the context belongs to
       // MapLibre, which is still drawing New York with it.
+      // Its own programs, buffers and half a dozen render targets — a few
+      // megabytes of texture that outlive the page's teardown otherwise.
+      bloom?.dispose();
+      bloom = null;
       renderer?.dispose();
       renderer = null;
       map = null;
       columns = [];
+      buildings = [];
+      lastRenderAt = null;
       placements = [];
       treatments = new Map();
       selected = null;

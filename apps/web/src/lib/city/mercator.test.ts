@@ -5,6 +5,7 @@ import {
   lngLatFromScene,
   mercatorFromLngLat,
   metreInMercatorUnits,
+  sceneFromLngLat,
 } from './mercator';
 
 /**
@@ -156,6 +157,30 @@ describe('lngLatFromScene', () => {
     // a whole field by a quarter and looks like a design choice.
     const [, lat] = lngLatFromScene(ANCHOR, 0, 1_110);
     expect(lat - ANCHOR[1]).toBeCloseTo(0.01, 3);
+  });
+
+  it('puts a real coordinate back where it came from', () => {
+    // `sceneFromLngLat` is the direction a *placed* role travels: an office was
+    // geocoded to a point on Earth and the scene has to draw it there. The
+    // unresolved field never uses it, because nothing in that field has a
+    // position to convert (I1).
+    //
+    // Asserted as a round trip against the inverse that already exists, rather
+    // than against two metre literals. A projection that is wrong by a constant
+    // factor still produces a building in Midtown, and no screenshot catches it.
+    const [lng, lat] = [-73.989658, 40.755913];
+
+    const { x, y } = sceneFromLngLat(ANCHOR, lng, lat);
+    const [backLng, backLat] = lngLatFromScene(ANCHOR, x, y);
+
+    expect(backLng).toBeCloseTo(lng, 9);
+    expect(backLat).toBeCloseTo(lat, 9);
+  });
+
+  it('puts the anchor itself at the scene origin', () => {
+    // The one value that can be checked without any arithmetic at all, and the
+    // one an off-by-an-origin error cannot survive.
+    expect(sceneFromLngLat(ANCHOR, ANCHOR[0], ANCHOR[1])).toEqual({ x: 0, y: 0 });
   });
 
   it('round-trips through the transform the renderer uses', () => {

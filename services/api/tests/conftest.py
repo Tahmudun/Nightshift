@@ -278,6 +278,11 @@ async def db_engine() -> AsyncIterator[AsyncEngine]:
 # below) and never outside the per-test transaction, so the truncation itself
 # is undone by the same rollback that undoes everything else.
 _INGESTION_TABLES = (
+    # M5a. References `jobs`, so it comes before it. The ninth time this list
+    # has been corrected by the database refusing to truncate rather than by
+    # somebody remembering — the comment below predicted this exact table and
+    # was right, which is the argument for never adding CASCADE here.
+    "captured_postings",
     # M3c, and first in the list because all four reference `jobs` or each other
     # and `match_evidence` references `job_requirements` below it. Sixth milestone
     # running that this list has been kept correct by the database refusing to

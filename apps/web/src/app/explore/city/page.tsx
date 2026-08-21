@@ -5,19 +5,24 @@ import { CityRail } from '@/components/CityRail';
 import { basemapManifest, buildingsManifest } from '@/lib/tiles';
 
 /**
- * The city, at M4c: New York with every open role floating above it.
+ * The city: New York, with open roles standing on the buildings that have an
+ * address and floating above the ones that do not.
  *
- * Not one of them is on a building, and that is the milestone rather than a
- * shortfall. `city.md` §4.1 measured that no ATS posting in this corpus names a
- * street, so a role reaches a structure only by inheriting an office a human
- * confirmed (§4.4, ADR 0024) — and `data/company-locations.yaml` is still
- * blank, which is a correct answer. §4.8 designs this state as **the default
- * view rather than the fallback**, and the field of untethered signals is what
- * that looks like.
+ * `city.md` §4.1 measured that no ATS posting in this corpus names a street, so
+ * a role reaches a structure only by inheriting an office a human confirmed
+ * (§4.4, ADR 0024). For four milestones nobody had confirmed one and every role
+ * floated; §4.8 designs that state as **the default view rather than the
+ * fallback**, which is why it was built first and built properly.
  *
- * The page says so on screen, in the same words. A map that looks finished and
- * is empty is indistinguishable from a map that is broken, and the person
- * looking at it should not have to guess which one this is.
+ * The first addresses landed on 2026-08-17 and the copy below changed with
+ * them. It had said "there is nothing this map is permitted to place on a
+ * building" — true when written, false the moment somebody typed an address,
+ * and the kind of sentence that goes on being read as current long after it
+ * stops being true.
+ *
+ * A map that looks finished and is empty is indistinguishable from a map that
+ * is broken, and the person looking at it should not have to guess which one
+ * this is.
  *
  * Everything here is an overlay. The map is fixed to the viewport and this page
  * contributes no document flow at all, so there is nothing to scroll and the
@@ -38,10 +43,11 @@ export default function CityPage() {
         <h1 className="text-[18px] font-medium tracking-tight text-paper">The city</h1>
         <p className="mt-1.5 text-[13px] leading-relaxed text-paper-dim">
           New York, drawn from a tile archive on this machine. No network, no key, no tile server.
-          The signals above the skyline are open roles,{' '}
-          <span className="text-paper">floating because nobody has said where they are</span> —
-          until a company address has been confirmed, there is nothing this map is permitted to
-          place on a building.
+          The signals are open roles. One <span className="text-paper">standing on a roof</span> is
+          at an office somebody confirmed and dated; one{' '}
+          <span className="text-paper">floating free of the skyline</span> is at an employer who has
+          published no address, and its position there means its employer and nothing about New
+          York.
         </p>
         <Link
           href="/explore"

@@ -26,6 +26,7 @@ Run via `make verify`, after `make up && make migrate && make seed`.
 from __future__ import annotations
 
 import asyncio
+import math
 import os
 import socket
 import subprocess
@@ -48,6 +49,53 @@ GREEN, RED, DIM, RESET = "\033[32m", "\033[31m", "\033[2m", "\033[0m"
 
 failures: list[str] = []
 
+#: The bearer token this run authenticates with, filled in by `sign_in()`.
+#:
+#: M5b (ADR 0037) closed every route except `/health` and `/auth`, so `verify`
+#: has to sign in like anything else. It uses the bearer path rather than the
+#: cookie one because `urllib` has no cookie jar here and because that is the
+#: path a non-browser client takes — the same one M5c's MCP server will use, so
+#: this script exercises it on every acceptance run rather than leaving it
+#: covered only by unit tests.
+TOKEN: str | None = None
+
+#: The signed-in account's id. Needed because the corpus now holds more than one
+#: person's rows — `make seed` plants two accounts so `make demo` can show that
+#: they cannot see each other — and a check about "my scores" that counts
+#: everybody's is asserting the wrong number.
+USER_ID: str | None = None
+
+
+def auth_headers() -> dict[str, str]:
+    return {"Authorization": f"Bearer {TOKEN}"} if TOKEN else {}
+
+
+def sign_in() -> bool:
+    """Get a token for the seeded demo account. Fails loudly rather than 401ing.
+
+    A failure here would otherwise surface as forty unrelated checks reporting
+    401, which says "the API is broken" when the truth is "the seed did not
+    run" or "the password is not the one in .env".
+    """
+    global TOKEN, USER_ID
+    email = os.environ.get("DEV_USER_EMAIL", "dev@nightshift.local")
+    password = os.environ.get("DEV_USER_PASSWORD", "nightshift-demo-password")
+    status_code, body = send_json(
+        "/auth/token", "POST", {"email": email, "password": password}
+    )
+    if status_code == 200 and isinstance(body, dict) and body.get("access_token"):
+        TOKEN = str(body["access_token"])
+        me_code, me = get_json("/auth/me")
+        if me_code != 200 or not isinstance(me, dict):
+            return check(False, "signed in", f"GET /auth/me returned {me_code}")
+        USER_ID = str(me["id"])
+        return check(True, "signed in", f"as {email}")
+    return check(
+        False,
+        "signed in",
+        f"POST /auth/token returned {status_code} for {email} — has `make seed` run?",
+    )
+
 
 def check(ok: bool, label: str, detail: str = "") -> bool:
     mark = f"{GREEN}✓{RESET}" if ok else f"{RED}✗{RESET}"
@@ -60,7 +108,9 @@ def check(ok: bool, label: str, detail: str = "") -> bool:
 def get_json(path: str, timeout: float = 10.0) -> tuple[int, Any]:
     import json
 
-    request = urllib.request.Request(f"{BASE}{path}", headers={"Accept": "application/json"})
+    request = urllib.request.Request(
+        f"{BASE}{path}", headers={"Accept": "application/json", **auth_headers()}
+    )
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
             return response.status, json.loads(response.read())
@@ -79,7 +129,7 @@ def send_json(
     import json
 
     body = None if payload is None else json.dumps(payload).encode()
-    headers = {"Accept": "application/json"}
+    headers = {"Accept": "application/json", **auth_headers()}
     if body is not None:
         headers["Content-Type"] = "application/json"
     request = urllib.request.Request(
@@ -97,7 +147,7 @@ def send_json(
 
 def send_delete(path: str, timeout: float = 10.0) -> int:
     """DELETE, returning only the status. A 204 has no body to decode."""
-    request = urllib.request.Request(f"{BASE}{path}", method="DELETE")
+    request = urllib.request.Request(f"{BASE}{path}", method="DELETE", headers=auth_headers())
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
             return int(response.status)
@@ -473,8 +523,12 @@ def check_application_tracking() -> None:
     status code. `make acceptance` runs against the developer's own database
     and must not fail on its second invocation.
 
-    It leaves one archived application behind. That is stated rather than
-    hidden; `make reset-db` clears it.
+    It leaves the corpus as it found it — unarchived, at the stage it arrived
+    in. It used to leave one archived application behind at `preparing`, which
+    was stated rather than hidden but was still wrong: the row it borrows is
+    chosen by `last_seen_at` and the seed's demo stages are dealt by title, so
+    what it took away was whichever demo stage happened to sort first. See the
+    snapshot below.
     """
     print("\napplication tracking")
     status_code, jobs = get_json("/jobs?limit=1&status=open")
@@ -500,6 +554,19 @@ def check_application_tracking() -> None:
     if detail.get("archived_at") is not None:
         send_json(f"/applications/{application_id}/restore", "POST")
 
+    # The stage this row arrived in, so it can be handed back at the end.
+    #
+    # The same snapshot-and-restore this file already does for `GATE_FIELDS`,
+    # and it is here for a concrete failure. This check takes the *first* open
+    # job, and `nightshift seed` deals its five demo stages by title — two
+    # unrelated orderings, so the row this lands on is a coincidence. On
+    # 2026-08-20 the coincidence was the corpus's only `interview`, which this
+    # left at `preparing` and archived. `make seed` cannot put it back, so the
+    # skyline lost its one §6 arc and `city.spec.ts:837` went red until
+    # `make reset-db` — with nothing in this script's output saying it had
+    # taken anything away.
+    original_stage = detail["current_stage"]
+
     code, _ = send_json(
         f"/applications/{application_id}/stage", "PATCH", {"to_stage": "preparing"}
     )
@@ -519,7 +586,7 @@ def check_application_tracking() -> None:
     )
 
     code, _ = send_json(f"/applications/{application_id}/archive", "POST")
-    check(code == 200, "archiving succeeds", "leaves 1 archived row; make reset-db clears it")
+    check(code == 200, "archiving succeeds")
 
     code, listed = get_json("/applications")
     check(
@@ -527,6 +594,22 @@ def check_application_tracking() -> None:
         "an archived application is out of the default list",
     )
     check(listed["archived_count"] >= 1, "and is counted rather than forgotten")
+
+    # Put the row back exactly as it was found: unarchived, at its own stage.
+    # Asserted rather than fired and forgotten, because a restore that silently
+    # failed would leave the corpus damaged and this script still green — which
+    # is the shape of the bug this block was written to stop.
+    send_json(f"/applications/{application_id}/restore", "POST")
+    code, _ = send_json(
+        f"/applications/{application_id}/stage", "PATCH", {"to_stage": original_stage}
+    )
+    check(code in (200, 409), "the stage it borrowed is handed back", original_stage)
+    code, final = get_json(f"/applications/{application_id}")
+    check(
+        final["current_stage"] == original_stage and final["archived_at"] is None,
+        "and the corpus is exactly as this check found it",
+        f"{final['current_stage']}, archived={final['archived_at'] is not None}",
+    )
 
 
 #: The six `users` columns the gate reads, and the only ones this check writes.
@@ -583,6 +666,74 @@ def _corpus_verdicts() -> list[dict[str, Any]]:
         if code == 200 and isinstance(detail, dict):
             details.append(detail)
     return details
+
+
+def check_city_placement() -> None:
+    """Somebody's role has to be standing on a real building.
+
+    Added 2026-08-19, and the reason is the whole of it. `company_locations`
+    is filled by `make offices`, which was not part of `seed`, `demo`,
+    `reset-db` or `acceptance`. A reseed emptied it. `GET /city/signals` came
+    back **31 of 31 `unresolved`**, the renderer drew 31 columns floating in
+    the sky with nothing under them — which is exactly what `city.md` §4.8
+    says an unplaced role should look like, so the renderer was right — and
+    every check in this file, every unit test and every browser test stayed
+    green. The city was empty and nothing anywhere said so.
+
+    The gap was that nothing asserted the *promotion path* end to end: a
+    human's address in `data/company-locations.yaml` → a geocode → a
+    `company_locations` row → a signal whose placement is a building. It has
+    four hops and each one was tested in isolation.
+
+    This deliberately does **not** assert that every role is placed. Most are
+    not and must not be: eleven of the seeded roles are at an employer whose
+    address nobody has confirmed, and I1 says those float. What it asserts is
+    that the path can carry anything at all.
+    """
+    status, payload = get_json("/city/signals")
+    check(status == 200, "/city/signals returns 200", f"got {status}")
+    if not isinstance(payload, dict) or not isinstance(payload.get("signals"), list):
+        check(False, "/city/signals returns a signal list")
+        return
+
+    signals = payload["signals"]
+    placed = [s for s in signals if s.get("placement", {}).get("kind") == "building"]
+    floating = [s for s in signals if s.get("placement", {}).get("kind") == "unresolved"]
+
+    check(
+        len(placed) > 0,
+        "at least one role stands on a real building",
+        f"{len(placed)} placed, {len(floating)} floating of {len(signals)}"
+        + ("  — did `seed` load data/company-locations.yaml?" if not placed else ""),
+    )
+
+    # I1, at the surface that draws the coordinate. A building placement that
+    # carries no BIN is a marker floating over a neighbourhood being drawn as
+    # if it were on a tower, which is the fabrication the invariant forbids and
+    # is indistinguishable from a correct one by eye.
+    unbacked = [
+        s["job_id"]
+        for s in placed
+        if not s["placement"].get("building_id")
+        or s["placement"].get("latitude") is None
+        or s["placement"].get("location_confidence") != "verified"
+    ]
+    check(
+        not unbacked,
+        "every placed role carries a verified coordinate and a BIN (I1)",
+        f"{len(unbacked)} without: {unbacked[:3]}" if unbacked else "",
+    )
+
+    # And the counterpart, which is the invariant's other half: a role with no
+    # confirmed office must NOT acquire a coordinate on its way to the map.
+    invented = [
+        s["job_id"] for s in floating if s["placement"].get("latitude") is not None
+    ]
+    check(
+        not invented,
+        "no unplaced role was given a coordinate (I1)",
+        f"{len(invented)} invented: {invented[:3]}" if invented else "",
+    )
 
 
 def check_eligibility_gate() -> None:
@@ -1170,9 +1321,21 @@ async def check_match_results() -> None:
         }
 
     async def score_count() -> int:
+        """How many scores **this account** has.
+
+        Scoped to `USER_ID` since M5b. `make seed` plants two accounts, so an
+        unscoped count is 64 where the checks below mean 32 — and "editing a
+        scoring input withdraws every score" would read as a failure because
+        the *other* person's scores are, correctly, still there.
+        """
         async with engine.begin() as connection:
             return int(
-                (await connection.execute(sql("SELECT count(*) FROM match_results"))).scalar_one()
+                (
+                    await connection.execute(
+                        sql("SELECT count(*) FROM match_results WHERE user_id = :user_id"),
+                        {"user_id": USER_ID},
+                    )
+                ).scalar_one()
             )
 
     code, before_profile = get_json("/profile")
@@ -1194,7 +1357,14 @@ async def check_match_results() -> None:
         # Everything before this point in `main` has changed a profile column or
         # a confirmed skill at least once, so the table is empty by now. Putting
         # it back is this check's first act rather than an assumption.
-        restored = await rescore_corpus()
+        await rescore_corpus()
+        # Counted per account, not taken from the sweep's return value. The
+        # sweep reports pairs scored **across every user**, and `make seed`
+        # plants two — so on the first sweep it reports both people's work and
+        # on a later one only this person's. Comparing those two numbers is
+        # what made "the sweep rebuilds what the edit removed" fail at M5b,
+        # with nothing wrong except the arithmetic.
+        restored = await score_count()
         if not check(restored > 0, "the corpus scores", f"{restored} pair(s) scored"):
             return
 
@@ -1243,13 +1413,43 @@ async def check_match_results() -> None:
                 row["match"]["overall_score"], row["match"]["assessed_out_of"]
             )
 
+        def tied(earlier: float, later: float) -> bool:
+            """Two float pipelines computing one quantity, held to a tie.
+
+            The list is ordered by Postgres evaluating
+            `overall / (sqrt(assessed_out_of) * 10)`; this check re-derives the
+            same quantity from the wire through `coverage_weighted_fraction`,
+            which spells it `fraction * sqrt(assessed_out_of / 100)`. The two
+            are algebraically identical and are **not** bit-identical, because
+            they round in a different order.
+
+            Found on 2026-08-19, when the seeded corpus gained a 15-of-90 pair
+            beside an existing 10-of-40 one. Both are exactly 1/(2*sqrt(10)).
+            Postgres makes them equal to the last bit and orders them either
+            way, correctly; Python makes them differ by one unit in the last
+            place, and a strict comparison read that as a broken list.
+
+            The tolerance is 1e-12 relative — roughly ten thousand times the
+            error two double pipelines can accumulate on this expression, and
+            roughly a billionth of the smallest gap between two genuinely
+            different keys this corpus produces. A real inversion is nowhere
+            near it.
+            """
+            return math.isclose(earlier, later, rel_tol=1e-12, abs_tol=1e-15)
+
         misordered: list[str] = []
         for band in bands:
             keys = [rank_key(row) for row in band["items"]]
             # `None` sorts last and is never compared as a number — a pair
             # nothing could be assessed on is not a pair that scored zero.
             ranked = [key for key in keys if key is not None]
-            if ranked != sorted(ranked, reverse=True):
+            # Pairwise rather than `!= sorted(...)`: a tie is ordered either
+            # way and both ways are right, and only a pairwise walk can tell a
+            # tie from an inversion.
+            if any(
+                later > earlier and not tied(earlier, later)
+                for earlier, later in zip(ranked, ranked[1:], strict=False)
+            ):
                 misordered.append(band["state"])
             if any(key is None for key in keys) and ranked != [
                 key for key in keys[: len(ranked)] if key is not None
@@ -1443,12 +1643,13 @@ async def check_match_results() -> None:
             f"{empty_ranking['not_yet_scored']} awaiting the sweep",
         )
 
-        again = await rescore_corpus()
+        await rescore_corpus()
+        again = await score_count()
         code, rescored = get_json(f"/jobs/{subject['job']['id']}")
         check(
             again == restored and rescored.get("match") is not None,
             "the sweep rebuilds what the edit removed",
-            f"{again} pair(s) rescored",
+            f"{again} of this account's pair(s) rescored",
         )
 
         # And the sweep really read the new profile, rather than rebuilding the
@@ -1594,10 +1795,16 @@ def main() -> int:
         if not wait_for_api(api):
             print(f"  {RED}✗{RESET} API did not start within 45s")
             return 1
+        # First, because every check after it needs a session (ADR 0037), and a
+        # failure here should say so once rather than forty times.
+        if not sign_in():
+            print(f"    {DIM}every check below needs a session; stopping here.{RESET}")
+            return 1
         verify_http()
         check_application_tracking()
         check_profile_confirmation()
         asyncio.run(check_daily_queue())
+        check_city_placement()
         check_eligibility_gate()
         asyncio.run(check_job_requirements())
         asyncio.run(verify_constraints())

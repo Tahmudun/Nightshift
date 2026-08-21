@@ -287,7 +287,7 @@ export const TREATMENTS: readonly TreatmentRow[] = [
     swatch: 'signal-400',
     form: 'Solid, fully lit',
     means:
-      'You have applied. §6 asks for a solid illuminated building; nothing in this corpus stands on one, so the beacon itself fills in.',
+      'You have applied. §6 asks for a solid illuminated building; the beacon itself fills instead, so the mark reads the same whether or not the employer has published an address.',
     status: drawn,
   },
   {

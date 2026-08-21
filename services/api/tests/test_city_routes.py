@@ -9,6 +9,7 @@ would be the failure I1 exists to prevent.
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 
@@ -19,6 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from nightshift.api.deps import current_user_id
 from nightshift.api.main import create_app
 from nightshift.db.base import JobStatus, LocationConfidence, RemotePolicy, ResolutionMethod
 from nightshift.db.models import Company, CompanyLocation, Job, JobSourceLink, SourceJobRecord
@@ -29,6 +31,17 @@ from tests.test_routes import _seed_alloy_board
 pytestmark = [requires_db, pytest.mark.asyncio(loop_scope="session")]
 
 
+#: A stand-in caller for the corpus routes below (M5b, ADR 0037). Not a row in
+#: `users`: nothing these routes read joins to one, and inventing a real
+#: account would imply these tests are about a person when they are about a
+#: corpus.
+_CALLER = uuid.UUID("00000000-0000-4000-8000-0000000000ff")
+
+
+async def _test_user_id() -> uuid.UUID:
+    return _CALLER
+
+
 @pytest_asyncio.fixture(loop_scope="session")
 async def client(db_session: AsyncSession) -> AsyncIterator[AsyncClient]:
     app = create_app()
@@ -37,6 +50,14 @@ async def client(db_session: AsyncSession) -> AsyncIterator[AsyncClient]:
         yield db_session
 
     app.dependency_overrides[get_db_session] = _session_override
+
+    # M5b (ADR 0037): every router except `/health` and `/auth` is behind a
+    # session now, including the corpus routes this file tests, which were open
+    # before. These tests are about what a route *returns*, not about who may
+    # ask — that question has its own module,
+    # `test_two_users_cannot_see_each_other.py`, which deliberately overrides
+    # nothing and signs in over HTTP.
+    app.dependency_overrides[current_user_id] = _test_user_id
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as http_client:
         yield http_client
     app.dependency_overrides.clear()

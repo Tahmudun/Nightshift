@@ -46,14 +46,24 @@
 
 import { useEffect, useRef, useState } from 'react';
 
+import { readRoofHeights } from '@/lib/city/roofHeights';
 import { useCityScene, visibleSignalsOf } from '@/lib/city/scene';
 import { createSignalLayer } from '@/lib/city/signalLayer';
+import { createSkyLayer, skyBefore } from '@/lib/map/skyLayer';
 import { BASEMAP_URL, BUILDINGS_URL } from '@/lib/tiles';
+import type { FilterSpecification } from 'maplibre-gl';
+
 import type { CameraController } from '@/lib/map/camera';
 import { CAMERA_LIMITS, createCameraController, INITIAL_POSE } from '@/lib/map/camera';
+import { createFrameTimer, describeRenderer, identifyRenderer } from '@/lib/map/frameTimer';
 import type { DebugMap } from '@/lib/map/debug';
 import { installCityDebug } from '@/lib/map/debug';
-import { buildDarkStyle } from '@/lib/map/darkStyle';
+import {
+  buildDarkStyle,
+  BUILDING_LAYER_ID,
+  BUILDINGS_SOURCE,
+  CROWN_LAYER_ID,
+} from '@/lib/map/darkStyle';
 
 // MapLibre's own stylesheet, for the attribution control and the canvas
 // positioning. A static import so Next can hoist it into the CSS bundle; the
@@ -123,6 +133,7 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
     let uninstallDebug: (() => void) | null = null;
     let unsubscribeScene: (() => void) | null = null;
     let unsubscribeCamera: (() => void) | null = null;
+    let unsubscribeRoofs: (() => void) | null = null;
 
     void (async () => {
       try {
@@ -205,9 +216,35 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
       // map may be a long way off. Measured: the card sat over a fully drawn
       // city for more than ten seconds. A style that has not been applied cannot
       // produce a painted frame anyway, so the outer wait was buying nothing.
+      // Every painted frame, timed — M4d's acceptance criterion is a pair of
+      // numbers and this is where they come from.
+      //
+      // On MapLibre's `render` rather than a `requestAnimationFrame` loop of
+      // our own, and the difference is the whole measurement. A rAF loop ticks
+      // at the display's rate whether or not the map drew anything, so an idle
+      // city — which deliberately paints nothing (`signalLayer.ts`) — would
+      // report a flawless 60fps for frames that were never rendered. `render`
+      // fires when MapLibre actually presents one, so a window of these is a
+      // measurement of work rather than of the vsync clock.
+      const frames = createFrameTimer();
+      created.on('render', () => {
+        if (!cancelled) frames.frame(performance.now());
+      });
+
       created.once('render', () => {
         if (cancelled) return;
         setStatus({ kind: 'ready' });
+        // What drew that frame. Asked once, after a frame exists, because a
+        // context is what answers it — and published alongside the timer so no
+        // reader can get a number without the machine behind it. `getContext`
+        // on a canvas that already has one returns the same context rather
+        // than creating a second.
+        const canvas = created.getCanvas();
+        const gl = (canvas.getContext('webgl2') ?? canvas.getContext('webgl')) as
+          WebGLRenderingContext | WebGL2RenderingContext | null;
+        useCityScene
+          .getState()
+          .setInstruments(frames, describeRenderer(gl ? identifyRenderer(gl) : null));
         // Published for the rail, which decides from here whether to offer the
         // camera buttons. The controller has existed since the line above the
         // map was constructed; a painted frame is a different fact.
@@ -257,14 +294,60 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
       canvas.setAttribute('role', 'application');
       canvas.setAttribute('aria-label', MAP_LABEL);
 
-      // The signal layer, and the seam that keeps React out of the render loop.
+      // What retires MapLibre's own skyline: a filter no feature can satisfy.
+      //
+      // **Not `visibility: none`, and the reason is load-bearing.** MapLibre
+      // only fetches and parses tiles for sources that a *visible* layer uses,
+      // so hiding these two stops the buildings archive loading — and the
+      // buildings archive is where our own geometry comes from. The first draft
+      // did exactly that and produced a screenshot of New York with no
+      // buildings in it at all: the extrusions retired, the tiles never
+      // arrived, and the Three.js city had nothing to build.
+      //
+      // A filter is applied when a tile is parsed into a bucket, so nothing is
+      // drawn and nothing is uploaded — while `querySourceFeatures`, which
+      // reads the tile's own feature index rather than the style's buckets,
+      // still answers with every footprint.
+      //
+      // The sentinel is a value a BIN cannot hold — NYC's are numeric strings —
+      // rather than a constant `false`, so a reader who finds this filter in a
+      // debugger can tell what it is doing without knowing why.
+      const RETIRED_FILTER = [
+        '==',
+        ['get', 'bin'],
+        'nightshift:retired-by-adr-0031',
+      ] as FilterSpecification;
+
+      // The Three.js layer — the beacons, the marks, and since ADR 0031 the
+      // city itself. It is the seam that keeps React out of the render loop.
       //
       // It is added on `load` rather than now, because `addLayer` before the
       // style has been applied throws — and it subscribes to the scene store
       // **outside React**, so a fetch resolving updates an instance buffer
       // rather than re-rendering the component that owns a WebGL context
       // (`city.md` §5.5, `CLAUDE.md` §8).
-      const layer = createSignalLayer({ anchor: INITIAL_POSE.center });
+      //
+      // `onBuildingsReady` is where MapLibre's own skyline is retired, and it
+      // fires exactly once, on the frame the last cell of city reaches the GPU.
+      // ADR 0031 is explicit that "the two extrusion layers retire the day the
+      // Three.js buildings reach visual parity, and not before — the city never
+      // goes buildingless in between", and this is that sentence made
+      // mechanical: until the callback fires, MapLibre's grey boxes are what is
+      // on screen, and the Three.js city is built with its group hidden.
+      const layer = createSignalLayer({
+        anchor: INITIAL_POSE.center,
+        onBuildingsReady: () => {
+          if (cancelled) return;
+          for (const id of [BUILDING_LAYER_ID, CROWN_LAYER_ID]) {
+            // Absent when the style was built without the buildings archive —
+            // `buildDarkStyle` does that offline, and `setLayoutProperty`
+            // throws on a layer that is not there.
+            if (created.getLayer(id) !== undefined) {
+              created.setFilter(id, RETIRED_FILTER);
+            }
+          }
+        },
+      });
       let attached = false;
       const attachSignals = () => {
         if (cancelled || attached) return;
@@ -285,6 +368,14 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
         // `addLayer` actually requires. It fires more than once — the buildings
         // TileJSON resolves seconds after the basemap's — hence the guard.
         attached = true;
+        // The sky goes in first and goes in *under* the buildings — M4e Task 3,
+        // and the ordering is the design rather than a detail. It draws the sky
+        // above the horizon and the haze over the ground below it, so it has to
+        // land after the ground and the streets are on screen and before the
+        // towers are, which is what `beforeId` buys. Added here rather than in
+        // `buildDarkStyle` because a custom layer is code, not style, and the
+        // style is a value that has to stay serialisable and testable.
+        created.addLayer(createSkyLayer({ anchor: INITIAL_POSE.center }), skyBefore(created));
         created.addLayer(layer);
         const initial = useCityScene.getState();
         layer.setSignals(visibleSignalsOf(initial), initial.sort);
@@ -324,6 +415,64 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
           // the map incapable of disagreeing — both read this one value.
           if (state.selected !== previous.selected) layer.setSelected(state.selected);
         });
+
+        // How tall the hiring buildings are, from the tiles already on screen.
+        //
+        // `querySourceFeatures` answers from *loaded* tiles rather than from
+        // rendered ones, which is what this needs: a building behind the camera
+        // still has a roof, and `queryRenderedFeatures` at this pitch is the
+        // call M4b measured returning zero features over a drawn skyline.
+        //
+        // Bound to `idle` because tiles arrive over several seconds as the
+        // camera moves, and each arrival can carry the one footprint a stack is
+        // waiting on. `idle` fires after a move settles rather than per tile,
+        // so this runs a handful of times rather than a hundred.
+        const refreshRoofHeights = (): void => {
+          const bins = layer.buildings.map((building) => building.buildingId);
+          if (bins.length === 0) return;
+          const features = created.querySourceFeatures(BUILDINGS_SOURCE, {
+            sourceLayer: 'buildings',
+            filter: ['in', ['get', 'bin'], ['literal', bins]],
+          });
+          const heights = readRoofHeights(features);
+          if (heights.size > 0) layer.setRoofHeights(heights);
+        };
+        created.on('idle', refreshRoofHeights);
+
+        // The footprints themselves, for the renderer that now draws them.
+        //
+        // ADR 0031: the towers are Three.js geometry with our own shader on
+        // them, built from the very tiles MapLibre already parsed for its
+        // extrusions. One unfiltered query answers with everything loaded —
+        // 35,413 features at the opening pose — and the layer ignores whatever
+        // it has already built, so this is safe to call repeatedly.
+        //
+        // **Guarded on tiles having actually changed**, which the roof query
+        // above does not need to be and this one does: the unfiltered call
+        // costs 70 ms, and `idle` fires after every gesture whether or not a
+        // single tile arrived in it. Without the guard, letting go of the
+        // mouse would cost a seventy-millisecond stall for nothing.
+        let tilesChanged = true;
+        const noteTiles = (event: { sourceId?: string; tile?: unknown }): void => {
+          if (event.sourceId === BUILDINGS_SOURCE && event.tile !== undefined) tilesChanged = true;
+        };
+        const refreshFootprints = (): void => {
+          if (!tilesChanged) return;
+          tilesChanged = false;
+          layer.ingestFootprints(
+            created.querySourceFeatures(BUILDINGS_SOURCE, { sourceLayer: 'buildings' }),
+          );
+        };
+        created.on('sourcedata', noteTiles);
+        created.on('idle', refreshFootprints);
+
+        unsubscribeRoofs = () => {
+          created.off('idle', refreshRoofHeights);
+          created.off('idle', refreshFootprints);
+          created.off('sourcedata', noteTiles);
+        };
+        refreshRoofHeights();
+        refreshFootprints();
       };
       if (created.isStyleLoaded()) attachSignals();
       else created.on('styledata', attachSignals);
@@ -374,6 +523,7 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
         map: created as unknown as DebugMap,
         camera: controller,
         signals: layer,
+        frames,
       });
     }
 
@@ -381,6 +531,7 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
       cancelled = true;
       unsubscribeScene?.();
       unsubscribeCamera?.();
+      unsubscribeRoofs?.();
       uninstallDebug?.();
       controller?.destroy();
       // `map.remove()` calls `onRemove` on every layer, which is where the

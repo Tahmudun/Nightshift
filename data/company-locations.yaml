@@ -41,96 +41,162 @@
 # building is worse than no building: it looks exactly as confident as a right
 # one, and nothing downstream can tell them apart. If you are unsure, leave it
 # blank and the job still shows up — just not on a building.
+#
+# WHERE TO START
+#
+# Three companies have postings in the seeded database right now — **Datadog**,
+# **Ramp** and **Alloy** — so those are the three whose addresses change what
+# `make demo` puts on screen. Every other row loads correctly and reports
+# `not ingested`, meaning the address is recorded and waiting for that board to
+# be polled. Nothing is lost by filling one in early.
+#
+# HOW TO LOAD IT
+#
+#     make offices
+#
+# Reads this file, refuses the entries that cannot support themselves, geocodes
+# the rest through NYC GeoSearch, and writes `company_locations`. It needs
+# `OUTBOUND_HTTP_ENABLED=true` because geocoding is a real network call; the
+# result is cached permanently, so `make demo` stays offline afterwards.
 
 # Who is vouching for these addresses. Stamped onto every row this file loads,
 # so `company_locations.confirmed_by` says something true.
 confirmed_by: Tahmudun
 
-# The nine companies in data/board-registry.yaml whose postings parse to NYC.
-# `nyc_presence` is derived from posting text, so some of these may turn out to
-# have no NYC office at all — that is a real finding and a blank entry records
-# it correctly.
+# Every company in data/board-registry.yaml, in two groups.
+#
+# The first nine are the boards whose postings parse to NYC (`nyc_presence:
+# true` in the registry). `nyc_presence` is derived from posting text, so some
+# of these may turn out to have no NYC office at all — that is a real finding
+# and a blank entry records it correctly.
+#
+# The remaining fourteen are registry boards with no NYC signal in their
+# postings. They are listed rather than omitted because the registry is the set
+# of employers this product can see, and a company being absent from this file
+# is indistinguishable from a company nobody has checked. `city` and `state`
+# are left blank on those rather than pre-filled with "New York" — a prefilled
+# locality on a company headquartered in Oslo is a small lie that would send a
+# geocoder looking in the wrong place.
 offices:
+
+  # -- Registry boards whose postings name New York -------------------------
+
+  # 620 8th Avenue is the New York Times Building; Datadog occupies the 45th
+  # floor and up. Consistent across the company's own LinkedIn, SEC-adjacent
+  # company profiles and every directory checked. Highest-confidence row here.
   - company: Datadog
     label: New York HQ
-    street_address:
+    street_address: 620 8th Avenue
     city: New York
     state: NY
-    postal_code:
+    postal_code: "10018"
     country: USA
     is_primary: true
-    confirmed_on:
+    confirmed_on: 2026-08-17
 
+  # Stripe moved out of 199 Water Street in summer 2024 and into 28 Liberty
+  # (formerly One Chase Manhattan Plaza), first on a 4-floor AIG sublease, then
+  # expanding to eight floors in a direct lease in late 2025. Directory sites
+  # still list the stale 199 Water Street address — 28 Liberty is current.
   - company: Stripe
     label: New York office
-    street_address:
+    street_address: 28 Liberty Street
     city: New York
     state: NY
-    postal_code:
+    postal_code: "10005"
     country: USA
     is_primary: true
-    confirmed_on:
+    confirmed_on: 2026-08-17
 
+  # Flatiron, second floor of the Home Depot building. Corroborated by a
+  # California DFPI regulated-entity filing, which is a regulator's record of
+  # the address rather than a data broker's guess.
   - company: Ramp
     label: New York HQ
-    street_address:
+    street_address: 28 West 23rd Street
     city: New York
     state: NY
-    postal_code:
+    postal_code: "10010"
     country: USA
     is_primary: true
-    confirmed_on:
+    confirmed_on: 2026-08-17
 
+  # NOTE: "a16z New Media" is an in-house a16z team, not a separate company —
+  # it runs its own Ashby board, which is why it appears in the registry under
+  # that name. Its New York roles sit in a16z's NYC office at 200 Lafayette
+  # Street in SoHo (3rd/4th floors from 2021, expanded to 6th/7th in 2024).
+  # Recorded as an a16z office because that is the building the beacons are on.
   - company: a16z New Media
     label: New York office
-    street_address:
+    street_address: 200 Lafayette Street
     city: New York
     state: NY
-    postal_code:
+    postal_code: "10012"
     country: USA
     is_primary: true
-    confirmed_on:
+    confirmed_on: 2026-08-17
 
+  # NOTE: this is a WeWork. 9fin is London-headquartered and hybrid; its stated
+  # New York HQ is its WeWork at 160 Varick Street, per a joint WeWork/9fin
+  # announcement quoting 9fin's CEO. A real street address and a real office,
+  # but a flexible one — worth rechecking if the coverage page starts leaning
+  # on it.
   - company: 9fin
     label: New York office
-    street_address:
+    street_address: 160 Varick Street
     city: New York
     state: NY
-    postal_code:
+    postal_code: "10013"
     country: USA
     is_primary: true
-    confirmed_on:
+    confirmed_on: 2026-08-17
 
+  # Straight from the footer of 3imembers.com, so this is the company stating
+  # its own address. They moved up to the 42nd floor in 2025.
   - company: 3i Members
     label: New York office
-    street_address:
+    street_address: 41 Madison Avenue
     city: New York
     state: NY
-    postal_code:
+    postal_code: "10010"
     country: USA
     is_primary: true
-    confirmed_on:
+    confirmed_on: 2026-08-17
 
+  # LOWER CONFIDENCE. Abacum states a New York HQ on its own site but does not
+  # publish the street. 450 Park Avenue South comes from two independent
+  # aggregators (ZoomInfo, ContactOut) that agree on building and floor. Good
+  # enough to geocode, not good enough to defend — replace this with a
+  # first-party source (careers page, contract, invoice) when one turns up.
   - company: Abacum
     label: New York office
-    street_address:
+    street_address: 450 Park Avenue South
     city: New York
     state: NY
-    postal_code:
+    postal_code: "10016"
     country: USA
     is_primary: true
-    confirmed_on:
+    confirmed_on: 2026-08-17
 
+  # Two campuses: 309 E 45th St (elementary/middle, and the main address) and
+  # 42 E 30th St (high school, 10016). Recorded the main campus as primary. If
+  # the schema ever allows a second row per company, the 30th Street campus is
+  # a genuine second office rather than a duplicate.
   - company: Aaron School
     label: New York office
-    street_address:
+    street_address: 309 East 45th Street
     city: New York
     state: NY
-    postal_code:
+    postal_code: "10017"
     country: USA
     is_primary: true
-    confirmed_on:
+    confirmed_on: 2026-08-17
 
+  # BLANK ON PURPOSE. 1Password is remote-first and legally headquartered in
+  # Toronto (4711 Yonge St). Several sources refer to a "New York office" in
+  # the abstract — as a sales/partner coordination point — but not one names a
+  # street, and the New York engineering presence traces to the Apono
+  # acquisition rather than to a disclosed address. No street, no building.
   - company: 1Password
     label: New York office
     street_address:
@@ -139,4 +205,191 @@ offices:
     postal_code:
     country: USA
     is_primary: true
+    confirmed_on: 2026-08-17
+
+  # -- Registry boards with no NYC signal in their postings -----------------
+  #
+  # Blank is the expected answer for most of these, and blank is correct. If one
+  # of them does have a New York office, fill in `street_address`, `city: New
+  # York` and `state: NY` — the registry's `nyc_presence` flag reads posting
+  # text and posting text is not a company directory.
+  #
+  # An office outside the five boroughs cannot be loaded today: NYC GeoSearch is
+  # the only geocoder wired up and its whole corpus is New York City, so a
+  # London or Oslo address is reported `unresolved` rather than placed. That is
+  # the honest outcome and not a bug to work around — the city this product
+  # draws is New York.
+
+  # Seeded: `make seed` loads Alloy's committed Lever board, so an address here
+  # changes what `make demo` shows. Its postings are DC, Denver and Vancouver.
+  #
+  # IDENTITY CORRECTION — READ BEFORE FILLING THIS IN.
+  # jobs.lever.co/alloy is **Alloy.ai**, the supply-chain analytics company
+  # headquartered in San Francisco, with offices in Denver, Vancouver, DC and
+  # Berlin. The DC/Denver/Vancouver posting spread is the tell and it matches
+  # their careers page exactly.
+  #
+  # It is NOT Alloy the NYC identity-decisioning fintech (alloy.com, offices
+  # around Union Square). Those are two different companies that share a name,
+  # and the NYC one is the trap: search "Alloy" and you get 41 E 11th Street or
+  # 88 University Place, both real, both in Manhattan, both geocodable, and
+  # both completely wrong for this board. That is the exact failure mode the
+  # header warns about — a wrong building that looks as confident as a right
+  # one.
+  #
+  # Left blank because Alloy.ai has no New York office at all. Its SF HQ (548
+  # Market St) is a PMB virtual mailbox, so even the geocoder-permitting
+  # version of this row would be a mail drop rather than an office.
+  - company: Alloy
+    label: Primary office
+    street_address:
+    city:
+    state:
+    postal_code:
+    country:
+    is_primary: true
+    confirmed_on: 2026-08-17
+
+  # Not checked individually — no NYC signal in postings and no reason to
+  # expect a New York office. Blank is the correct answer here.
+  - company: 0g Labs
+    label: Primary office
+    street_address:
+    city:
+    state:
+    postal_code:
+    country:
+    is_primary: true
     confirmed_on:
+
+  - company: 10x Team
+    label: Primary office
+    street_address:
+    city:
+    state:
+    postal_code:
+    country:
+    is_primary: true
+    confirmed_on:
+
+  # Norwegian robotics company (Moss, Norway; US presence in Palo Alto).
+  # Outside the geocoder's corpus either way.
+  - company: 1X
+    label: Primary office
+    street_address:
+    city:
+    state:
+    postal_code:
+    country:
+    is_primary: true
+    confirmed_on:
+
+  - company: 1bios
+    label: Primary office
+    street_address:
+    city:
+    state:
+    postal_code:
+    country:
+    is_primary: true
+    confirmed_on:
+
+  - company: 1mind
+    label: Primary office
+    street_address:
+    city:
+    state:
+    postal_code:
+    country:
+    is_primary: true
+    confirmed_on:
+
+  # Seoul-based mobility company. Outside the geocoder's corpus.
+  - company: 42dot
+    label: Primary office
+    street_address:
+    city:
+    state:
+    postal_code:
+    country:
+    is_primary: true
+    confirmed_on:
+
+  - company: 5Blue Software
+    label: Primary office
+    street_address:
+    city:
+    state:
+    postal_code:
+    country:
+    is_primary: true
+    confirmed_on:
+
+  - company: 8Fleet Inc.
+    label: Primary office
+    street_address:
+    city:
+    state:
+    postal_code:
+    country:
+    is_primary: true
+    confirmed_on:
+
+  - company: 8VC
+    label: Primary office
+    street_address:
+    city:
+    state:
+    postal_code:
+    country:
+    is_primary: true
+    confirmed_on:
+
+  - company: 9 Mothers
+    label: Primary office
+    street_address:
+    city:
+    state:
+    postal_code:
+    country:
+    is_primary: true
+    confirmed_on:
+
+  - company: A Place for Mom
+    label: Primary office
+    street_address:
+    city:
+    state:
+    postal_code:
+    country:
+    is_primary: true
+    confirmed_on:
+
+  # Checked. A.Team is genuinely New York-based, but it is a distributed
+  # talent-network company and publishes no street address anywhere I could
+  # find. A real NYC company with no confirmable building — blank, not a guess.
+  - company: A.Team
+    label: Primary office
+    street_address:
+    city:
+    state:
+    postal_code:
+    country:
+    is_primary: true
+    confirmed_on: 2026-08-17
+
+  # Checked and deliberately left blank. Three different "headquarters"
+  # addresses are in circulation (121 W 36th St Suite 410; 404 5th Ave Floor 3;
+  # 16 Great Queen St, London) and no two sources agree. The company also
+  # pivoted to Droply and was acquired by Carro in January 2024, so some of
+  # those records describe an entity that no longer operates from them.
+  # Unresolvable conflict is exactly the case the header says to leave blank.
+  - company: Abound
+    label: Primary office
+    street_address:
+    city:
+    state:
+    postal_code:
+    country:
+    is_primary: true
+    confirmed_on: 2026-08-17

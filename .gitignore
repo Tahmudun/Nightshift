@@ -53,3 +53,6 @@ dist/
 # execution ledgers and review packages, which are working notes, not history.
 .claude/worktrees/
 .superpowers/
+
+# Playwright signed-in state (M5b). A real session token — never committed.
+apps/web/e2e-seeded/.auth/

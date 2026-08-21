@@ -64,6 +64,42 @@ export function lngLatFromMercator(point: Mercator): readonly [number, number] {
 }
 
 /**
+ * The other direction: a real coordinate to its place in the scene.
+ *
+ * This is the trip a **placed** role takes. An office was geocoded to a point
+ * on Earth (`city.md` §4.4) and the scene, which is written in metres from an
+ * anchor, has to draw it at that point and nowhere else.
+ *
+ * It is deliberately the only way into the scene from a coordinate, and the
+ * inverse of `lngLatFromScene` down to floating point — `mercator.test.ts`
+ * asserts the round trip rather than a table of metre offsets, because a
+ * projection wrong by a constant factor still lands in Midtown and still looks
+ * like a building.
+ *
+ * Nothing in the unresolved field may call this. There is no coordinate there
+ * to convert: those roles have no position, which is the whole of I1.
+ */
+export function sceneFromLngLat(
+  anchor: readonly [number, number],
+  lng: number,
+  lat: number,
+): { readonly x: number; readonly y: number } {
+  const origin = mercatorFromLngLat(anchor[0], anchor[1]);
+  const point = mercatorFromLngLat(lng, lat);
+  const scale = metreInMercatorUnits(anchor[1]);
+  // The same southward flip `lngLatFromScene` undoes, applied here instead. A
+  // scene y is metres *north*; mercator y grows south.
+  //
+  // `|| 0` normalises negative zero, which the negation produces for any point
+  // exactly on the anchor's parallel. It renders identically and compares equal
+  // under `===`, so it survives every obvious check and then fails a deep-equal
+  // in a caller's test with a diff reading `0` versus `-0`. `unresolvedField`
+  // carries the same guard for the same reason, and this is the second time it
+  // has been needed.
+  return { x: (point.x - origin.x) / scale || 0, y: -(point.y - origin.y) / scale || 0 };
+}
+
+/**
  * Where a point in the scene actually is on Earth.
  *
  * `x` and `y` are metres east and north of the anchor, which is the space

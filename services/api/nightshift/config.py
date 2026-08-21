@@ -54,9 +54,35 @@ class Settings(BaseSettings):
     # comma-splitting validator gets a chance to run.
     cors_allow_origins: Annotated[tuple[str, ...], NoDecode] = ("http://localhost:3000",)
 
-    # -- Single-user mode (AMENDMENTS A3) ----------------------------------
+    # -- Identity (M5b, ADR 0037) ------------------------------------------
+    #
+    # `dev_user_id` survives A3's retirement, with a narrower job. It no longer
+    # decides who is acting — `api/deps.py` reads a session for that, and there
+    # is no path back. It is now only the stable id `make seed` plants its demo
+    # profile, applications and capture against, so a reseed does not orphan
+    # them.
     dev_user_id: UUID = UUID("00000000-0000-4000-8000-000000000001")
     dev_user_email: str = "dev@nightshift.local"
+    #: The password `make seed` sets on the two demo accounts, printed by the
+    #: seed so `make demo` walks in through the real front door rather than
+    #: around it. Long enough to clear `MIN_PASSWORD_LENGTH`, and obviously not
+    #: a secret — a deployment that leaves this at its default has a seeded
+    #: demo account, which is a fact `verify` reports rather than hides.
+    dev_user_password: str = "nightshift-demo-password"
+    #: The second seeded account. It exists so the isolation test has a second
+    #: person to be about, and so `make demo` can show that it holds.
+    second_user_id: UUID = UUID("00000000-0000-4000-8000-000000000002")
+    second_user_email: str = "second@nightshift.local"
+    #: How long a sign-in lasts, and the authority on it. `/auth/sign-in` and
+    #: `/auth/token` both pass it to `create_session`, and the cookie's
+    #: `max-age` is computed from the row that comes back — so the browser's
+    #: copy and the server's cannot disagree.
+    #:
+    #: It used to say it "mirrored" `domain.identity.SESSION_LIFETIME`, and
+    #: mirroring was all it did: the row read the module constant, the cookie
+    #: read this, and setting it to anything but 30 desynchronised them
+    #: silently. See `test_the_cookie_expires_when_the_session_row_does`.
+    session_lifetime_days: int = Field(default=30, ge=1, le=365)
 
     # -- Outbound HTTP -----------------------------------------------------
     # Default false so a clean clone cannot make a network request by accident

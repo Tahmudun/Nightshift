@@ -30,6 +30,7 @@ from nightshift.db.base import (
     ApplicationEventType,
     ApplicationPriority,
     ApplicationStage,
+    CaptureStatus,
     EligibilityState,
     EmploymentType,
     EvidenceSource,
@@ -53,6 +54,7 @@ from nightshift.db.base import (
     RoleFamily,
     Seniority,
     SkillSourceType,
+    SourceType,
     TransitionClass,
     WorkAuthorization,
 )
@@ -148,6 +150,9 @@ PAIRS: tuple[tuple[str, type[enum.Enum]], ...] = (
     # M4c Task 1. Not a database enum: the renderer branches on this and
     # nothing else, so a value it does not know is a beacon that does not draw.
     ("placementKindSchema", PlacementKind),
+    # M5a. Added in the same commit as the enum rather than a milestone later,
+    # which every comment above this line is a record of not doing.
+    ("captureStatusSchema", CaptureStatus),
 )
 
 
@@ -350,3 +355,36 @@ def test_the_browser_allocates_room_for_every_signal_the_api_can_send() -> None:
         "the API can return more signals than the renderer has room for, and the "
         "surplus is dropped silently — raise MAX_BEACONS or lower MAX_SIGNALS"
     )
+
+
+def test_the_capture_source_name_matches_the_browsers_copy() -> None:
+    """Not an enum, and it drifts exactly like one.
+
+    `JobDetail` renders the "added by hand" badge by comparing a source's name
+    against this string. A mismatch raises nothing, breaks no type, and fails
+    no other test — the badge simply stops appearing, and a captured posting
+    becomes indistinguishable from a polled one. That is invariant I7 failing
+    silently, which is the failure mode this whole file exists for.
+    """
+    from nightshift.domain.capture import CAPTURE_SOURCE_NAME
+
+    source = SCHEMAS_TS.read_text(encoding="utf-8")
+    match = re.search(r"export const CAPTURE_SOURCE_NAME = '([^']+)'", source)
+    assert match is not None, "CAPTURE_SOURCE_NAME is not exported from schemas.ts"
+    assert match.group(1) == CAPTURE_SOURCE_NAME
+
+
+def test_the_capture_source_type_matches_the_browsers_copy() -> None:
+    """The other half, and it is a separate string for a reason.
+
+    `SourceHealthTable` labels a row by its `source_type`, not by its name, and
+    `sourceHealthSchema` types that field as a bare `z.string()` — so nothing
+    in the parity above covers it and nothing in Zod would refuse a wrong
+    value. A drift here puts a captured posting in the source health table
+    labelled **live**, which is the word the table gives a board we poll every
+    hour, about the one source nothing ever reads twice.
+    """
+    source = SCHEMAS_TS.read_text(encoding="utf-8")
+    match = re.search(r"export const CAPTURE_SOURCE_TYPE = '([^']+)'", source)
+    assert match is not None, "CAPTURE_SOURCE_TYPE is not exported from schemas.ts"
+    assert match.group(1) == SourceType.MANUAL_CAPTURE.value

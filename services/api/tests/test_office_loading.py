@@ -22,6 +22,7 @@ from nightshift.domain.geocoding import (
     Unresolved,
 )
 from nightshift.domain.office_loading import load_offices
+from nightshift.domain.registry import get_registry
 from tests.conftest import requires_db
 
 pytestmark = [requires_db, pytest.mark.asyncio(loop_scope="session")]
@@ -189,17 +190,38 @@ async def test_blank_entries_are_carried_into_the_report(db_session: AsyncSessio
     assert report.considered == 1
 
 
-async def test_the_committed_worksheet_places_nothing_yet(db_session: AsyncSession) -> None:
-    """The file ships blank. This is the number the coverage page will show
-    until somebody fills it in, and it should be reachable without a network."""
+async def test_the_committed_worksheet_is_loadable(db_session: AsyncSession) -> None:
+    """Every row of the real file survives the reader, and every board is
+    accounted for exactly once.
+
+    This asserted `blank == everything` until 2026-08-17, when the human filled
+    eight addresses in and it went red for the one reason a test must never go
+    red for: the thing it describes worked. **A test that pins today's data is a
+    test that fails on success.** What is permanently true is the accounting —
+    the file covers the registry, and nothing in it is refused.
+    """
     from pathlib import Path
 
     path = Path(__file__).parent.parent.parent.parent / "data" / "company-locations.yaml"
     report = await load_offices(db_session, read_worksheet(path.read_text()), (_Rung(_verified()),))
 
-    assert report.placed == []
-    assert report.considered == 9
-    assert len(report.blank) == 9
+    # Counted against the registry rather than pinned to a literal. The two
+    # files are held equal by `test_company_locations_worksheet.py`, and a
+    # number written here as well would have to be edited by hand every time a
+    # board is promoted — which is how a test starts failing for a reason that
+    # is not a defect.
+    assert report.considered == len(get_registry().boards)
+
+    # The sharp one. A refusal is a defect in a file a person wrote — an address
+    # with no date, a locality that names no street — and it is the only outcome
+    # here that means somebody has to go and edit something.
+    assert report.refused == []
+
+    # No company rows exist in this session, so a filled row lands in
+    # `unknown_company` and a blank one in `blank`. Which bucket a given
+    # employer falls into is the human's business and changes without notice;
+    # that every employer falls into exactly one of them is not.
+    assert len(report.blank) + len(report.unknown_company) == report.considered
 
 
 # --------------------------------------------------------------------------

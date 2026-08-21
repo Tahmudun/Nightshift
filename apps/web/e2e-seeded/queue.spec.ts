@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { API, apiFetch } from './api';
+
 /**
  * The daily queue, walked in a browser.
  *
@@ -19,8 +21,6 @@ import { expect, test, type Page } from '@playwright/test';
  */
 
 test.describe.configure({ mode: 'serial' });
-
-const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000';
 
 /** `next dev` compiles a dynamic route on first request. */
 const FIRST_COMPILE = 30_000;
@@ -42,7 +42,7 @@ const FOLLOW_UP_JOB = 2;
 const INTERVIEW_JOB = 3;
 
 async function jobAt(offset: number): Promise<{ id: string; title: string }> {
-  const response = await fetch(`${API}/jobs?limit=1&offset=${offset}&status=open`);
+  const response = await apiFetch(`${API}/jobs?limit=1&offset=${offset}&status=open`);
   const body = (await response.json()) as { items: { id: string; title: string }[] };
   expect(body.items.length, 'the seeded corpus has fewer jobs than this test needs').toBe(1);
   return body.items[0]!;

@@ -12,7 +12,42 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { fetchSourceHealth } from '@/lib/api';
-import type { SourceHealth } from '@/lib/schemas';
+import { CAPTURE_SOURCE_TYPE, type SourceHealth } from '@/lib/schemas';
+
+/**
+ * What kind of source this is, in the reader's words rather than the enum's.
+ *
+ * Three-way, and it was a binary until M5a. `fixture` or else `live` was true
+ * while a source was either a committed recording or a board we poll; the day
+ * `make seed` planted a captured posting, the else-branch labelled it **live**
+ * — the same word it gives `greenhouse`, about the one row in this table that
+ * nothing ever reads a second time. The job page had already been taught to
+ * say so (the "added by hand" badge); this column had not, so the two screens
+ * disagreed about the same source.
+ *
+ * The unknown case still falls through to `live` rather than rendering
+ * nothing: `source_type` crosses the wire as a bare string, and a blank cell
+ * reads as a broken row rather than an unfamiliar one.
+ */
+export function SourceKind({ sourceType }: { readonly sourceType: string }) {
+  if (sourceType === 'fixture') {
+    return (
+      <span className="border border-gold-400/40 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-gold-400">
+        committed fixture
+      </span>
+    );
+  }
+  if (sourceType === CAPTURE_SOURCE_TYPE) {
+    return (
+      <span className="border border-gold-400/40 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-gold-400">
+        added by hand
+      </span>
+    );
+  }
+  return (
+    <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-paper-faint">live</span>
+  );
+}
 
 function RunStatus({ status }: { readonly status: SourceHealth['last_run_status'] }) {
   if (status === null) {
@@ -142,15 +177,7 @@ export function SourceHealthTable() {
                 {source.name}
               </th>
               <td className="px-4 py-3">
-                {source.source_type === 'fixture' ? (
-                  <span className="border border-gold-400/40 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-gold-400">
-                    committed fixture
-                  </span>
-                ) : (
-                  <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-paper-faint">
-                    live
-                  </span>
-                )}
+                <SourceKind sourceType={source.source_type} />
               </td>
               <td className="px-4 py-3 text-[13px] text-paper-dim tnum">{source.job_count}</td>
               <td className="px-4 py-3">

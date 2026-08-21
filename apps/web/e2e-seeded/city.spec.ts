@@ -1,4 +1,6 @@
 import type { Page } from '@playwright/test';
+
+import { API, apiFetch } from './api';
 import { expect, test } from '@playwright/test';
 
 /**
@@ -22,8 +24,6 @@ import { FIELD_BASE_ALTITUDE } from '../src/lib/city/unresolvedField';
 
 test.describe.configure({ timeout: 120_000 });
 
-const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:8000';
-
 interface Signals {
   readonly counts: { building: number; area: number; unresolved: number; total: number };
   readonly signals: readonly {
@@ -33,12 +33,45 @@ interface Signals {
   }[];
 }
 
-/** How many unresolved roles the city should actually be drawing right now. */
+/**
+ * How many roles the city should actually be drawing right now.
+ *
+ * **Every placement, not only the unresolved ones.** This counted `kind ===
+ * 'unresolved'` from M4c until M5a, which was the whole corpus while no
+ * company had a confirmed office. The offices came back on 2026-08-19 (ADR
+ * 0036) and twenty roles moved onto two roofs — so this started returning a
+ * number twenty short of what the renderer correctly drew, and three tests
+ * below have been red ever since, describing a city this product stopped
+ * being. The seeded suite needs a database, so nothing re-ran it.
+ */
 async function expectedBeacons(): Promise<number> {
   const [body, archived] = await Promise.all([signalsFromApi(), archivedJobIds()]);
-  return body.signals.filter(
-    (signal) => signal.placement.kind === 'unresolved' && !archived.has(signal.job_id),
-  ).length;
+  return body.signals.filter((signal) => !archived.has(signal.job_id)).length;
+}
+
+/** The first instance in the buffer that is a role standing on nothing. */
+async function firstUnresolvedInstance(page: Page): Promise<number> {
+  const unresolved = new Set(
+    (await signalsFromApi()).signals
+      .filter((signal) => signal.placement.kind === 'unresolved')
+      .map((signal) => signal.job_id),
+  );
+  expect(unresolved.size, 'a corpus with nothing floating cannot check the field').toBeGreaterThan(
+    0,
+  );
+  const index = await page.evaluate(
+    ([key, ids]) => {
+      const city = window[key as typeof CITY_DEBUG_KEY]!;
+      for (let i = 0; i < city.signals.drawn; i += 1) {
+        const jobId = city.signals.jobAt(i);
+        if (jobId !== null && (ids as string[]).includes(jobId)) return i;
+      }
+      return -1;
+    },
+    [CITY_DEBUG_KEY, [...unresolved]] as const,
+  );
+  expect(index, 'no instance in the buffer draws an unresolved role').toBeGreaterThanOrEqual(0);
+  return index;
 }
 
 /**
@@ -52,7 +85,7 @@ async function expectedBeacons(): Promise<number> {
  * number keeps these tests tracking the seed rather than a snapshot of it.
  */
 async function archivedJobIds(): Promise<ReadonlySet<string>> {
-  const response = await fetch(`${API}/applications?archived=true`);
+  const response = await apiFetch(`${API}/applications?archived=true`);
   expect(response.ok, `GET ${API}/applications failed — is the API running?`).toBe(true);
   const body = (await response.json()) as {
     items: readonly { current_stage: string; job: { id: string } }[];
@@ -65,7 +98,7 @@ async function archivedJobIds(): Promise<ReadonlySet<string>> {
 }
 
 async function signalsFromApi(): Promise<Signals> {
-  const response = await fetch(`${API}/city/signals`);
+  const response = await apiFetch(`${API}/city/signals`);
   expect(response.ok, `GET ${API}/city/signals failed — is the API running?`).toBe(true);
   const body = (await response.json()) as Signals;
   expect(body.counts.total, 'a city with no roles in it proves nothing below').toBeGreaterThan(0);
@@ -101,7 +134,7 @@ async function cityHasSignals(page: Page) {
     .toBeGreaterThan(0);
 }
 
-test('every unresolved role reaches the instance buffer', async ({ page }) => {
+test('every role reaches the instance buffer', async ({ page }) => {
   // Every one the archive toggle is not hiding, since Task 5: §6 keeps
   // rejections off the skyline by default, so the endpoint's own total is no
   // longer the number that should be drawn.
@@ -139,16 +172,20 @@ test('the beacons are drawn where the field put them, above every building', asy
   await openCity(page);
   await cityHasSignals(page);
 
-  // Project the first instance back through MapLibre's own camera and ask what
-  // altitude it is at. This is the assertion that catches the anchor transform
-  // being wrong — a mirrored or mis-scaled field still produces the right
-  // *number* of beacons, in entirely the wrong place.
-  const altitude = await page.evaluate((key) => {
-    const city = window[key as typeof CITY_DEBUG_KEY]!;
-    // The scene stores metres relative to the anchor; instance 0 is the first
-    // role of the alphabetically first employer.
-    return city.signals.altitudeOf(0);
-  }, CITY_DEBUG_KEY);
+  // Read back the altitude of an instance the field placed — not instance 0.
+  // This asked for instance 0 until M5a, which was an unresolved role while
+  // every role was unresolved; the offices came back and instance 0 became a
+  // role standing on a roof at 310 m, so this asserted the unresolved field's
+  // floor against a building placement that is entitled to be below it.
+  //
+  // The assertion itself is the one that catches the anchor transform being
+  // wrong — a mirrored or mis-scaled field still produces the right *number*
+  // of beacons, in entirely the wrong place.
+  const index = await firstUnresolvedInstance(page);
+  const altitude = await page.evaluate(
+    ([key, i]) => window[key as typeof CITY_DEBUG_KEY]!.signals.altitudeOf(i as number),
+    [CITY_DEBUG_KEY, index] as const,
+  );
 
   // §4.8: the absence of a ground connection is the whole message, and One
   // World Trade is 541 m. A signal that can hide behind a tower reads as being
@@ -294,7 +331,23 @@ test('the name plates keep facing the camera as it turns', async ({ page }) => {
   ).toBe(55);
 });
 
-test('reordering the field changes the order and not the roles', async ({ page }) => {
+test('the sort control is served the whole corpus, whichever order it asks for', async ({
+  page,
+}) => {
+  // **The ordering claim itself moved to `e2e/city-acceptance.spec.ts` at
+  // M5a**, and the move is the finding. This test used to require that
+  // choosing Openings produced a *different* order from the default, and it
+  // had stopped being able to fail: the unresolved field in the seeded corpus
+  // is four employers holding 9, 1, 1 and 1 roles, and the one with 9 is also
+  // the alphabetically first — so ordering by openings is a stable sort over
+  // three ties and correctly returns the order the name sort already gave.
+  // The test asked the product for a change that could not happen.
+  //
+  // A corpus that cannot produce a failure cannot test the guard against it
+  // (M4c Task 6), so the guard is now tested against a corpus chosen to tell
+  // the two orderings apart, and what stays here is what the *real* corpus can
+  // still say: the default order is alphabetical, and switching the sort is
+  // not a filter.
   await openCity(page);
   await cityHasSignals(page);
 
@@ -305,10 +358,9 @@ test('reordering the field changes the order and not the roles', async ({ page }
         drawn: city.signals.drawn,
         names: city.signals.columns.map((c) => c.name),
         // Parallel to `names`, in column order. It used to be returned sorted
-        // and then indexed as though it were parallel, which made the
-        // "tallest first" assertion below compare a name's position against
-        // somebody else's height — an assertion that could only pass or fail
-        // by accident. Found while adding selection.
+        // and then indexed as though it were parallel, which made a "tallest
+        // first" assertion compare a name's position against somebody else's
+        // height — an assertion that could only pass or fail by accident.
         counts: city.signals.columns.map((c) => c.jobIds.length),
       };
     }, CITY_DEBUG_KEY);
@@ -317,21 +369,14 @@ test('reordering the field changes the order and not the roles', async ({ page }
   expect(byName.names).toEqual([...byName.names].sort((a, b) => a.localeCompare(b)));
 
   await page.getByRole('radio', { name: 'Openings' }).click();
-
-  await expect
-    .poll(async () => (await read()).names.join('|'), {
-      message: 'the field never reordered after the sort was changed',
-    })
-    .not.toBe(byName.names.join('|'));
-
-  const byOpenings = await read();
-  // Tallest first. This is the assertion that the *scene* reordered, not just
-  // the list — it reads the instance buffer's own columns.
-  expect([...byOpenings.counts]).toEqual([...byOpenings.counts].sort((a, b) => b - a));
+  // Settle on the count rather than on the order: this corpus is entitled to
+  // return the same order, and waiting for one it cannot produce is what the
+  // old version of this test did for fifteen seconds before failing.
+  await expect.poll(async () => (await read()).drawn).toBe(byName.drawn);
 
   // An ordering is not a filter. The same roles are on the city before and
   // after, or the sort control is quietly hiding part of the corpus.
-  expect(byOpenings.drawn).toBe(byName.drawn);
+  const byOpenings = await read();
   expect([...byOpenings.counts].sort()).toEqual([...byName.counts].sort());
   expect([...byOpenings.names].sort()).toEqual([...byName.names].sort());
 });
@@ -425,6 +470,42 @@ test('the sort control is a radio group a keyboard can reach', async ({ page }) 
   await expect(name).toHaveAttribute('aria-checked', 'false');
 });
 
+/**
+ * The budget for the two occlusion checks below.
+ *
+ * These ask one question — can a pointer actually reach this control, or is
+ * something drawn on top of it — and they are the only tests in this file that
+ * click several controls in a row, which is what made them the ones to fail.
+ *
+ * **Measured, 2026-08-20, on this suite's own headless Chromium.** The city
+ * animates continuously, so every frame re-renders the whole Three.js scene and
+ * the bloom pass over it; with no GPU that is a software rasteriser doing
+ * ~600-800ms of work per frame. The page runs at **1.8fps**, the main thread is
+ * never free for longer than a fraction of a second, and a single click was
+ * measured taking 6.5s to 9.6s against a 10s budget. Which control went red was
+ * decided by which stall it landed in, so the failure moved between runs and
+ * read as four different bugs.
+ *
+ * This is not the product being slow — `docs/reviews/milestone-4e-*` records
+ * p50 37.9ms on a real GPU — and it is the same reason `debug.ts` refuses to
+ * assert a frame-time threshold here at all.
+ *
+ * **A longer budget does not weaken what these assert.** The failure they exist
+ * to catch is a control another element covers, which Playwright reports as
+ * "intercepts pointer events"; more time makes such a run slower to go red,
+ * never green. The budget only decides whether a slow city is allowed to look
+ * like a covered one.
+ *
+ * `reducedMotion: 'reduce'` would be the better lever — it stops the map
+ * repainting and the same four clicks take 48ms to 1.3s — but it belongs to a
+ * browser context, and `test.use` on this project did not reach the page: the
+ * run still rendered the orbit button, so the emulation was not applied and the
+ * budget was doing all the work. Recorded rather than left as a silently
+ * ineffective line. `the city stops moving under prefers-reduced-motion` below
+ * builds its own context, which is the shape that does work.
+ */
+const CLICK = { timeout: 30_000 };
+
 test('every control in the right rail can actually be clicked', async ({ page }) => {
   await openCity(page);
   await cityHasSignals(page);
@@ -439,13 +520,13 @@ test('every control in the right rail can actually be clicked', async ({ page })
   //
   // Playwright's actionability check fails a click that another element would
   // intercept, so each of these is an occlusion assertion.
-  await page.getByRole('button', { name: 'Reset view' }).click({ timeout: 10_000 });
-  await page.getByRole('button', { name: 'Keyboard' }).click({ timeout: 10_000 });
-  await page.getByRole('button', { name: 'Hide keys' }).click({ timeout: 10_000 });
-  await page.getByRole('radio', { name: 'Openings' }).click({ timeout: 10_000 });
+  await page.getByRole('button', { name: 'Reset view' }).click(CLICK);
+  await page.getByRole('button', { name: 'Keyboard' }).click(CLICK);
+  await page.getByRole('button', { name: 'Hide keys' }).click(CLICK);
+  await page.getByRole('radio', { name: 'Openings' }).click(CLICK);
 
   const roster = page.getByRole('region', { name: /who is hiring/i });
-  await roster.getByRole('button').first().click({ timeout: 10_000 });
+  await roster.getByRole('button').first().click(CLICK);
 
   // And the counts panel at the foot of the rail is still on screen with all
   // of that above it, rather than pushed off the bottom.
@@ -465,13 +546,11 @@ test('the rail is still usable with a role selected', async ({ page }) => {
   await page.mouse.click(beacon.x, beacon.y);
   await expect(page.getByTestId('city-detail')).toBeVisible({ timeout: 15_000 });
 
-  await page.getByRole('button', { name: 'Reset view' }).click({ timeout: 10_000 });
-  await page.getByRole('button', { name: 'Keyboard' }).click({ timeout: 10_000 });
-  await page.getByRole('button', { name: 'Hide keys' }).click({ timeout: 10_000 });
-  await page.getByRole('radio', { name: 'Newest' }).click({ timeout: 10_000 });
-  await page.getByTestId('city-detail').getByRole('button', { name: 'Close' }).click({
-    timeout: 10_000,
-  });
+  await page.getByRole('button', { name: 'Reset view' }).click(CLICK);
+  await page.getByRole('button', { name: 'Keyboard' }).click(CLICK);
+  await page.getByRole('button', { name: 'Hide keys' }).click(CLICK);
+  await page.getByRole('radio', { name: 'Newest' }).click(CLICK);
+  await page.getByTestId('city-detail').getByRole('button', { name: 'Close' }).click(CLICK);
 
   await expect(page.getByTestId('city-detail')).toHaveCount(0);
 });

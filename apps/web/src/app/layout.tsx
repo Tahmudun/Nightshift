@@ -5,6 +5,8 @@ import './globals.css';
 import { HealthTelemetry } from '@/components/HealthTelemetry';
 import { ModeNav } from '@/components/ModeNav';
 import { Providers } from '@/components/Providers';
+import { SessionGate } from '@/components/SessionGate';
+import { SessionIdentity } from '@/components/SessionIdentity';
 
 /*
  * §4.1: keep the product name isolated so it can be changed later, and do not
@@ -49,14 +51,18 @@ export default function RootLayout({ children }: { readonly children: React.Reac
                 <ModeNav />
               </div>
 
-              <div className="ms-auto">
+              <div className="ms-auto flex items-center gap-4">
+                <SessionIdentity />
                 <HealthTelemetry />
               </div>
             </div>
           </header>
 
+          {/* Every page is behind the gate, including ones that do not exist
+           * yet — the same argument `main.py` makes for putting the session
+           * dependency on the router rather than on each handler. */}
           <main id="main" className="mx-auto max-w-6xl px-5 py-8">
-            {children}
+            <SessionGate>{children}</SessionGate>
           </main>
 
           <footer className="mx-auto max-w-6xl border-t border-ink-800 px-5 py-6">
@@ -65,7 +71,7 @@ export default function RootLayout({ children }: { readonly children: React.Reac
              * which is the seventh time in this project a description has
              * outlived the thing it described. */}
             <p className="font-mono text-[10px] tracking-[0.14em] text-paper-faint uppercase">
-              Milestone 4 · the living city · basemap up, no roles on it yet
+              Milestone 5 · the open hand · accounts, and postings you hand it yourself
             </p>
           </footer>
         </Providers>

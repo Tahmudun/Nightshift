@@ -54,6 +54,8 @@ from nightshift.db.base import (
     ApplicationStage,
     Base,
     BoardTier,
+    CaptureStatus,
+    CredentialMethod,
     EligibilityState,
     EmploymentType,
     EventActor,
@@ -184,12 +186,108 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         JSONB, nullable=False, server_default=text("'[]'::jsonb")
     )
 
+    credentials: Mapped[list[UserCredential]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    sessions: Mapped[list[UserSession]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
     skills: Mapped[list[UserSkill]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
     projects: Mapped[list[UserProject]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+
+
+class UserCredential(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """One way a person can prove they are themselves. ADR 0037.
+
+    ``users`` has no ``password_hash`` column and never will. A credential is a
+    row here, keyed by method, so the sign-in method can change without
+    touching a single account: adding Google is an insert, not a migration, and
+    a person who holds both rows may use either.
+
+    The unique constraint is on ``(user_id, method)`` rather than on
+    ``user_id``: one password per person, and one Google link per person, but
+    not one credential per person.
+    """
+
+    __tablename__ = "user_credentials"
+    __table_args__ = (
+        UniqueConstraint("user_id", "method", name="uq_user_credentials_user_id_method"),
+        # An empty secret would make `verify()` the only thing standing between
+        # an account and anybody who asks for it. argon2 emits a long encoded
+        # string; nothing legitimate is shorter than this.
+        CheckConstraint("length(secret) >= 16", name="credential_secret_is_not_empty"),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    method: Mapped[CredentialMethod] = mapped_column(
+        _enum(CredentialMethod, "credential_method"), nullable=False
+    )
+    #: For ``password``: the full argon2id encoded hash, salt and parameters
+    #: included. Never the password, and never anything reversible.
+    secret: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    user: Mapped[User] = relationship(back_populates="credentials")
+
+
+class UserSession(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """A signed-in browser or client. ADR 0037.
+
+    **Sessions live in the database, not in a signed token.** A JWT cannot be
+    revoked, and both "sign out everywhere" and account deletion have to
+    actually end a session rather than wait for one to expire. The cost is a
+    primary-key lookup per request on the one Postgres box CLAUDE.md §8 says is
+    the answer.
+
+    **The token is stored hashed**, so a database dump is a list of expiry
+    times rather than a set of live logins. SHA-256 rather than argon2 —
+    deliberately, and it is the opposite of the choice made for a password.
+    A password is short and human-chosen, so slowness is the defence. This
+    token is 256 bits from ``secrets``: there is no dictionary for it, nothing
+    to slow down, and argon2 on every request would be a real cost buying
+    nothing.
+
+    **There is deliberately no ``last_seen_at``.** The first draft had one, for
+    a future "signed in on these devices" screen. Resolving a session is a read
+    path, and `get_db_session` commits nothing on a read path by design — so
+    the column could only be written on requests that happened to commit for
+    unrelated reasons. A column nobody can keep correct is worse than no
+    column; M13 can add one alongside the write path that maintains it.
+    """
+
+    __tablename__ = "user_sessions"
+    __table_args__ = (
+        # Expiry is set from `created_at` at insert time; a row that expires
+        # before it began is a clock or a caller bug, and it would be an
+        # already-dead session rather than a loud failure.
+        CheckConstraint("expires_at > created_at", name="session_expires_after_it_began"),
+        Index("ix_user_sessions_user_id_expires_at", "user_id", "expires_at"),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    #: SHA-256 of the bearer token, hex. Unique so a lookup is one index hit and
+    #: so two sessions can never collide on a token.
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    #: Set when somebody signs out. A revoked row is kept rather than deleted so
+    #: "this session ended, deliberately" stays distinguishable from "this
+    #: session was never here" — the same reasoning as invariant I3.
+    revoked_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+
+    user: Mapped[User] = relationship(back_populates="sessions")
 
 
 class UserSkill(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -1871,3 +1969,89 @@ class MatchEvidence(UUIDPrimaryKeyMixin, Base):
     )
 
     match_result: Mapped[MatchResult] = relationship(back_populates="evidence")
+
+
+class CapturedPosting(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """A posting a person handed us, before anybody agreed it is real.
+
+    M5a / AMENDMENTS A16. Every other row in ``source_job_records`` arrived
+    because a provider served it at a URL we can go back to. This one arrived
+    because somebody pasted it, which changes two things and only two:
+
+    1. **Nothing can re-read it.** There is no board to poll, so freshness and
+       closure have no signal here. I3 already says silence is not evidence a
+       job closed; for a captured posting silence is *all there is*.
+    2. **The parse can be wrong in a way a provider's JSON cannot.** Greenhouse
+       tells us which string is the company. Pasted text does not, and guessing
+       wrong is not a cosmetic error: a company name resolves to a company,
+       which resolves to that company's confirmed office, which puts a beacon
+       on a **building**. A misparsed employer is invariant I1 violated through
+       the side door, so no proposed field is trusted until a person confirms.
+
+    ``proposed_*`` is what the parser offered and what the form was seeded
+    with. It is **not** what got created — confirmation submits the values the
+    person actually approved, and those go straight to the normalizer. These
+    columns are kept so a bad parse is diagnosable after the fact rather than
+    overwritten by the correction.
+
+    **Why this does not mirror ``resume_extractions``.** That table stores one
+    row per extracted fact with a span, and a trigger that refuses a row whose
+    span does not literally quote the résumé. It earns that machinery because a
+    résumé yields dozens of facts a person accepts individually against a
+    highlighted document. A capture is one short form reviewed against text the
+    person pasted seconds ago and can still see. The guarantee that matters is
+    identical and is enforced here by ``confirmed_rows_carry_a_job``: a row
+    cannot claim to be confirmed without pointing at the job it produced, and
+    cannot point at a job without being confirmed.
+
+    The capture is user-owned; the **job it produces is not**. A posting is
+    public information and the corpus is shared, exactly as it is for polled
+    boards. What stays private is the application — that lives in
+    ``applications`` behind a ``user_id``, and nothing here changes it.
+    """
+
+    __tablename__ = "captured_postings"
+    __table_args__ = (
+        CheckConstraint("length(btrim(raw_text)) > 0", name="capture_has_text"),
+        CheckConstraint(
+            "(status = 'confirmed') = (job_id IS NOT NULL)",
+            name="confirmed_rows_carry_a_job",
+        ),
+        CheckConstraint(
+            "(status = 'pending') = (decided_at IS NULL)",
+            name="decided_rows_carry_a_time",
+        ),
+        Index("ix_captured_postings_user_id_status", "user_id", "status"),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    #: Verbatim, exactly as pasted. The same contract as
+    #: ``source_job_records.raw_payload``: the parse is always re-derivable, so
+    #: a parser bug is a backfill rather than "ask the user to paste it again".
+    raw_text: Mapped[str] = mapped_column(Text, nullable=False)
+    #: Where the person says it came from. Never fetched — see the class note.
+    source_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+
+    status: Mapped[CaptureStatus] = mapped_column(
+        _enum(CaptureStatus, "capture_status"),
+        nullable=False,
+        server_default=CaptureStatus.PENDING.value,
+    )
+
+    #: What the parser offered. NULL means it declined to guess, which is a
+    #: real answer and the one the parser is biased toward.
+    proposed_title: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    proposed_company_name: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    proposed_location_text: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    #: Pinned so a proposal can be judged against the parser that made it.
+    parser_version: Mapped[str] = mapped_column(String(40), nullable=False)
+
+    job_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("jobs.id", ondelete="SET NULL"), nullable=True
+    )
+    decided_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)

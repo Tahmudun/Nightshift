@@ -7,19 +7,31 @@ import {
   createSelectionMesh,
   SELECTION_COLOR,
   SELECTION_INNER_RADIUS,
+  SELECTION_LIFT,
   SELECTION_OUTER_RADIUS,
 } from './selectionMesh';
-import { BEACON_RADIUS } from './signalLayer';
+import { COLUMN_BASE, COLUMN_RADIUS } from './signalLayer';
 import { ROLE_SPACING } from './unresolvedField';
 
 describe('the selection reticle’s size', () => {
   it('is a ring around the beacon rather than a disc over it', () => {
     // Drawn inside the beacon it is invisible; drawn over it, it hides the very
-    // thing it is pointing at. The relationship is asserted rather than the
-    // numbers, so enlarging a beacon goes red here instead of quietly swallowing
-    // the reticle.
-    expect(SELECTION_INNER_RADIUS).toBeGreaterThan(BEACON_RADIUS);
+    // thing it is pointing at.
+    //
+    // **What it has to clear is the interview arc, not the column's height.**
+    // This asserted `COLUMN_HEIGHT * 0.6` while a column was 90 m tall, which
+    // was a legible way to say "clear of the whole body" then and stopped being
+    // one the moment the column became a 1.65 km spire — at that height the
+    // same assertion demands a reticle a kilometre across. The clearance it was
+    // really protecting is from `markMesh`'s arc at 2.6 radii, and that is now
+    // asserted directly, so a height that moves again does not drag the cursor
+    // with it.
+    expect(SELECTION_INNER_RADIUS).toBeGreaterThan(COLUMN_RADIUS * 2.6 * 2);
+    expect(SELECTION_INNER_RADIUS).toBeGreaterThan(COLUMN_RADIUS * 5);
     expect(SELECTION_OUTER_RADIUS).toBeGreaterThan(SELECTION_INNER_RADIUS);
+    // And it still sits on the body, where the job is, rather than up the
+    // spire — a cursor 800 m above the thing it points at is not one.
+    expect(SELECTION_LIFT).toBeLessThanOrEqual(COLUMN_BASE);
   });
 
   it('is large enough to be found at the range this field is read at', () => {

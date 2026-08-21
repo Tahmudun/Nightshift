@@ -13,11 +13,13 @@ likely to quietly become a zero.
 
 from __future__ import annotations
 
+import uuid
 from datetime import date
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from nightshift.api.deps import current_user_id
 from nightshift.api.main import create_app
 from nightshift.discovery.coverage import (
     STRUCTURAL_BLIND_SPOTS,
@@ -212,9 +214,20 @@ async def test_the_route_serves_it_all_including_the_nulls() -> None:
     coerced `None` to `0` would turn "we cannot know" into "there is no gap",
     silently, on the one page whose job is to admit ignorance.
     """
-    transport = ASGITransport(app=create_app())
+    app = create_app()
+
+    # M5b (ADR 0037): every router except `/health` and `/auth` is behind a
+    # session, `/coverage` included. This test is about what the route
+    # *serialises* — a null that must survive as a null — not about who may ask,
+    # which has its own module in `test_two_users_cannot_see_each_other.py`.
+    async def _caller() -> uuid.UUID:
+        return uuid.UUID("00000000-0000-4000-8000-0000000000ff")
+
+    app.dependency_overrides[current_user_id] = _caller
+    transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as http:
         response = await http.get("/coverage")
+    app.dependency_overrides.clear()
 
     assert response.status_code == 200
     body = response.json()

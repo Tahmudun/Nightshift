@@ -168,7 +168,7 @@ make test              Unit tests, both languages
 make test-e2e          Playwright, with no API behind it (the degraded path)
 make test-e2e-seeded   Playwright against a seeded stack (needs make up/migrate/seed)
 make verify            Assert the running stack works; exits 0 or 1
-make acceptance        up && migrate && seed && verify && test-e2e-seeded
+make acceptance        up && migrate && drift && seed && test-e2e && verify && test-e2e-seeded
 make check             format + lint + typecheck + test. Run before every commit.
 make reset-db          Drop, recreate, migrate, seed
 ```
@@ -325,10 +325,42 @@ rotate, pan all work on trackpad and touch; user can interrupt any camera animat
 no fake precise placement; thousands of markers ≠ thousands of React components;
 list and map stay synchronized; every map action has a non-3D equivalent; metrics recorded.
 
-### M5–M8
+### M5 — The Open Hand
 
-Cinematic visual system → historical intelligence → Gmail-assisted tracking →
-hardening. See `docs/spec/PRODUCT-SPEC.md` §17. Do not plan these in detail yet.
+**Nightshift stops being one person's database, and Claude becomes how you feed it.**
+
+Manual capture of a found posting (paste → confirm → tracked → drawn), real
+identity replacing the seeded `dev_user`, and an MCP server that lets a user link
+their own Claude to this domain. Assisted capture from LinkedIn and Indeed rides
+on that server: **user-initiated and session-bound, never a poller.**
+
+Acceptance: two users cannot see each other's data, proved by a test shown able to
+fail. A pasted posting appears on the map with a capture badge; pasting it twice
+creates no duplicate. No parsed fact is stored as confirmed without a user action.
+Claude Desktop connects and captures a posting end to end.
+
+### M6 — The Archipelago
+
+Regions, and the Island: a Tron-blue landmass across the water housing every
+remote and address-unknown role, reached by a cinematic crossing. This absorbs the
+old M5's cinematic visual system. The Island is an explicit *non*-location, which
+is how it satisfies I1 rather than straining it.
+
+### M7 — Smooth. **This is the ship.**
+
+M4d Tasks 2–7 finally tuned against real volume on a real GPU — adaptive quality
+tiers, level-of-detail, field-at-scale, automated accessibility — plus the first
+public deploy. A15's "M4 is the ship" is superseded by A16.
+
+### M8–M13
+
+Gmail-assisted tracking → the Overworld (rejection intelligence, above the clouds)
+→ Jarvis (voice and hands) → historical intelligence → Continental (multi-state) →
+hardening. **See `docs/spec/AMENDMENTS.md` A16 for the full map and the old→new
+mapping.** Do not plan these in detail yet.
+
+**The ordering rule: data before rendering.** This project has twice tuned a look
+against a corpus too small to reveal how it reads. Do not do it a third time.
 
 ---
 
@@ -387,8 +419,11 @@ Things that will actively make this project worse:
 - Scraping anything that asks not to be scraped. First-party public APIs only. Every
   request identifies itself, respects rate limits, caches, and backs off.
 - Storing an email body when a classification and a message ID would do.
-- Building for imaginary scale. One user, a few thousand jobs. Postgres is enough.
-  It will be enough for a very long time.
+- Building for imaginary scale. Postgres on one box is enough and will be for a
+  very long time. **Narrowed by A16**: multi-user *correctness* — auth, data
+  isolation, deletion — is a property of being deployable at all, not a bet on
+  volume, and is in scope from M5. Scaling work still waits for something to
+  measurably fail.
 
 ---
 

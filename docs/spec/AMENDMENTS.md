@@ -378,3 +378,73 @@ interactive 3D New York that does not lie about where anything is.
 That is deployable, demoable, and defensible in an interview. Treat M4 as a real ship —
 deploy it, write the case study, put it on the resume — before starting M5. Everything
 after M4 is upside on a project that already counts.
+
+---
+
+## A16 — The project became a product. Re-cut M5 onward.
+
+**Overrides:** A15, `PRODUCT-SPEC.md` §17 (milestones 5–8), and `CLAUDE.md` §8's
+"one user, a few thousand jobs" anti-pattern.
+
+### What changed
+
+A15 defined M0–M4 as the whole portfolio project: one user, NYC only, deployed to
+nobody. On 2026-08-19 the goal changed to a product other people can use — smooth,
+deployable, visually stunning, with Claude integration, captured postings, an
+island for location-less roles, a rejection-analysis realm, voice, hand tracking,
+and eventually more than one state.
+
+A15 is superseded on one point only: **M4 is no longer the ship.** M7 is. The rest
+of A15 stands — M0–M4 remains a real body of work and the thing that makes the
+product possible.
+
+`CLAUDE.md` §8's "building for imaginary scale" anti-pattern is **narrowed, not
+deleted.** It still forbids scaling work before something measurably fails. It no
+longer forbids multi-user correctness, which is a property of being deployable at
+all rather than a bet on volume. One Postgres box is still the answer.
+
+### The insight that shapes the re-cut
+
+Four separate-looking asks — reading LinkedIn/Indeed, "link the app to Claude",
+AI rejection analysis, and a voice assistant — are **one MCP server** exposing
+this domain to Claude. Built once, the other three are configuration and UI.
+
+It is also why the AI is free: the user's own Claude is the model. Nightshift
+supplies deterministic evidence and Claude narrates it. A server-side inference
+path is deferred until there is revenue to cover it.
+
+### The map
+
+| New | Name | Was |
+|---|---|---|
+| M4 | Living city — finish, reduced scope | M4 |
+| M5 | **The Open Hand** — identity, manual capture, the Claude link | new |
+| M6 | **The Archipelago** — regions, the Island, cinematic traversal | absorbs old M5 |
+| M7 | **Smooth** — perf, quality tiers, first public deploy. **The ship.** | absorbs M4d 2–7 |
+| M8 | Gmail-assisted tracking | old M7 |
+| M9 | **The Overworld** — rejection intelligence | new |
+| M10 | **Jarvis** — voice and hands | new |
+| M11 | Historical intelligence | old M6 |
+| M12 | **Continental** — multi-state | new |
+| M13 | Hardening | old M8 |
+
+Old M5's cinematic deliverables are not dropped; they are absorbed into M6, whose
+sea-and-smoke crossing between regions *is* the cinematic visual system. Reading
+"M5" in a document written before 2026-08-19 means the cinematic system and now
+lives at M6.
+
+### The ordering rule, and why it is not negotiable
+
+**Data before rendering.** This project has now twice tuned a look against a
+corpus too small to reveal how it reads: the facade pass against 20 lit roles, and
+M4c's field-legibility finding at 31. M5 fills the corpus before M6 designs the
+place it goes and before M7 tunes what it costs.
+
+### What is deliberately not being built
+
+Billing, subscriptions, metering, quotas, tiers, teams, orgs, roles, Kubernetes,
+microservices, a second database, read replicas, multi-region, a mobile app, or a
+provider abstraction for a second LLM that does not exist yet.
+
+The subscription business model is a real future intention and an explicitly
+deferred one. It changes nothing about what gets built now.

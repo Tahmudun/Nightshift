@@ -97,6 +97,17 @@ between the viewer and the far buildings, never in front of the near ones.
 > still the brightest thing on the map, and `dusk-*` still never touches a mark.
 > Read ADR 0023 before changing either.
 
+> **The rest of this rule fell on 2026-08-16 — ADR 0029.** ADR 0023 reversed
+> half of it and the other half is what kept the city grey for two more
+> milestones. The paragraph below is left as written because the argument in it
+> is still correct about its *aim* and instructive about its method: it
+> protected a real constraint through a proxy — a token that happened to be dim
+> — and then the proxy became the design. `ink-450`, a desaturated blue-grey,
+> ended up the brightest pixel on the map. **The city is neon now**, in a
+> `neon-*` family that carries no meaning, and what protects the encoding is a
+> stated margin — city < hiring building < open role, held by test at both ends
+> and with a floor so it cannot be satisfied by darkness. Read ADR 0029 first.
+
 **Every building glows.** In all four images the whole skyline is lit. That is the
 one thing this city may never do, and not for taste reasons: §9.2 says *"most of the
 city should remain dark so active data can breathe"*, and if every building is lit
@@ -109,6 +120,18 @@ references, especially at the current corpus size, and that is correct rather th
 shortfall. A skyline with nine lit buildings is telling you there are nine employers
 with open roles in view. A skyline with four hundred lit buildings is telling you
 nothing.
+
+**What replaces it.** The scenery is lit and carries nothing; the *marks* carry
+everything, and they differ from the scenery in hue and shape rather than only
+in level. Concretely, and each one is asserted rather than intended:
+
+- Streets, rail, the shoreline and the rooflines of buildings over 400 feet draw
+  in `neon-*`, an electric indigo at hue ~252 that means nothing at all.
+- A hiring building is `alert-400` magenta — 81° of hue away, and 8 L\* brighter.
+- An open role is `signal-400` cyan, 22 L\* brighter than that, and it moves.
+- Everything in the style stays at least 20 L\* below `signal-400`, and something
+  in it must exceed 50 L\* or the suite fails — which is the assertion that would
+  have caught the grey city if it had existed.
 
 **Heavy bloom.** PRODUCT-SPEC §4.2's avoid-list names excessive bloom and hard-to-read glowing
 text explicitly. The references are bloom-heavy because they are stills; on a
@@ -154,10 +177,25 @@ This gets the look honestly. The synthwave read in those images comes mostly fro
 the *field* — the graded violet sky and haze — rather than from the marks, which is
 why the discipline costs nothing visually and buys the encoding everything.
 
+> **The table below gained two rows and lost a rule, on 2026-08-18 — ADR 0033.**
+> As written, this section left the scenery exactly *one* saturated hue, because
+> every other one was spoken for by the encoding. That is a defensible rule and
+> it produced a monochrome: violet scenery, a violet-to-magenta sky and cyan
+> data, everything inside a 60° arc of the wheel with no warm anywhere. The
+> premise was true and the conclusion did not follow — hue had stopped being the
+> only channel separating scenery from data long before, because a role floats,
+> pulses, is far brighter, wears a name plate and stands on a beam. The scenery
+> now has a warm family as well as a cool one. **What did not change is the
+> headroom**: every scenery colour clears 20 L\* under `signal-400` and 3 L\*
+> under `alert-400`, and two tests hold it. Read ADR 0033 before spending a
+> third hue.
+
 | Family | Role in the city | May carry a meaning? |
 |---|---|---|
 | `ink-*` | Building mass, water, land, panel surfaces | No — surfaces only, never text |
 | `dusk-*` **(new)** | Sky gradient, haze, fog, horizon glow, starfield | **No — atmosphere only** |
+| `neon-*` **(ADR 0029)** | The city's own cool light — streets, corners, rooflines, crowns, windows | **No — scenery only** |
+| `ember-*` **(ADR 0033)** | The city's own *warm* light — lit windows, and the edge light on a third of the towers | **No — scenery only** |
 | `signal-*` | Beacons, building edge-light, selection, the active state | Yes |
 | `alert-*` | Degradation, staleness, source failure | Yes, and only this |
 | `gold-400` | Urgency — a deadline you can still act on | Yes, and sparingly |
@@ -374,6 +412,40 @@ somewhere else.
 the ceiling on lit buildings is a number of addresses somebody types, and that is
 their time rather than my engineering decision.
 
+**How it runs: `make offices`.** Added 2026-08-16, and the reason it had to be is
+worth recording. `read_worksheet` and `load_offices` shipped in M4a and M4b, both
+complete and both tested — and **nothing outside the test suite called either of
+them**. The worksheet was a file you could fill in that led nowhere, so the answer
+to Q7 could not have changed a single pixel no matter how many addresses were typed
+into it. A subsystem is not built until something runs it; two green test files and
+a documented design read exactly like a working feature from the outside, which is
+the shape of the failure I7 names.
+
+The command reads the worksheet, refuses what §4.4 says it must, walks the §4.3
+ladder over the survivors, and writes `company_locations`. Three properties matter:
+
+- **A human runs it. It is never scheduled and is in neither `demo` nor
+  `acceptance`.** Geocoding is a live request to `geosearch.planninglabs.nyc`, so
+  it is gated on `OUTBOUND_HTTP_ENABLED` exactly as `ingest` and `poll` are.
+  `CachingGeocoder` writes every answer to `geocode_cache`, so an address is
+  requested once ever and the buildings it placed survive into an offline
+  `make demo` — the same guarantee ADR 0022 gives tiles, applied to addresses.
+- **The network gate is checked lazily**, only when an entry actually names an
+  address. An all-blank worksheet is the starting state, and a command that
+  demanded outbound HTTP before it could tell you the file is empty would be
+  unusable for the first thing anybody uses it for.
+- **A refusal exits 1; an unresolved address exits 0.** A refused entry is a
+  defect in a file a person wrote and they have to go fix it. An unresolved one
+  is the world answering: the address is outside GeoSearch's corpus, or names
+  somewhere it does not know. Most of the registry has no NYC office and that is
+  a finding, not a mistake — conflating the two would make the command red by
+  default and therefore ignored.
+
+Verified end to end on 2026-08-16 against the live geocoder: `Datadog`,
+`620 8th Ave, New York, NY, 10018` → `verified`, **BIN 1087186**, one HTTP request,
+one row. The row was deleted afterwards; the address is the human's to confirm and
+a scratch run must not leave a `confirmed_by` behind that names nobody real.
+
 ### 4.5 Ashby's structured address, read for tidiness rather than precision
 
 `address.postalAddress` is recorded verbatim in every Ashby payload and deliberately
@@ -453,6 +525,16 @@ language that is load-bearing for an invariant.
 > database (M3b) and is not yet read here. It is not deferred to M5 — it is
 > simply not done, and it is the obvious next refinement of the layout.
 
+> **The counterpart exists as of M4e Task 6 (2026-08-17), and this section is
+> now half of a pair.** `buildingField.ts` arranges the roles that *do* have a
+> confirmed office, and it is this module with rule 1 inverted: there, the
+> ground position is not the renderer's to choose at all. Each field owns its
+> own filter, so a role belongs to exactly one of them and neither can be
+> forgotten by a caller — a role drawn in both would read as two openings.
+> §4.8's argument is unchanged by this. The unresolved field is still the
+> default view rather than the fallback, and on the seeded corpus it still
+> holds 11 of 31 roles.
+
 ---
 
 ## 5. M4b and M4c — how it is rendered
@@ -469,6 +551,39 @@ occluded by a building in front of it — and occlusion is most of what makes a 
 read as three-dimensional.
 
 This is the single most consequential technical decision in M4 and it gets an ADR.
+
+### 5.1a The sky, which is also ours
+
+> Added 2026-08-18 by ADR 0032, closing ADR 0029's "Still open".
+
+The sky is not MapLibre's `sky` block. It is `map/skyLayer.ts` — one full-screen
+triangle, one shader, raw WebGL rather than Three.js, because it draws no scene
+graph and a second `WebGLRenderer` on this context would be a second library
+caching a second belief about the same GL state.
+
+Three things about it are load-bearing and none is a taste:
+
+- **The gradient lives below 4.4° of elevation**, because that is the highest
+  sky the camera can put on screen at the opening pose. MapLibre's pitch is
+  measured from straight down, so the horizon sits 12% from the top at pitch 76
+  and 17% at the cap of 78. A gradient spread over a hemisphere shows one flat
+  colour here. ADR 0032 has the table, and **the reference's framing — horizon at
+  70% down the frame — is not reachable at any pitch MapLibre has.** That is
+  open as **Q9**.
+- **It draws below the buildings and above the roads**, because below the
+  horizon it is not sky at all but haze over ground MapLibre has already
+  painted. That is what closes the hard edge ADR 0029 could not move with any
+  fog setting: the band was drawn ground rather than void, so the fix had to
+  come from over it. The towers draw after and carry their own haze — since
+  ADR 0031 landed on 2026-08-18 they are Three.js geometry, and
+  `cityBuildings.ts` fogs them into the same horizon colour at the same
+  quadratic rate off the same `HAZE_CAMERA_DISTANCES`. Two numbers there would
+  be a ground and a skyline dissolving at different rates, which is a seam
+  along the horizon no amount of tuning either one can close.
+- **The alpha is computed before the colour.** Not a micro-optimisation: a sun,
+  a glow and a starfield computed for ground pixels where the haze is a fraction
+  of a code value cost 12 ms a frame on the development machine. Returning early
+  brought the whole layer inside measurement noise.
 
 ### 5.2 Tiles must be local, which settles A4's open choice
 
@@ -499,6 +614,26 @@ dollars, no key, one cached artifact.
 > `data/basemap.manifest.json`. Everything else in this section stands.
 
 ### 5.3 Buildings
+
+> **The building *material* below is superseded by ADR 0031 on 2026-08-18.**
+> The geometry pipeline — the pinned tiles, the measured heights, the 25 ft
+> default — stands and is what the replacement is built from. What fell is
+> `fill-extrusion` as the way a tower gets its look: after M4e Tasks 4–5 the
+> human's verdict was "the same old grey buildings with a neon slab placed on
+> top", and it was accurate — the crown is a second extrusion on an unchanged
+> flat-shaded box, and every limit that keeps it that way was measured
+> (`fill-extrusion-pattern` overrides the ramp; no outline for an extrusion;
+> MapLibre's own light on every face). **Buildings are drawn by the Three.js
+> layer** — windows, rim light, gradient and haze in our shader, from the same
+> tiles — and the acceptance test is the human judging screenshots against
+> reference 02. Read ADR 0031 before touching either layer.
+>
+> **Built on 2026-08-18** as M4e Task 10: `buildingGeometry.ts` (tile features
+> to vertex arrays) and `cityBuildings.ts` (chunking, eviction, shader), inside
+> the existing signal layer's scene. The two `fill-extrusion` layers are still
+> in the style and are retired by a **filter no feature can satisfy** — never
+> by `visibility: none`, which stops MapLibre loading the very tiles the new
+> renderer reads. It cost 0.6 ms a frame over the boxes it replaced.
 
 NYC Open Data Building Footprints, which carry per-building roof height and ground
 elevation — real extrusion heights for the whole city instead of OSM's guesses.
@@ -637,7 +772,7 @@ would shrink every time something was deferred.
 |---|---|
 | New internship / new role | Drawn. Cyan pulse, rapid and slow, plus a size that survives `prefers-reduced-motion` |
 | Saved | Drawn. White wireframe outline on the body |
-| Applied | Drawn, **translated**: nothing here stands on a building, so the beacon's own body fills — a core at three-quarters of its radius, at full strength |
+| Applied | Drawn, **translated**: the beacon's own body fills — a core at three-quarters of its radius, at full strength. The original reason was that nothing stood on a building; since M4e Task 6 some roles do, and the translation is kept for a better one — an application's state must not look different depending on whether the employer published an address |
 | Assessment / interview | Drawn. A turning **arc** — a closed ring is symmetric about its own axis and its rotation is invisible by construction |
 | Exceptional match | Drawn. Gold vertical beam, and only for `eligible` with a non-null fraction (I2, `matching.md` §5.2) |
 | Offer | Drawn. Soft `verdant-400` core |
