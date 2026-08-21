@@ -34,7 +34,7 @@
 **M4c: Tasks 1, 2, 3 and 4 are done. The placement join and `GET /city/signals` (ADR 0024, which resolves a real conflict between I1 and `city.md` §4.4 rather than papering over it), the Three.js signal layer in MapLibre's own context (ADR 0025), and the field made legible, navigable and sortable. New York now has every open role floating above it, untethered, and none on a building — see `docs/reviews/milestone-4c-signals.png` and `docs/reviews/milestone-4c-roster.png`. Task 4 then made a role reachable: picking by raycast against the frame's own matrix, a reticle, a detail panel, and one selection shared by the list and the map (ADR 0027) — `docs/reviews/milestone-4c-selection.png`.**
 **Docker's daemon is no longer wedged.** It was force-quit and relaunched on 2026-08-12. `make up` was then run **from cold** — containers removed with `docker compose down` first — and created both from scratch to healthy, exit 0. **That closes the last open step in M4b's acceptance chain**; container startup is now proven rather than assumed. The seeded corpus survived and matches what this file records: 31 canonical jobs, 62 `job_locations`, 44 `city_only` + 18 `remote`, 0 mappable.
 **Current milestone: M5 — The Open Hand (A16), on `m5b-identity`.**
-**M5a and M5b are built, reviewed and verified. [PR #18](https://github.com/Tahmudun/Nightshift/pull/18) is open against `main`** — 65 commits, 167 files, carrying M4d Task 1, M4e's built tasks, M5a and M5b; draft PR #17 is closed as superseded. All four local gates were re-run green on 2026-08-21: `make check` (2128 Python tests, 799 web), `make reset-db`, `make verify`, and `make test-e2e-seeded` at **87 passed, 1 skipped, 0 failed**. **CI then found what no local command could**: M5b added `argon2-cffi` and never regenerated CI's pin, so the pin had silently become partial — ADR 0016 §3's exact failure class, caught by the check written for it. **CI then ran twice**: run 1 caught the partial pin, run 2 passed `web`, `migrations`, `e2e` and `secret scan` and lost `python` to a 10-minute timeout at 64% with zero failures — raised to 20, and raised as **Q12**, because CI is now ~15 minutes against A14's five. See "Next exact action".
+**M5a and M5b are built, reviewed and verified. [PR #18](https://github.com/Tahmudun/Nightshift/pull/18) is open against `main`** — 65 commits, 167 files, carrying M4d Task 1, M4e's built tasks, M5a and M5b; draft PR #17 is closed as superseded. All four local gates were re-run green on 2026-08-21: `make check` (2128 Python tests, 799 web), `make reset-db`, `make verify`, and `make test-e2e-seeded` at **87 passed, 1 skipped, 0 failed**. **CI then found what no local command could**: M5b added `argon2-cffi` and never regenerated CI's pin, so the pin had silently become partial — ADR 0016 §3's exact failure class, caught by the check written for it. **CI took three runs and is now green — all five jobs at `06725d6`, and PR #18 is `MERGEABLE`/`CLEAN`.** Run 1 caught a partial dependency pin; run 2 lost `python` to a 10-minute timeout at 64% with zero failures (raised to 20, and raised as **Q12**, because CI is now ~15 minutes against A14's five); run 3 passed everything. **#18 is deliberately not merged — that call is the human's**, because this branch carries M4e and M4e's acceptance is a human verdict on a screenshot. See "Next exact action".
 **M5b is BUILT and REVIEWED** — `user_credentials`, `user_sessions`, argon2id,
 `/auth/sign-in|token|sign-out|me`, default-deny on every router,
 `nightshift users create`, a seed that plants **two** accounts, the Next.js
@@ -733,7 +733,7 @@ last rung of the three rather than the next.
 
 ## Next exact action
 
-### Current milestone: **M5 — The Open Hand**, on `m5b-identity`. Every local gate is green and **[PR #18](https://github.com/Tahmudun/Nightshift/pull/18) is open against `main`.** The next action is reading CI, then the merge.
+### Current milestone: **M5 — The Open Hand**, on `m5b-identity`. Every local gate is green and **[PR #18](https://github.com/Tahmudun/Nightshift/pull/18) is open against `main` with CI fully green.** The next action is the human's: whether to merge it.
 
 > **START HERE, NEXT SESSION.** The full local gate was re-run on 2026-08-21
 > from a rebuilt corpus and **all four passed**:
@@ -745,11 +745,19 @@ last rung of the three rather than the next.
 > | `make verify` | **exit 0** — all checks passed, corpus left as found |
 > | `make test-e2e-seeded` | **exit 0** — **87 passed, 1 skipped, 0 failed** (6.6m) |
 >
-> **CI ran twice and is not green yet — read the block below before doing
-> anything.** Four of five jobs pass at `e55cbdc`; the fifth was a timeout,
-> not a failure, and the fix is pushed. **Re-read CI on #18; if it is green,
-> merge it.** Then M5's remaining work is M5c — the MCP server — and M4e
-> Tasks 8 and 9.
+> **CI is green.** Run `32476388882` at `06725d6` — the branch tip — is
+> `completed/success` with **all five jobs passing**: `python`, `web`,
+> `migrations`, `e2e` and `secret scan`. PR #18 reports `MERGEABLE` / `CLEAN`.
+>
+> **The next action is the human's, not mine: #18 is waiting on a decision to
+> merge.** It was deliberately not merged. The branch carries M4e, whose
+> acceptance criterion is a standing commitment that *the human* holds
+> `docs/design/references/02-skyline-grid-plane-light-columns.jpg` against a
+> screenshot and gives a verdict — and Tasks 8 and 9 of that milestone are not
+> done. A green gate is evidence the code works, not permission to ship a look.
+>
+> After the merge, M5's remaining work is **M5c — the MCP server** — and **M4e
+> Tasks 8 and 9**.
 
 **CI's verdict, and both things it caught were invisible locally.**
 
@@ -759,7 +767,9 @@ last rung of the three rather than the next.
 and `secret scan` all passed. **`e2e` passing matters**: it runs the seeded
 corpus with the §5.6 intermittent in it, so that risk did not land this time.
 
-`python` was **cancelled at exactly 10m00s having reached 64% with zero
+**Run 3 (`06725d6`) — green.** All five jobs passed with the raised timeout.
+
+`python` in run 2 was **cancelled at exactly 10m00s having reached 64% with zero
 failures** — `timeout-minutes: 10` against a suite that now takes 10m16s
 locally. **A timeout reports "cancelled", which at a glance is indistinguishable
 from a real failure**, and the first reading of it here was wrong: it was read
