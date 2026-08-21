@@ -619,6 +619,33 @@ class CredentialMethod(enum.StrEnum):
     PASSWORD = "password"
 
 
+class SessionOrigin(enum.StrEnum):
+    """What kind of client is holding a session. M5c.
+
+    This exists so that ``user_sessions`` can hold an MCP token **without a
+    second table**, and the reason that matters is not tidiness. M5b's whole
+    achievement was getting the number of places that answer "who is this"
+    down to one — ``resolve_session`` — so that isolation is structural rather
+    than remembered. A ``user_api_tokens`` table would have made it two, in the
+    milestone immediately after.
+
+    The two really are one thing. A session is a proven identity with a
+    lifetime; an MCP token is a proven identity with a longer lifetime and a
+    name. ``origin`` is a **label on the answer**, never a second way to reach
+    it: nothing branches on it to decide whether a request is authenticated.
+
+    **An ``mcp`` session has exactly the same power as a ``browser`` one.** It
+    is not scoped, not read-only, and not restricted by tool. That is stated
+    here rather than hidden, because a token living in a plaintext config file
+    is at the machine's trust level, and a schema implying otherwise would be
+    a lie told in a column. What this enum buys is revocability that a person
+    can aim — see ``UserSession.label``.
+    """
+
+    BROWSER = "browser"
+    MCP = "mcp"
+
+
 def pg_enum_values(enum_cls: type[enum.Enum]) -> list[str]:
     """``values_callable`` helper: store enum *values*, not member names."""
     return [member.value for member in enum_cls]

@@ -29,7 +29,7 @@ from argon2.exceptions import InvalidHashError, VerificationError, VerifyMismatc
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from nightshift.db.base import CredentialMethod
+from nightshift.db.base import CredentialMethod, SessionOrigin
 from nightshift.db.models import User, UserCredential, UserSession
 from nightshift.db.types import utcnow
 
@@ -42,6 +42,21 @@ TOKEN_BYTES = 32
 #: security this product currently benefits from, and a longer one makes a
 #: stolen token a longer-lived problem.
 SESSION_LIFETIME = timedelta(days=30)
+
+#: How long an MCP token lives. M5c.
+#:
+#: A year rather than thirty days, and the asymmetry is the point rather than a
+#: relaxation. :data:`SESSION_LIFETIME` is tuned for a browser, where signing in
+#: again costs a password field. This one is tuned for a file on disk that a
+#: person edits once and forgets, where the cost of expiry is opening
+#: `claude_desktop_config.json`, finding the CLI, and re-pasting — which is not
+#: a cost anybody pays quarterly. They stop using the feature instead.
+#:
+#: What makes a year acceptable is that it is **revocable and named**. A stolen
+#: browser session and a stolen MCP token are equally bad; the difference is
+#: that `nightshift tokens --list` can show you the second one and let you end
+#: it, which no expiry window provides.
+MCP_TOKEN_LIFETIME = timedelta(days=365)
 
 #: The shortest password this system will store. Deliberately a floor on length
 #: and nothing else — no character-class rules, which NIST SP 800-63B stopped
@@ -105,11 +120,25 @@ async def create_session(
     *,
     now: datetime | None = None,
     lifetime: timedelta = SESSION_LIFETIME,
+    origin: SessionOrigin = SessionOrigin.BROWSER,
+    label: str | None = None,
 ) -> IssuedSession:
     """Mint a session for ``user_id`` and return its plaintext token.
 
     The token is returned and not stored. The caller hands it to the client;
     nothing can recover it afterwards, which is the point.
+
+    ``origin`` and ``label`` are M5c, and they are the whole of what an MCP
+    token is: this function already took a ``lifetime``, so a credential for a
+    config file needed a name and a kind and nothing else. **Neither is read by
+    :func:`resolve_session`** — they describe the session, they do not
+    authenticate it, and a future caller that branches on ``origin`` to decide
+    whether somebody is signed in has built the second identity path M5c was
+    designed to avoid.
+
+    The default is ``BROWSER`` because sign-in must not have to learn a new
+    word: `api/routes/auth.py` calls this with neither argument, and a
+    different default would mislabel every login in the product.
     """
     moment = now or utcnow()
     token = secrets.token_urlsafe(TOKEN_BYTES)
@@ -117,6 +146,8 @@ async def create_session(
         user_id=user_id,
         token_hash=hash_token(token),
         expires_at=moment + lifetime,
+        origin=origin,
+        label=label,
     )
     session.add(row)
     await session.flush()
