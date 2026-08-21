@@ -795,6 +795,28 @@ last rung of the three rather than the next.
 > **M5d — assisted capture from LinkedIn and Indeed**, which rides on this
 > server, and **M5e — addresses without typing**.
 >
+> **A follow-up this branch found and deliberately did not take on.** After
+> fixing the blind import guard, the same defect class was swept for across the
+> whole Python suite with an AST scan: assertions that are **vacuously true on
+> an empty collection** — `assert [x for x in rows if bad] == []`, and
+> `for r in rows: assert ...`. It flagged **141 candidate test functions**. The
+> heuristic is crude and most are certainly fine, because their fixtures plant
+> known data.
+>
+> Two were checked properly, by sabotage rather than by reading, and **both are
+> live**: `test_every_coordinate_arrives_with_its_confidence` reaches
+> `jobs[0].locations[0]` and fails correctly when the `confidence` key is
+> dropped from the shape — M5c's fixture fix was sound, and the `verified`
+> location it plants is what makes the walk reachable.
+>
+> **Auditing the remaining 139 is its own slice and does not belong in a branch
+> about Claude Desktop** — a commit touching a hundred test files is one nobody
+> can review, including me. The mechanical fix is known (assert the collection
+> is non-empty before walking it); what is not known is how many of the 141 are
+> real. Worth doing on the invariant guards first: I1's coordinate walks and
+> I2's evidence walks, where an empty corpus makes the guard blind and the
+> invariant is the whole product.
+>
 > **One thing measured and deliberately not fixed:** the server takes ~5s to
 > import before it can answer `initialize` (Claude Desktop logged 8.4s cold).
 > Profiled: the cost is mostly the MCP SDK's own type modules, and
