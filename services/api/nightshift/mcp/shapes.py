@@ -113,7 +113,7 @@ def job_summary(job: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": job["id"],
         "title": job["title"],
-        "company": job["company"]["name"],
+        "company": job["company"]["canonical_name"],
         "employment_type": job["employment_type"],
         "remote_policy": job["remote_policy"],
         "status": job["status"],
@@ -137,3 +137,157 @@ def _location_from_api(row: dict[str, Any]) -> dict[str, Any]:
         city=row.get("city"),
         is_primary=row.get("is_primary"),
     )
+
+
+def search_result(payload: dict[str, Any]) -> dict[str, Any]:
+    """`JobListOut` → a search result the model can read honestly.
+
+    ``total`` travels beside the jobs because a limited list read as a complete
+    one is its own small lie: "there are 25 backend roles open" is wrong when
+    25 was the page size.
+    """
+    return {
+        "jobs": [job_summary(job) for job in payload.get("items", [])],
+        "total_matching": payload.get("total"),
+        "returned": len(payload.get("items", [])),
+    }
+
+
+def job_detail(job: dict[str, Any]) -> dict[str, Any]:
+    """`JobDetailOut` → one job in full. Still no score (I4).
+
+    ``requirements_extractor_version`` travels with the requirements because an
+    empty list means two different things — *this posting asks for nothing* and
+    *nothing has read this posting* — and the version is what separates them.
+    `JobDetailOut` records the same reasoning for the same reason.
+    """
+    detail = job_summary(job)
+    detail.update(
+        {
+            "description": job.get("description_text"),
+            "requirements": job.get("requirements", []),
+            "requirements_extractor_version": job.get("requirements_extractor_version"),
+            "requirements_note": (
+                "An empty requirements list with a null extractor version means no "
+                "one has read this posting yet — not that it asks for nothing."
+            ),
+            "sources": [source.get("source_name") for source in job.get("sources", [])],
+            "url": job.get("canonical_url"),
+        }
+    )
+    return detail
+
+
+def match_explanation(job: dict[str, Any]) -> dict[str, Any]:
+    """`JobDetailOut` → the score and everything that has to travel with it.
+
+    **The only shape in this module that carries a number**, and it carries the
+    whole of I4's list: components, penalties, `ruleset_version`, evidence.
+
+    A null ``match`` is returned as a null with a sentence rather than as an
+    empty object or a zero. `MatchOut` names the three situations it covers —
+    the sweep has not reached this pair, the posting has no description, or the
+    stored row is at a ruleset version no longer current — and all three are
+    "no score", none of which is a number.
+    """
+    match = job.get("match")
+    if match is None:
+        return {
+            "job_id": job["id"],
+            "title": job["title"],
+            "company": job["company"]["canonical_name"],
+            "match": None,
+            "why_no_score": (
+                "Nightshift has not scored this job for this reader. That means the "
+                "scoring sweep has not reached it, the posting has no description to "
+                "read, or the stored score was computed by a ruleset version that is "
+                "no longer current. It does not mean the score is low. Do not "
+                "estimate one."
+            ),
+        }
+
+    return {
+        "job_id": job["id"],
+        "title": job["title"],
+        "company": job["company"]["canonical_name"],
+        "match": {
+            "score": match["overall_score"],
+            "out_of": match["assessed_out_of"],
+            "fraction": match["fraction"],
+            "eligibility_status": match["eligibility_status"],
+            "components": match["components"],
+            "penalty_score": match["penalty_score"],
+            "penalties": match["penalties"],
+            "deferred_components": match["deferred_components"],
+            "ruleset_version": match["ruleset_version"],
+            "computed_at": match["computed_at"],
+        },
+        "eligibility": job.get("eligibility"),
+        "how_to_read_this": (
+            "`out_of` is not always 100 — a component the posting said too little to "
+            "assess is left out of the denominator rather than scored zero, so "
+            "compare `fraction` across jobs and not `score`. A component with "
+            "`assessable: false` was not asked, which is not the same as failing it. "
+            "`eligibility_status` is separate from the score: a job can score well "
+            "and still be `ineligible`."
+        ),
+    }
+
+
+def application_list(payload: dict[str, Any]) -> dict[str, Any]:
+    """`ApplicationListOut` → the pipeline, with each job's locations qualified."""
+    return {
+        "applications": [
+            {
+                "id": row["id"],
+                "stage": row["current_stage"],
+                "priority": row["priority"],
+                "applied_at": row.get("applied_at"),
+                "next_action_at": row.get("next_action_at"),
+                "job": job_summary(row["job"]),
+            }
+            for row in payload.get("items", [])
+        ],
+        "total": payload.get("total"),
+        "stage_counts": payload.get("stage_counts"),
+        "read_only": (
+            "You cannot change a stage or apply to anything through Nightshift's "
+            "MCP server. Say what you would change and let the reader do it."
+        ),
+    }
+
+
+def capture_proposal(capture: dict[str, Any], *, web_url: str) -> dict[str, Any]:
+    """`CaptureOut` → a proposal, described as a proposal.
+
+    **The wording here is the enforcement.** I5 and the whole of M5a live in
+    whether the model says *"I've added that job"* or *"I've put that in your
+    review queue"*. The first is false — nothing is in the corpus, nothing is
+    on the map, no application exists — and it is what a model will say by
+    default about a successful write, because a successful write usually means
+    something happened.
+
+    So the result names its own status, names what the parser declined to read,
+    and carries the URL where a person decides. `CaptureProposalOut` already
+    makes every field nullable with `null` meaning *the parser declined rather
+    than the key is missing*; this surfaces that distinction to a reader who
+    would otherwise see a blank and assume a bug.
+    """
+    proposed = capture.get("proposed") or {}
+    unread = sorted(field for field, value in proposed.items() if value is None)
+
+    return {
+        "capture_id": capture["id"],
+        "status": capture["status"],
+        "proposed": proposed,
+        "could_not_read": unread,
+        "review_url": f"{web_url.rstrip('/')}/operate/capture",
+        "what_just_happened": (
+            "A proposal was created and nothing else. This posting is NOT in "
+            "Nightshift's job corpus, is NOT on the map, and has NO application "
+            "attached. Nightshift read what it could from the text; a field listed "
+            "in `could_not_read` is one the parser declined to guess at, which is "
+            "deliberate rather than a failure. The reader confirms or discards it "
+            "at `review_url`, and only then does a job exist."
+        ),
+    }

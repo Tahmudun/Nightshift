@@ -736,7 +736,87 @@ last rung of the three rather than the next.
 
 ## Next exact action
 
-### Current milestone: **M5 — The Open Hand**. M5a and M5b are merged. **The next action is M5c — the MCP server, which needs an ADR before it needs code.**
+### Current milestone: **M5 — The Open Hand**, on `m5c-the-open-hand`. **Tasks 1–4 of six are built and green. What remains is the live Claude Desktop walk (task 5) and the review (task 6).**
+
+> **START HERE, NEXT SESSION.** The branch is off `main` at `1ab2bd9`.
+> Tasks 1–4 are committed; `make check` is green after each. The next action is
+> **task 5 — connecting a real Claude Desktop** — which is the milestone's
+> acceptance criterion and cannot be a unit test.
+>
+> `docs/runbooks/connecting-claude-desktop.md` is written and unwalked. Walk it,
+> capture evidence, and expect it to find something the tests could not.
+>
+> **Before any gating run: check that nothing else is touching Postgres.**
+> `lsof -ti:3000 -ti:8000` for a stale dev stack, and no second pytest. This
+> session lost three `make check` runs to that and every failure looked like a
+> real defect — see "the mistake this session repeated" below.
+
+**What M5c has built.**
+
+| Task | State |
+|---|---|
+| 1 — the credential | **Done.** Migration `0025`, `nightshift tokens`, the `nsk_` prefix and its gitleaks rule |
+| 2 — server, transport, guards | **Done.** `nightshift/mcp/` in five files, stdio, the import guard and the stdout guard |
+| 3 — the read tools | **Done.** `search_jobs`, `get_job`, `explain_match`, `list_applications` |
+| 4 — capture | **Done.** `capture_posting`, and the tests that keep a confirm tool from ever existing |
+| 5 — the Claude Desktop walk | **Not started.** The acceptance criterion |
+| 6 — review and docs | ADR 0038 and the runbook are written; the review is not |
+
+**ADR 0038** records the three decisions: the server is an HTTP client of the
+API and may not import `nightshift.db.session` or `.models`; the credential is
+a session that grew `origin` and `label` rather than a second table; and there
+is no confirm tool, because approving a tool call is not reviewing a parsed
+title.
+
+**Six guards were each shown able to fail** by sabotaging the code and watching
+them go red: the import guard, the stdout guard, the confidence-table
+exhaustiveness check, the no-score-outside-`explain_match` walk, the
+no-`user_id`-argument check, and the no-confirm-tool check.
+
+**Four findings worth keeping.**
+
+**A test that could not fail, caught by sabotage rather than by review.** The
+enumerating tests in `test_mcp_read_tools.py` walk tool results looking for a
+leaked score or a bare coordinate. `db_session` truncates, so `search_jobs`
+returned `{"jobs": []}` — and **a walk over an empty list finds nothing**.
+Sabotaging `job_summary` to leak a score left the file green. The fixture now
+plants a job, two locations and an application, and the same sabotage goes red.
+This is `CLAUDE.md` §7 and M4c's lesson in a new place: *a corpus that cannot
+produce a failure cannot test the guard against it.*
+
+**Postgres already enforces I1 harder than this milestone assumed.** The corpus
+fixture tried to plant a `city_only` row *with* coordinates — the combination
+`shapes.py` defensively drops — and the INSERT was refused by
+`job_locations.confidence_matches_coordinates`, which requires a latitude for
+`verified`/`approximate` and forbids one for `city_only`/`remote`/`unknown`.
+The defensive drop is kept and is now honestly labelled belt-and-braces rather
+than a last line.
+
+**The first enum column this project has added to a table that already exists.**
+Autogenerate emits `sa.Enum` inside `add_column` **without** the `CREATE TYPE`
+before it, so migration `0025`'s first draft could not run at all. `0023` and
+`0024` never met it because `create_table` does emit the type. Created and
+dropped by hand now, up-down-up walked locally.
+
+**ADR 0016 §2's platform split now bites a developer, not only CI.** `mcp`
+pulls `cryptography`, whose pinned version has no macOS x86_64 wheel, so the
+pinned set CI installs **cannot be installed on this machine** and local dev
+runs an older `cryptography`. Same shape as onnxruntime, same answer: the pin
+covers CI and not a developer's machine.
+
+**The mistake this session repeated, and the rule that prevents it.** Three
+`make check` runs reported errors in unrelated suites — `test_closure_pipeline`,
+`test_admin_rows_carry_provenance` — and all three were **lock contention I
+caused** by running a background `pytest` and a stale dev stack against the same
+Postgres. PROGRESS already said so: *"a test run that overlaps another test run
+is not evidence."* Read that before diagnosing a `TRUNCATE` failure as a defect.
+**And a second one: `git checkout HEAD -- <file>` to undo a deliberate sabotage
+discards uncommitted work in that file.** It cost this session two rewrites of
+`identity.py` and `cli.py`. Sabotage by copying the file aside, or commit first.
+
+---
+
+### The previous action, kept because its answers still stand
 
 > **START HERE, NEXT SESSION.** `main` is at `414117c` — PR #18 merged
 > 2026-08-21 with all five CI jobs green at `06725d6`. There is no open PR and
