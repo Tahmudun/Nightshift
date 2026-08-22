@@ -2041,6 +2041,10 @@ class CapturedPosting(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             name="decided_rows_carry_a_time",
         ),
         Index("ix_captured_postings_user_id_status", "user_id", "status"),
+        #: The lookup behind "you already pasted this". Scoped by user because
+        #: a shared proposal would hand one reader a row belonging to another
+        #: — M5b's isolation, broken by a deduplication shortcut.
+        Index("ix_captured_postings_user_id_fingerprint", "user_id", "text_fingerprint"),
     )
 
     user_id: Mapped[uuid.UUID] = mapped_column(
@@ -2053,8 +2057,23 @@ class CapturedPosting(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     #: ``source_job_records.raw_payload``: the parse is always re-derivable, so
     #: a parser bug is a backfill rather than "ask the user to paste it again".
     raw_text: Mapped[str] = mapped_column(Text, nullable=False)
-    #: Where the person says it came from. Never fetched — see the class note.
+    #: Where the person says it came from. Never fetched — see the class note,
+    #: and `tests/test_capture_never_fetches.py`, which is that sentence with
+    #: teeth (M5d, ADR 0039 §1).
     source_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+
+    #: sha256 of the whitespace-collapsed, casefolded ``raw_text`` (M5d).
+    #:
+    #: Identity for *the same paste*, not for the same job — the job-level
+    #: answer is ``capture_source_job_id``, which is content-derived across
+    #: users so two people capturing one opening land on one job. This is
+    #: narrower and does a different job: it stops one person's review queue
+    #: holding the same posting twice because a model called the tool again
+    #: when it was unsure the first call landed.
+    #:
+    #: Normalised rather than raw because re-copying a page rarely produces
+    #: byte-identical text — a trailing newline is not a second posting.
+    text_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
 
     status: Mapped[CaptureStatus] = mapped_column(
         _enum(CaptureStatus, "capture_status"),

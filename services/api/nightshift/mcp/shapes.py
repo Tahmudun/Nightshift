@@ -290,9 +290,12 @@ def capture_proposal(capture: dict[str, Any], *, web_url: str) -> dict[str, Any]
     unread = sorted(field for field, value in proposed.items() if value is None)
     refused = list(capture.get("assistant_rejected_fields") or [])
 
+    already_existed = bool(capture.get("already_existed"))
+
     result = {
         "capture_id": capture["id"],
         "status": capture["status"],
+        "already_existed": already_existed,
         "proposed": proposed,
         "could_not_read": unread,
         "assistant_accepted": capture.get("assistant"),
@@ -307,6 +310,19 @@ def capture_proposal(capture: dict[str, Any], *, web_url: str) -> dict[str, Any]
             "at `review_url`, and only then does a job exist."
         ),
     }
+
+    if already_existed:
+        # A model that is told only `already_existed: true` will still report
+        # "captured!" a second time, because the call succeeded and the field
+        # is one boolean in a result full of them. The sentence is what stops
+        # the reader being told twice that something happened once.
+        result["what_just_happened"] = (
+            "Nothing new was created. This reader had already pasted this exact "
+            "posting and it is still waiting for them at `review_url` — the "
+            "proposal below is that one, unchanged. Tell them it is already in "
+            "their queue rather than reporting a second capture, and do not "
+            "call this tool again for this posting."
+        )
 
     if refused:
         # Stated as a separate sentence rather than folded into

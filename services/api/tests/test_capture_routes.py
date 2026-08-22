@@ -348,3 +348,80 @@ async def test_a_paste_with_no_assistant_reports_none_rather_than_nulls(
     body = await _paste(client)
     assert body["assistant"] is None
     assert body["assistant_rejected_fields"] == []
+
+
+async def test_pasting_the_same_posting_twice_returns_the_same_proposal(
+    client: AsyncClient,
+) -> None:
+    """One posting, one thing to review (M5d, ADR 0039 §3).
+
+    **This narrows a position M5c stated.** `test_mcp_capture.py` argued that
+    two captures of one posting are two honest records of a person pasting, and
+    checked only that they do not become two jobs. That is right about the
+    corpus and wrong about the queue: a review queue is a to-do list, and two
+    identical to-do items is a defect in one. A model that is unsure whether
+    its last call went through will call again, which is what makes this
+    common rather than theoretical.
+
+    The trailing whitespace on the second paste is deliberate — re-copying a
+    page rarely produces byte-identical text.
+    """
+    body = {"raw_text": LINKEDIN_PASTE}
+    first = await client.post("/capture", json=body)
+    second = await client.post("/capture", json={"raw_text": LINKEDIN_PASTE + "\n\n  "})
+
+    assert first.status_code == 201, first.text
+    assert second.status_code == 200, second.text
+    assert second.json()["id"] == first.json()["id"]
+    assert second.json()["already_existed"] is True
+    assert first.json()["already_existed"] is False
+
+    listed = await client.get("/capture", params={"status": "pending"})
+    assert listed.json()["total"] == 1
+
+
+async def test_a_different_posting_is_a_different_proposal(client: AsyncClient) -> None:
+    first = await client.post("/capture", json={"raw_text": LINKEDIN_PASTE})
+    second = await client.post(
+        "/capture", json={"raw_text": LINKEDIN_PASTE.replace("Ramp", "Datadog")}
+    )
+    assert second.status_code == 201, second.text
+    assert second.json()["id"] != first.json()["id"]
+
+
+async def test_a_decided_capture_does_not_absorb_a_later_paste(client: AsyncClient) -> None:
+    """Idempotence covers the pending queue only, and stops at a decision.
+
+    Once a person has confirmed or discarded, the row is a record of what they
+    decided. Folding a fresh paste into it would rewrite that record, and it
+    would leave a reader who deliberately re-captured something with nothing to
+    review. The corpus check (§4) is what tells them the re-capture is
+    redundant; silence would not.
+    """
+    first = await client.post("/capture", json={"raw_text": LINKEDIN_PASTE})
+    discarded = await client.post(f"/capture/{first.json()['id']}/discard")
+    assert discarded.status_code == 200, discarded.text
+
+    again = await client.post("/capture", json={"raw_text": LINKEDIN_PASTE})
+    assert again.status_code == 201, again.text
+    assert again.json()["id"] != first.json()["id"]
+
+
+async def test_two_people_pasting_the_same_posting_get_their_own_proposals(
+    client: AsyncClient, db_session: AsyncSession, other_user: User
+) -> None:
+    """The fingerprint is scoped to a person, and that is not an optimisation.
+
+    A shared proposal id would hand one reader a row belonging to another and
+    let them confirm or discard it — the isolation M5b exists to enforce,
+    broken by a deduplication shortcut.
+    """
+    from nightshift.domain.capture import capture_paste
+
+    mine = await client.post("/capture", json={"raw_text": LINKEDIN_PASTE})
+    theirs = await capture_paste(
+        db_session, user_id=other_user.id, raw_text=LINKEDIN_PASTE, source_url=None
+    )
+
+    assert theirs.created is True
+    assert theirs.capture.id != uuid.UUID(mine.json()["id"])

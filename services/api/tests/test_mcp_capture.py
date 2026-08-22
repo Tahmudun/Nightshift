@@ -190,9 +190,15 @@ async def test_capturing_the_same_posting_twice_creates_no_duplicate(
 ) -> None:
     """M5's acceptance names this in as many words.
 
-    Two captures of one posting are two *records of a person pasting*, which is
-    honest — but they must not become two jobs, and neither is confirmed here,
-    so the corpus count is the thing that must not move.
+    Two captures of one posting must not become two jobs, and neither is
+    confirmed here, so the corpus count is the thing that must not move.
+
+    **M5c's version of this test stopped there, and its docstring argued that
+    two pending proposals are two honest records of a person pasting.** That is
+    right about the corpus and wrong about the queue — a review queue is a
+    to-do list, and two identical to-do items is a defect in one. M5d makes the
+    second call return the first proposal; ADR 0039 §3 records the reversal.
+    The corpus assertion below is unchanged and still the stronger one.
     """
     jobs_before = (await db_session.execute(select(func.count()).select_from(Job))).scalar_one()
 
@@ -201,6 +207,17 @@ async def test_capturing_the_same_posting_twice_creates_no_duplicate(
         second = await session.call_tool("capture_posting", {"raw_text": LINKEDIN_PASTE})
 
     assert not first.is_error and not second.is_error
+    assert first.structured_content is not None
+    assert second.structured_content is not None
+
+    assert first.structured_content["already_existed"] is False
+    assert second.structured_content["already_existed"] is True
+    assert second.structured_content["capture_id"] == first.structured_content["capture_id"]
+    # The model is told in words, not only in a boolean: a successful call with
+    # a flag set still reads as "it worked" and gets reported as a capture.
+    assert "already in their queue" in second.structured_content["what_just_happened"]
+    assert "Nothing new was created" in second.structured_content["what_just_happened"]
+
     jobs_after = (await db_session.execute(select(func.count()).select_from(Job))).scalar_one()
     assert jobs_after == jobs_before
 

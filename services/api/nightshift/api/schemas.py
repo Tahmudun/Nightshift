@@ -1373,6 +1373,12 @@ class AssistantQuoteOut(BaseModel):
 class CaptureOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    #: True when this response is a proposal that already existed rather than
+    #: one this request created — the reader pasted the same posting twice, or
+    #: a model called the tool again when it was unsure the first call landed.
+    #: The HTTP status says the same thing (200 rather than 201); this says it
+    #: to a client that only reads the body, which includes every model.
+    already_existed: bool = False
     id: UUID
     status: CaptureStatus
     source_url: str | None

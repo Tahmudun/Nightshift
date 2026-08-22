@@ -1,6 +1,6 @@
 # ADR 0039 — The page is read by the reader, not by us
 
-- **Status:** accepted (§1, §2); §3–§4 pending, added as M5d builds them
+- **Status:** accepted (§1, §2, §3); §4 pending, added as M5d builds it
 - **Date:** 2026-08-22
 - **Milestone:** M5d
 - **Relates to:** `CLAUDE.md` §1 (I1, I2, I7), §8 ("Scraping anything that asks not to be scraped"); AMENDMENTS A16; ADR 0038; `docs/architecture/board-discovery.md` §9; `nightshift/domain/capture.py`, `nightshift/api/routes/capture.py`, `nightshift/mcp/`
@@ -170,6 +170,61 @@ only when the assistant quoted something, and nothing needs it: what a reader
 cares about is where the *posting* came from, which comes from `source_url`.
 Recorded here as a decision rather than left as an omission, so a later
 milestone that needs it knows nobody forgot.
+
+
+## §3 — Decision: one posting, one thing to review
+
+`POST /capture` created a row per call. M5c's own test argued that was right —
+*two captures of one posting are two records of a person pasting, which is
+honest* — and checked only that they do not become two jobs.
+
+That is right about the corpus and wrong about the queue. **A review queue is a
+to-do list, and two identical to-do items is a defect in one.** M5d is also the
+milestone that makes it common rather than theoretical: a model unsure whether
+its last tool call landed will call again, and that is reasonable behaviour on
+its part.
+
+So `capture_paste` is idempotent over one person's *pending* rows, keyed on
+`text_fingerprint` — sha256 of the whitespace-collapsed, casefolded text,
+because re-copying a page rarely produces byte-identical text and a trailing
+newline is not a second posting. A repeat returns the existing proposal
+untouched, with `already_existed: true`, HTTP 200 rather than 201, and a
+sentence telling the model to say it is already in the queue rather than
+reporting a second capture.
+
+**Three boundaries, each of which is a decision.**
+
+*It is scoped to a person.* A shared proposal id would hand one reader a row
+belonging to another and let them confirm or discard it — M5b's isolation,
+broken by a deduplication shortcut. The index carries `user_id` first for that
+reason and not for speed.
+
+*It stops at a decision.* A confirmed or discarded row is a record of what
+somebody decided; folding a fresh paste into it would rewrite that record and
+leave a deliberate re-capture with nothing to review. §4's corpus check is what
+tells the reader the re-capture is redundant.
+
+*The existing row is returned unmodified.* Not updated with the new call's
+`source_url` or assistant quotes. The stored row is what the reader is about to
+look at, and quietly editing it under them while telling them it already
+existed is two contradictory statements in one response.
+
+**This is not `capture_source_job_id`.** That is the identity of a *job*,
+content-derived across all users so two people capturing one opening land on
+one row in the corpus. This is the identity of a *paste* and is only ever
+looked up beside a `user_id`. Both exist, they answer different questions, and
+the module says so where each is defined.
+
+### The alternative that was rejected
+
+**A unique constraint on `(user_id, text_fingerprint)` instead of a lookup.**
+It would enforce the rule in the schema, which is this project's usual
+preference. Rejected because the rule is *pending* rows only — a partial unique
+index would work, and then a second paste is an `IntegrityError` the route has
+to catch and turn back into the existing row, which is the lookup again with a
+worse error path. The lookup runs inside the same transaction that would do the
+insert, so the race window is the transaction's, and the cost of losing that
+race is one duplicate row in one person's queue.
 
 
 ## Consequences

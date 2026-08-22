@@ -34,6 +34,7 @@ from nightshift.domain.capture import (
     create_capture,
     discard_capture,
     propose,
+    text_fingerprint,
 )
 from tests.conftest import requires_db
 
@@ -230,6 +231,10 @@ async def test_the_schema_refuses_a_pending_capture_that_carries_a_job(
         CapturedPosting(
             user_id=user.id,
             raw_text="anything",
+            # NOT NULL since 0027 and irrelevant to what this test asserts.
+            # Supplied through the real function rather than as a literal so
+            # this row stays a row the application could actually have written.
+            text_fingerprint=text_fingerprint("anything"),
             status=CaptureStatus.PENDING,
             parser_version="1",
             job_id=job.id,

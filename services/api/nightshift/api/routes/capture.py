@@ -27,7 +27,7 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -46,8 +46,8 @@ from nightshift.db.session import get_db_session
 from nightshift.db.types import utcnow
 from nightshift.domain.capture import (
     CaptureAlreadyDecidedError,
+    capture_paste,
     confirm_capture,
-    create_capture,
     discard_capture,
     employment_type_for_title,
 )
@@ -58,8 +58,9 @@ router = APIRouter(prefix="/capture", tags=["capture"])
 MAX_LIMIT = 200
 
 
-def _to_out(capture: CapturedPosting) -> CaptureOut:
+def _to_out(capture: CapturedPosting, *, already_existed: bool = False) -> CaptureOut:
     return CaptureOut(
+        already_existed=already_existed,
         id=capture.id,
         status=capture.status,
         source_url=capture.source_url,
@@ -130,9 +131,16 @@ async def capture_posting(
     payload: CaptureIn,
     user_id: CurrentUserId,
     session: Annotated[AsyncSession, Depends(get_db_session)],
+    response: Response,
 ) -> CaptureOut:
-    """Store a paste and read what can be read from it. Creates no job."""
-    capture = await create_capture(
+    """Store a paste and read what can be read from it. Creates no job.
+
+    **201 for a new proposal, 200 for one that already existed.** The status
+    code is set here rather than declared on the decorator because the route
+    does not know which it is until the domain has looked; the decorator's
+    value is the default and the documented one.
+    """
+    outcome = await capture_paste(
         session,
         user_id=user_id,
         raw_text=payload.raw_text,
@@ -148,7 +156,9 @@ async def capture_posting(
         ),
     )
     await session.commit()
-    return _to_out(capture)
+    if not outcome.created:
+        response.status_code = status.HTTP_200_OK
+    return _to_out(outcome.capture, already_existed=not outcome.created)
 
 
 @router.get("", response_model=CaptureListOut)
