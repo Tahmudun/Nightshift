@@ -55,6 +55,7 @@ from nightshift.adapters.base import NormalizedSourceJob, RawJob
 from nightshift.adapters.greenhouse import content_hash, normalize_title
 from nightshift.db.base import CaptureStatus, EmploymentType, LocationConfidence, SourceType
 from nightshift.db.models import CapturedPosting, Job, JobSourceLink, Source, SourceJobRecord
+from nightshift.domain.capture_assist import AssistantProposal, read_assistant
 from nightshift.domain.companies import normalize_company_name
 from nightshift.domain.ingestion import get_or_create_source, persist_source_job
 from nightshift.domain.locations import (
@@ -213,8 +214,15 @@ async def create_capture(
     user_id: uuid.UUID,
     raw_text: str,
     source_url: str | None,
+    assistant: AssistantProposal | None = None,
 ) -> CapturedPosting:
-    """Store the paste and the parser's reading of it. Creates no job.
+    """Store the paste and both readings of it. Creates no job.
+
+    Two proposers, kept apart. ``propose`` reads lines and is the only one that
+    runs for a paste typed into the web form. ``read_assistant`` gates what the
+    reader's Claude quoted, when there is one — see ``capture_assist`` for why
+    a quote and a reading are different things and why only the first is
+    accepted (M5d, ADR 0039 §2).
 
     Takes no ``now``, unlike its siblings below: ``created_at`` carries a server
     default and ``decided_at`` must stay NULL here — the check constraint
@@ -222,6 +230,7 @@ async def create_capture(
     time, which is the schema saying the same thing this signature does.
     """
     proposal = propose(raw_text)
+    reading = read_assistant(raw_text, assistant or AssistantProposal())
     capture = CapturedPosting(
         user_id=user_id,
         raw_text=raw_text,
@@ -231,6 +240,10 @@ async def create_capture(
         proposed_company_name=proposal.company_name,
         proposed_location_text=proposal.location_text,
         parser_version=CAPTURE_PARSER_VERSION,
+        assistant_title=reading.accepted.title,
+        assistant_company_name=reading.accepted.company_name,
+        assistant_location_text=reading.accepted.location_text,
+        assistant_rejected_fields=list(reading.rejected),
     )
     session.add(capture)
     await session.flush()

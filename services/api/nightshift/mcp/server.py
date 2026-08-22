@@ -238,8 +238,10 @@ def build_server(
         name="capture_posting",
         description=(
             "Save a job posting the reader found somewhere Nightshift does not "
-            "ingest — LinkedIn, Indeed, a newsletter, a friend's message. Paste "
-            "the posting text as `raw_text`.\n\n"
+            "ingest — LinkedIn, Indeed, a newsletter, a friend's message. Put "
+            "the posting text in `raw_text`, verbatim and as complete as you have "
+            "it. Nightshift never loads the page itself, so `raw_text` is the only "
+            "thing it will ever know about this posting.\n\n"
             "This creates a PROPOSAL, not a job. Nightshift reads a title, a "
             "company and a location out of the text and stores them as suggestions "
             "the reader must review and confirm in the Nightshift web interface. "
@@ -250,16 +252,53 @@ def build_server(
             "guess, which is deliberate), and give them the review URL. Do not "
             "describe the posting as saved, tracked or added — it is none of those "
             "until a person confirms it.\n\n"
+            "**`title`, `company_name` and `location_text` are optional, and they "
+            "are QUOTES rather than readings.** If you have seen the posting and "
+            "know which string is the employer, copy it exactly as it appears in "
+            "`raw_text` \u2014 character for character, apart from whitespace and "
+            "capitalisation, which are forgiven. Do not tidy it up, do not "
+            "abbreviate it, do not supply a fact you know from elsewhere. A value "
+            "that is not present in the text is refused and comes back in "
+            "`assistant_refused`; a refusal is not an error and the capture still "
+            "succeeds. If a field is refused and you can quote it properly, say so "
+            "to the reader rather than calling the tool again with the same "
+            "value.\n\n"
+            "Leave them out when you are inferring rather than reading. Nightshift "
+            "has its own parser and a blank field costs the reader four seconds of "
+            "typing; a confidently wrong employer costs them a role attributed to "
+            "the wrong company.\n\n"
             "You cannot confirm it yourself. There is no tool for that, and its "
             "absence is deliberate: approving this tool call is not the same as "
             "reviewing a parsed job title, and that difference decides whether a "
             "role ends up attributed to the right company."
         ),
     )
-    async def capture_posting(raw_text: str, source_url: str | None = None) -> dict[str, Any]:
-        """`POST /capture`. Creates a `pending` row and never confirms it."""
+    async def capture_posting(
+        raw_text: str,
+        source_url: str | None = None,
+        title: str | None = None,
+        company_name: str | None = None,
+        location_text: str | None = None,
+    ) -> dict[str, Any]:
+        """`POST /capture`. Creates a `pending` row and never confirms it.
+
+        The three quote arguments are flat rather than one nested object
+        because a schema a model fills in by hand is easier to get right one
+        string at a time. They are reassembled into `assistant` here, which is
+        the shape the route validates.
+        """
+        assistant = {
+            "title": title,
+            "company_name": company_name,
+            "location_text": location_text,
+        }
         payload = await client.post(
-            "/capture", json={"raw_text": raw_text, "source_url": source_url}
+            "/capture",
+            json={
+                "raw_text": raw_text,
+                "source_url": source_url,
+                "assistant": assistant if any(assistant.values()) else None,
+            },
         )
         return shapes.capture_proposal(payload, web_url=web_url)
 

@@ -270,3 +270,81 @@ async def test_the_internship_proposal_reaches_the_response(client: AsyncClient)
 
     ordinary = await _paste(client, "Staff Backend Engineer\nRamp · New York, NY")
     assert ordinary["proposed"]["employment_type"] is None
+
+
+async def test_an_assistants_quote_is_stored_apart_from_the_parsers(
+    client: AsyncClient,
+) -> None:
+    """Both readings survive the round trip, and they are told apart (M5d).
+
+    The parser reads line 2 as the employer. The assistant is asked for the
+    same field and quotes it. They agree here, and the response still says
+    which one said what — because the case that matters is the one where they
+    do not, and a shape that only distinguishes them on disagreement is a shape
+    that decided the answer before the reader did.
+    """
+    response = await client.post(
+        "/capture",
+        json={
+            "raw_text": LINKEDIN_PASTE,
+            "source_url": "https://www.linkedin.com/jobs/view/4012345678/",
+            "assistant": {
+                "title": "Staff Backend Engineer",
+                "company_name": "Ramp",
+                "location_text": "New York, NY",
+            },
+        },
+    )
+    assert response.status_code == 201, response.text
+    body = response.json()
+
+    assert body["assistant"] == {
+        "title": "Staff Backend Engineer",
+        "company_name": "Ramp",
+        "location_text": "New York, NY",
+    }
+    assert body["assistant_rejected_fields"] == []
+    assert body["proposed"]["company_name"] == "Ramp"
+    assert body["job_id"] is None
+
+
+async def test_a_company_the_text_never_mentions_is_refused_and_named(
+    client: AsyncClient,
+) -> None:
+    """The failure this whole feature is gated against.
+
+    A model that answers "Stripe" about a Ramp posting gets nothing stored and
+    the reader is told the quote did not match. The capture still succeeds:
+    a refused field is the rule working, not a broken request, and turning it
+    into a 4xx would make the model retry the paste rather than the quote.
+    """
+    response = await client.post(
+        "/capture",
+        json={
+            "raw_text": LINKEDIN_PASTE,
+            "assistant": {"title": "Staff Backend Engineer", "company_name": "Stripe"},
+        },
+    )
+    assert response.status_code == 201, response.text
+    body = response.json()
+
+    assert body["assistant"]["company_name"] is None
+    assert body["assistant"]["title"] == "Staff Backend Engineer"
+    assert body["assistant_rejected_fields"] == ["company_name"]
+    # The parser is untouched by the assistant's mistake. Two readers, two
+    # records, and one being wrong does not corrupt the other.
+    assert body["proposed"]["company_name"] == "Ramp"
+
+
+async def test_a_paste_with_no_assistant_reports_none_rather_than_nulls(
+    client: AsyncClient,
+) -> None:
+    """The web form's own paste, unchanged from M5a.
+
+    ``null`` rather than an object of nulls, so a client can tell "no assistant
+    was involved" from "the assistant quoted nothing that survived" — only the
+    second is worth putting in front of a reader.
+    """
+    body = await _paste(client)
+    assert body["assistant"] is None
+    assert body["assistant_rejected_fields"] == []

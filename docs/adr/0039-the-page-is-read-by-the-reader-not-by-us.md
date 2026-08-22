@@ -1,6 +1,6 @@
 # ADR 0039 — The page is read by the reader, not by us
 
-- **Status:** accepted (§1); §2–§4 pending, added as M5d builds them
+- **Status:** accepted (§1, §2); §3–§4 pending, added as M5d builds them
 - **Date:** 2026-08-22
 - **Milestone:** M5d
 - **Relates to:** `CLAUDE.md` §1 (I1, I2, I7), §8 ("Scraping anything that asks not to be scraped"); AMENDMENTS A16; ADR 0038; `docs/architecture/board-discovery.md` §9; `nightshift/domain/capture.py`, `nightshift/api/routes/capture.py`, `nightshift/mcp/`
@@ -79,6 +79,98 @@ who is *allowed* to read the page to do the reading.
 extra one: it would put Nightshift back inside `robots.txt`'s jurisdiction
 while also being a second client to maintain, when the reader's Claude already
 has a browser.
+
+## §2 — Decision: an assistant may point, not paraphrase
+
+§1 forbids this server loading the page, which leaves the reader's own Claude
+as the only party that has seen the posting rendered. It is a far better reader
+than `domain/capture.py`'s line parser, which guesses the employer from
+position and — as the M5c desktop walk demonstrated on a run-on sentence —
+declines every field when handed prose.
+
+So the assistant may propose. It gets no more authority than the parser, and
+one new failure mode:
+
+    the parser can misread the text
+    the assistant can produce a company that was never in the text at all
+
+A misread is bounded by what was pasted. An invention is not, and in a review
+form the two are indistinguishable — both arrive as a pre-filled field beside a
+label. `domain/capture.py`'s own docstring already priced this: *a blank field
+costs a person four seconds of typing; a wrong field costs them a building.*
+
+**The rule: a field the assistant proposes must appear, verbatim, in
+`raw_text`.** Whitespace-collapsed and case-insensitive; nothing else is
+forgiven. A value that fails is not stored, and the model is told which field
+and why.
+
+It is the guarantee `resume_extractions` gets from its span trigger — no
+accepted fact that is not literally in the document — reached with a substring
+test rather than a trigger, because a capture is one short form reviewed
+against text the person pasted seconds ago, not dozens of facts accepted
+individually.
+
+The rule is strict enough to refuse correct answers. "NYC" for "New York, NY"
+is right and is refused. That is the point: a gate with an exception for values
+that look right is the model's judgement again, wearing a check's clothes. What
+strictness buys is that a reader looking at an assistant-proposed field can
+find it in the text below the form, every time, with no exceptions to remember.
+
+**What it does not claim.** Quotability is not correctness. "Ramp" appearing in
+the text does not make Ramp the employer, and a posting naming a customer will
+let that customer through. The confirmation step is still what makes a company
+real. This narrows the failure from *anything the model can say* to *something
+on the page*, and that is all.
+
+### Stored apart, not merged
+
+`assistant_title`, `assistant_company_name` and `assistant_location_text` are
+their own columns beside `proposed_*` rather than a better value written into
+them. Merging would erase which reader said what at exactly the moment a person
+is deciding whether to believe it, and would make "how good are the quotes"
+unanswerable forever. Where the two disagree, the review surface shows both and
+pre-fills neither (§5 of the M5d plan).
+
+`assistant_rejected_fields` holds **field names only, never values**. Storing
+the refused value would put a possibly-invented company name in this database,
+which is the thing the rule exists to keep out of it. The names are kept
+because they are the only measurement there will ever be of whether the gate is
+set too tight — and if the M5d walk shows it refusing most fields, that
+measurement is what the correction will be argued from.
+
+### The alternatives that were rejected
+
+**Let the assistant's values into `proposed_*` directly.** Simpler, one set of
+columns, and the review form would not need to change at all. Rejected because
+it makes the two proposers indistinguishable in the one record a person reads
+before agreeing to it.
+
+**Accept the assistant's value unconditionally and rely on the confirm step.**
+The confirm step is real and it is not sufficient: a pre-filled field is a
+default, and a default is what a tired person accepts at 11pm. The gate exists
+so that accepting the default cannot introduce a fact that was not on the page.
+
+**Score the assistant's value by similarity to the text instead of requiring an
+exact quote.** It would accept "NYC" and it would need a threshold, and a
+threshold is a number nobody can defend at the moment it lets something wrong
+through. Substring is explainable to a reader in one sentence.
+
+### A prediction from M5a, corrected here
+
+M5a wrote, in `apps/web/src/lib/schemas.ts`, that assisted capture would be *a
+new source name of this same type*. It is not. A posting captured through
+Claude and the same posting pasted into the web form came from the same place —
+a person who found it — and `capture_source_job_id` is content-derived
+precisely so two people capturing one opening land on one job. Two source names
+would give each channel its own `source_job_records` row for identical text and
+hand the difference to the dedupe layer to undo. The channel is not a source.
+
+**Which client relayed a capture is deliberately not stored.** It is derivable
+only when the assistant quoted something, and nothing needs it: what a reader
+cares about is where the *posting* came from, which comes from `source_url`.
+Recorded here as a decision rather than left as an omission, so a later
+milestone that needs it knows nobody forgot.
+
 
 ## Consequences
 

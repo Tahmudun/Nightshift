@@ -1311,11 +1311,35 @@ class CitySignalsOut(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+class AssistantQuoteIn(BaseModel):
+    """What the reader's Claude says it read on the page (M5d, ADR 0039 §2).
+
+    Optional in every sense: absent, and the line parser is the only proposer,
+    which is exactly M5a's behaviour.
+
+    **These are quotes, not readings.** Each value must appear verbatim in
+    ``raw_text`` — whitespace and case are forgiven, nothing else is — and one
+    that does not is refused and named in ``assistant_rejected_fields``. The
+    caller is told which, so a model that paraphrased can quote instead.
+
+    There is no ``employment_type`` here. It is an enum derived from the title,
+    not a span on a page, and there would be nothing for the assistant to point
+    at.
+    """
+
+    title: str | None = Field(default=None, max_length=500)
+    company_name: str | None = Field(default=None, max_length=300)
+    location_text: str | None = Field(default=None, max_length=500)
+
+
 class CaptureIn(BaseModel):
     """A paste. The only required field is the text itself."""
 
     raw_text: str = Field(min_length=1, max_length=200_000)
     source_url: str | None = Field(default=None, max_length=1000)
+    #: Absent for a paste typed into the web form; present when the reader's
+    #: Claude captured on their behalf and can quote what it saw.
+    assistant: AssistantQuoteIn | None = None
 
 
 class CaptureProposalOut(BaseModel):
@@ -1333,6 +1357,19 @@ class CaptureProposalOut(BaseModel):
     employment_type: EmploymentType | None
 
 
+class AssistantQuoteOut(BaseModel):
+    """What the assistant quoted and the rule accepted.
+
+    Three fields, mirroring ``AssistantQuoteIn``. No ``employment_type``: the
+    input has none to accept, and adding a derived one here would make this
+    look like a fourth thing the assistant claimed.
+    """
+
+    title: str | None
+    company_name: str | None
+    location_text: str | None
+
+
 class CaptureOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -1342,6 +1379,16 @@ class CaptureOut(BaseModel):
     raw_text: str
     proposed: CaptureProposalOut
     parser_version: str
+    #: What the assistant quoted and the rule accepted. Reported apart from
+    #: ``proposed`` so a review surface can say which of the two read it —
+    #: merging them would erase that at the moment a person is deciding
+    #: whether to believe it (ADR 0039 §2).
+    assistant: AssistantQuoteOut | None = None
+    #: Field names the quoting rule turned down. Names only: the refused value
+    #: is never stored and never returned, because returning it would put a
+    #: possibly-invented company name in front of the reader with nothing
+    #: marking it as refused.
+    assistant_rejected_fields: list[str] = Field(default_factory=list)
     #: Set only once a person has confirmed. Until then there is no job, and
     #: the schema refuses to let there be one.
     job_id: UUID | None

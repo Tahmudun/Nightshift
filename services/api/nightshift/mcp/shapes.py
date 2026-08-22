@@ -288,12 +288,15 @@ def capture_proposal(capture: dict[str, Any], *, web_url: str) -> dict[str, Any]
     """
     proposed = capture.get("proposed") or {}
     unread = sorted(field for field, value in proposed.items() if value is None)
+    refused = list(capture.get("assistant_rejected_fields") or [])
 
-    return {
+    result = {
         "capture_id": capture["id"],
         "status": capture["status"],
         "proposed": proposed,
         "could_not_read": unread,
+        "assistant_accepted": capture.get("assistant"),
+        "assistant_refused": refused,
         "review_url": f"{web_url.rstrip('/')}/operate/capture",
         "what_just_happened": (
             "A proposal was created and nothing else. This posting is NOT in "
@@ -304,3 +307,22 @@ def capture_proposal(capture: dict[str, Any], *, web_url: str) -> dict[str, Any]
             "at `review_url`, and only then does a job exist."
         ),
     }
+
+    if refused:
+        # Stated as a separate sentence rather than folded into
+        # `what_just_happened`, because it is the one part of this result the
+        # model is expected to *act* on, and a rule buried in a paragraph about
+        # something else is a rule a long conversation skims past.
+        result["about_your_quotes"] = (
+            "These fields were not stored: "
+            + ", ".join(refused)
+            + ". Each one has to appear in `raw_text` word for word — whitespace "
+            "and capitalisation are forgiven and nothing else is. A value you "
+            "worked out, tidied up, or knew from elsewhere is refused by design, "
+            "and refusing it is the check working rather than the capture "
+            "failing. Tell the reader plainly that you could not quote those "
+            "fields and let Nightshift's own parser or the reader fill them in. "
+            "Do not call this tool again with the same value."
+        )
+
+    return result

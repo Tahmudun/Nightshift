@@ -203,3 +203,105 @@ async def test_capturing_the_same_posting_twice_creates_no_duplicate(
     assert not first.is_error and not second.is_error
     jobs_after = (await db_session.execute(select(func.count()).select_from(Job))).scalar_one()
     assert jobs_after == jobs_before
+
+
+@_async
+async def test_a_quote_the_model_can_point_at_is_kept(
+    server: MCPServer, db_session: AsyncSession
+) -> None:
+    """M5d. The reader's Claude read the page; it may say what it saw.
+
+    Stored in its own columns, never merged into the parser's — the review
+    surface has to be able to say which of the two read it.
+    """
+    async with connected(server) as session:
+        result = await session.call_tool(
+            "capture_posting",
+            {
+                "raw_text": LINKEDIN_PASTE,
+                "source_url": "https://www.linkedin.com/jobs/view/4012345678/",
+                "title": "Staff Backend Engineer",
+                "company_name": "Ramp",
+            },
+        )
+
+    assert not result.is_error, result.content
+    assert result.structured_content is not None
+    assert result.structured_content["assistant_accepted"] == {
+        "title": "Staff Backend Engineer",
+        "company_name": "Ramp",
+        "location_text": None,
+    }
+    assert result.structured_content["assistant_refused"] == []
+
+    row = (
+        await db_session.execute(
+            select(CapturedPosting).where(
+                CapturedPosting.id == uuid.UUID(result.structured_content["capture_id"])
+            )
+        )
+    ).scalar_one()
+    assert row.assistant_company_name == "Ramp"
+    assert row.assistant_rejected_fields == []
+
+
+@_async
+async def test_a_company_the_page_never_named_is_refused_and_the_model_is_told_why(
+    server: MCPServer, db_session: AsyncSession
+) -> None:
+    """The failure the quoting rule exists for, at the surface it arrives on.
+
+    A model answering "Stripe" about a Ramp posting is the one thing that
+    separates an assistant proposal from a parser proposal, and it must not
+    reach the database. The capture still succeeds — a refusal is the check
+    working, and a 4xx would make the model retry the paste rather than fix
+    the quote.
+
+    **Sabotage:** have `create_capture` store `assistant` unread instead of
+    calling `read_assistant`, and the stored-value assertion below goes red.
+    """
+    async with connected(server) as session:
+        result = await session.call_tool(
+            "capture_posting",
+            {"raw_text": LINKEDIN_PASTE, "company_name": "Stripe"},
+        )
+
+    assert not result.is_error, result.content
+    assert result.structured_content is not None
+    assert result.structured_content["assistant_refused"] == ["company_name"]
+    assert result.structured_content["assistant_accepted"]["company_name"] is None
+
+    guidance = result.structured_content["about_your_quotes"]
+    assert "word for word" in guidance
+    assert "Do not call this tool again with the same value." in guidance
+
+    row = (
+        await db_session.execute(
+            select(CapturedPosting).where(
+                CapturedPosting.id == uuid.UUID(result.structured_content["capture_id"])
+            )
+        )
+    ).scalar_one()
+    assert row.assistant_company_name is None, "a refused quote reached the database"
+    assert "Stripe" not in (row.raw_text or "")
+    # The refused *value* is never stored. Only the field name is, because a
+    # possibly-invented company name in this table is the thing being prevented.
+    assert row.assistant_rejected_fields == ["company_name"]
+
+
+@_async
+async def test_a_capture_with_no_quotes_says_so_rather_than_reporting_nulls(
+    server: MCPServer,
+) -> None:
+    """The web form's paste and a model that declined look the same, correctly.
+
+    `assistant_accepted` is `None` rather than an object of nulls, and there is
+    no `about_your_quotes` sentence — there is nothing to tell the reader.
+    """
+    async with connected(server) as session:
+        result = await session.call_tool("capture_posting", {"raw_text": LINKEDIN_PASTE})
+
+    assert result.structured_content is not None
+    assert result.structured_content["assistant_accepted"] is None
+    assert result.structured_content["assistant_refused"] == []
+    assert "about_your_quotes" not in result.structured_content

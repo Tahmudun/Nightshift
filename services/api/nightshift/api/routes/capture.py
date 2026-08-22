@@ -33,6 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from nightshift.api.deps import CurrentUserId
 from nightshift.api.schemas import (
+    AssistantQuoteOut,
     CaptureConfirmIn,
     CaptureIn,
     CaptureListOut,
@@ -50,6 +51,7 @@ from nightshift.domain.capture import (
     discard_capture,
     employment_type_for_title,
 )
+from nightshift.domain.capture_assist import AssistantProposal
 
 router = APIRouter(prefix="/capture", tags=["capture"])
 
@@ -73,9 +75,30 @@ def _to_out(capture: CapturedPosting) -> CaptureOut:
             employment_type=employment_type_for_title(capture.proposed_title),
         ),
         parser_version=capture.parser_version,
+        # ``None`` rather than an object of nulls when the assistant said
+        # nothing: a client can then distinguish "no assistant was involved"
+        # from "the assistant quoted nothing that survived the rule", and only
+        # the second is worth telling the reader about.
+        assistant=_assistant_out(capture),
+        assistant_rejected_fields=list(capture.assistant_rejected_fields),
         job_id=capture.job_id,
         created_at=capture.created_at,
         decided_at=capture.decided_at,
+    )
+
+
+def _assistant_out(capture: CapturedPosting) -> AssistantQuoteOut | None:
+    quoted = (
+        capture.assistant_title,
+        capture.assistant_company_name,
+        capture.assistant_location_text,
+    )
+    if not any(quoted) and not capture.assistant_rejected_fields:
+        return None
+    return AssistantQuoteOut(
+        title=capture.assistant_title,
+        company_name=capture.assistant_company_name,
+        location_text=capture.assistant_location_text,
     )
 
 
@@ -114,6 +137,15 @@ async def capture_posting(
         user_id=user_id,
         raw_text=payload.raw_text,
         source_url=payload.source_url,
+        assistant=(
+            AssistantProposal(
+                title=payload.assistant.title,
+                company_name=payload.assistant.company_name,
+                location_text=payload.assistant.location_text,
+            )
+            if payload.assistant is not None
+            else None
+        ),
     )
     await session.commit()
     return _to_out(capture)

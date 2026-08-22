@@ -2070,6 +2070,30 @@ class CapturedPosting(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     #: Pinned so a proposal can be judged against the parser that made it.
     parser_version: Mapped[str] = mapped_column(String(40), nullable=False)
 
+    #: What the reader's Claude quoted out of the page it read (M5d, ADR 0039
+    #: §2). **Separate columns rather than merged into ``proposed_*``, and the
+    #: separation is the point.** The two proposers fail differently: the
+    #: parser can misread the text, and an assistant can produce a company
+    #: that was never in the text at all. Merging them would erase which one
+    #: said what at exactly the moment a person is deciding whether to believe
+    #: it, and there would be no way to answer "how good are the quotes" ever
+    #: again.
+    #:
+    #: Every value here has already passed ``capture_assist.quotable`` — it
+    #: appears verbatim in ``raw_text``. A value that did not is not stored;
+    #: only its field name is, below.
+    assistant_title: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    assistant_company_name: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    assistant_location_text: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    #: Field names the quoting rule turned down. **Names only, never values.**
+    #: Storing the refused value would put a hallucinated company name in this
+    #: database, which is the thing the rule exists to keep out of it. The
+    #: names are kept because they are the only diagnostic there will be for
+    #: whether the gate is set too tight.
+    assistant_rejected_fields: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+
     job_id: Mapped[uuid.UUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("jobs.id", ondelete="SET NULL"), nullable=True
     )

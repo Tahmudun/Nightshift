@@ -1278,9 +1278,17 @@ export const CAPTURE_SOURCE_NAME = 'manual_capture';
  *
  * The same string as `CAPTURE_SOURCE_NAME` and a different fact: one is which
  * source it is, the other is what kind of source that is. Compared separately
- * because they are free to diverge — a second capture surface (M5d's assisted
- * capture) would be a new source *name* of this same *type*, and code that had
- * conflated them would stop labelling it.
+ * because they are free to diverge.
+ *
+ * **M5a predicted that M5d's assisted capture would be a second source name of
+ * this type. It is not, and the reason is worth keeping.** A posting captured
+ * through Claude and the same posting pasted into the web form came from the
+ * same place — a person who found it — and `capture_source_job_id` is content-
+ * derived precisely so two people capturing one opening land on one job. Two
+ * source names would give each channel its own `source_job_records` row for
+ * identical text and hand the difference to the dedupe layer to undo. What
+ * actually differs is *who proposed each field*, and that is recorded on the
+ * capture row itself (ADR 0039 §2).
  */
 export const CAPTURE_SOURCE_TYPE = 'manual_capture';
 
