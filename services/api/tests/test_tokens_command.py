@@ -34,7 +34,15 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
-from nightshift.cli import _claude_desktop_block, format_token_listing, format_token_report
+import pytest
+
+from nightshift.cli import (
+    _claude_desktop_block,
+    _server_entry,
+    format_token_listing,
+    format_token_report,
+    write_claude_desktop_config,
+)
 from nightshift.db.models import UserSession
 from nightshift.domain.identity import TOKEN_PREFIX, IssuedSession, hash_token
 
@@ -96,6 +104,130 @@ def test_the_report_says_the_token_cannot_be_recovered() -> None:
     report = format_token_report(_issued(), email="you@example.test", api_url="http://x")
 
     assert "cannot be recovered" in report
+
+
+def test_the_merge_keeps_every_other_key(tmp_path: Path) -> None:
+    """The property the runbook was wrong about for a whole milestone.
+
+    A current Claude Desktop stores its own settings in this same file. The
+    defect is not hypothetical: the file on the machine that first connected
+    held a `preferences` object and no `mcpServers` key at all, so the printed
+    block — which is shaped like a whole file — would have replaced it.
+    """
+    config = tmp_path / "claude_desktop_config.json"
+    config.write_text(
+        json.dumps(
+            {
+                "preferences": {"sidebarMode": "epitaxy", "coworkWebSearchEnabled": True},
+                "coworkUserFilesPath": "/Users/someone/Claude",
+            }
+        )
+    )
+
+    write_claude_desktop_config(str(config), {"command": "/venv/bin/python"})
+
+    after = json.loads(config.read_text())
+    assert after["preferences"] == {"sidebarMode": "epitaxy", "coworkWebSearchEnabled": True}
+    assert after["coworkUserFilesPath"] == "/Users/someone/Claude"
+    assert after["mcpServers"]["nightshift"] == {"command": "/venv/bin/python"}
+
+
+def test_the_merge_leaves_a_sibling_server_alone(tmp_path: Path) -> None:
+    """A second MCP server is the case the old warning *did* cover. It still holds."""
+    config = tmp_path / "config.json"
+    config.write_text(json.dumps({"mcpServers": {"other": {"command": "/bin/other"}}}))
+
+    write_claude_desktop_config(str(config), {"command": "/venv/bin/python"})
+
+    after = json.loads(config.read_text())
+    assert after["mcpServers"]["other"] == {"command": "/bin/other"}
+    assert after["mcpServers"]["nightshift"] == {"command": "/venv/bin/python"}
+
+
+def test_re_minting_replaces_the_entry_rather_than_duplicating_it(tmp_path: Path) -> None:
+    """Re-minting is the ordinary reason to run this, so it must not refuse."""
+    config = tmp_path / "config.json"
+    config.write_text(json.dumps({"mcpServers": {"nightshift": {"env": {"OLD": "token"}}}}))
+
+    write_claude_desktop_config(str(config), {"env": {"NEW": "token"}})
+
+    assert json.loads(config.read_text())["mcpServers"]["nightshift"] == {"env": {"NEW": "token"}}
+
+
+def test_the_merge_backs_the_file_up_first(tmp_path: Path) -> None:
+    """The backup is the difference between a mistake and a loss."""
+    config = tmp_path / "config.json"
+    original = json.dumps({"preferences": {"a": 1}})
+    config.write_text(original)
+
+    write_claude_desktop_config(str(config), {"command": "/venv/bin/python"})
+
+    assert (tmp_path / "config.json.backup").read_text() == original
+
+
+def test_unparseable_json_is_refused_rather_than_overwritten(tmp_path: Path) -> None:
+    """Claude Desktop writes this file itself.
+
+    Content this command cannot parse means something is going on that it does
+    not understand, and overwriting would destroy the only copy of whatever
+    that was. It refuses, and says the file was left alone.
+    """
+    config = tmp_path / "config.json"
+    config.write_text("{ this is not json")
+
+    with pytest.raises(ValueError, match="Nothing was written"):
+        write_claude_desktop_config(str(config), {"command": "/venv/bin/python"})
+
+    assert config.read_text() == "{ this is not json"
+
+
+def test_a_missing_config_is_created(tmp_path: Path) -> None:
+    """A Claude Desktop that has never been launched has no config yet."""
+    config = tmp_path / "nested" / "config.json"
+
+    write_claude_desktop_config(str(config), {"command": "/venv/bin/python"})
+
+    assert json.loads(config.read_text()) == {
+        "mcpServers": {"nightshift": {"command": "/venv/bin/python"}}
+    }
+    assert not (tmp_path / "nested" / "config.json.backup").exists()
+
+
+def test_the_entry_written_is_the_entry_printed(tmp_path: Path) -> None:
+    """Two literals that can drift is exactly how a runbook stops working.
+
+    `--merge-config` and the printed block must produce the same object, so
+    this asserts the file's entry equals the one parsed back out of the report.
+    """
+    issued = _issued()
+    config = tmp_path / "config.json"
+
+    write_claude_desktop_config(str(config), _server_entry(issued.token, api_url="http://x:8000"))
+
+    report = format_token_report(issued, email="you@example.com", api_url="http://x:8000")
+    printed = json.loads(report[report.index("{") : report.rindex("}") + 1])
+    assert (
+        json.loads(config.read_text())["mcpServers"]["nightshift"]
+        == (printed["mcpServers"]["nightshift"])
+    )
+
+
+def test_the_report_warns_against_replacing_the_config_file() -> None:
+    """The block is a fragment, and a reader who treats it as a file loses data.
+
+    A current Claude Desktop writes its own ``preferences`` object into
+    `claude_desktop_config.json` before Nightshift ever touches it. Pasting
+    this block *over* that file resets the app's settings and reports nothing —
+    found by doing the merge for real while closing M5c's Claude Desktop
+    deviation. The report has to say so, because the report is the only thing
+    a person reads before editing the file.
+    """
+    report = format_token_report(
+        _issued(), email="you@example.com", api_url="http://localhost:8000"
+    )
+
+    assert "merge" in report.lower()
+    assert "do not replace" in report.lower()
 
 
 def test_the_report_tells_you_how_to_end_it() -> None:

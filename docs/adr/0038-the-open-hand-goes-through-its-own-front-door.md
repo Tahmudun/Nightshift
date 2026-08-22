@@ -33,7 +33,9 @@ alternative that this ADR rejects with a reason.
 ### 1. The MCP server is a client of the API. It never touches the database.
 
 `nightshift/mcp/` may import `httpx`. It may not import
-`nightshift.db.session`, `nightshift.db.models`, or SQLAlchemy.
+`nightshift.db.session`, `nightshift.db.models`, or any `nightshift.db` module
+but `base` — see the correction at the end of this section, which removed a
+blanket SQLAlchemy ban that the permitted import had always contradicted.
 
 The rejected alternative was the obvious one: the server already runs in the
 same repository, on the same machine, with the same models available — reading
@@ -76,6 +78,34 @@ would pass unconditionally — which is worse than not having it.
 no session, no model, and `shapes.py` reads `LocationConfidence` from it so the
 confidence table can be asserted exhaustive over the enum. The enums are a
 vocabulary; the engine and the tables are the door.
+
+**Corrected 2026-08-21, while closing this milestone's Claude Desktop
+deviation.** Two sentences above were false when written, and the test that
+should have caught them is the reason they survived.
+
+*"It may not import … or SQLAlchemy"* was never true and could not be. The
+permitted import, `nightshift.db.base`, imports SQLAlchemy on its first line —
+`DeclarativeBase`, `MetaData`, `mapped_column`. The ban and the exemption
+contradict each other, and the contradiction went unnoticed for the whole
+milestone.
+
+*"imports `nightshift.mcp`"* is what the guard did, and `nightshift/mcp/
+__init__.py` imports nothing at all. The guard therefore inspected an empty
+module graph and passed — it would have passed with `server.py` opening a
+session and querying `jobs` directly, which was confirmed by doing exactly
+that and watching it stay green.
+
+Found by profiling the real server's startup, not by review: the process Claude
+Desktop launches had SQLAlchemy in it the entire time, and the guard against
+that said otherwise.
+
+**The decision in this section is unchanged** — the MCP server is a client of
+the API and does not open a session. What changed is the enforcement, which now
+imports `nightshift.mcp.__main__`, the module that actually runs, and asserts
+the thing that is both true and protective: **no `nightshift.db` module other
+than `base` is reachable.** A session, a model, or a future module holding
+either all fail it. SQLAlchemy's presence is a consequence of the enums and is
+no longer described as forbidden.
 
 ### 2. stdio now, and the tools do not know what a transport is
 

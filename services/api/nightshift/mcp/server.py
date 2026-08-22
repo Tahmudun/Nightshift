@@ -13,6 +13,8 @@ class new to this milestone.
 
 from __future__ import annotations
 
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _package_version
 from typing import Any
 
 from mcp.server import MCPServer
@@ -55,6 +57,27 @@ it is not a decision, and you should say so when you make one.\
 DEFAULT_WEB_URL = "http://localhost:3000"
 
 
+def _server_version() -> str:
+    """The version Claude Desktop shows beside the connector's name.
+
+    Read from installed package metadata rather than imported from
+    `nightshift.api`: ADR 0038 forbids this package importing the API's
+    internals, and `health.py`'s `VERSION` sits behind a module that opens a
+    database session. Metadata is the one copy of the number both can agree on
+    without a dependency.
+
+    It was the empty string until 2026-08-21 — the SDK's default, never set.
+    Caught by a probe that launched this server the way Claude Desktop does,
+    minutes before the app was first pointed at it, so no reader ever saw it.
+    That is luck rather than process: a connector showing no version reads as
+    "this thing is broken" before a single tool is called.
+    """
+    try:
+        return _package_version("nightshift")
+    except PackageNotFoundError:  # pragma: no cover - only when run from a tree
+        return "0+unknown"
+
+
 def build_server(
     client: NightshiftClient,
     *,
@@ -69,7 +92,7 @@ def build_server(
     would force the tests to reach in and swap a global, which is how a test
     ends up asserting against the swap rather than the code.
     """
-    mcp: MCPServer = MCPServer(name=name, instructions=INSTRUCTIONS)
+    mcp: MCPServer = MCPServer(name=name, instructions=INSTRUCTIONS, version=_server_version())
 
     @mcp.tool(
         name="whoami",

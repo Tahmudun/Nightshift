@@ -53,24 +53,50 @@ def test_the_mcp_package_never_reaches_the_database() -> None:
     So `nightshift.mcp` goes through HTTP like any other client, and this test
     is what makes that a rule rather than an intention.
 
-    **`nightshift.db.base` is deliberately allowed.** It holds enums and no
-    engine, no session and no model: `shapes.py` imports `LocationConfidence`
-    so the confidence table can be asserted exhaustive over it, which is how
-    I1 becomes checkable. The enums are a vocabulary; the engine and the tables
-    are the door.
+    **`nightshift.db.base` is deliberately allowed.** It holds enums, a
+    declarative base and no engine and no sessionmaker: `shapes.py` imports
+    `LocationConfidence` both to key the confidence table and to *reject* a
+    confidence value the domain does not know, which is how I1 becomes
+    checkable here. The enums are a vocabulary; the engine and the tables are
+    the door.
+
+    **This test imported the wrong module until 2026-08-21**, and the version
+    that did is worth recording. It imported `nightshift.mcp` — the package
+    `__init__`, which imports nothing at all — so it observed an empty module
+    graph and passed. It would have passed with `server.py` opening a session
+    and querying `jobs` directly. Found by profiling the real server's startup
+    while closing M5c's Claude Desktop deviation, not by review: the process
+    Claude Desktop launches had `sqlalchemy` in it the whole time, and the
+    guard against that said otherwise.
+
+    It now imports `nightshift.mcp.__main__` — **the module that actually
+    runs** — and the ban list changed to match what is true rather than what
+    read well. `sqlalchemy` was on it, and could not have been: `db.base` is
+    allowed and `db.base` imports `sqlalchemy` on its first line. A ban that
+    the allowed import contradicts is not a rule, it is a sentence. What is
+    checkable, and is what §1 actually protects, is that **no `nightshift.db`
+    module other than `base` is reachable** — a session, a model, or a new
+    module holding either, all fail this.
     """
     result = _fresh_python(
         "import sys, json;"
-        " import nightshift.mcp;"
-        " banned = {'nightshift.db.session', 'nightshift.db.models', 'sqlalchemy'};"
-        " print(json.dumps(sorted(banned & set(sys.modules))))"
+        " import nightshift.mcp.__main__;"
+        " banned = {'nightshift.db.session', 'nightshift.db.models'};"
+        " db = {m for m in sys.modules if m.startswith('nightshift.db')};"
+        " print(json.dumps({'banned': sorted(banned & set(sys.modules)),"
+        " 'db': sorted(db)}))"
     )
 
     assert result.returncode == 0, result.stderr
     reached = json.loads(result.stdout)
-    assert reached == [], (
-        f"nightshift.mcp imported {reached}. It must reach Nightshift over HTTP, "
-        "not through the database — see ADR 0038 §1."
+
+    assert reached["banned"] == [], (
+        f"nightshift.mcp imported {reached['banned']}. It must reach Nightshift "
+        "over HTTP, not through the database — see ADR 0038 §1."
+    )
+    assert reached["db"] == ["nightshift.db", "nightshift.db.base"], (
+        f"nightshift.mcp reached {reached['db']}. Only `nightshift.db.base` is "
+        "allowed, and only for its enums — see ADR 0038 §1."
     )
 
 

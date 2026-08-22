@@ -122,6 +122,24 @@ async def test_a_client_can_connect_and_list_tools(server: MCPServer) -> None:
 
 
 @_async
+async def test_the_handshake_names_a_version(server: MCPServer) -> None:
+    """Claude Desktop prints `serverInfo.version` beside the connector's name.
+
+    The SDK defaults it to the empty string, so the first real Claude Desktop
+    connection showed a nameless version — the kind of detail a person reads as
+    "this is broken" before calling a single tool. Asserting non-empty rather
+    than asserting `"0.1.0"`: the number moves, the promise that there is one
+    does not.
+    """
+    async with connected(server) as session:
+        info = session.server_info
+
+    assert info is not None
+    assert info.name == "nightshift"
+    assert (info.version or "").strip(), "serverInfo.version is blank in the handshake"
+
+
+@_async
 async def test_every_tool_carries_a_description(server: MCPServer) -> None:
     """A description is not documentation here — see `nightshift/mcp/__init__.py`.
 

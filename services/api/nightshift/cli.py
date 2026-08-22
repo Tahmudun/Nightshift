@@ -1264,16 +1264,83 @@ def _claude_desktop_block(token: str, *, api_url: str) -> str:
     else's application's configuration file without being asked is a worse
     citizen than one that prints four lines.
     """
-    block = {
-        "mcpServers": {
-            "nightshift": {
-                "command": str(Path(sys.executable)),
-                "args": ["-m", "nightshift.mcp"],
-                "env": {MCP_ENV_API_URL: api_url, MCP_ENV_TOKEN: token},
-            }
-        }
+    return json.dumps(
+        {"mcpServers": {"nightshift": _server_entry(token, api_url=api_url)}}, indent=2
+    )
+
+
+def _server_entry(token: str, *, api_url: str) -> dict[str, Any]:
+    """Just the `nightshift` object — what actually gets merged.
+
+    Split out of the printed block so the thing a person pastes and the thing
+    `--merge-config` writes are the same object rather than two literals that
+    can drift.
+    """
+    return {
+        "command": str(Path(sys.executable)),
+        "args": ["-m", "nightshift.mcp"],
+        "env": {MCP_ENV_API_URL: api_url, MCP_ENV_TOKEN: token},
     }
-    return json.dumps(block, indent=2)
+
+
+def merge_into_claude_desktop_config(
+    existing: dict[str, Any], entry: dict[str, Any]
+) -> dict[str, Any]:
+    """Put ``entry`` under ``mcpServers.nightshift``, keeping everything else.
+
+    A pure function, because the property worth testing is the one the runbook
+    got wrong for a whole milestone: **every other key survives.** A current
+    Claude Desktop stores its own `preferences` object in this file, and a
+    reader who pastes the printed block over it resets the app's settings and
+    is told nothing.
+
+    It also replaces an existing `nightshift` entry rather than refusing —
+    re-minting a token is the ordinary reason to run this — while leaving any
+    sibling MCP server alone.
+    """
+    merged = dict(existing)
+    servers = dict(merged.get("mcpServers") or {})
+    servers["nightshift"] = entry
+    merged["mcpServers"] = servers
+    return merged
+
+
+def write_claude_desktop_config(config_path: str, entry: dict[str, Any]) -> str:
+    """Merge ``entry`` into the config at ``config_path``, backing the file up first.
+
+    Returns the line to print. Raises `ValueError` with a readable message
+    rather than a traceback, because every failure here is a person's file.
+
+    **It refuses rather than overwrites** when the file exists and is not valid
+    JSON. Claude Desktop writes this file itself; unparseable content means
+    something is going on that this command does not understand, and clobbering
+    it would destroy the only copy of whatever that was.
+
+    The backup is written before the new content and is not cleaned up. The
+    command that edits somebody else's application's configuration is the wrong
+    place to be economical about disk.
+    """
+    path = Path(config_path).expanduser()
+    existing: dict[str, Any] = {}
+    if path.exists():
+        try:
+            loaded = json.loads(path.read_text())
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"{path} is not valid JSON ({exc}). Nothing was written.") from exc
+        if not isinstance(loaded, dict):
+            raise ValueError(f"{path} does not hold a JSON object. Nothing was written.")
+        existing = loaded
+
+        backup = path.with_suffix(path.suffix + ".backup")
+        backup.write_text(path.read_text())
+        note = f"  backed up {backup.name}, merged into {path}"
+    else:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        note = f"  created {path}"
+
+    merged = merge_into_claude_desktop_config(existing, entry)
+    path.write_text(json.dumps(merged, indent=2))
+    return note
 
 
 def format_token_report(issued: IssuedSession, *, email: str, api_url: str) -> str:
@@ -1294,6 +1361,13 @@ def format_token_report(issued: IssuedSession, *, email: str, api_url: str) -> s
 
     The token appears **twice** on purpose: once on its own line to read, once
     inside the JSON to paste.
+
+    It says **merge** rather than **add** because "add" is what the first
+    version said and it was not enough. A current Claude Desktop's config file
+    already exists and already holds the app's own ``preferences`` object, so a
+    reader who pastes this block over the file resets their settings and is
+    told nothing. The word costs a line; the mistake costs a person their
+    configuration.
     """
     return "\n".join(
         [
@@ -1301,7 +1375,9 @@ def format_token_report(issued: IssuedSession, *, email: str, api_url: str) -> s
             "",
             f"    {issued.token}",
             "",
-            "  add this to claude_desktop_config.json, then restart Claude Desktop:",
+            "  merge this into claude_desktop_config.json — do not replace the",
+            "  file, it already holds Claude Desktop's own settings — then quit",
+            "  Claude Desktop fully and reopen it:",
             "",
             _claude_desktop_block(issued.token, api_url=api_url),
             "",
@@ -1394,11 +1470,23 @@ async def cmd_tokens(args: argparse.Namespace) -> int:
             origin=SessionOrigin.MCP,
             label=args.label,
         )
-        report = format_token_report(
-            issued, email=email, api_url=f"http://localhost:{get_settings().api_port}"
-        )
+        api_url = f"http://localhost:{get_settings().api_port}"
+        report = format_token_report(issued, email=email, api_url=api_url)
+        entry = _server_entry(issued.token, api_url=api_url)
 
+    # Outside the session on purpose: this touches somebody's filesystem and
+    # there is no reason to hold a database connection while it does.
     print(report)
+    if args.merge_config:
+        try:
+            print()
+            print(write_claude_desktop_config(args.merge_config, entry))
+        except (ValueError, OSError) as exc:
+            # The token is minted and already printed above. Failing silently
+            # here would leave a live credential nobody knows exists, so the
+            # report goes out first and this only reports the write.
+            print(f"error: could not write the config: {exc}", file=sys.stderr)
+            return 1
     return 0
 
 
@@ -1450,6 +1538,12 @@ def main(argv: list[str] | None = None) -> int:
     tokens.add_argument("--label", default=None, help='what to call it: "claude desktop"')
     tokens.add_argument("--list", action="store_true", help="live MCP tokens; never a secret")
     tokens.add_argument("--revoke", default=None, metavar="ID", help="end the token with this id")
+    tokens.add_argument(
+        "--merge-config",
+        default=None,
+        metavar="PATH",
+        help="merge the entry into this claude_desktop_config.json, keeping everything else",
+    )
     args = parser.parse_args(argv)
 
     configure_logging()

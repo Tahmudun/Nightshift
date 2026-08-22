@@ -33,7 +33,17 @@
 **M4c Task 5 is done: the city speaks §6, and says what it is saying.** The table is one pure function (`treatments.ts`), the beacons carry per-instance colour, strength and pulse rate through a shader, four instanced meshes draw the marks §6 puts *on* a body, and an in-interface legend documents all thirteen rows — including the four that are not drawn, each with its reason. ADR 0028. `docs/reviews/milestone-4c-treatments.png` is the screenshot. Three defects were found by looking rather than by a test: a closed torus whose rotation was invisible by construction, a spin folded into the billboard that rolled every arc out of the camera plane, and a saved outline drawn cyan — which is exactly what ADR 0027's standing instruction ruled out.
 **M4c: Tasks 1, 2, 3 and 4 are done. The placement join and `GET /city/signals` (ADR 0024, which resolves a real conflict between I1 and `city.md` §4.4 rather than papering over it), the Three.js signal layer in MapLibre's own context (ADR 0025), and the field made legible, navigable and sortable. New York now has every open role floating above it, untethered, and none on a building — see `docs/reviews/milestone-4c-signals.png` and `docs/reviews/milestone-4c-roster.png`. Task 4 then made a role reachable: picking by raycast against the frame's own matrix, a reticle, a detail panel, and one selection shared by the list and the map (ADR 0027) — `docs/reviews/milestone-4c-selection.png`.**
 **Docker's daemon is no longer wedged.** It was force-quit and relaunched on 2026-08-12. `make up` was then run **from cold** — containers removed with `docker compose down` first — and created both from scratch to healthy, exit 0. **That closes the last open step in M4b's acceptance chain**; container startup is now proven rather than assumed. The seeded corpus survived and matches what this file records: 31 canonical jobs, 62 `job_locations`, 44 `city_only` + 18 `remote`, 0 mappable.
-**Current milestone: M5 — The Open Hand (A16). M5a and M5b are merged; M5c — the MCP server — is next.**
+**Current milestone: M5 — The Open Hand (A16). M5a, M5b and M5c are merged. M5c's Claude Desktop deviation is being closed on `m5c-claude-desktop`.**
+**M5c: MERGED as [PR #19](https://github.com/Tahmudun/Nightshift/pull/19) (`ed234a7`) on 2026-08-21, on the human's call.**
+**2026-08-21, after the merge: Claude Desktop was installed, and the deviation M5c recorded rather than glossed is being closed.** Three of its four parts are done and the fourth is the human's. **Connecting a real Claude Desktop found four defects that a green suite, a review and a live Claude Code walk had all missed** — see `docs/reviews/milestone-5c-desktop-walk.md`:
+- **The import guard was reading an empty module and passing.** `test_the_mcp_package_never_reaches_the_database` imported `nightshift.mcp` — a package `__init__` that imports nothing — so it inspected an empty module graph. Sabotaging `server.py` with `from nightshift.db.session import session_scope` left it **green**. ADR 0038 §1's rule was an intention with a test in front of it. Now imports `nightshift.mcp.__main__`, the module that runs, and the same sabotage goes red. **Sixth instance in this milestone of a check that could not produce the failure it was written for.**
+- **ADR 0038 §1 banned SQLAlchemy, which its own permitted import contradicts.** `nightshift.db.base` is allowed and imports `DeclarativeBase` on its first line. The ban read as satisfied only because nothing tested it. Corrected in place; the rule is now "no `nightshift.db` module but `base`", which is both true and protective.
+- **The config block read as a whole file and would have wiped Claude Desktop's settings.** A current Claude Desktop writes its own `preferences` object into `claude_desktop_config.json` before Nightshift touches it, and there is no `mcpServers` key. The runbook only warned about a *second MCP server* — the rarer case. The CLI now says merge, says do not replace, and a test holds the wording.
+- **`serverInfo.version` was the empty string**, which is what Claude Desktop prints beside the connector's name. Now `0.1.0`, from package metadata rather than `health.py`, whose module opens a session ADR 0038 forbids this package importing.
+**And one claim of mine was wrong within the hour of writing it.** The runbook said Claude Desktop launches the server with no login shell. Its own log shows a PATH close to the login shell's. The real reason `command` must be absolute is worse: a virtualenv is never *activated*, and on this machine a bare `python3` **can** import `nightshift` from the editable install while lacking `httpx` — so the obvious sanity check passes and the server dies one import later. Corrected with the evidence.
+**A fifth finding, from walking the flow rather than the code: the token's account and the browser session are independent and nothing reconciles them.** A token minted for account A with a browser signed in as B is a working setup in which every capture lands in a review queue the reader is not looking at, and an empty queue looks exactly like an empty queue. That is M5b's isolation working correctly, and it is a foot-gun. The runbook gained a step 5.
+**What is verified without the app:** the server launches under a deliberately bare environment (`HOME`, `PATH=/usr/bin:/bin`, `TMPDIR`, `USER`, nothing else) from `cwd=/` — six tools, the right account, exit 0, silent stderr. All three of the runbook's troubleshooting messages were **produced verbatim** rather than promised. Claude Desktop itself connected: `Server started and connected successfully`, `tools/list` answered.
+**What remains is the human's half and is not assumed:** the live conversation — the adversarial address prompt and a capture, end to end, in Claude Desktop. `docs/reviews/milestone-5c-desktop-walk.md` §4 is reserved for it and says *pending*.
 **M5a and M5b are COMPLETE and MERGED. [PR #18](https://github.com/Tahmudun/Nightshift/pull/18) merged to `main` as `414117c` on 2026-08-21, on the human's call.**
 **The human's verdict on the look, which is the thing that was being waited for: `make demo` was run, the city was looked at, and the report is *"it looks ok for now until a later polish and optimization phase."*** That is a **hold, not a sign-off** — it clears the merge and it does **not** discharge ADR 0031's standing commitment, which is a verdict against `docs/design/references/02-skyline-grid-plane-light-columns.jpg` specifically. **M4e's acceptance is still owed and now sits in M7 with the rest of the polish**, alongside the untuned roof wash and Q9's sky.
 **Three questions were answered in the same breath: Q12 (fifteen-minute CI — accept it, revisit if it irks), Q10 (email/password reset — deferred to the deploy) and Q2 (deployment target — deferred to M7, and A16 already moved the ship there).** Q11 loses one of its two branches to those answers and Q9 is deferred rather than answered; both stay open. See `docs/QUESTIONS.md`.
@@ -736,7 +746,128 @@ last rung of the three rather than the next.
 
 ## Next exact action
 
-### Current milestone: **M5 — The Open Hand**, on `m5c-the-open-hand`. **All six tasks are done, CI is green at `a59ce2f`, and the acceptance criterion is met by a real model. [PR #19](https://github.com/Tahmudun/Nightshift/pull/19) is a draft waiting on a human.**
+### Current milestone: **M5 — The Open Hand**, on `m5c-claude-desktop`. **M5c is merged (`ed234a7`), and the Claude Desktop deviation it left open is CLOSED. `CLAUDE.md` §6's criterion is met by Claude Desktop itself.**
+
+> **THE WALK IS DONE.** Walked 2026-08-21 by the human, in the real app. Three
+> tool calls, all answered: `whoami` → `dev@nightshift.local` (36ms),
+> `search_jobs` (151ms), `capture_posting` (459ms). **I1 held under the
+> adversarial address prompt** — *"I don't want to make up an address for you to
+> plan around"* — and it caught that the role is hybrid across three cities,
+> undercutting the question's premise, exactly as the Claude Code walk's model
+> did independently. **The capture was reported as a proposal**: *"Straight
+> answer: it's not saved… Nothing was guessed at, which is by design."*
+> Verified in Postgres: `pending`, `job_id IS NULL`, right account, raw text
+> intact. Transcript: `docs/reviews/milestone-5c-desktop-walk.md` §4.
+>
+> **The capture's four proposed fields came back null, and that is not a
+> defect.** The test text was written as a single run-on sentence, which the
+> line-based parser cannot read; a realistic multi-line paste parses fine
+> (checked directly). The artifact bought better evidence than a clean parse
+> would have: faced with text *containing* the word Stripe, the parser declined
+> every field rather than extracting it, and the model reported the decline
+> rather than announcing a captured Stripe role.
+>
+> **The walk's most valuable output is a defect nothing else had found — see
+> the header above, and §4.4.** Its narrow half is fixed here; its substantive
+> half is scoped to M5e on purpose and §6 says why.
+
+> **START HERE, NEXT SESSION.** `main` is at `ed234a7` — PR #19 merged
+> 2026-08-21. The working branch is `m5c-claude-desktop`, four commits, off
+> `main` at `ed234a7`. **No PR is open for it yet, and `make check` has not
+> been run on it** — see the two blockers below.
+>
+> **What this branch is.** M5c shipped with one stated deviation: Claude
+> Desktop was not installed, so the acceptance walk used Claude Code. The
+> human installed it on 2026-08-21. Closing that gap **found four defects and
+> corrected one false claim of mine** — none of which a green suite, a written
+> review, or a live Claude Code walk had caught. The header above lists them;
+> `docs/reviews/milestone-5c-desktop-walk.md` is the evidence.
+>
+> **The one that matters most: `test_the_mcp_package_never_reaches_the_database`
+> was blind.** It imported `nightshift.mcp`, whose `__init__` imports nothing,
+> and passed on an empty module graph. `server.py` could have opened a session
+> and queried `jobs` directly — proved by doing it and watching the test stay
+> green. It now imports `nightshift.mcp.__main__`. **If you take one lesson
+> from this branch, it is that a guard must import the thing that runs.**
+>
+> **Blocker 1 — CLEARED. Every gate but the live walk is green.** `make lint`
+> and `make typecheck` (mypy 85 files + tsc + Prettier) exit 0, `make test-web`
+> is **799 passed across 55 files**, and `make test-py` is **2180 passed, 0
+> failed, exit 0, 9m46s** — run with `make dev` stopped and `lsof -ti:3000
+> -ti:8000` confirmed clear, because the tests share the dev database and their
+> `TRUNCATE` takes an ACCESS EXCLUSIVE lock. (The truncation is inside the
+> per-test transaction and rolls back, so the seeded corpus survives; the
+> hazard is false failures and a hung dev stack, not data loss. Worth knowing
+> precisely — this session nearly deferred a gate over a risk that was not the
+> one it feared.)
+>
+> **One caveat on that number, stated rather than rounded off:** the seven
+> `--merge-config` tests were written *after* pytest collected, so they are not
+> among the 2180. They were run separately — `tests/test_tokens_command.py`,
+> 18 passed — and the merge was sabotaged back into a whole-file replacement to
+> confirm two of them go red. Re-run `make test-py` once before opening the PR
+> so a single number covers everything.
+>
+> **Blocker 2 — CLEARED.** The conversation happened and §4 is written from
+> the real transcript rather than from what the model probably said.
+>
+> **Setup, so it is not re-derived.** The token is on `dev@nightshift.local`
+> (label `claude desktop`, id `a07fed78-56ae-425c-9848-0b68382d9e43`), which
+> is the account with the corpus — 5 applications and 32 match results, where
+> the human's own account has none. Because of finding 5, **the website must be
+> signed in as that same account** or the capture lands in a queue nobody is
+> looking at; `make seed` prints its password. The config was merged into
+> `~/Library/Application Support/Claude/claude_desktop_config.json` with the
+> app's `preferences` object preserved, verified against a backup.
+>
+> **A tenth commit landed after those gates: `--merge-config`.** The merge
+> command this branch put in the runbook was **broken** — it fed its own script
+> in on stdin through a heredoc and then called `input()` on the same exhausted
+> stdin, failing with `EOFError` every time. Shipped one commit after fixing a
+> runbook defect, which is its own lesson: **a command in a runbook is code,
+> and code nobody executed is a guess.** Replaced with a flag, because a flag
+> has tests and a snippet does not. Walked for real against a file holding a
+> `preferences` object; the token minted for that walk was revoked afterwards.
+>
+> **After the walk:** finish §4 and §5 of the desktop-walk review, re-run
+> `make test-py` from a clean shell, open the PR, and then M5 continues with
+> **M5d — assisted capture from LinkedIn and Indeed**, which rides on this
+> server, and **M5e — addresses without typing**.
+>
+> **A follow-up this branch found and deliberately did not take on.** After
+> fixing the blind import guard, the same defect class was swept for across the
+> whole Python suite with an AST scan: assertions that are **vacuously true on
+> an empty collection** — `assert [x for x in rows if bad] == []`, and
+> `for r in rows: assert ...`. It flagged **141 candidate test functions**. The
+> heuristic is crude and most are certainly fine, because their fixtures plant
+> known data.
+>
+> Two were checked properly, by sabotage rather than by reading, and **both are
+> live**: `test_every_coordinate_arrives_with_its_confidence` reaches
+> `jobs[0].locations[0]` and fails correctly when the `confidence` key is
+> dropped from the shape — M5c's fixture fix was sound, and the `verified`
+> location it plants is what makes the walk reachable.
+>
+> **Auditing the remaining 139 is its own slice and does not belong in a branch
+> about Claude Desktop** — a commit touching a hundred test files is one nobody
+> can review, including me. The mechanical fix is known (assert the collection
+> is non-empty before walking it); what is not known is how many of the 141 are
+> real. Worth doing on the invariant guards first: I1's coordinate walks and
+> I2's evidence walks, where an empty corpus makes the guard blind and the
+> invariant is the whole product.
+>
+> **One thing measured and deliberately not fixed:** the server takes ~5s to
+> import before it can answer `initialize` (Claude Desktop logged 8.4s cold).
+> Profiled: the cost is mostly the MCP SDK's own type modules, and
+> `nightshift.db.base` contributes ~0.7s of it. Removing `db.base` would trade
+> I1's exhaustiveness check for 0.7s of startup, which is a bad trade. Left
+> alone, on purpose, and recorded here so it is not rediscovered as a mystery.
+
+---
+
+### The M5c action, kept because the branch it describes is merged
+
+> **All six tasks are done, CI is green at `a59ce2f`, and the acceptance criterion is met by a real model. [PR #19](https://github.com/Tahmudun/Nightshift/pull/19) is a draft waiting on a human.**
 
 > **START HERE, NEXT SESSION.** The branch is off `main` at `1ab2bd9`.
 > **[PR #19](https://github.com/Tahmudun/Nightshift/pull/19) is open as a

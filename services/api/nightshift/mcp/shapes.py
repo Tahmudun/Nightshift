@@ -35,6 +35,17 @@ from nightshift.db.base import LocationConfidence
 #:
 #: They are written for a reader who will paraphrase them, which is why each one
 #: says what is **not** known as well as what is.
+#:
+#: **They may only speak for the location they annotate.** `CITY_ONLY` used to
+#: read "Nightshift does not know where in the city this role sits and will not
+#: place it on a building", and for any employer with a confirmed office both
+#: clauses were false — `GET /city/signals` returns those roles at `verified` on
+#: a real building, which is ADR 0024's decision. A model repeated the claim
+#: faithfully in Claude Desktop on 2026-08-21 and sent the reader to data
+#: brokers for an address this database already held at `verified`, confirmed by
+#: that same reader. The scoping error is the lesson: a sentence about a
+#: `job_locations` row is entitled to say what **the posting** does not say, and
+#: is not entitled to say what **Nightshift** does not know.
 CONFIDENCE_MEANS: dict[LocationConfidence, str] = {
     LocationConfidence.VERIFIED: (
         "A person confirmed this street address and it geocoded to a specific "
@@ -46,9 +57,11 @@ CONFIDENCE_MEANS: dict[LocationConfidence, str] = {
         "a street address or a building."
     ),
     LocationConfidence.CITY_ONLY: (
-        "The posting names a city and nothing finer. Nightshift does not know "
-        "where in the city this role sits and will not place it on a building. "
-        "Saying more than the city invents a fact about a real company."
+        "The posting names a city and nothing finer, so this location carries no "
+        "street and no building. Do not name one from the posting. Nightshift may "
+        "separately hold a confirmed office for the employer, which is a different "
+        "fact about the company rather than about this posting; it is not in this "
+        "result, so do not assert one either way."
     ),
     LocationConfidence.REMOTE: (
         "The posting says the role is remote. There is no office to name, and a "
