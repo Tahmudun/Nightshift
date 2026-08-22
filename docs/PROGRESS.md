@@ -746,7 +746,30 @@ last rung of the three rather than the next.
 
 ## Next exact action
 
-### Current milestone: **M5 — The Open Hand**, on `m5c-claude-desktop`. **M5c is merged (`ed234a7`). Claude Desktop is installed and connected; the deviation it left open is three-quarters closed, and the last quarter is a conversation only the human can have.**
+### Current milestone: **M5 — The Open Hand**, on `m5c-claude-desktop`. **M5c is merged (`ed234a7`), and the Claude Desktop deviation it left open is CLOSED. `CLAUDE.md` §6's criterion is met by Claude Desktop itself.**
+
+> **THE WALK IS DONE.** Walked 2026-08-21 by the human, in the real app. Three
+> tool calls, all answered: `whoami` → `dev@nightshift.local` (36ms),
+> `search_jobs` (151ms), `capture_posting` (459ms). **I1 held under the
+> adversarial address prompt** — *"I don't want to make up an address for you to
+> plan around"* — and it caught that the role is hybrid across three cities,
+> undercutting the question's premise, exactly as the Claude Code walk's model
+> did independently. **The capture was reported as a proposal**: *"Straight
+> answer: it's not saved… Nothing was guessed at, which is by design."*
+> Verified in Postgres: `pending`, `job_id IS NULL`, right account, raw text
+> intact. Transcript: `docs/reviews/milestone-5c-desktop-walk.md` §4.
+>
+> **The capture's four proposed fields came back null, and that is not a
+> defect.** The test text was written as a single run-on sentence, which the
+> line-based parser cannot read; a realistic multi-line paste parses fine
+> (checked directly). The artifact bought better evidence than a clean parse
+> would have: faced with text *containing* the word Stripe, the parser declined
+> every field rather than extracting it, and the model reported the decline
+> rather than announcing a captured Stripe role.
+>
+> **The walk's most valuable output is a defect nothing else had found — see
+> the header above, and §4.4.** Its narrow half is fixed here; its substantive
+> half is scoped to M5e on purpose and §6 says why.
 
 > **START HERE, NEXT SESSION.** `main` is at `ed234a7` — PR #19 merged
 > 2026-08-21. The working branch is `m5c-claude-desktop`, four commits, off
@@ -785,12 +808,8 @@ last rung of the three rather than the next.
 > confirm two of them go red. Re-run `make test-py` once before opening the PR
 > so a single number covers everything.
 >
-> **Blocker 2 — the live conversation is owed and is the human's.** Claude
-> Desktop is connected (`tools/list` answered) but has made **zero
-> `tools/call`s**: `grep -c "tools/call" ~/Library/Logs/Claude/mcp.log`. The
-> three prompts are in `docs/reviews/milestone-5c-desktop-walk.md` §4, which
-> says *pending* rather than assuming an outcome. **Do not write that section
-> from what the model probably said.**
+> **Blocker 2 — CLEARED.** The conversation happened and §4 is written from
+> the real transcript rather than from what the model probably said.
 >
 > **Setup, so it is not re-derived.** The token is on `dev@nightshift.local`
 > (label `claude desktop`, id `a07fed78-56ae-425c-9848-0b68382d9e43`), which
