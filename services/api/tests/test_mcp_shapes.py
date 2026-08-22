@@ -40,6 +40,39 @@ def test_every_location_confidence_has_a_sentence() -> None:
         assert len(sentence) > 40, f"{value}'s sentence is too short to constrain a reading"
 
 
+def test_no_confidence_sentence_speaks_for_what_nightshift_knows() -> None:
+    """A sentence about a `job_locations` row may not speak for the database.
+
+    `CITY_ONLY` used to say *"Nightshift does not know where in the city this
+    role sits and will not place it on a building."* For any employer with a
+    confirmed office both clauses were false: `GET /city/signals` returns those
+    roles at `verified` on a real building, which is ADR 0024's decision and
+    not an edge case — two of the four companies in the seeded corpus have one.
+
+    It was caught by a model repeating it faithfully to a reader in Claude
+    Desktop, who was then sent to data brokers for an address this database
+    already held at `verified` and had confirmed themselves four days earlier.
+
+    These sentences annotate **one location row**. They are entitled to say
+    what *the posting* does not say. They are not entitled to say what
+    *Nightshift* does not know, because this shape cannot see the company's
+    offices, the placement join, or the map.
+    """
+    overclaims = {
+        "nightshift does not know",
+        "nightshift doesn't know",
+        "will not place it on a building",
+        "is not on the map",
+    }
+    for confidence, sentence in CONFIDENCE_MEANS.items():
+        lowered = sentence.lower()
+        found = sorted(phrase for phrase in overclaims if phrase in lowered)
+        assert found == [], (
+            f"{confidence.value}'s sentence claims something about Nightshift as a "
+            f"whole: {found}. It can only speak for this location row."
+        )
+
+
 @pytest.mark.parametrize("confidence", list(LocationConfidence))
 def test_a_location_never_travels_without_its_qualifier(confidence: LocationConfidence) -> None:
     """The structural half of I1, over every value rather than a chosen one."""
@@ -199,9 +232,18 @@ def test_a_city_only_job_reaches_the_model_saying_so() -> None:
 
     31 of the seeded corpus's jobs are `city_only`. If this is wrong, the most
     common answer the product gives is the one that breaks I1.
+
+    **This test used to assert the phrase "will not place it on a building",
+    and in doing so it pinned a false claim in place** — Nightshift does place
+    those roles on a building when the employer has a confirmed office
+    (ADR 0024). A test asserting an exact sentence makes that sentence hard to
+    fix, so this now asserts the two things the shape must actually do: withhold
+    a coordinate, and tell a reader the posting itself named no street.
     """
     result = job_summary(_api_job())
     location = result["locations"][0]
 
     assert location["coordinates"] is None
-    assert "will not place it on a building" in location["means"]
+    means = location["means"].lower()
+    assert "a city and nothing finer" in means
+    assert "do not name one from the posting" in means
