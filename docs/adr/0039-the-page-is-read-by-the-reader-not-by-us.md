@@ -236,6 +236,37 @@ one row in the corpus. This is the identity of a *paste* and is only ever
 looked up beside a `user_id`. Both exist, they answer different questions, and
 the module says so where each is defined.
 
+### The queue this argument is about, which did not exist when it was written
+
+Every sentence above reasons from "a review queue is a to-do list", and the
+to-do list had no screen. `/operate/capture` rendered a paste box and the
+proposal the current browser tab had just created; a capture made through the
+MCP server — the ordinary case this milestone was built for — had a row, a
+`pending` status, and nowhere to be looked at. `capture_proposal` handed the
+reader `review_url` and said *"the reader confirms or discards it at
+`review_url`"*, which was an instruction that could not be followed.
+
+`GET /capture?status=pending` had existed since M5a and `fetchCaptures` was
+written against it in the web client, unused. **A route with no caller and a
+tool description promising a screen is how a gap this size stays invisible**:
+the API was complete, the tests were green, and the flow was broken at the one
+seam nothing tested end to end.
+
+So the list exists (`components/CaptureQueue.tsx`), and two consequences follow
+that are decisions rather than layout:
+
+*`GET /capture/{id}` runs §4's corpus check.* A capture made through the server
+is read for the first time by that route — the person deciding never saw the
+paste response, because it went to their Claude. Without this, §4 protected
+only whoever typed the text into the browser. It is computed per response and
+still never stored, for the reason the field's own docstring gives.
+
+*The form has a third exit.* Confirm and discard were the only ways out, which
+made *"I am not sure"* cost the same as *"no"*. **Decide later** leaves the row
+pending. The proposal is stored the moment it is read, so this loses nothing —
+and an unsure person pressed for a decision is exactly who accepts a wrong
+employer, which is I1 broken by a UI affordance.
+
 ### The alternative that was rejected
 
 **A unique constraint on `(user_id, text_fingerprint)` instead of a lookup.**

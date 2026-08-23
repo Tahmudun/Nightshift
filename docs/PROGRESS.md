@@ -41,10 +41,21 @@
 - **§4 — the corpus answers before the reader reviews anything.** Nightshift polls thousands of boards first-hand, so most postings a reader finds elsewhere are already in it, with a score and a trusted location a capture never carries. Two deterministic rules (`same_company_and_title`, `same_url`), closed jobs returned rather than filtered, and — the part that matters — **"not checked" is never an empty list**. That collapse is I3's failure moved from source outages to duplicate detection.
 **Three defects M5d found in its own first drafts, all before commit:** the URL rule selected every job with a URL, limited to 5, then filtered in Python — it would have found the right job only if it happened to be among the five most recent rows in the whole corpus, and a two-row fixture is what caught it; `capture_origin` matched with `in`, so `linkedin.com.evil.example` read as LinkedIn; and the never-fetches guard's first draft patched `httpx.AsyncClient.send`, which the test client itself rides on, so it would have been asserting about its own plumbing.
 **One prediction of M5a's is corrected rather than inherited.** `schemas.ts` said assisted capture would be a second `sources` **name** of the same type. It is not: the channel is not a source, and two names would give each channel its own `source_job_records` row for identical text and hand the difference to the dedupe layer to undo.
-**Gates so far on this branch:** `make lint` and `make typecheck` (87 files) exit 0; **`make test-web` is 816 passed across 56 files** (was 799 across 55). `make test-py` is running as of this entry and its number is **not** recorded yet — see "Next exact action".
 **The review is written and names its own weakness:** `docs/reviews/milestone-5d-review.md`. Three defects were found and fixed inside the branch, all the same kind — **a guard that would have passed for a reason unrelated to the thing it guards**: a transport patch that would have been asserting about the test harness, a URL rule that limited before it filtered and passed on a two-row fixture, and an origin label matched with `in` so `linkedin.com.evil.example` read as LinkedIn.
-**A stated gap rather than a closed one:** there is **no e2e coverage of `/operate/capture`**, and there was none before this branch either — all four specs in `apps/web/e2e/` are city. Thirteen component tests and the walk cover the screen. A first capture spec is worth writing and this branch did not write one.
-**Not real yet on this branch:** the live Claude Desktop walk against a real LinkedIn page, the seeded e2e pass, and the PR.
+
+**2026-08-23 — the stated gap was closed, and closing it found the worst defect in the milestone. The review queue had no screen.**
+- **What was wrong.** `capture_posting` answers with `review_url` and the sentence *"the reader confirms or discards it at `review_url`"*. The runbook said *"open `/operate/capture` and decide"*. ADR 0039 §3 spends a whole section arguing about what belongs on the queue. **`/operate/capture` rendered a paste box and the one proposal the current browser tab had just created** — so a capture made through the MCP server, which is the entire point of M5d, had a row in the database, a `pending` status, an origin of `linkedin`, and no way to be looked at. The instruction the tool gave the reader could not be followed.
+- **Why nothing caught it.** `GET /capture?status=pending` shipped in M5a and `fetchCaptures` was written against it in the web client — **with no caller**. A finished route and an unused client function read as *built* to any review that looks at the API and the components separately. And all thirteen component tests began by pasting, so not one of them could observe a proposal the browser had not created. **Thirteen tests that share a setup step cannot see a flow that lacks it.**
+- **What was built.** `components/CaptureQueue.tsx` — the pending list, each row naming where the posting was found, when it arrived, and whether Claude quoted from the page. Two consequences that are decisions rather than layout, both recorded in ADR 0039 §3: **`GET /capture/{id}` now runs §4's corpus check** (the reviewer never saw the paste response — it went to their Claude — so without it §4 protected only whoever typed the text into the browser), and the form gained a third exit, **Decide later**, because confirm and discard made *"I am not sure"* cost the same as *"no"*.
+- **A second gap the screenshots found: the review form showed no text to check the fields against.** The runbook has always said *"check every field against the text"*; there was no text on the page. Survivable while pasting was the only way in — the posting was in the reader's own clipboard — and not survivable for a capture made in Claude Desktop, where the person confirming never saw it. A confirmation with nothing to check against is the person's name on the parser's reading, which is the thing the two steps exist to prevent. The proposal now renders `raw_text` beside the fields.
+- **A third, smaller one:** a queue row read *"Campus AI Research Engineer (Intern) · two readings disagree"*, which puts the doubt on the title standing next to it rather than on the employer it is about. Both uncertain states now name their field.
+- **Evidence:** `docs/reviews/milestone-5d-queue.png` (the queue) and `milestone-5d-queue-review.png` (a Claude-made proposal opened for review — corpus check leading, employer blank with both readings shown, refused location named, the posting's own text underneath).
+
+**The e2e gap is closed.** `apps/web/e2e-seeded/capture.spec.ts` is the **first end-to-end coverage `/operate/capture` has ever had** — 4 tests, **all passing against a real seeded stack**, and the first one opens a proposal the browser never created. Two sabotages were run and watched go red: removing the corpus check from `get_capture` (test 3 fails), and rendering no queue at all (test 1 fails).
+
+**Gates on this branch, 2026-08-23:** `make lint` and `make typecheck` (87 files) exit 0. **`make test-web` is 822 passed across 56 files** (was 816). `make test-e2e-seeded`'s capture spec is 5 passed including the auth setup. **`make test-py` ran to 2244 passed, 1 failed, 1 error — and neither is a code defect**: the failure is `test_every_source_file_is_tracked_by_git` on `CaptureQueue.tsx`, which was untracked while the suite ran, and the error is a Postgres `DeadlockDetectedError` on the fixture `TRUNCATE`. **A stale `make test-py` from the previous session was still running against the same database for the first two thirds of it** — exactly the contention this file warns about, from an angle it did not anticipate: a *background* run from a session that has ended. The re-run is recorded below.
+
+**Not real yet on this branch:** the live Claude Desktop walk against a real LinkedIn page, and the PR.
 
 **M5c: MERGED as [PR #19](https://github.com/Tahmudun/Nightshift/pull/19) (`ed234a7`) on 2026-08-21, on the human's call.**
 **2026-08-21, after the merge: Claude Desktop was installed, and the deviation M5c recorded rather than glossed is being closed.** Three of its four parts are done and the fourth is the human's. **Connecting a real Claude Desktop found four defects that a green suite, a review and a live Claude Code walk had all missed** — see `docs/reviews/milestone-5c-desktop-walk.md`:
@@ -786,35 +797,32 @@ last rung of the three rather than the next.
 > `captured_postings` row in the dev database, which came back with its
 > fingerprint filled.
 >
+> **Done since that entry, 2026-08-23 (steps 1, 2, 3 and 5 of the old list):**
+> `make reset-db` ran and `/operate/capture` was looked at — which found that
+> **the review queue had no screen**, the milestone's worst defect, plus two
+> smaller ones. See the header block above and `docs/reviews/milestone-5d-review.md`
+> §2.4. `apps/web/e2e-seeded/capture.spec.ts` now exists and passes, closing
+> the gap the review had stated. The review is written and now records 2.4.
+>
 > **What remains, in order:**
 >
-> 1. **`make test-py`, from a clean shell with nothing else touching the
->    database.** It was started during this session and the number is not
->    recorded, because a web suite and several ad-hoc runs were hitting the
->    same Postgres at the same time — exactly the contention M5c warned about,
->    and it turned a ten-minute suite into an hour-and-a-half one. Stop
->    `make dev`, confirm `lsof -ti:3000 -ti:8000` is clear, run it alone.
-> 2. **`make reset-db` and look at `/operate/capture`.** The seed now leaves
->    one assisted capture **pending** beside the confirmed one, carrying two
->    deliberate near-misses that are real values rather than strawmen: the
->    assistant quotes the employer as `"Jump"` (quotable, and it disagrees with
->    the parser's `"Jump Trading"`, so the form must show both and pre-fill
->    neither) and the location as `"NYC"` (correct about the world, absent from
->    the text, refused). Both are pinned by
->    `test_demo_capture.py::test_the_demo_quotes_are_the_two_near_misses_a_model_actually_makes`,
->    so the demo cannot quietly stop demonstrating them.
-> 3. **`make test-e2e-seeded`.** Not run on this branch.
-> 4. **The walk, and it is the human's half.** A real LinkedIn job page, open
+> 1. **`make check` from a clean shell**, which is the re-run of `make test-py`
+>    the earlier entry asked for. The first attempt raced a **stale background
+>    run from the previous session** — it is not enough to stop `make dev` and
+>    check `lsof -ti:3000 -ti:8000`; check for a `pytest` already running
+>    (`pgrep -fl pytest`) before starting one.
+> 2. **`make acceptance`**, the scriptable counterpart to `make demo`. Not run
+>    on this branch.
+> 3. **The walk, and it is the human's half.** A real LinkedIn job page, open
 >    in a browser, captured through Claude Desktop end to end. Not a fixture —
 >    the M5c walk found four defects that a green suite, a written review and a
 >    live Claude Code walk had all missed, and this is the same instrument
 >    pointed at new code. Record it in `docs/reviews/milestone-5d-walk.md`:
 >    what the model quoted, what was refused, whether it led with the corpus
->    check, and whether it called the capture a proposal.
-> 5. **`docs/reviews/milestone-5d-review.md`**, hunting `CLAUDE.md` §5's list
->    plus this milestone's own failure class: **a proposal that reads as a fact
->    because of where it is rendered.**
-> 6. `make check`, `make acceptance`, push, open the PR, watch CI.
+>    check, whether it called the capture a proposal, and — the question 2.4
+>    added — **whether following `review_url` actually finds the capture**,
+>    which was *no* until this session.
+> 4. Push, open the PR, watch CI.
 >
 > **The thing this branch is most likely to be wrong about, stated before the
 > walk rather than after it: quotability may be too strict to be useful.** A

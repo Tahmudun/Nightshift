@@ -277,6 +277,19 @@ I would take the first. Say the word and it is the next thing I do.
 > nothing was wrong; the work just could not proceed in parallel with its own
 > tests. That is a second argument for `nightshift_test`, and it is one the
 > original framing missed because it only looked at what a wipe destroys.
+>
+> **2026-08-23 added a third, and this one produced a red suite rather than a
+> slow one.** A `make test-py` started in the *previous* session was still
+> running in the background when this session started its own, and the two met
+> on the fixture `TRUNCATE`: `asyncpg.exceptions.DeadlockDetectedError`, one
+> test erroring at setup for a reason that has nothing to do with the code
+> under test. **The published advice — stop `make dev`, check `lsof -ti:3000
+> -ti:8000` — does not cover it**, because the competing process holds no port.
+> `pgrep -fl pytest` does, and a separate test database makes the check
+> unnecessary. A suite that can go red because of something a *finished*
+> session left running is a suite whose failures have to be triaged before they
+> can be read, which is the habit A14 is worried about arriving by a different
+> road.
 
 ---
 

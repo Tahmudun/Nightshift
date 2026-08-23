@@ -28,12 +28,20 @@ naming first:
 | Idempotence over a person's pending queue | `capture_paste`, migration `0027` | §3 |
 | "Nightshift already has this" | `domain/capture_matches.py` | §4 |
 | Provenance and origin on the review screen | `lib/capture.ts`, `CapturePosting.tsx` | §2 |
+| The review queue, and a live corpus check on read-back | `CaptureQueue.tsx`, `GET /capture/{id}` | §3, §4 |
 
 ## 2. Defects found and fixed inside this branch
 
-All three were found before the code was committed, and all three are the same
-kind of mistake: **a guard that would have passed for a reason unrelated to
-the thing it guards.**
+The first three were found before the code was committed, and all three are
+the same kind of mistake: **a guard that would have passed for a reason
+unrelated to the thing it guards.**
+
+**2.4 to 2.6 were found after this review was first written**, by starting to
+close the gap §4 states below and then by looking at the screen the gap was
+about. They are a different kind of mistake and the more expensive one: not a
+check that could not fail, but **a flow nobody had walked**. Every one of them
+was one click away from anybody actually trying to review a posting Claude had
+captured.
 
 **2.1 — The transport guard patched the wrong layer.** Its first draft replaced
 `httpx.AsyncClient.send`. The test client in that module *is* an
@@ -56,6 +64,52 @@ LinkedIn* would tell a reader a URL is trustworthy on the strength of an
 attacker's subdomain. Now a suffix match on the parsed host. The lookalike case
 is its own test rather than a parametrised row, because it is the only one that
 goes red under the sabotage.
+
+**2.4 — The review queue had no screen, and it is the worst defect in the
+milestone.** `capture_posting` answers with `review_url` and the sentence *"the
+reader confirms or discards it at `review_url`"*; the runbook said *"open
+`/operate/capture` and decide"*; ADR 0039 §3 spends a section arguing about
+what belongs on the queue. `/operate/capture` rendered a paste box and the one
+proposal the current browser tab had just created. **A capture made through the
+MCP server — the entire point of this milestone — had a row in the database, a
+`pending` status, an origin of `linkedin`, and no way to be looked at.**
+
+Three things kept it invisible, and they are worth separating because each one
+looked like diligence at the time:
+
+- **The API was complete.** `GET /capture?status=pending` shipped in M5a and
+  `fetchCaptures` was written against it in the web client. It had no caller.
+  A finished route and an unused client function read as *built* in every
+  review that looks at the API and the components separately.
+- **Every test began by pasting.** All thirteen component tests drove the form
+  through `capturePosting`, which is the rare path. No test could observe a
+  proposal the browser had not created, because none of them ever had one.
+- **The walk that would have caught it is the human's**, and this review was
+  written first — knowing, and saying in §6, that it is the weaker instrument.
+  It is: the defect was one click away from anybody actually trying to review a
+  posting Claude had captured.
+
+Fixed with `components/CaptureQueue.tsx`, a live corpus check on `GET
+/capture/{id}`, and a **Decide later** exit; recorded in ADR 0039 §3, and now
+covered by `e2e-seeded/capture.spec.ts`, whose first test opens a proposal the
+browser never created.
+
+**2.5 — The review form showed no text to check the fields against**, and this
+one was found by looking at a screenshot rather than by a test. The runbook has
+said *"check every field against the text"* since it was written; there was no
+text on the page. That was survivable while pasting was the only way in — the
+posting was in the reader's own clipboard — and it is not survivable for a
+capture made in Claude Desktop, where the person confirming never saw the
+posting at all. **A confirmation with nothing to check against is the person's
+name on the parser's reading**, which is precisely what the two steps exist to
+prevent. `raw_text` was already on `CaptureOut`; it now renders beside the
+fields.
+
+**2.6 — A queue row put its doubt on the wrong field.** It read *"Campus AI
+Research Engineer (Intern) · two readings disagree"*, and the disagreement was
+about the employer, not the title standing next to it. Both uncertain states
+now name their field. Small, and the same family as everything else here: a
+true sentence whose reading is false.
 
 ## 3. Hunting the standing failure classes
 
@@ -117,10 +171,13 @@ exercising the table.
   nobody here can see, is a cost with no owner. The assistant reads the page.
   If the walk shows its quotes are unreliable, that verdict changes.
 - **No confirm tool.** ADR 0038 said why and M5d adds nothing to that argument.
-- **No e2e coverage of `/operate/capture`.** There is none today either — the
-  four specs in `apps/web/e2e/` are all city. The review screen is covered by
-  thirteen component tests and by the walk, and a first capture spec is worth
-  writing; it is a gap this review states rather than one it closes.
+- ~~**No e2e coverage of `/operate/capture`.**~~ **Closed, and closing it is
+  what found 2.4.** `e2e-seeded/capture.spec.ts` is the first end-to-end
+  coverage this screen has had: it reads the seeded pending capture back from
+  the API, opens it from the queue, and asserts the two-reader disagreement,
+  the refused quote and the corpus check against a real database. The lesson is
+  the milestone's own, one level up — **thirteen tests that all start from the
+  same setup step cannot see a flow that does not have it.**
 - **M5e's `means` defect.** M5c's desktop walk §4.4 scoped it there. Untouched.
 
 ## 5. The risk this milestone is most likely to be wrong about
@@ -149,3 +206,6 @@ Four questions it has to answer:
 3. Did it call the capture a proposal, unprompted?
 4. On a repeat call, did it say *already in your queue* or report a second
    capture?
+5. Following `review_url`, was the capture findable without being told where to
+   look? That question exists because the answer was *no* until 2.4 was fixed,
+   and a walk is the only instrument that asks it.

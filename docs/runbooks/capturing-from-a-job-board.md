@@ -31,6 +31,16 @@ what they found. What matters is knowing what the answer means:
 
 ---
 
+## The review queue
+
+**Operate → Capture** (`/operate/capture`) opens on a list of everything
+waiting for you to decide, however it was captured — pasted here, or captured
+by your own Claude somewhere else entirely. Each row says where the posting was
+found, when it arrived, and whether Claude quoted anything off the page.
+**Review it** opens it; the paste box is below the list.
+
+Nothing on that list has been saved into the corpus. A row is a proposal.
+
 ## Path A — through the web form
 
 1. Go to **Operate → Capture** (`/operate/capture`).
@@ -57,10 +67,14 @@ Requires the connector: `docs/runbooks/connecting-claude-desktop.md`.
    the text you handed over and refuses any that does not (ADR 0039 §2). A
    refusal is the check working. Claude will tell you which field it was.
 4. Claude cannot confirm it. There is no tool for that and its absence is
-   deliberate. Open `/operate/capture` and decide.
+   deliberate. Open `/operate/capture`; the capture is on the queue at the top
+   of that page, marked with where it came from. Press **Review it**.
 5. In the review form, each pre-filled field says who proposed it — *read by
    Nightshift* or *quoted by Claude*. Where the two disagreed, the field is
    **blank on purpose** and both readings are shown. Pick one.
+6. **Decide later** puts it back on the queue unchanged. Use it. An unsure
+   person pressed for a decision is exactly who accepts a wrong employer, and a
+   wrong employer is a job standing on somebody else's building.
 
 ---
 
@@ -84,7 +98,8 @@ matches the address in the top-right of the website. This bit a walk-through on
 ## When it goes wrong
 
 **"Claude says it captured it and my queue is empty."** Account mismatch. See
-above.
+above — the empty queue names the account you are signed in as, and that is the
+one to compare against what `whoami` tells Claude.
 
 **Every field came back blank.** The parser reads lines and the text was
 probably one run-on paragraph. Re-copy it with its layout intact, or type the
