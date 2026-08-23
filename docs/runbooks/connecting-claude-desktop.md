@@ -171,10 +171,16 @@ connector down with it.
 Mint a new one and let the CLI write it into the config for you:
 
 ```
-services/api/.venv/bin/python -m nightshift.cli tokens \
-  --email you@example.com --create --label "claude desktop" \
-  --merge-config ~/Library/Application\ Support/Claude/claude_desktop_config.json
+services/api/.venv/bin/python -m nightshift.cli tokens --email you@example.com --create --label "claude desktop" --merge-config "$HOME/Library/Application Support/Claude/claude_desktop_config.json"
 ```
+
+**One line, and it has to be.** The config path contains a space, and the two
+obvious ways to write it both fail here: `~` does not expand inside quotes, and
+a backslash-escaped space (`Application\ Support`) collides with the backslash
+that continues a command onto the next line — paste that across a line break
+and the path arrives as two arguments. `"$HOME/..."` has neither problem. This
+is written down because the first draft of this section shipped the broken
+form and it failed on the first person to copy it.
 
 Then quit Claude Desktop with `Cmd-Q` and reopen it. `--merge-config` keeps
 everything already in the file, so this is safe to run against a config with
