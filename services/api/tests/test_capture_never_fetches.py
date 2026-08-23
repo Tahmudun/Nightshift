@@ -78,7 +78,7 @@ CAPTURE_PATH_MODULES = (
 )
 
 #: Hosts that answered "do not crawl us" and were believed.
-FORBIDDEN_HOSTS = ("linkedin.com", "indeed.com", "glassdoor.com", "ziprecruiter.com")
+BOARD_HOSTS = ("linkedin.com", "indeed.com", "glassdoor.com", "ziprecruiter.com")
 
 
 @pytest_asyncio.fixture(loop_scope="session")
@@ -221,15 +221,53 @@ def _literal_strings(tree: ast.AST) -> list[str]:
     ]
 
 
+def _is_fetchable(value: str) -> bool:
+    """Is this literal a job-board **address**, as opposed to a job-board name?
+
+    The distinction was forced by this guard firing on real code, and it is a
+    better rule for having been.
+
+    The first version flagged any literal containing a board host. Then M5d
+    added ``capture_origin``, which has to *recognise* one — a table of
+    registrable domains, used to label a capture "From LinkedIn" — and the
+    guard went red on it. Recognising a host is the opposite of fetching one,
+    so a guard that cannot tell them apart forbids the honest use along with
+    the dangerous one, and the pressure is then to weaken the guard rather
+    than to fix the code.
+
+    So the rule is now about **shape**: a bare registrable domain is a name,
+    and anything carrying a scheme, an authority prefix or a path is an
+    address. ``"linkedin.com"`` passes; ``"https://www.linkedin.com"``,
+    ``"//www.linkedin.com/jobs"`` and ``"www.linkedin.com/jobs/view/1"`` do
+    not.
+
+    **The narrowing is real and is not free.** ``BASE = "linkedin.com"``
+    followed by ``httpx.get("https://" + BASE)`` now slips past this guard.
+    That is the transport guard's half of the job, and it catches it at
+    runtime — which is the whole reason there are two of them with their
+    limits written down rather than one that claims to cover everything.
+    """
+    lowered = value.lower()
+    for host in BOARD_HOSTS:
+        index = lowered.find(host)
+        while index != -1:
+            before = lowered[:index]
+            after = lowered[index + len(host) :]
+            if before.endswith(("//", "://", "@")) or after.startswith(("/", ":")):
+                return True
+            index = lowered.find(host, index + 1)
+    return "://" in lowered and any(host in lowered for host in BOARD_HOSTS)
+
+
 @pytest.mark.parametrize("relative", CAPTURE_PATH_MODULES)
 def test_no_capture_module_names_a_job_board_as_a_target(relative: str) -> None:
-    """No string literal in the capture path is a job-board host.
+    """No string literal in the capture path is a job-board **address**.
 
     **Sabotage that turns this red** — add to ``domain/capture.py``::
 
         BOARD_BASE = "https://www.linkedin.com"
 
-    fails with ``domain/capture.py holds a job-board host in a string
+    fails with ``domain/capture.py holds a job-board address in a string
     literal: ['https://www.linkedin.com']``.
 
     This is the half the transport guard cannot see. A fetch that has not been
@@ -239,9 +277,33 @@ def test_no_capture_module_names_a_job_board_as_a_target(relative: str) -> None:
     """
     path = _package_root() / relative
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    offenders = [
-        value
-        for value in _literal_strings(tree)
-        if any(host in value.lower() for host in FORBIDDEN_HOSTS)
-    ]
-    assert offenders == [], f"{relative} holds a job-board host in a string literal: {offenders}"
+    offenders = [value for value in _literal_strings(tree) if _is_fetchable(value)]
+    assert offenders == [], f"{relative} holds a job-board address in a string literal: {offenders}"
+
+
+@pytest.mark.parametrize(
+    ("literal", "fetchable"),
+    [
+        ("https://www.linkedin.com", True),
+        ("https://www.linkedin.com/jobs/view/1", True),
+        ("//www.linkedin.com/jobs", True),
+        ("www.linkedin.com/jobs/view/1", True),
+        ("linkedin.com:443", True),
+        ("https://api.indeed.com/ads/apisearch", True),
+        # The honest uses, which the first version of this guard forbade.
+        ("linkedin.com", False),
+        ("indeed.com", False),
+        ("From LinkedIn", False),
+        ("https://boards.greenhouse.io/ramp/jobs/1", False),
+    ],
+)
+def test_the_guard_can_tell_a_board_address_from_a_board_name(
+    literal: str, fetchable: bool
+) -> None:
+    """The rule itself, tested apart from the modules it is applied to.
+
+    Written because narrowing a guard is the moment it most easily stops
+    guarding anything, and "it still passes on the current code" is not
+    evidence either way — the current code is what made it narrow.
+    """
+    assert _is_fetchable(literal) is fetchable

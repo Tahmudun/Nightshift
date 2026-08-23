@@ -49,9 +49,30 @@ starts handing this server job-board URLs by the dozen, so the comment becomes
   pipeline on a row whose `canonical_url` is a LinkedIn link — the plausible
   place for a fetch to appear later.
 - **The source guard** parses the capture modules and asserts no string literal
-  outside a docstring names a job-board host. That is the half a transport
+  outside a docstring is a job-board **address**. That is the half a transport
   patch cannot see: a URL sitting in a constant, written before anything uses
   it.
+
+The source guard says *address* rather than *host* because it fired on real
+code and was wrong to. Its first version flagged any literal containing a board
+host; §5's `capture_origin` then had to **recognise** one — a table of
+registrable domains, used to label a capture *From LinkedIn* — and the guard
+went red on it. Recognising a host is the opposite of fetching one, and a guard
+that cannot tell them apart forbids the honest use along with the dangerous
+one, which puts the pressure on weakening the guard rather than fixing the
+code.
+
+So the rule is about shape. A bare registrable domain is a name; anything
+carrying a scheme, an authority prefix or a path is an address.
+`"linkedin.com"` passes, `"https://www.linkedin.com"` and
+`"www.linkedin.com/jobs/view/1"` do not. **The narrowing is not free** —
+`BASE = "linkedin.com"` followed by `httpx.get("https://" + BASE)` now slips
+past this guard, and the transport guard is what catches it at runtime. That is
+why there are two of them with their limits written down, rather than one that
+claims to cover everything. The rule is tested apart from the modules it is
+applied to, because narrowing a guard is the moment it most easily stops
+guarding anything, and "it still passes on the current code" is not evidence
+either way — the current code is what made it narrow.
 
 Both were sabotaged before being committed. A `httpx.get(source_url)` in
 `create_capture` produces `AssertionError: the capture path reached the

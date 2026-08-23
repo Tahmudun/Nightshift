@@ -41,6 +41,7 @@ from nightshift.adapters.lever import LeverAdapter
 from nightshift.config import get_settings
 from nightshift.db.base import (
     ApplicationStage,
+    CaptureStatus,
     EmploymentType,
     EventActor,
     JobStatus,
@@ -664,9 +665,21 @@ async def seed_demo_capture(session: AsyncSession, user_id: uuid.UUID, *, now: d
     made is a lie about who did what.
     """
     demo = demo_capture()
+    # Scoped to CONFIRMED, and it was not until M5d. This guard asks "have I
+    # already planted the confirmed one", and it used to ask it by URL alone —
+    # which was true while this was the only capture the seed made. M5d adds a
+    # second, pending capture of the same posting at the same URL, and the
+    # unscoped query then found two rows and raised `MultipleResultsFound` on
+    # the *second* `make seed`. Caught by
+    # `test_seed_reports_its_own_failure.py`, which is the test that exists
+    # because a seed reporting success while persisting nothing is worse than
+    # a seed that fails.
     existing = (
         await session.execute(
-            select(CapturedPosting).where(CapturedPosting.source_url == demo.source_url)
+            select(CapturedPosting).where(
+                CapturedPosting.source_url == demo.source_url,
+                CapturedPosting.status == CaptureStatus.CONFIRMED,
+            )
         )
     ).scalar_one_or_none()
     if existing is not None:
