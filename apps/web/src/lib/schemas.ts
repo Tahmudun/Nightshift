@@ -1312,13 +1312,72 @@ export const captureProposalSchema = z.object({
 });
 export type CaptureProposal = z.infer<typeof captureProposalSchema>;
 
+/**
+ * What the reader's Claude quoted, and the rule accepted (M5d, ADR 0039 §2).
+ *
+ * Three fields, not four: `employment_type` is derived from the title rather
+ * than quoted off a page, so there is nothing for an assistant to point at.
+ *
+ * Every value here has already been checked against the pasted text — it
+ * appears in it verbatim. That is not the same as being *correct*, which is
+ * still what the confirmation step is for.
+ */
+export const assistantQuoteSchema = z.object({
+  title: z.string().nullable(),
+  company_name: z.string().nullable(),
+  location_text: z.string().nullable(),
+});
+export type AssistantQuote = z.infer<typeof assistantQuoteSchema>;
+
+/** Where the reader found it, read off the host of `source_url`. */
+export const captureOriginSchema = z.enum(['linkedin', 'indeed', 'other', 'none']);
+export type CaptureOrigin = z.infer<typeof captureOriginSchema>;
+
+export const corpusMatchSchema = z.object({
+  job_id: z.string().uuid(),
+  title: z.string(),
+  company_name: z.string(),
+  status: jobStatusSchema,
+  /** `same_company_and_title` or `same_url`. Named so a client can say which. */
+  reason: z.string(),
+});
+export type CorpusMatch = z.infer<typeof corpusMatchSchema>;
+
+/**
+ * Whether Nightshift already holds this job — including "I could not look".
+ *
+ * `checked: false` with no matches is a **different statement** from
+ * `checked: true` with no matches, and a surface that renders them the same
+ * way tells a reader a posting is new to Nightshift when nobody established
+ * that. It is invariant I3's failure moved to duplicate detection.
+ */
+export const corpusCheckSchema = z.object({
+  checked: z.boolean(),
+  why_not: z.string().nullable(),
+  matches: corpusMatchSchema.array(),
+});
+export type CorpusCheck = z.infer<typeof corpusCheckSchema>;
+
 export const captureSchema = z.object({
   id: z.string().uuid(),
   status: captureStatusSchema,
   source_url: z.string().nullable(),
+  origin: captureOriginSchema,
   raw_text: z.string(),
   proposed: captureProposalSchema,
   parser_version: z.string(),
+  /** Null when no assistant was involved — a paste typed into this form. */
+  assistant: assistantQuoteSchema.nullable().default(null),
+  /**
+   * Field names the quoting rule turned down. Names only: the refused value is
+   * never stored and never sent, because showing a reader a possibly-invented
+   * company name is the thing the rule exists to prevent.
+   */
+  assistant_rejected_fields: z.string().array().default([]),
+  /** True when this proposal already existed rather than being created now. */
+  already_existed: z.boolean().default(false),
+  /** Present on the response to a paste; absent when a stored row is read back. */
+  corpus_check: corpusCheckSchema.nullable().default(null),
   /** Null until confirmed. The API's schema makes the other combination impossible. */
   job_id: z.string().uuid().nullable(),
   created_at: z.string().datetime({ offset: true }),

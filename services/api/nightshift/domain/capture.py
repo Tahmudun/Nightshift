@@ -47,6 +47,7 @@ import re
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
+from urllib.parse import urlsplit
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -208,6 +209,37 @@ def propose(raw_text: str) -> CaptureProposal:
         location_text=location_text,
         employment_type=employment_type_for_title(title),
     )
+
+
+#: Job boards a reader is likely to be looking at when they capture something,
+#: keyed by registrable host. Only used to *label* a capture — nothing here is
+#: ever fetched, and `tests/test_capture_never_fetches.py` is what holds that.
+_KNOWN_BOARDS: dict[str, str] = {
+    "linkedin.com": "linkedin",
+    "indeed.com": "indeed",
+}
+
+
+def capture_origin(source_url: str | None) -> str:
+    """Where the reader found this posting: ``linkedin``, ``indeed``,
+    ``other`` or ``none``.
+
+    Derived rather than stored, for the same reason ``employment_type_for_title``
+    is: a column could disagree with the URL sitting beside it in the form.
+
+    **Matched on the host, by suffix, and that is not pedantry.**
+    ``https://linkedin.com.evil.example/`` contains the string "linkedin.com"
+    and is not LinkedIn; labelling it as LinkedIn in a review form would tell a
+    reader a URL is trustworthy on the strength of an attacker's subdomain. A
+    substring test is the wrong tool and the test suite has the evil host in it.
+    """
+    if not source_url:
+        return "none"
+    host = (urlsplit(source_url).hostname or "").lower().removeprefix("www.")
+    for registrable, label in _KNOWN_BOARDS.items():
+        if host == registrable or host.endswith(f".{registrable}"):
+            return label
+    return "other"
 
 
 def text_fingerprint(raw_text: str) -> str:
@@ -542,6 +574,7 @@ __all__ = [
     "CaptureAlreadyDecidedError",
     "CaptureOutcome",
     "CaptureProposal",
+    "capture_origin",
     "capture_paste",
     "capture_source_job_id",
     "confirm_capture",

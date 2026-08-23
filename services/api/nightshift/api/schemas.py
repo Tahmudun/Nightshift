@@ -1409,6 +1409,10 @@ class CaptureOut(BaseModel):
     id: UUID
     status: CaptureStatus
     source_url: str | None
+    #: ``linkedin`` | ``indeed`` | ``other`` | ``none`` — where the reader found
+    #: it, read off the host of ``source_url``. Derived rather than stored, so
+    #: it cannot disagree with the URL sitting beside it in the form.
+    origin: str
     raw_text: str
     proposed: CaptureProposalOut
     parser_version: str

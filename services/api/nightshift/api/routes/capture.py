@@ -48,6 +48,7 @@ from nightshift.db.session import get_db_session
 from nightshift.db.types import utcnow
 from nightshift.domain.capture import (
     CaptureAlreadyDecidedError,
+    capture_origin,
     capture_paste,
     confirm_capture,
     discard_capture,
@@ -92,6 +93,7 @@ def _to_out(
         id=capture.id,
         status=capture.status,
         source_url=capture.source_url,
+        origin=capture_origin(capture.source_url),
         raw_text=capture.raw_text,
         proposed=CaptureProposalOut(
             title=capture.proposed_title,

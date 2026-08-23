@@ -23,7 +23,8 @@ import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { capturePosting, confirmCapture, discardCapture } from '@/lib/api';
-import type { Capture, EmploymentType } from '@/lib/schemas';
+import { ORIGIN_LABEL, readCapture, type FieldReading } from '@/lib/capture';
+import type { Capture, CorpusCheck, EmploymentType } from '@/lib/schemas';
 
 const EMPLOYMENT_TYPES: readonly { readonly value: EmploymentType; readonly label: string }[] = [
   { value: 'full_time', label: 'Full time' },
@@ -38,13 +39,111 @@ const FIELD_CLASS =
   'mt-1 w-full border border-ink-700 bg-ink-900 px-2 py-1.5 font-sans text-[14px] text-paper';
 const LABEL_CLASS = 'block font-mono text-[9px] uppercase tracking-[0.14em] text-paper-faint';
 
-/** Shown under any field the parser declined to fill. */
+/** Shown under any field neither reader could fill. */
 function NotRead() {
   return (
     <span className="mt-1 block text-[12px] leading-relaxed text-paper-dim">
       Not read from the text — type it in.
     </span>
   );
+}
+
+const SOURCE_NOTE: Readonly<Record<string, string>> = {
+  parser: 'Read by Nightshift from the text.',
+  assistant: 'Quoted by Claude from the posting.',
+  agreed: 'Read by Nightshift and quoted by Claude — they agree.',
+};
+
+/**
+ * Who proposed this field, said out loud.
+ *
+ * A pre-filled input is a claim, and until M5d there was only one thing it
+ * could be a claim by. Now there are two, and they can be wrong in different
+ * ways — so the form names the reader rather than leaving the person to
+ * assume. ADR 0039 §2.
+ */
+function Provenance({ reading }: { reading: FieldReading }) {
+  if (reading.source === 'none') return <NotRead />;
+
+  if (reading.source === 'conflict') {
+    return (
+      <span className="mt-1 block text-[12px] leading-relaxed text-paper-dim">
+        Two readings disagreed, so this is blank on purpose. Nightshift read{' '}
+        <strong className="font-medium text-paper">{reading.parser}</strong>; Claude quoted{' '}
+        <strong className="font-medium text-paper">{reading.assistant}</strong>. Pick one.
+      </span>
+    );
+  }
+
+  return (
+    <span className="mt-1 block text-[12px] leading-relaxed text-paper-dim">
+      {SOURCE_NOTE[reading.source]}
+    </span>
+  );
+}
+
+/**
+ * What Nightshift already holds that this posting appears to be.
+ *
+ * Above the form rather than below it, because it can make the whole form
+ * unnecessary: the corpus copy came from the employer's own board and carries
+ * a location the system trusts and a score this capture never will.
+ *
+ * **The `checked === false` branch is the one that matters.** An empty list
+ * with no explanation reads as "this is new to Nightshift", and nobody
+ * established that — it is invariant I3's failure moved to duplicate
+ * detection.
+ */
+function AlreadyHave({ check }: { check: CorpusCheck | null }) {
+  if (check === null) return null;
+
+  if (check.matches.length > 0) {
+    return (
+      <div
+        data-testid="capture-already-have"
+        className="border border-ink-700 bg-ink-900 px-3 py-2.5"
+      >
+        <p className="text-[13px] leading-relaxed text-paper">
+          Nightshift already has {check.matches.length === 1 ? 'this' : 'these'}, from the
+          employer&rsquo;s own board.
+        </p>
+        <ul className="mt-2 space-y-1">
+          {check.matches.map((match) => (
+            <li key={match.job_id} className="text-[13px] leading-relaxed">
+              <a
+                href={`/explore/jobs/${match.job_id}`}
+                className="text-signal-400 underline-offset-2 hover:underline"
+              >
+                {match.title} — {match.company_name}
+              </a>
+              {match.status !== 'open' && (
+                <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.14em] text-alert-400">
+                  {match.status.replace(/_/g, ' ')}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+        <p className="mt-2 text-[12px] leading-relaxed text-paper-dim">
+          You can still save this one. It will carry less than the copy above — a capture has no
+          board to re-read, so nothing can tell you later that it closed.
+        </p>
+      </div>
+    );
+  }
+
+  if (!check.checked) {
+    return (
+      <p
+        data-testid="capture-not-checked"
+        className="max-w-2xl text-[12px] leading-relaxed text-paper-dim"
+      >
+        {check.why_not}
+      </p>
+    );
+  }
+
+  return null;
 }
 
 export function CapturePosting() {
@@ -67,11 +166,13 @@ export function CapturePosting() {
       }),
     onSuccess: (result) => {
       setCapture(result);
-      // `?? ''` is the whole contract in three characters: a declined field
-      // becomes an empty box, never a guess.
-      setTitle(result.proposed.title ?? '');
-      setCompany(result.proposed.company_name ?? '');
-      setLocation(result.proposed.location_text ?? '');
+      // `readCapture` is the whole contract: a field neither reader could fill
+      // becomes an empty box rather than a guess, and a field the two readers
+      // disagreed about becomes an empty box rather than a silent winner.
+      const reading = readCapture(result.proposed, result.assistant);
+      setTitle(reading.title.value);
+      setCompany(reading.company_name.value);
+      setLocation(reading.location_text.value);
       setEmployment(result.proposed.employment_type ?? 'unknown');
     },
   });
@@ -134,13 +235,44 @@ export function CapturePosting() {
   }
 
   if (capture !== null) {
+    const reading = readCapture(capture.proposed, capture.assistant);
     return (
       <div className="space-y-4" data-testid="capture-review">
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            data-testid="capture-origin"
+            className="border border-ink-700 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-paper-faint"
+          >
+            {ORIGIN_LABEL[capture.origin]}
+          </span>
+          {capture.already_existed && (
+            <span
+              data-testid="capture-already-existed"
+              className="text-[12px] leading-relaxed text-paper-dim"
+            >
+              You had already pasted this — it is the same proposal, not a second one.
+            </span>
+          )}
+        </div>
+
+        <AlreadyHave check={capture.corpus_check} />
+
         <p className="max-w-2xl text-[13px] leading-relaxed text-paper-dim">
           This is what we could read.{' '}
           <strong className="font-medium text-paper">Nothing is saved yet.</strong> Correct anything
           that is wrong — especially the employer, which decides whose building this stands on.
         </p>
+
+        {capture.assistant_rejected_fields.length > 0 && (
+          <p
+            data-testid="capture-refused-quotes"
+            className="max-w-2xl text-[12px] leading-relaxed text-paper-dim"
+          >
+            Claude offered {capture.assistant_rejected_fields.join(', ').replace(/_/g, ' ')} and
+            Nightshift did not keep {capture.assistant_rejected_fields.length === 1 ? 'it' : 'them'}
+            : the words were not in the text you pasted. That is the check working, not a failure.
+          </p>
+        )}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <label htmlFor="capture-title" className={LABEL_CLASS}>
@@ -151,7 +283,7 @@ export function CapturePosting() {
               onChange={(event) => setTitle(event.target.value)}
               className={FIELD_CLASS}
             />
-            {capture.proposed.title === null && <NotRead />}
+            <Provenance reading={reading.title} />
           </label>
 
           <label htmlFor="capture-company" className={LABEL_CLASS}>
@@ -162,7 +294,7 @@ export function CapturePosting() {
               onChange={(event) => setCompany(event.target.value)}
               className={FIELD_CLASS}
             />
-            {capture.proposed.company_name === null && <NotRead />}
+            <Provenance reading={reading.company_name} />
           </label>
 
           <label htmlFor="capture-location" className={LABEL_CLASS}>
@@ -174,7 +306,7 @@ export function CapturePosting() {
               className={FIELD_CLASS}
               placeholder=""
             />
-            {capture.proposed.location_text === null && <NotRead />}
+            <Provenance reading={reading.location_text} />
           </label>
 
           <label htmlFor="capture-employment" className={LABEL_CLASS}>
