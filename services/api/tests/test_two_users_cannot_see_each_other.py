@@ -50,7 +50,6 @@ from httpx import ASGITransport, AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nightshift.api.main import create_app
-from nightshift.domain.capture import text_fingerprint
 from nightshift.db.base import (
     ApplicationStage,
     CaptureStatus,
@@ -71,6 +70,7 @@ from nightshift.db.models import (
     UserSkill,
 )
 from nightshift.db.session import get_db_session
+from nightshift.domain.capture import text_fingerprint
 from nightshift.domain.identity import set_password
 from tests.conftest import requires_db
 

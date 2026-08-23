@@ -36,7 +36,7 @@ import uuid
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
-from sqlalchemy import Select, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nightshift.adapters.greenhouse import normalize_title
@@ -80,16 +80,14 @@ class CorpusCheck:
     matches: tuple[CorpusMatch, ...]
 
 
-def _ordered(query: Select[tuple[Job, Company]]) -> Select[tuple[Job, Company]]:
-    """Open roles first, then most recently seen.
-
-    Two records of one opening happen — a role reposted, or polled from two
-    boards — and the live one is the one a reader can act on.
-    """
-    return query.order_by(
-        (Job.status != JobStatus.OPEN),
-        Job.last_seen_at.desc(),
-    ).limit(MAX_MATCHES)
+#: Open roles first, then most recently seen.
+#:
+#: Two records of one opening happen — a role reposted, or polled from two
+#: boards — and the live one is the one a reader can act on. Shared by both
+#: rules rather than written twice, because an ordering that disagreed between
+#: them would put the closed copy first depending on which rule happened to
+#: fire.
+LIVE_FIRST = ((Job.status != JobStatus.OPEN), Job.last_seen_at.desc())
 
 
 async def check_corpus(
@@ -136,14 +134,14 @@ async def check_corpus(
 
     rows = (
         await session.execute(
-            _ordered(
-                select(Job, Company)
-                .join(Company, Company.id == Job.company_id)
-                .where(
-                    Company.normalized_name == normalize_company_name(company_name),
-                    Job.normalized_title == normalize_title(title),
-                )
+            select(Job, Company)
+            .join(Company, Company.id == Job.company_id)
+            .where(
+                Company.normalized_name == normalize_company_name(company_name),
+                Job.normalized_title == normalize_title(title),
             )
+            .order_by(*LIVE_FIRST)
+            .limit(MAX_MATCHES)
         )
     ).all()
 
@@ -204,7 +202,7 @@ async def _by_url(session: AsyncSession, source_url: str | None) -> tuple[Corpus
                 SourceJobRecord.id == JobSourceLink.source_job_record_id,
             )
             .where(SourceJobRecord.canonical_url.ilike(f"%{stem}%"))
-            .order_by((Job.status != JobStatus.OPEN), Job.last_seen_at.desc())
+            .order_by(*LIVE_FIRST)
         )
     ).all()
 
@@ -228,4 +226,4 @@ async def _by_url(session: AsyncSession, source_url: str | None) -> tuple[Corpus
     return tuple(matches)
 
 
-__all__ = ["MAX_MATCHES", "CorpusCheck", "CorpusMatch", "check_corpus"]
+__all__ = ["LIVE_FIRST", "MAX_MATCHES", "CorpusCheck", "CorpusMatch", "check_corpus"]

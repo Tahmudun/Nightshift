@@ -266,6 +266,18 @@ without being asked. The options, roughly:
 
 I would take the first. Say the word and it is the next thing I do.
 
+> **Still open, and 2026-08-22 added a cost the question did not name: the
+> shared database serialises the whole session.** M5d's full Python run took
+> **95 minutes of wall clock for 17 minutes of test time**, because a web suite
+> and a handful of targeted `pytest` runs were touching the same Postgres —
+> every `TRUNCATE` waits for an ACCESS EXCLUSIVE lock nobody else knew they
+> were holding. Worse than the delay: **`make seed` could not be run at all**
+> while the suite was going, so a seed change written at the start of the
+> session could not be verified until the end of it. Nothing was lost and
+> nothing was wrong; the work just could not proceed in parallel with its own
+> tests. That is a second argument for `nightshift_test`, and it is one the
+> original framing missed because it only looked at what a wipe destroys.
+
 ---
 
 ## Q7 — No ATS posting names a street. How many company addresses will you type?
