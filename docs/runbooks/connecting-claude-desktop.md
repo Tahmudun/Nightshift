@@ -159,7 +159,29 @@ reader (invariant I3).
 
 ### Every tool answers "Nightshift rejected this token"
 
-The token expired, was revoked, or was pasted wrong. Check what is live:
+**Check first whether the database was reset.** `make reset-db` drops and
+recreates every table, and a token lives in one of them (`user_sessions`).
+Only its SHA-256 is ever stored, so **nothing can restore a token a reset
+destroyed** — not `make seed`, not re-running anything. The connection breaks
+silently: Claude Desktop still launches the server, the server still starts,
+and every tool answers that the token was rejected. This happened on
+2026-08-23, when a session ran `make reset-db` as a routine step and took the
+connector down with it.
+
+Mint a new one and let the CLI write it into the config for you:
+
+```
+services/api/.venv/bin/python -m nightshift.cli tokens \
+  --email you@example.com --create --label "claude desktop" \
+  --merge-config ~/Library/Application\ Support/Claude/claude_desktop_config.json
+```
+
+Then quit Claude Desktop with `Cmd-Q` and reopen it. `--merge-config` keeps
+everything already in the file, so this is safe to run against a config with
+other servers or your own preferences in it.
+
+Otherwise the token expired, was revoked, or was pasted wrong. Check what is
+live:
 
 ```
 services/api/.venv/bin/python -m nightshift.cli tokens --email you@example.com --list

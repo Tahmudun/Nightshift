@@ -137,7 +137,12 @@ score: setup ## Run the match sweep now instead of waiting for the worker's cron
 offices: setup ## Load data/company-locations.yaml -> geocode -> company_locations
 	@$(LOADENV) && $(PY) -m nightshift.cli offices
 
-reset-db: ## Drop, recreate, migrate, seed
+# Also destroys every MCP token, because a token lives in `user_sessions` and
+# only its hash is stored — nothing can restore one. A connected Claude Desktop
+# breaks silently after this: it still launches, and every tool answers that
+# the token was rejected. Re-mint with `nightshift tokens --create
+# --merge-config`; see docs/runbooks/connecting-claude-desktop.md.
+reset-db: ## Drop, recreate, migrate, seed (destroys MCP tokens — see the note above)
 	@$(COMPOSE) down -v
 	@$(MAKE) up migrate seed
 
