@@ -1,6 +1,6 @@
 # ADR 0039 — The page is read by the reader, not by us
 
-- **Status:** accepted (§1, §2, §3); §4 pending, added as M5d builds it
+- **Status:** accepted
 - **Date:** 2026-08-22
 - **Milestone:** M5d
 - **Relates to:** `CLAUDE.md` §1 (I1, I2, I7), §8 ("Scraping anything that asks not to be scraped"); AMENDMENTS A16; ADR 0038; `docs/architecture/board-discovery.md` §9; `nightshift/domain/capture.py`, `nightshift/api/routes/capture.py`, `nightshift/mcp/`
@@ -225,6 +225,86 @@ to catch and turn back into the existing row, which is the lookup again with a
 worse error path. The lookup runs inside the same transaction that would do the
 insert, so the race window is the transaction's, and the cost of losing that
 race is one duplicate row in one person's queue.
+
+
+## §4 — Decision: the capture says what the corpus already holds
+
+Nightshift polls thousands of board tokens first-hand. Most NYC tech postings a
+reader finds on LinkedIn are **already in the corpus** — with a match score, a
+location the system trusts, and the employer's own board as the source.
+
+Capturing one of those is worse than useless. It costs a review, and it
+produces a thinner second record of a job already held: a capture has no
+freshness signal, no closure signal, and a location parsed out of free text.
+
+So `POST /capture` answers with `corpus_check`, and the tool description tells
+the model to **lead with it**. If the corpus holds the job, the useful reply is
+not *"captured"* — it is *"you already have this, here it is, and it closed on
+Tuesday."*
+
+**Two rules, both deterministic, both naming themselves in the result.**
+
+- `same_company_and_title` — the normalised employer and the normalised title
+  both match. Normalisation is the ingestion pipeline's own
+  (`normalize_company_name`, `normalize_title`) rather than a private reading,
+  so this check and the corpus agree by construction. A second normaliser would
+  drift, and the symptom would be a duplicate warning that quietly stopped
+  firing.
+- `same_url` — a source record points at the same page, compared through
+  `dedupe.normalize_url` so a tracking parameter does not make one posting two.
+  Narrow, because a LinkedIn URL will never equal a Greenhouse one, and worth
+  keeping because it is the only rule that works when the text could not be
+  read at all — exactly when the other rule is unavailable.
+
+**Closed jobs are returned, not filtered out.** Somebody capturing a role
+Nightshift already knows has closed is about to spend an evening on it, and
+hiding closed matches to keep the warning tidy would withhold the single most
+useful thing this check can say.
+
+### Not knowing is an answer, and it is not an empty list
+
+`checked: false` with an empty `matches` is a **different statement** from
+`checked: true` with an empty `matches`. The first means nothing could be read
+from the paste to search with; the second means Nightshift looked and found
+nothing.
+
+Collapsing them is invariant I3's failure — silence presented as evidence —
+moved from source outages to duplicate detection. The result carries a
+`why_not` sentence, the MCP shape turns it into an instruction (*"do not tell
+the reader this posting is new to Nightshift — nobody looked"*), and
+`test_capture_matches.py` asserts both halves.
+
+### The assistant's quote outranks the parser here, and only here
+
+The search runs on `assistant_company_name or proposed_company_name`. That
+inverts §2's usual footing, and it is safe **because it steers a search rather
+than a stored fact**: a wrong company finds nothing, and finding nothing is
+what an unassisted capture would have done anyway. Nothing that comes back is
+written to the capture row.
+
+### The alternatives that were rejected
+
+**Use `dedupe.compare`.** It is the system's real merge comparator and it does
+not fit. Its layers block on company, employment type, title *and* location
+before similarity is reachable, and a pasted posting honestly has none of the
+last three. Feeding it invented values to get an answer is precisely the
+failure this milestone exists to avoid.
+
+**Embedding similarity against the corpus.** More recall, and it needs a
+threshold. A threshold is a number nobody can defend at the moment it wrongly
+tells a reader they already have a job they do not — and unlike a merge, this
+warning is read by a person deciding whether to bother. `same_company_and_title`
+can be explained in one sentence, which is what a warning needs to be.
+
+**Refuse the capture when a duplicate is found.** Tempting and wrong. The
+corpus copy might be a different opening with the same title, the reader might
+want their own record, and I5 says suggest and surface rather than decide. The
+proposal is created; what changes is what the reader is told.
+
+**Store the check on the capture row.** It is a fact about the corpus *now*,
+not a property of the row. Cached, it would go stale against the very jobs it
+is about — so it is computed on the response to `POST /capture` and absent when
+a stored capture is read back.
 
 
 ## Consequences

@@ -39,6 +39,8 @@ from nightshift.api.schemas import (
     CaptureListOut,
     CaptureOut,
     CaptureProposalOut,
+    CorpusCheckOut,
+    CorpusMatchOut,
 )
 from nightshift.db.base import CaptureStatus
 from nightshift.db.models import CapturedPosting
@@ -52,15 +54,41 @@ from nightshift.domain.capture import (
     employment_type_for_title,
 )
 from nightshift.domain.capture_assist import AssistantProposal
+from nightshift.domain.capture_matches import CorpusCheck, check_corpus
 
 router = APIRouter(prefix="/capture", tags=["capture"])
 
 MAX_LIMIT = 200
 
 
-def _to_out(capture: CapturedPosting, *, already_existed: bool = False) -> CaptureOut:
+def _corpus_out(check: CorpusCheck | None) -> CorpusCheckOut | None:
+    if check is None:
+        return None
+    return CorpusCheckOut(
+        checked=check.checked,
+        why_not=check.why_not,
+        matches=[
+            CorpusMatchOut(
+                job_id=match.job_id,
+                title=match.title,
+                company_name=match.company_name,
+                status=match.status,
+                reason=match.reason,
+            )
+            for match in check.matches
+        ],
+    )
+
+
+def _to_out(
+    capture: CapturedPosting,
+    *,
+    already_existed: bool = False,
+    corpus_check: CorpusCheck | None = None,
+) -> CaptureOut:
     return CaptureOut(
         already_existed=already_existed,
+        corpus_check=_corpus_out(corpus_check),
         id=capture.id,
         status=capture.status,
         source_url=capture.source_url,
@@ -158,7 +186,24 @@ async def capture_posting(
     await session.commit()
     if not outcome.created:
         response.status_code = status.HTTP_200_OK
-    return _to_out(outcome.capture, already_existed=not outcome.created)
+
+    # Searched with the assistant's quote first and the parser's reading
+    # second. This is the one place an assistant value outranks a parser
+    # value, and it is safe here only because it steers a *search* — a wrong
+    # company finds nothing, and finding nothing is what an unassisted capture
+    # would have done anyway. ADR 0039 §4.
+    stored = outcome.capture
+    corpus_check = await check_corpus(
+        session,
+        title=stored.assistant_title or stored.proposed_title,
+        company_name=stored.assistant_company_name or stored.proposed_company_name,
+        source_url=stored.source_url,
+    )
+    return _to_out(
+        stored,
+        already_existed=not outcome.created,
+        corpus_check=corpus_check,
+    )
 
 
 @router.get("", response_model=CaptureListOut)

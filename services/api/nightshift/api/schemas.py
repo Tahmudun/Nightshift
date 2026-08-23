@@ -1370,6 +1370,33 @@ class AssistantQuoteOut(BaseModel):
     location_text: str | None
 
 
+class CorpusMatchOut(BaseModel):
+    """A job Nightshift already holds that a paste is probably about."""
+
+    job_id: UUID
+    title: str
+    company_name: str
+    status: JobStatus
+    #: A short stable token — ``same_company_and_title`` or ``same_url`` — so a
+    #: client can say which rule fired rather than asserting a similarity.
+    reason: str
+
+
+class CorpusCheckOut(BaseModel):
+    """Whether the corpus already holds this job, including "I could not look".
+
+    ``checked=false`` with an empty ``matches`` is a **different statement**
+    from ``checked=true`` with an empty ``matches``. The first means nothing
+    could be read from the paste to search with; the second means Nightshift
+    looked and found nothing. Rendering them the same way is how a reader ends
+    up trusting a check that never ran.
+    """
+
+    checked: bool
+    why_not: str | None
+    matches: list[CorpusMatchOut]
+
+
 class CaptureOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -1395,6 +1422,12 @@ class CaptureOut(BaseModel):
     #: possibly-invented company name in front of the reader with nothing
     #: marking it as refused.
     assistant_rejected_fields: list[str] = Field(default_factory=list)
+    #: What the corpus already holds that looks like this posting. Present on
+    #: the response to ``POST /capture`` and absent when a stored capture is
+    #: read back, because it is a fact about the corpus *now* rather than a
+    #: property of the row — caching it would let it go stale against the very
+    #: jobs it is about.
+    corpus_check: CorpusCheckOut | None = None
     #: Set only once a person has confirmed. Until then there is no job, and
     #: the schema refuses to let there be one.
     job_id: UUID | None

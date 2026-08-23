@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 
 import pytest
 import pytest_asyncio
@@ -322,3 +323,75 @@ async def test_a_capture_with_no_quotes_says_so_rather_than_reporting_nulls(
     assert result.structured_content["assistant_accepted"] is None
     assert result.structured_content["assistant_refused"] == []
     assert "about_your_quotes" not in result.structured_content
+
+
+@_async
+async def test_a_posting_the_corpus_already_holds_is_named_first(
+    server: MCPServer, db_session: AsyncSession
+) -> None:
+    """M5d's best moment: don't make the reader review a job they already have.
+
+    Nightshift polls the employers' own boards, so the corpus copy is
+    first-hand — it carries a location the system trusts and a score this
+    capture never will. The proposal is still created; what changes is what the
+    model is told to say about it.
+
+    **Sabotage:** return `matches=()` unconditionally from `check_corpus` and
+    the `already_in_nightshift` assertion goes red.
+    """
+    from nightshift.adapters.greenhouse import normalize_title
+    from nightshift.db.base import JobStatus
+    from nightshift.domain.ingestion import get_or_create_company
+
+    company = await get_or_create_company(db_session, "Ramp")
+    now = datetime.now(tz=UTC)
+    existing = Job(
+        company_id=company.id,
+        title="Staff Backend Engineer",
+        normalized_title=normalize_title("Staff Backend Engineer"),
+        first_seen_at=now,
+        last_seen_at=now,
+        status=JobStatus.OPEN,
+    )
+    db_session.add(existing)
+    await db_session.flush()
+
+    async with connected(server) as session:
+        result = await session.call_tool(
+            "capture_posting",
+            {"raw_text": LINKEDIN_PASTE, "source_url": None},
+        )
+
+    assert result.structured_content is not None
+    named = result.structured_content["already_in_nightshift"]
+    assert [m["job_id"] for m in named] == [str(existing.id)]
+    assert named[0]["reason"] == "same_company_and_title"
+    assert named[0]["status"] == "open"
+
+    guidance = result.structured_content["read_this_first"]
+    assert "Nightshift already holds" in guidance
+    assert "Lead with that" in guidance
+    # The proposal is still created — the reader decides, not this check.
+    assert result.structured_content["status"] == CaptureStatus.PENDING.value
+
+
+@_async
+async def test_an_unreadable_paste_says_nobody_looked_rather_than_nothing_found(
+    server: MCPServer,
+) -> None:
+    """The I3 failure, in the place M5d could most easily introduce it.
+
+    A capture whose company the parser declined to read is one this check
+    cannot answer for. An empty `already_in_nightshift` beside silence reads as
+    "this posting is new to Nightshift", which nobody established.
+    """
+    async with connected(server) as session:
+        result = await session.call_tool(
+            "capture_posting", {"raw_text": "A posting with no useful structure at all."}
+        )
+
+    assert result.structured_content is not None
+    assert result.structured_content["already_in_nightshift"] == []
+    guidance = result.structured_content["read_this_first"]
+    assert "not the same as finding no duplicates" in guidance
+    assert "Do not tell the reader this posting is new to Nightshift" in guidance

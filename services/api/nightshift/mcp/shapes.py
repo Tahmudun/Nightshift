@@ -291,11 +291,14 @@ def capture_proposal(capture: dict[str, Any], *, web_url: str) -> dict[str, Any]
     refused = list(capture.get("assistant_rejected_fields") or [])
 
     already_existed = bool(capture.get("already_existed"))
+    corpus = capture.get("corpus_check") or {}
+    matches = corpus.get("matches") or []
 
     result = {
         "capture_id": capture["id"],
         "status": capture["status"],
         "already_existed": already_existed,
+        "already_in_nightshift": matches,
         "proposed": proposed,
         "could_not_read": unread,
         "assistant_accepted": capture.get("assistant"),
@@ -307,9 +310,42 @@ def capture_proposal(capture: dict[str, Any], *, web_url: str) -> dict[str, Any]
             "attached. Nightshift read what it could from the text; a field listed "
             "in `could_not_read` is one the parser declined to guess at, which is "
             "deliberate rather than a failure. The reader confirms or discards it "
-            "at `review_url`, and only then does a job exist."
+            "at `review_url`, and only then does a job exist.\n\n"
+            "`already_in_nightshift` lists jobs the corpus already holds that "
+            "this posting appears to be. An EMPTY list is not the same as no "
+            "duplicates: check `read_this_first`, which says so when nothing "
+            "could be read from the text to search with."
         ),
     }
+
+    if matches:
+        # First key a model reads that says "stop and tell them something", and
+        # deliberately phrased as an instruction rather than a fact. Nightshift
+        # polls the employers' own boards, so a corpus copy is first-hand: it
+        # has a location the system trusts, a score, and a source to go back
+        # to. The capture is the thinner record of the two.
+        result["read_this_first"] = (
+            "Nightshift already holds "
+            + ("a job" if len(matches) == 1 else f"{len(matches)} jobs")
+            + " that this posting appears to be. Lead with that. Give the reader "
+            "the job id and say the corpus copy came from the employer's own "
+            "board, so it carries a location Nightshift trusts and a match score "
+            "this capture never will. The proposal below still exists and they "
+            "can discard it at `review_url`; say so rather than deciding for "
+            "them. A match on `same_company_and_title` is the employer and the "
+            "title agreeing, which is strong and is not proof — check the "
+            "`status` field, because a match that reads `closed` is the most "
+            "useful thing you can tell them."
+        )
+    elif not corpus.get("checked", False):
+        # The I3 failure in a new place. An empty list plus a confident sentence
+        # is how a reader ends up trusting a check that never ran.
+        result["read_this_first"] = (
+            corpus.get("why_not") or "Nightshift did not check whether it already holds this job."
+        ) + (
+            " Do not tell the reader this posting is new to Nightshift — nobody "
+            "looked. If they want to know, search for it with search_jobs."
+        )
 
     if already_existed:
         # A model that is told only `already_existed: true` will still report
