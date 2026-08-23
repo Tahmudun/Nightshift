@@ -8,6 +8,15 @@
  * paste proposes; nothing exists yet. The confirm is the only thing in this
  * flow that creates a job.
  *
+ * **The queue in front of them is M5d's, and it is not a third half.** Pasting
+ * here is now the rare way a proposal is made; the common one is the reader's
+ * own Claude calling `capture_posting` in a session this browser knows nothing
+ * about. `CaptureQueue` lists what is waiting and this component opens one of
+ * them into the same review form a paste lands on — one review surface, two
+ * ways to reach it. Anything with a rule in it lives outside the `.tsx`
+ * (`lib/capture.ts`), because a rule inside a component is a rule only an
+ * end-to-end test can reach.
+ *
  * **A field the parser declined renders empty and says so.** It does not render
  * a guess, and it does not render a placeholder that reads like one. That is
  * `A10`'s rule about absent data, and here it decides more than a label: a
@@ -19,12 +28,23 @@
  * a value sitting in an input the person could see and change.
  */
 
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { capturePosting, confirmCapture, discardCapture } from '@/lib/api';
+import { CaptureQueue } from '@/components/CaptureQueue';
+import {
+  capturePosting,
+  confirmCapture,
+  discardCapture,
+  fetchCapture,
+  fetchCaptures,
+  fetchMe,
+} from '@/lib/api';
 import { ORIGIN_LABEL, readCapture, type FieldReading } from '@/lib/capture';
 import type { Capture, CorpusCheck, EmploymentType } from '@/lib/schemas';
+
+/** Everything that has to be re-read once a capture is created or decided. */
+const PENDING_KEY = ['captures', 'pending'] as const;
 
 const EMPLOYMENT_TYPES: readonly { readonly value: EmploymentType; readonly label: string }[] = [
   { value: 'full_time', label: 'Full time' },
@@ -158,6 +178,52 @@ export function CapturePosting() {
   const [location, setLocation] = useState('');
   const [employment, setEmployment] = useState<EmploymentType>('unknown');
 
+  const queryClient = useQueryClient();
+
+  /**
+   * The queue: pending captures, however they were made.
+   *
+   * A paste in this tab is the *rare* way a capture is created now — the
+   * common one is a reader's Claude calling `capture_posting` somewhere else
+   * entirely — so the screen has to be able to show a proposal it did not
+   * create.
+   */
+  const pending = useQuery({
+    queryKey: PENDING_KEY,
+    queryFn: () => fetchCaptures('pending'),
+  });
+  const session = useQuery({ queryKey: ['session'], queryFn: fetchMe, retry: false });
+
+  /**
+   * Seed the review form from a proposal, exactly once per opening.
+   *
+   * `readCapture` is the whole contract: a field neither reader could fill
+   * becomes an empty box rather than a guess, and a field the two readers
+   * disagreed about becomes an empty box rather than a silent winner.
+   */
+  const openForReview = (result: Capture) => {
+    setCapture(result);
+    const reading = readCapture(result.proposed, result.assistant);
+    setTitle(reading.title.value);
+    setCompany(reading.company_name.value);
+    setLocation(reading.location_text.value);
+    setEmployment(result.proposed.employment_type ?? 'unknown');
+  };
+
+  /**
+   * Close the review form and put the screen back on the queue.
+   *
+   * Shared by confirm, discard and *leaving it for later*, because all three
+   * end the same way: the row's fate is now the queue's business rather than
+   * this form's, and the pending list has to be re-read either way.
+   */
+  const leaveReview = () => {
+    setCapture(null);
+    setText('');
+    setSourceUrl('');
+    void queryClient.invalidateQueries({ queryKey: PENDING_KEY });
+  };
+
   const read = useMutation({
     mutationFn: () =>
       capturePosting({
@@ -165,16 +231,22 @@ export function CapturePosting() {
         source_url: sourceUrl.trim() === '' ? null : sourceUrl.trim(),
       }),
     onSuccess: (result) => {
-      setCapture(result);
-      // `readCapture` is the whole contract: a field neither reader could fill
-      // becomes an empty box rather than a guess, and a field the two readers
-      // disagreed about becomes an empty box rather than a silent winner.
-      const reading = readCapture(result.proposed, result.assistant);
-      setTitle(reading.title.value);
-      setCompany(reading.company_name.value);
-      setLocation(reading.location_text.value);
-      setEmployment(result.proposed.employment_type ?? 'unknown');
+      openForReview(result);
+      void queryClient.invalidateQueries({ queryKey: PENDING_KEY });
     },
+  });
+
+  /**
+   * Open a queued capture.
+   *
+   * Fetched rather than taken from the list row, because `GET /capture/{id}`
+   * answers with a live corpus check and a list of rows does not — and the
+   * duplicate warning is the one thing on this screen that can make the whole
+   * form unnecessary.
+   */
+  const open = useMutation({
+    mutationFn: (captureId: string) => fetchCapture(captureId),
+    onSuccess: openForReview,
   });
 
   const confirm = useMutation({
@@ -187,22 +259,16 @@ export function CapturePosting() {
       }),
     onSuccess: (result) => {
       setConfirmed(result);
-      setCapture(null);
-      setText('');
-      setSourceUrl('');
+      leaveReview();
     },
   });
 
   const discard = useMutation({
     mutationFn: () => discardCapture(capture!.id),
-    onSuccess: () => {
-      setCapture(null);
-      setText('');
-      setSourceUrl('');
-    },
+    onSuccess: leaveReview,
   });
 
-  const error = read.error ?? confirm.error ?? discard.error;
+  const error = read.error ?? confirm.error ?? discard.error ?? open.error;
   const canConfirm = title.trim() !== '' && company.trim() !== '';
 
   if (confirmed !== null) {
@@ -227,7 +293,7 @@ export function CapturePosting() {
             onClick={() => setConfirmed(null)}
             className="border border-ink-700 px-3 py-1.5 text-[13px] text-paper hover:border-ink-500"
           >
-            Paste another
+            Back to the queue
           </button>
         </div>
       </div>
@@ -326,6 +392,31 @@ export function CapturePosting() {
           </label>
         </div>
 
+        {/*
+          The evidence, on the same screen as the decision.
+
+          The runbook has always said "check every field against the text", and
+          until the queue existed the text was in the reader's own clipboard,
+          so its absence here was survivable. It is not survivable for a
+          capture made in Claude Desktop: the person confirming never saw the
+          posting, and a confirmation with nothing to check against is the
+          person's name on the parser's reading — which is exactly what the two
+          steps exist to prevent.
+
+          Scrolls in place rather than expanding the page, because a decision
+          surface that pushes its own buttons below the fold is one people stop
+          reading.
+        */}
+        <div>
+          <h3 className={LABEL_CLASS}>The text it was read from</h3>
+          <pre
+            data-testid="capture-raw-text"
+            className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap border border-ink-800 bg-ink-950 px-3 py-2 font-sans text-[12px] leading-relaxed text-paper-dim"
+          >
+            {capture.raw_text}
+          </pre>
+        </div>
+
         {error !== null && (
           <p role="alert" className="text-[13px] text-alert-400">
             {error.message}
@@ -349,6 +440,22 @@ export function CapturePosting() {
           >
             Throw it away
           </button>
+          {/*
+            A way out that is neither a yes nor a no.
+
+            Until there was a queue, confirm and discard were the only exits
+            from this form, which quietly made "I am not sure" cost the same as
+            "no". The proposal is already stored the moment it is read, so
+            leaving it is free and nothing is lost — and an unsure person
+            pressed for a decision is exactly who accepts a wrong employer.
+          */}
+          <button
+            type="button"
+            onClick={leaveReview}
+            className="text-[13px] text-paper-dim underline-offset-2 hover:text-paper hover:underline"
+          >
+            Decide later
+          </button>
           {!canConfirm && (
             <span className="text-[12px] text-paper-dim">
               A title and an employer are required.
@@ -360,47 +467,61 @@ export function CapturePosting() {
   }
 
   return (
-    <div className="space-y-4">
-      <p className="max-w-2xl text-[13px] leading-relaxed text-paper-dim">
-        Paste a posting from anywhere — LinkedIn, Indeed, a job board, an email, a friend. We read
-        what we can and show it to you before anything is saved.
-      </p>
+    <div className="space-y-6">
+      <CaptureQueue
+        captures={pending.data?.captures ?? []}
+        isLoading={pending.isLoading}
+        error={pending.error}
+        email={session.data?.email ?? null}
+        onOpen={(captureId) => open.mutate(captureId)}
+        opening={open.isPending ? (open.variables ?? null) : null}
+      />
 
-      <label htmlFor="capture-url" className={`max-w-xl ${LABEL_CLASS}`}>
-        Link to it (optional)
-        <input
-          id="capture-url"
-          value={sourceUrl}
-          onChange={(event) => setSourceUrl(event.target.value)}
-          className={`${FIELD_CLASS} normal-case tracking-normal`}
-        />
-      </label>
-
-      <label htmlFor="capture-text" className={LABEL_CLASS}>
-        The posting
-        <textarea
-          id="capture-text"
-          value={text}
-          onChange={(event) => setText(event.target.value)}
-          rows={12}
-          className={`${FIELD_CLASS} normal-case tracking-normal`}
-        />
-      </label>
-
-      {error !== null && (
-        <p role="alert" className="text-[13px] text-alert-400">
-          {error.message}
+      <div className="space-y-4 border-t border-ink-800 pt-6">
+        <h2 className="font-mono text-[10px] uppercase tracking-[0.14em] text-paper-faint">
+          Or paste one yourself
+        </h2>
+        <p className="max-w-2xl text-[13px] leading-relaxed text-paper-dim">
+          Paste a posting from anywhere — LinkedIn, Indeed, a job board, an email, a friend. We read
+          what we can and show it to you before anything is saved.
         </p>
-      )}
 
-      <button
-        type="button"
-        onClick={() => read.mutate()}
-        disabled={text.trim() === '' || read.isPending}
-        className="border border-ink-500 bg-ink-800 px-3 py-1.5 text-[13px] text-paper disabled:opacity-40"
-      >
-        {read.isPending ? 'Reading…' : 'Read it'}
-      </button>
+        <label htmlFor="capture-url" className={`max-w-xl ${LABEL_CLASS}`}>
+          Link to it (optional)
+          <input
+            id="capture-url"
+            value={sourceUrl}
+            onChange={(event) => setSourceUrl(event.target.value)}
+            className={`${FIELD_CLASS} normal-case tracking-normal`}
+          />
+        </label>
+
+        <label htmlFor="capture-text" className={LABEL_CLASS}>
+          The posting
+          <textarea
+            id="capture-text"
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            rows={12}
+            className={`${FIELD_CLASS} normal-case tracking-normal`}
+          />
+        </label>
+
+        {error !== null && (
+          <p role="alert" className="text-[13px] text-alert-400">
+            {error.message}
+          </p>
+        )}
+
+        <button
+          type="button"
+          onClick={() => read.mutate()}
+          disabled={text.trim() === '' || read.isPending}
+          className="border border-ink-500 bg-ink-800 px-3 py-1.5 text-[13px] text-paper disabled:opacity-40"
+        >
+          {read.isPending ? 'Reading…' : 'Read it'}
+        </button>
+      </div>
     </div>
   );
 }
