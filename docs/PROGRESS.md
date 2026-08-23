@@ -53,7 +53,10 @@
 
 **The e2e gap is closed.** `apps/web/e2e-seeded/capture.spec.ts` is the **first end-to-end coverage `/operate/capture` has ever had** — 4 tests, **all passing against a real seeded stack**, and the first one opens a proposal the browser never created. Two sabotages were run and watched go red: removing the corpus check from `get_capture` (test 3 fails), and rendering no queue at all (test 1 fails).
 
-**Gates on this branch, 2026-08-23:** `make lint` and `make typecheck` (87 files) exit 0. **`make test-web` is 822 passed across 56 files** (was 816). `make test-e2e-seeded`'s capture spec is 5 passed including the auth setup. **`make test-py` ran to 2244 passed, 1 failed, 1 error — and neither is a code defect**: the failure is `test_every_source_file_is_tracked_by_git` on `CaptureQueue.tsx`, which was untracked while the suite ran, and the error is a Postgres `DeadlockDetectedError` on the fixture `TRUNCATE`. **A stale `make test-py` from the previous session was still running against the same database for the first two thirds of it** — exactly the contention this file warns about, from an angle it did not anticipate: a *background* run from a session that has ended. The re-run is recorded below.
+**Every automated gate on this branch is green, 2026-08-23.**
+- **`make check` exits 0** on the final tree: format, lint, `mypy` 87 files, **2248 Python tests** (8m25s) and **823 web tests across 56 files** (was 799 at the start of the branch). `make lint` and `make typecheck` were re-run afterwards because two files were edited mid-run.
+- **`make acceptance` exits 0** — `up`, `migrate`, `drift`, `seed`, `test-e2e` (**30 passed**), `verify` (**all checks passed**), `test-e2e-seeded` (**91 passed, 1 skipped**, up from 87). **It took two runs**, and the first failure was not this branch's: `city.spec.ts`'s keyboard-pan test wanted a 20px pan and measured 0.8px. The branch touches no renderer file at all, and the test passes alone in 12.3s — it is the flake the offline config's own comments predict, where a busy CPU and a broken feature look identical. Recorded rather than re-run into silence.
+- **The first `make test-py` of the session is not the number above and should not be quoted.** It came back 2244 passed, 1 failed, 1 error, and **neither was a code defect**: the failure was `test_every_source_file_is_tracked_by_git` on a `CaptureQueue.tsx` that was untracked while the suite ran, and the error was `asyncpg.exceptions.DeadlockDetectedError` on the fixture `TRUNCATE`, because **a `make test-py` started by the *previous* session was still running against the same database** for the first two thirds of it. See Q8 — the published advice (stop `make dev`, check `lsof -ti:3000 -ti:8000`) does not cover a competing process that holds no port. `pgrep -fl pytest` does.
 
 **Not real yet on this branch:** the live Claude Desktop walk against a real LinkedIn page, and the PR.
 
@@ -797,7 +800,7 @@ last rung of the three rather than the next.
 > `captured_postings` row in the dev database, which came back with its
 > fingerprint filled.
 >
-> **Done since that entry, 2026-08-23 (steps 1, 2, 3 and 5 of the old list):**
+> **Done since that entry, 2026-08-23 (steps 1, 2, 3, 5 and the gates of 6):**
 > `make reset-db` ran and `/operate/capture` was looked at — which found that
 > **the review queue had no screen**, the milestone's worst defect, plus two
 > smaller ones. See the header block above and `docs/reviews/milestone-5d-review.md`
@@ -806,14 +809,7 @@ last rung of the three rather than the next.
 >
 > **What remains, in order:**
 >
-> 1. **`make check` from a clean shell**, which is the re-run of `make test-py`
->    the earlier entry asked for. The first attempt raced a **stale background
->    run from the previous session** — it is not enough to stop `make dev` and
->    check `lsof -ti:3000 -ti:8000`; check for a `pytest` already running
->    (`pgrep -fl pytest`) before starting one.
-> 2. **`make acceptance`**, the scriptable counterpart to `make demo`. Not run
->    on this branch.
-> 3. **The walk, and it is the human's half.** A real LinkedIn job page, open
+> 1. **The walk, and it is the human's half.** A real LinkedIn job page, open
 >    in a browser, captured through Claude Desktop end to end. Not a fixture —
 >    the M5c walk found four defects that a green suite, a written review and a
 >    live Claude Code walk had all missed, and this is the same instrument
@@ -822,7 +818,8 @@ last rung of the three rather than the next.
 >    check, whether it called the capture a proposal, and — the question 2.4
 >    added — **whether following `review_url` actually finds the capture**,
 >    which was *no* until this session.
-> 4. Push, open the PR, watch CI.
+> 2. Push, open the PR, watch CI. Every local gate is green — `make check` and
+>    `make acceptance` both exit 0 — so nothing here is waiting on a machine.
 >
 > **The thing this branch is most likely to be wrong about, stated before the
 > walk rather than after it: quotability may be too strict to be useful.** A
