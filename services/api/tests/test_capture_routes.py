@@ -425,3 +425,75 @@ async def test_two_people_pasting_the_same_posting_get_their_own_proposals(
 
     assert theirs.created is True
     assert theirs.capture.id != uuid.UUID(mine.json()["id"])
+
+
+async def test_reading_a_capture_back_carries_the_corpus_check(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """§4 has to hold for the reader, not only for the paste (M5d).
+
+    A capture made through the MCP server is read for the first time by ``GET
+    /capture/{id}`` — the person deciding never saw the paste response, because
+    it went to their Claude. Answering without the duplicate check would leave
+    ADR 0039 §4 protecting only whoever typed the text into the browser, which
+    is the rarer half of this milestone.
+
+    **Sabotage:** drop ``corpus_check=await _corpus_for(session, capture)`` from
+    ``get_capture``. Fails with ``assert None is not None``.
+    """
+    from nightshift.adapters.greenhouse import normalize_title
+    from nightshift.db.base import JobStatus
+    from nightshift.db.types import utcnow
+    from nightshift.domain.ingestion import get_or_create_company
+
+    company = await get_or_create_company(db_session, "Ramp")
+    now = utcnow()
+    db_session.add(
+        Job(
+            company_id=company.id,
+            title="Staff Backend Engineer",
+            normalized_title=normalize_title("Staff Backend Engineer"),
+            first_seen_at=now,
+            last_seen_at=now,
+            status=JobStatus.OPEN,
+        )
+    )
+    await db_session.flush()
+
+    pasted = await _paste(client)
+    assert pasted["corpus_check"]["matches"], "the paste itself should have found it"
+
+    read_back = await client.get(f"/capture/{pasted['id']}")
+    assert read_back.status_code == 200, read_back.text
+    check = read_back.json()["corpus_check"]
+    assert check is not None
+    assert [match["title"] for match in check["matches"]] == ["Staff Backend Engineer"]
+    assert check["checked"] is True
+
+
+async def test_a_decided_capture_is_read_back_without_a_corpus_check(
+    client: AsyncClient,
+) -> None:
+    """The question is closed once somebody has answered it.
+
+    A confirmed capture *is* a job in the corpus, so a check run against it
+    would find the job it just created and report the reader's own decision
+    back to them as a duplicate.
+
+    **Sabotage:** delete the ``status is not PENDING`` guard in ``_corpus_for``.
+    Fails with the confirmed capture's own job in ``matches``.
+    """
+    pasted = await _paste(client)
+    confirmed = await client.post(
+        f"/capture/{pasted['id']}/confirm",
+        json={
+            "title": "Staff Backend Engineer",
+            "company_name": "Ramp",
+            "location_text": "New York, NY",
+            "employment_type": "full_time",
+        },
+    )
+    assert confirmed.status_code == 200, confirmed.text
+
+    read_back = await client.get(f"/capture/{pasted['id']}")
+    assert read_back.json()["corpus_check"] is None

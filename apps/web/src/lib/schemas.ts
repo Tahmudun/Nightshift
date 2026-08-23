@@ -1376,7 +1376,7 @@ export const captureSchema = z.object({
   assistant_rejected_fields: z.string().array().default([]),
   /** True when this proposal already existed rather than being created now. */
   already_existed: z.boolean().default(false),
-  /** Present on the response to a paste; absent when a stored row is read back. */
+  /** Present on any response showing a pending capture; absent once decided. */
   corpus_check: corpusCheckSchema.nullable().default(null),
   /** Null until confirmed. The API's schema makes the other combination impossible. */
   job_id: z.string().uuid().nullable(),

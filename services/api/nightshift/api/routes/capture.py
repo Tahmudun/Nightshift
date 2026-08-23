@@ -156,6 +156,31 @@ async def _own_capture(
     return capture
 
 
+async def _corpus_for(session: AsyncSession, capture: CapturedPosting) -> CorpusCheck | None:
+    """What the corpus already holds that this capture appears to be.
+
+    Searched with the assistant's quote first and the parser's reading second.
+    This is the one place an assistant value outranks a parser value, and it is
+    safe here only because it steers a *search* — a wrong company finds
+    nothing, and finding nothing is what an unassisted capture would have done
+    anyway. ADR 0039 §4.
+
+    Run on every response that shows a **pending** capture to a person, and on
+    none that show a decided one. Not because it is expensive, but because it
+    is a fact about the corpus *now*: it is worth answering while a decision is
+    open and it is not a property of a row somebody already decided. That is
+    also why nothing caches it.
+    """
+    if capture.status is not CaptureStatus.PENDING:
+        return None
+    return await check_corpus(
+        session,
+        title=capture.assistant_title or capture.proposed_title,
+        company_name=capture.assistant_company_name or capture.proposed_company_name,
+        source_url=capture.source_url,
+    )
+
+
 @router.post("", response_model=CaptureOut, status_code=status.HTTP_201_CREATED)
 async def capture_posting(
     payload: CaptureIn,
@@ -189,22 +214,11 @@ async def capture_posting(
     if not outcome.created:
         response.status_code = status.HTTP_200_OK
 
-    # Searched with the assistant's quote first and the parser's reading
-    # second. This is the one place an assistant value outranks a parser
-    # value, and it is safe here only because it steers a *search* — a wrong
-    # company finds nothing, and finding nothing is what an unassisted capture
-    # would have done anyway. ADR 0039 §4.
     stored = outcome.capture
-    corpus_check = await check_corpus(
-        session,
-        title=stored.assistant_title or stored.proposed_title,
-        company_name=stored.assistant_company_name or stored.proposed_company_name,
-        source_url=stored.source_url,
-    )
     return _to_out(
         stored,
         already_existed=not outcome.created,
-        corpus_check=corpus_check,
+        corpus_check=await _corpus_for(session, stored),
     )
 
 
@@ -229,6 +243,10 @@ async def list_captures(
         .all()
     )
     total = (await session.execute(count_query)).scalar_one()
+    # No corpus check on a list row, and the omission is deliberate: it is one
+    # query per row, and a queue is a list of things to open rather than a
+    # place to decide. ``GET /capture/{id}`` runs it for the row that gets
+    # opened, which is where the duplicate warning has to be read anyway.
     return CaptureListOut(captures=[_to_out(row) for row in rows], total=total)
 
 
@@ -238,7 +256,16 @@ async def get_capture(
     user_id: CurrentUserId,
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> CaptureOut:
-    return _to_out(await _own_capture(session, capture_id=capture_id, user_id=user_id))
+    """One capture, with the duplicate check a reader needs to decide.
+
+    **The corpus check is computed here as well as on the paste.** A capture
+    made through the MCP server is read for the first time by this route — the
+    person who reviews it never saw the paste response — so returning the
+    proposal without it would leave ADR 0039 §4 holding only for whoever
+    pasted the text into this browser. See ``_corpus_for``.
+    """
+    capture = await _own_capture(session, capture_id=capture_id, user_id=user_id)
+    return _to_out(capture, corpus_check=await _corpus_for(session, capture))
 
 
 @router.post("/{capture_id}/confirm", response_model=CaptureOut)

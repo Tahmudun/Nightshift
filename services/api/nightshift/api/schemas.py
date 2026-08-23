@@ -1426,11 +1426,11 @@ class CaptureOut(BaseModel):
     #: possibly-invented company name in front of the reader with nothing
     #: marking it as refused.
     assistant_rejected_fields: list[str] = Field(default_factory=list)
-    #: What the corpus already holds that looks like this posting. Present on
-    #: the response to ``POST /capture`` and absent when a stored capture is
-    #: read back, because it is a fact about the corpus *now* rather than a
-    #: property of the row — caching it would let it go stale against the very
-    #: jobs it is about.
+    #: What the corpus already holds that looks like this posting. Computed on
+    #: every response that shows a **pending** capture — the paste, and the
+    #: read-back a reviewer opens from their queue — and never stored, because
+    #: it is a fact about the corpus *now* rather than a property of the row.
+    #: ``None`` on a decided capture, where the question is closed.
     corpus_check: CorpusCheckOut | None = None
     #: Set only once a person has confirmed. Until then there is no job, and
     #: the schema refuses to let there be one.
