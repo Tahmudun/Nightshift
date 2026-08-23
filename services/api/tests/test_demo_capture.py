@@ -33,13 +33,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from nightshift.cli import (
     DEMO_CAPTURE_RECORDING,
     DEMO_CAPTURE_SOURCE_JOB_ID,
+    demo_assisted_capture,
     demo_capture,
+    seed_assisted_capture,
     seed_demo_capture,
     source_label,
 )
 from nightshift.db.base import CaptureStatus, EmploymentType, SourceType
 from nightshift.db.models import CapturedPosting, Job, Source, User
 from nightshift.domain.capture import CAPTURE_SOURCE_NAME, employment_type_for_title, propose
+from nightshift.domain.capture_assist import AssistantProposal, read_assistant
 from tests.conftest import requires_db
 
 NOW = datetime(2026, 8, 19, 12, 0, tzinfo=UTC)
@@ -208,3 +211,77 @@ def test_the_seed_summary_labels_every_source_type_and_never_calls_a_capture_liv
     assert all(label for label in labels.values())
     assert labels[SourceType.MANUAL_CAPTURE] != labels[SourceType.ATS_GREENHOUSE]
     assert "live" not in labels[SourceType.MANUAL_CAPTURE]
+
+
+def test_the_demo_quotes_are_the_two_near_misses_a_model_actually_makes() -> None:
+    """M5d. Both deliberate failures are real values, not strawmen.
+
+    ``demo_assisted_capture``'s docstring makes two claims about the values it
+    plants, and both are load-bearing — they are the only way the disagreement
+    surface and the refusal notice are reachable from `make demo`. A docstring
+    is not enforcement, so they are asserted here:
+
+    - ``"Jump"`` is genuinely quotable out of the paste, and it is genuinely
+      not what the parser reads off the same line. That combination is what
+      produces a conflict rather than an agreement.
+    - ``"NYC"`` is genuinely absent from the paste, so the quoting rule
+      genuinely refuses it.
+
+    If a future edit to the recording made "Jump" unquotable or "NYC" present,
+    the seed would quietly stop demonstrating the two things it exists to
+    demonstrate, and nothing else would notice.
+    """
+    demo = demo_assisted_capture()
+    reading = read_assistant(
+        demo.raw_text,
+        AssistantProposal(
+            title=demo.assistant_title,
+            company_name=demo.assistant_company_name,
+            location_text=demo.assistant_location_text,
+        ),
+    )
+
+    assert reading.accepted.company_name == "Jump", "the conflict demo needs a quotable value"
+    assert reading.rejected == ("location_text",), "the refusal demo needs a refused value"
+
+    parsed = propose(demo.raw_text)
+    assert parsed.company_name == "Jump Trading"
+    assert parsed.company_name != reading.accepted.company_name, (
+        "the two readers must disagree, or the review form has nothing to show"
+    )
+
+
+@requires_db
+@pytest.mark.asyncio(loop_scope="session")
+async def test_seeding_leaves_one_assisted_capture_pending(db_session: AsyncSession) -> None:
+    """A pending row, twice, so the review screen is reachable and stays one row.
+
+    Idempotence here is `capture_paste`'s own, not a guard written for the
+    seed — which is the point of routing the seed through it.
+    """
+    user = User(email=f"{uuid.uuid4()}@example.test", display_name="Seed Reader")
+    db_session.add(user)
+    await db_session.flush()
+
+    first = await seed_assisted_capture(db_session, user.id)
+    second = await seed_assisted_capture(db_session, user.id)
+
+    assert "1 pending" in first
+    assert "already pending" in second
+
+    rows = (
+        (
+            await db_session.execute(
+                select(CapturedPosting).where(
+                    CapturedPosting.user_id == user.id,
+                    CapturedPosting.status == CaptureStatus.PENDING,
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert len(rows) == 1
+    assert rows[0].job_id is None, "the demo's assisted capture must stay a proposal"
+    assert rows[0].assistant_company_name == "Jump"
+    assert rows[0].assistant_rejected_fields == ["location_text"]

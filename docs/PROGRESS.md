@@ -33,7 +33,19 @@
 **M4c Task 5 is done: the city speaks §6, and says what it is saying.** The table is one pure function (`treatments.ts`), the beacons carry per-instance colour, strength and pulse rate through a shader, four instanced meshes draw the marks §6 puts *on* a body, and an in-interface legend documents all thirteen rows — including the four that are not drawn, each with its reason. ADR 0028. `docs/reviews/milestone-4c-treatments.png` is the screenshot. Three defects were found by looking rather than by a test: a closed torus whose rotation was invisible by construction, a spin folded into the billboard that rolled every arc out of the camera plane, and a saved outline drawn cyan — which is exactly what ADR 0027's standing instruction ruled out.
 **M4c: Tasks 1, 2, 3 and 4 are done. The placement join and `GET /city/signals` (ADR 0024, which resolves a real conflict between I1 and `city.md` §4.4 rather than papering over it), the Three.js signal layer in MapLibre's own context (ADR 0025), and the field made legible, navigable and sortable. New York now has every open role floating above it, untethered, and none on a building — see `docs/reviews/milestone-4c-signals.png` and `docs/reviews/milestone-4c-roster.png`. Task 4 then made a role reachable: picking by raycast against the frame's own matrix, a reticle, a detail panel, and one selection shared by the list and the map (ADR 0027) — `docs/reviews/milestone-4c-selection.png`.**
 **Docker's daemon is no longer wedged.** It was force-quit and relaunched on 2026-08-12. `make up` was then run **from cold** — containers removed with `docker compose down` first — and created both from scratch to healthy, exit 0. **That closes the last open step in M4b's acceptance chain**; container startup is now proven rather than assumed. The seeded corpus survived and matches what this file records: 31 canonical jobs, 62 `job_locations`, 44 `city_only` + 18 `remote`, 0 mappable.
-**Current milestone: M5 — The Open Hand (A16). M5a, M5b and M5c are merged. M5c's Claude Desktop deviation is being closed on `m5c-claude-desktop`.**
+**Current milestone: M5 — The Open Hand (A16). M5a, M5b and M5c are merged, including M5c's Claude Desktop deviation (PR #20, `0765381`). M5d is being built on `m5d-assisted-capture`.**
+**M5d — assisted capture from LinkedIn and Indeed. Tasks 1–5 are built; task 6 is docs plus a walk that is the human's.** Plan: `docs/plans/2026-08-22-m5d-assisted-capture.md`. Decisions: **ADR 0039**, four sections.
+- **§1 — the page is read by the reader, not by us.** `board-discovery.md` §9's *no* stands; what changed is who does the reading. `captured_postings.source_url` carried the comment *"Never fetched"* and nothing enforced it. Now two guards, each shown able to fail: a transport guard that unplugs httpx and drives paste → read → confirm (`httpx.get(source_url)` in `create_capture` → *"the capture path reached the network: https://www.linkedin.com/jobs/view/4012345678/"*), and an AST guard that refuses a job-board host in any non-docstring string literal (a `BOARD_BASE` constant → *"domain/capture.py holds a job-board host in a string literal"*).
+- **§2 — an assistant may point, not paraphrase.** A field the reader's Claude proposes must appear **verbatim** in the pasted text; whitespace and case are forgiven, nothing else. It is `resume_extractions`' span trigger reached with a substring test. The rule is strict enough to refuse correct answers — "NYC" for "New York, NY" is right and is refused — because a gate with an exception for values that look right is the model's judgement wearing a check's clothes. Quotes are stored in **their own columns** beside `proposed_*`; refusals are stored as **field names only**, never values.
+- **§3 — one posting, one thing to review.** This **narrows a position M5c stated**: its test argued two pending captures of one posting are two honest records of a person pasting. Right about the corpus, wrong about the queue. `capture_paste` is idempotent over a person's *pending* rows, stops at a decision, and returns the existing row unmodified.
+- **§4 — the corpus answers before the reader reviews anything.** Nightshift polls thousands of boards first-hand, so most postings a reader finds elsewhere are already in it, with a score and a trusted location a capture never carries. Two deterministic rules (`same_company_and_title`, `same_url`), closed jobs returned rather than filtered, and — the part that matters — **"not checked" is never an empty list**. That collapse is I3's failure moved from source outages to duplicate detection.
+**Three defects M5d found in its own first drafts, all before commit:** the URL rule selected every job with a URL, limited to 5, then filtered in Python — it would have found the right job only if it happened to be among the five most recent rows in the whole corpus, and a two-row fixture is what caught it; `capture_origin` matched with `in`, so `linkedin.com.evil.example` read as LinkedIn; and the never-fetches guard's first draft patched `httpx.AsyncClient.send`, which the test client itself rides on, so it would have been asserting about its own plumbing.
+**One prediction of M5a's is corrected rather than inherited.** `schemas.ts` said assisted capture would be a second `sources` **name** of the same type. It is not: the channel is not a source, and two names would give each channel its own `source_job_records` row for identical text and hand the difference to the dedupe layer to undo.
+**Gates so far on this branch:** `make lint` and `make typecheck` (87 files) exit 0; **`make test-web` is 816 passed across 56 files** (was 799 across 55). `make test-py` is running as of this entry and its number is **not** recorded yet — see "Next exact action".
+**The review is written and names its own weakness:** `docs/reviews/milestone-5d-review.md`. Three defects were found and fixed inside the branch, all the same kind — **a guard that would have passed for a reason unrelated to the thing it guards**: a transport patch that would have been asserting about the test harness, a URL rule that limited before it filtered and passed on a two-row fixture, and an origin label matched with `in` so `linkedin.com.evil.example` read as LinkedIn.
+**A stated gap rather than a closed one:** there is **no e2e coverage of `/operate/capture`**, and there was none before this branch either — all four specs in `apps/web/e2e/` are city. Thirteen component tests and the walk cover the screen. A first capture spec is worth writing and this branch did not write one.
+**Not real yet on this branch:** the live Claude Desktop walk against a real LinkedIn page, the seeded e2e pass, and the PR.
+
 **M5c: MERGED as [PR #19](https://github.com/Tahmudun/Nightshift/pull/19) (`ed234a7`) on 2026-08-21, on the human's call.**
 **2026-08-21, after the merge: Claude Desktop was installed, and the deviation M5c recorded rather than glossed is being closed.** Three of its four parts are done and the fourth is the human's. **Connecting a real Claude Desktop found four defects that a green suite, a review and a live Claude Code walk had all missed** — see `docs/reviews/milestone-5c-desktop-walk.md`:
 - **The import guard was reading an empty module and passing.** `test_the_mcp_package_never_reaches_the_database` imported `nightshift.mcp` — a package `__init__` that imports nothing — so it inspected an empty module graph. Sabotaging `server.py` with `from nightshift.db.session import session_scope` left it **green**. ADR 0038 §1's rule was an intention with a test in front of it. Now imports `nightshift.mcp.__main__`, the module that runs, and the same sabotage goes red. **Sixth instance in this milestone of a check that could not produce the failure it was written for.**
@@ -746,7 +758,85 @@ last rung of the three rather than the next.
 
 ## Next exact action
 
-### Current milestone: **M5 — The Open Hand**, on `m5c-claude-desktop`. **M5c is merged (`ed234a7`), and the Claude Desktop deviation it left open is CLOSED. `CLAUDE.md` §6's criterion is met by Claude Desktop itself.**
+### Current milestone: **M5 — The Open Hand**, on `m5d-assisted-capture`. **Tasks 1–5 of M5d are built and committed. Task 6 is docs and a walk, and half of it is the human's.**
+
+> **START HERE, NEXT SESSION.** `main` is at `0765381` — PR #20 merged
+> 2026-08-22. The branch is `m5d-assisted-capture`, off `main` at `0765381`.
+> No PR is open for it yet.
+>
+> **What this branch is.** M5c gave a reader's Claude a `capture_posting`
+> tool. It worked, and it was thin: one line parser, one row per call, no idea
+> whether the corpus already held the job, and nothing anywhere saying which
+> reader proposed what. M5d is the four things that make it worth choosing
+> over typing. `docs/plans/2026-08-22-m5d-assisted-capture.md` is the plan and
+> ADR 0039 is the four decisions.
+>
+> **The commits, in order:** the never-fetches guard (`6942f35`), the quoting
+> rule as a pure module (`4873758`), that rule wired through schema, domain,
+> route and MCP tool (`9d63a1f`), capture idempotence (`b25bd2b`), the corpus
+> check (`870738a`), the review surface and the runbook (`7e9a3da`).
+>
+> **What is done, with evidence.** `make lint` and `make typecheck` (87 files)
+> exit 0. `make test-web` is **816 passed across 56 files**, up from 799 across
+> 55. Every new guard was sabotaged and watched go red before being believed —
+> the exact sabotage and the exact failure message are written into each test's
+> docstring, which is `m5c-claude-desktop`'s lesson applied rather than
+> restated. Migrations `0026` and `0027` were applied, downgraded and
+> re-applied, and `0027`'s backfill was checked against the one real
+> `captured_postings` row in the dev database, which came back with its
+> fingerprint filled.
+>
+> **What remains, in order:**
+>
+> 1. **`make test-py`, from a clean shell with nothing else touching the
+>    database.** It was started during this session and the number is not
+>    recorded, because a web suite and several ad-hoc runs were hitting the
+>    same Postgres at the same time — exactly the contention M5c warned about,
+>    and it turned a ten-minute suite into an hour-and-a-half one. Stop
+>    `make dev`, confirm `lsof -ti:3000 -ti:8000` is clear, run it alone.
+> 2. **`make reset-db` and look at `/operate/capture`.** The seed now leaves
+>    one assisted capture **pending** beside the confirmed one, carrying two
+>    deliberate near-misses that are real values rather than strawmen: the
+>    assistant quotes the employer as `"Jump"` (quotable, and it disagrees with
+>    the parser's `"Jump Trading"`, so the form must show both and pre-fill
+>    neither) and the location as `"NYC"` (correct about the world, absent from
+>    the text, refused). Both are pinned by
+>    `test_demo_capture.py::test_the_demo_quotes_are_the_two_near_misses_a_model_actually_makes`,
+>    so the demo cannot quietly stop demonstrating them.
+> 3. **`make test-e2e-seeded`.** Not run on this branch.
+> 4. **The walk, and it is the human's half.** A real LinkedIn job page, open
+>    in a browser, captured through Claude Desktop end to end. Not a fixture —
+>    the M5c walk found four defects that a green suite, a written review and a
+>    live Claude Code walk had all missed, and this is the same instrument
+>    pointed at new code. Record it in `docs/reviews/milestone-5d-walk.md`:
+>    what the model quoted, what was refused, whether it led with the corpus
+>    check, and whether it called the capture a proposal.
+> 5. **`docs/reviews/milestone-5d-review.md`**, hunting `CLAUDE.md` §5's list
+>    plus this milestone's own failure class: **a proposal that reads as a fact
+>    because of where it is rendered.**
+> 6. `make check`, `make acceptance`, push, open the PR, watch CI.
+>
+> **The thing this branch is most likely to be wrong about, stated before the
+> walk rather than after it: quotability may be too strict to be useful.** A
+> LinkedIn page shows "New York, NY (Hybrid)" and a model that writes "New
+> York, NY" is fine — that is a substring — but one that writes "New York" is
+> also fine and one that writes "NYC" is refused, and the line between those is
+> not obvious from outside. If the walk shows most fields refused, the honest
+> correction is **not** to loosen the rule quietly. It is to change what the
+> tool description asks the model to send, and if that fails, to record in ADR
+> 0039 that the gate was wrong and say what replaced it.
+> `assistant_rejected_fields` exists to make that argument from data.
+>
+> **One thing deliberately not built here.** M5c's desktop walk §4.4 found that
+> a job location's `means` sentence is false for any company with a confirmed
+> office, and scoped the substantive half to M5e. It is still M5e's. M5d
+> touched nothing about how a location is described.
+
+---
+
+### The Claude Desktop deviation's action, kept because that branch is merged (PR #20, `0765381`)
+
+### Milestone at the time: **M5 — The Open Hand**, on `m5c-claude-desktop`. **M5c is merged (`ed234a7`), and the Claude Desktop deviation it left open is CLOSED. `CLAUDE.md` §6's criterion is met by Claude Desktop itself.**
 
 > **THE WALK IS DONE.** Walked 2026-08-21 by the human, in the real app. Three
 > tool calls, all answered: `whoami` → `dev@nightshift.local` (36ms),

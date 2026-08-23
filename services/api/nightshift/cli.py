@@ -68,7 +68,8 @@ from nightshift.db.models import (
 from nightshift.db.session import dispose_engine, session_scope
 from nightshift.db.types import utcnow
 from nightshift.domain.applications import change_stage, save_job
-from nightshift.domain.capture import confirm_capture, create_capture
+from nightshift.domain.capture import capture_paste, confirm_capture, create_capture
+from nightshift.domain.capture_assist import AssistantProposal
 from nightshift.domain.companies import normalize_company_name
 from nightshift.domain.company_locations import DEFAULT_WORKSHEET_PATH, read_worksheet
 from nightshift.domain.geocode_cache import CachingGeocoder
@@ -549,6 +550,95 @@ def demo_capture() -> DemoCapture:
     )
 
 
+@dataclass(frozen=True, slots=True)
+class DemoAssistedCapture:
+    """One clipboard and the three things a reader's Claude said about it.
+
+    M5d. The confirmed demo above shows the *end* of the capture flow. This one
+    is deliberately left **pending**, because everything M5d built lives on the
+    review screen and none of it is reachable from `make demo` unless something
+    is sitting there waiting.
+    """
+
+    raw_text: str
+    source_url: str
+    assistant_title: str
+    assistant_company_name: str
+    assistant_location_text: str
+
+
+def demo_assisted_capture() -> DemoAssistedCapture:
+    """The same posting again, as a model that read the page would report it.
+
+    **Every value here is real and two of them fail on purpose.** They are the
+    two near-misses a competent model actually makes, and they are the only way
+    the surfaces built for them are reachable from `make demo`:
+
+    - ``assistant_company_name`` is ``"Jump"`` — a genuine quote, since it is a
+      substring of "Jump Trading" — which **disagrees** with the parser's
+      reading of the same line. The review form then shows both and pre-fills
+      neither, which is ADR 0039 §2's rule and the thing worth looking at.
+    - ``assistant_location_text`` is ``"NYC"``, which is correct about the
+      world and absent from the text. It is **refused**, and the form says so
+      as a note rather than an error, because a refusal is the check working.
+
+    Nothing is invented to make this happen — a model shortening an employer's
+    name and tidying a location is not a strawman, it is Tuesday.
+
+    **The URL is the employer's own board, not a fabricated LinkedIn link.**
+    A seeded `source_url` claiming a posting was found at a page that does not
+    exist would be a lie in the demo about the one field whose whole meaning is
+    "where the person says it came from". The consequence is that the
+    "From LinkedIn" chip is not demoed here; `CapturePosting.test.tsx` covers
+    it against the real host, including the lookalike that must not match.
+    """
+    demo = demo_capture()
+    return DemoAssistedCapture(
+        raw_text=demo.raw_text,
+        source_url=demo.source_url,
+        assistant_title=demo.title,
+        # "Jump Trading" appears in the text; so does "Jump".
+        assistant_company_name=demo.company_name.split()[0],
+        assistant_location_text="NYC",
+    )
+
+
+async def seed_assisted_capture(session: AsyncSession, user_id: uuid.UUID) -> str:
+    """Leave one assisted capture pending, so the review screen has something on it.
+
+    Goes through ``capture_paste`` rather than ``create_capture``, which makes
+    the guard unnecessary: that function is already idempotent over a person's
+    pending rows, so a second `make seed` returns the row the first one made.
+    Using it here also means the seed exercises the idempotence rather than
+    working around it.
+
+    It lands beside a **confirmed** capture of the same posting, which is not a
+    coincidence and is the realistic case: somebody already has this job and is
+    pasting it again from somewhere else. The corpus check then has something
+    true to say, which is the whole of ADR 0039 §4 and cannot be demonstrated
+    against an empty corpus.
+    """
+    demo = demo_assisted_capture()
+    outcome = await capture_paste(
+        session,
+        user_id=user_id,
+        raw_text=demo.raw_text,
+        source_url=demo.source_url,
+        assistant=AssistantProposal(
+            title=demo.assistant_title,
+            company_name=demo.assistant_company_name,
+            location_text=demo.assistant_location_text,
+        ),
+    )
+    if not outcome.created:
+        return "assisted capture: already pending (one proposal, not two)"
+    refused = ", ".join(outcome.capture.assistant_rejected_fields) or "none"
+    return (
+        f"assisted capture: 1 pending for review — quotes kept for "
+        f"{outcome.capture.assistant_title!r}, refused: {refused}"
+    )
+
+
 async def seed_demo_capture(session: AsyncSession, user_id: uuid.UUID, *, now: datetime) -> str:
     """Paste one posting and confirm it, through the two functions the form calls.
 
@@ -742,6 +832,9 @@ async def cmd_seed(args: argparse.Namespace) -> int:
         # somebody had already confirmed for it, and that company's roles would
         # float for no reason a reader could see.
         print(f"  {await seed_demo_capture(session, settings.dev_user_id, now=utcnow())}")
+        # M5d: and one left pending, because everything this milestone built
+        # lives on the review screen and an empty queue shows none of it.
+        print(f"  {await seed_assisted_capture(session, settings.dev_user_id)}")
 
         # M1d: give every registry board its polling schedule, so `make demo`
         # shows the board table populated rather than empty. Every row reads
