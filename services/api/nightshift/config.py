@@ -37,6 +37,13 @@ class Settings(BaseSettings):
     postgres_user: str = "nightshift"
     postgres_password: str = "nightshift_dev_only"
     postgres_db: str = "nightshift"
+    # The suite's own database, on the same server. Separate because
+    # `tests/test_merge_concurrency.py` has to commit — it observes two
+    # concurrent transactions merging, which a rolled-back transaction cannot
+    # show — and cleans up with a `TRUNCATE` over twenty-one tables including
+    # `jobs` and `companies`. Sharing one database with the product means every
+    # `make check` empties it. That was Q8, open for four billings.
+    postgres_test_db: str = "nightshift_test"
     postgres_host: str = "localhost"
     postgres_port: int = Field(default=5433, ge=1, le=65535)
     database_url: PostgresDsn | None = None
@@ -170,6 +177,22 @@ class Settings(BaseSettings):
             f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
+
+    @property
+    def test_database_url(self) -> str:
+        """The same server, a different database. Used only by the test suite.
+
+        Derived from :attr:`async_database_url` by replacing the database name
+        rather than rebuilt from the ``POSTGRES_*`` fields, because
+        ``DATABASE_URL`` overrides those and a test URL that ignored it would
+        point at a different *server* — isolating the suite by accident on a
+        developer's laptop and not at all in CI, where ``DATABASE_URL`` is how
+        the service container is reached.
+        """
+        base, _, _query = self.async_database_url.partition("?")
+        head, _, _name = base.rpartition("/")
+        tail = f"?{_query}" if _query else ""
+        return f"{head}/{self.postgres_test_db}{tail}"
 
     @property
     def redis_dsn(self) -> str:
