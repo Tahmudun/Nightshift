@@ -178,3 +178,45 @@ test('a paste is a proposal, and pasting it twice is still one proposal', async 
   await page.getByRole('button', { name: 'Throw it away' }).click();
   await expect(page.getByTestId('capture-review')).toHaveCount(0);
 });
+
+test('the review form shows the reader the text it will actually save', async ({ page }) => {
+  /**
+   * A guard left behind by a hypothesis that turned out to be wrong, kept
+   * because the property it asserts is worth holding anyway.
+   *
+   * A live walk on 2026-08-24 confirmed a real LinkedIn posting whose title
+   * reached the corpus as `SOFTWARE ENGINEER INTERN (SUMMER 2027)` when the
+   * posting reads "Software Engineer Intern (Summer 2027)". The suspicion was
+   * the screen: these four fields sit *inside* `<label>` elements carrying
+   * `LABEL_CLASS`, which is `uppercase tracking-[0.14em]`, and the paste
+   * form's two inputs override it with `normal-case` while the review form's
+   * four do not. That asymmetry reads exactly like a leak.
+   *
+   * **It is not one.** Measured in a real browser, `text-transform` computes
+   * to `none` on all four — form controls do not take the inherited value
+   * here — so the shouted title came from what was typed into the box, not
+   * from what the box did to it. Reading the cascade predicted a defect that
+   * measuring it refuted, which is the whole argument for measuring.
+   *
+   * The assertion stays because the property is real: **a confirmation screen
+   * that displays anything other than what it will save defeats its own
+   * purpose**, and `toHaveValue(...)` is blind to the cascade — it passes
+   * whatever the glyphs on screen are doing. Sabotaging `FIELD_CLASS` with
+   * `uppercase` turns this red ("the Title field renders as uppercase"), which
+   * is how it was shown able to fail.
+   */
+  const pending = await seededPending();
+  await openCapturePage(page);
+  await rowFor(page, pending).getByRole('button', { name: 'Review it' }).click();
+  await expect(page.getByTestId('capture-review')).toBeVisible();
+
+  for (const label of ['Title', 'Employer', 'Location'] as const) {
+    const field = page.getByLabel(label);
+    const transform = await field.evaluate((node) => getComputedStyle(node).textTransform);
+    expect(transform, `the ${label} field renders as ${transform}, not as the posting reads`).toBe(
+      'none',
+    );
+  }
+
+  await page.getByRole('button', { name: 'Decide later' }).click();
+});

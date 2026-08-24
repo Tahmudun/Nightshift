@@ -7,6 +7,46 @@ the date, because the reasoning is usually worth more than the decision.
 
 ---
 
+## Q13 — A capture from LinkedIn cannot say it came from LinkedIn. Press for the URL, infer it, or accept it?
+
+**Raised:** 2026-08-24 (M5d, task 6.2's live walk) · **Type:** product · **Blocking:** no
+
+**What happened.** The walk captured a real Notion posting through Claude
+Desktop and the queue row's `origin` came back **`none`**. Claude called
+`capture_posting` without a `source_url`, the column holds `''`, and
+`capture_origin` correctly declines to guess — so **the one channel this
+milestone exists to serve produced a row that cannot name where it came from.**
+
+Nothing throws. `capture_origin('')` returning `none` is I1's temperament
+applied to provenance and is right. The gap is upstream: `source_url` is
+optional in the schema and load-bearing in the interface, and the reader in
+Claude Desktop has no reason to know that omitting it costs the badge.
+
+**Why this needs a person.** All three answers are defensible and they trade
+different things:
+
+1. **Press harder in the tool description** — make `source_url` read as expected
+   rather than optional. Cheapest, and it is a request to a model rather than a
+   guarantee; a model that does not have the URL to hand still cannot supply it.
+2. **Infer the origin from the pasted text.** LinkedIn's copy-paste is
+   recognisable — the walk's own text opens `Company logo for, Notion.` and
+   carries `Responses managed off LinkedIn`. But this is **pattern-matching a
+   provenance claim out of body text**, and getting it wrong labels a posting
+   with a site it never came from. That is close enough to I1's territory to
+   deserve a deliberate decision rather than a commit.
+3. **Accept that assisted captures are often origin-less**, and make the queue
+   row say *"origin not recorded"* rather than showing nothing. Honest, costs
+   the badge, and the badge was a stated deliverable of §5.
+
+**My recommendation is 1 plus 3** — ask for the URL properly, and when it is
+absent say so out loud instead of rendering a blank. Inference buys a label this
+project would then have to defend, and `location_confidence` exists because this
+codebase already decided how it feels about inferred provenance.
+
+**Not blocking.** M5d's acceptance does not rest on the badge.
+
+---
+
 ## Q12 — CI takes fifteen minutes against a five-minute target. Spend a slice on it, or accept it?
 
 **Raised:** 2026-08-21 (M5b, opening PR #18) · **Answered:** 2026-08-21 · **Type:** working practice · **Blocking:** no
