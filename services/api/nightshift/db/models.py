@@ -2041,6 +2041,10 @@ class CapturedPosting(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             name="decided_rows_carry_a_time",
         ),
         Index("ix_captured_postings_user_id_status", "user_id", "status"),
+        #: The lookup behind "you already pasted this". Scoped by user because
+        #: a shared proposal would hand one reader a row belonging to another
+        #: — M5b's isolation, broken by a deduplication shortcut.
+        Index("ix_captured_postings_user_id_fingerprint", "user_id", "text_fingerprint"),
     )
 
     user_id: Mapped[uuid.UUID] = mapped_column(
@@ -2053,8 +2057,23 @@ class CapturedPosting(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     #: ``source_job_records.raw_payload``: the parse is always re-derivable, so
     #: a parser bug is a backfill rather than "ask the user to paste it again".
     raw_text: Mapped[str] = mapped_column(Text, nullable=False)
-    #: Where the person says it came from. Never fetched — see the class note.
+    #: Where the person says it came from. Never fetched — see the class note,
+    #: and `tests/test_capture_never_fetches.py`, which is that sentence with
+    #: teeth (M5d, ADR 0039 §1).
     source_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+
+    #: sha256 of the whitespace-collapsed, casefolded ``raw_text`` (M5d).
+    #:
+    #: Identity for *the same paste*, not for the same job — the job-level
+    #: answer is ``capture_source_job_id``, which is content-derived across
+    #: users so two people capturing one opening land on one job. This is
+    #: narrower and does a different job: it stops one person's review queue
+    #: holding the same posting twice because a model called the tool again
+    #: when it was unsure the first call landed.
+    #:
+    #: Normalised rather than raw because re-copying a page rarely produces
+    #: byte-identical text — a trailing newline is not a second posting.
+    text_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
 
     status: Mapped[CaptureStatus] = mapped_column(
         _enum(CaptureStatus, "capture_status"),
@@ -2069,6 +2088,30 @@ class CapturedPosting(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     proposed_location_text: Mapped[str | None] = mapped_column(String(500), nullable=True)
     #: Pinned so a proposal can be judged against the parser that made it.
     parser_version: Mapped[str] = mapped_column(String(40), nullable=False)
+
+    #: What the reader's Claude quoted out of the page it read (M5d, ADR 0039
+    #: §2). **Separate columns rather than merged into ``proposed_*``, and the
+    #: separation is the point.** The two proposers fail differently: the
+    #: parser can misread the text, and an assistant can produce a company
+    #: that was never in the text at all. Merging them would erase which one
+    #: said what at exactly the moment a person is deciding whether to believe
+    #: it, and there would be no way to answer "how good are the quotes" ever
+    #: again.
+    #:
+    #: Every value here has already passed ``capture_assist.quotable`` — it
+    #: appears verbatim in ``raw_text``. A value that did not is not stored;
+    #: only its field name is, below.
+    assistant_title: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    assistant_company_name: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    assistant_location_text: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    #: Field names the quoting rule turned down. **Names only, never values.**
+    #: Storing the refused value would put a hallucinated company name in this
+    #: database, which is the thing the rule exists to keep out of it. The
+    #: names are kept because they are the only diagnostic there will be for
+    #: whether the gate is set too tight.
+    assistant_rejected_fields: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
 
     job_id: Mapped[uuid.UUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("jobs.id", ondelete="SET NULL"), nullable=True

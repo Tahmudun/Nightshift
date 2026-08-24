@@ -1311,11 +1311,35 @@ class CitySignalsOut(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+class AssistantQuoteIn(BaseModel):
+    """What the reader's Claude says it read on the page (M5d, ADR 0039 §2).
+
+    Optional in every sense: absent, and the line parser is the only proposer,
+    which is exactly M5a's behaviour.
+
+    **These are quotes, not readings.** Each value must appear verbatim in
+    ``raw_text`` — whitespace and case are forgiven, nothing else is — and one
+    that does not is refused and named in ``assistant_rejected_fields``. The
+    caller is told which, so a model that paraphrased can quote instead.
+
+    There is no ``employment_type`` here. It is an enum derived from the title,
+    not a span on a page, and there would be nothing for the assistant to point
+    at.
+    """
+
+    title: str | None = Field(default=None, max_length=500)
+    company_name: str | None = Field(default=None, max_length=300)
+    location_text: str | None = Field(default=None, max_length=500)
+
+
 class CaptureIn(BaseModel):
     """A paste. The only required field is the text itself."""
 
     raw_text: str = Field(min_length=1, max_length=200_000)
     source_url: str | None = Field(default=None, max_length=1000)
+    #: Absent for a paste typed into the web form; present when the reader's
+    #: Claude captured on their behalf and can quote what it saw.
+    assistant: AssistantQuoteIn | None = None
 
 
 class CaptureProposalOut(BaseModel):
@@ -1333,15 +1357,81 @@ class CaptureProposalOut(BaseModel):
     employment_type: EmploymentType | None
 
 
+class AssistantQuoteOut(BaseModel):
+    """What the assistant quoted and the rule accepted.
+
+    Three fields, mirroring ``AssistantQuoteIn``. No ``employment_type``: the
+    input has none to accept, and adding a derived one here would make this
+    look like a fourth thing the assistant claimed.
+    """
+
+    title: str | None
+    company_name: str | None
+    location_text: str | None
+
+
+class CorpusMatchOut(BaseModel):
+    """A job Nightshift already holds that a paste is probably about."""
+
+    job_id: UUID
+    title: str
+    company_name: str
+    status: JobStatus
+    #: A short stable token — ``same_company_and_title`` or ``same_url`` — so a
+    #: client can say which rule fired rather than asserting a similarity.
+    reason: str
+
+
+class CorpusCheckOut(BaseModel):
+    """Whether the corpus already holds this job, including "I could not look".
+
+    ``checked=false`` with an empty ``matches`` is a **different statement**
+    from ``checked=true`` with an empty ``matches``. The first means nothing
+    could be read from the paste to search with; the second means Nightshift
+    looked and found nothing. Rendering them the same way is how a reader ends
+    up trusting a check that never ran.
+    """
+
+    checked: bool
+    why_not: str | None
+    matches: list[CorpusMatchOut]
+
+
 class CaptureOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    #: True when this response is a proposal that already existed rather than
+    #: one this request created — the reader pasted the same posting twice, or
+    #: a model called the tool again when it was unsure the first call landed.
+    #: The HTTP status says the same thing (200 rather than 201); this says it
+    #: to a client that only reads the body, which includes every model.
+    already_existed: bool = False
     id: UUID
     status: CaptureStatus
     source_url: str | None
+    #: ``linkedin`` | ``indeed`` | ``other`` | ``none`` — where the reader found
+    #: it, read off the host of ``source_url``. Derived rather than stored, so
+    #: it cannot disagree with the URL sitting beside it in the form.
+    origin: str
     raw_text: str
     proposed: CaptureProposalOut
     parser_version: str
+    #: What the assistant quoted and the rule accepted. Reported apart from
+    #: ``proposed`` so a review surface can say which of the two read it —
+    #: merging them would erase that at the moment a person is deciding
+    #: whether to believe it (ADR 0039 §2).
+    assistant: AssistantQuoteOut | None = None
+    #: Field names the quoting rule turned down. Names only: the refused value
+    #: is never stored and never returned, because returning it would put a
+    #: possibly-invented company name in front of the reader with nothing
+    #: marking it as refused.
+    assistant_rejected_fields: list[str] = Field(default_factory=list)
+    #: What the corpus already holds that looks like this posting. Computed on
+    #: every response that shows a **pending** capture — the paste, and the
+    #: read-back a reviewer opens from their queue — and never stored, because
+    #: it is a fact about the corpus *now* rather than a property of the row.
+    #: ``None`` on a decided capture, where the question is closed.
+    corpus_check: CorpusCheckOut | None = None
     #: Set only once a person has confirmed. Until then there is no job, and
     #: the schema refuses to let there be one.
     job_id: UUID | None

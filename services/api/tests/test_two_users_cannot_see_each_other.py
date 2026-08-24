@@ -70,6 +70,7 @@ from nightshift.db.models import (
     UserSkill,
 )
 from nightshift.db.session import get_db_session
+from nightshift.domain.capture import text_fingerprint
 from nightshift.domain.identity import set_password
 from tests.conftest import requires_db
 
@@ -229,6 +230,11 @@ async def _populate(session: AsyncSession, label: str, job: Job) -> Person:
     capture = CapturedPosting(
         user_id=user.id,
         raw_text=f"{label} pasted this posting",
+        # NOT NULL since 0027. Computed through the real function rather than
+        # written as a literal, so this row is one the application could have
+        # written — a hand-rolled value here would let the fixture drift away
+        # from what `capture_paste` actually looks up on.
+        text_fingerprint=text_fingerprint(f"{label} pasted this posting"),
         status=CaptureStatus.PENDING,
         parser_version="test",
     )

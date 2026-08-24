@@ -1278,9 +1278,17 @@ export const CAPTURE_SOURCE_NAME = 'manual_capture';
  *
  * The same string as `CAPTURE_SOURCE_NAME` and a different fact: one is which
  * source it is, the other is what kind of source that is. Compared separately
- * because they are free to diverge — a second capture surface (M5d's assisted
- * capture) would be a new source *name* of this same *type*, and code that had
- * conflated them would stop labelling it.
+ * because they are free to diverge.
+ *
+ * **M5a predicted that M5d's assisted capture would be a second source name of
+ * this type. It is not, and the reason is worth keeping.** A posting captured
+ * through Claude and the same posting pasted into the web form came from the
+ * same place — a person who found it — and `capture_source_job_id` is content-
+ * derived precisely so two people capturing one opening land on one job. Two
+ * source names would give each channel its own `source_job_records` row for
+ * identical text and hand the difference to the dedupe layer to undo. What
+ * actually differs is *who proposed each field*, and that is recorded on the
+ * capture row itself (ADR 0039 §2).
  */
 export const CAPTURE_SOURCE_TYPE = 'manual_capture';
 
@@ -1304,13 +1312,72 @@ export const captureProposalSchema = z.object({
 });
 export type CaptureProposal = z.infer<typeof captureProposalSchema>;
 
+/**
+ * What the reader's Claude quoted, and the rule accepted (M5d, ADR 0039 §2).
+ *
+ * Three fields, not four: `employment_type` is derived from the title rather
+ * than quoted off a page, so there is nothing for an assistant to point at.
+ *
+ * Every value here has already been checked against the pasted text — it
+ * appears in it verbatim. That is not the same as being *correct*, which is
+ * still what the confirmation step is for.
+ */
+export const assistantQuoteSchema = z.object({
+  title: z.string().nullable(),
+  company_name: z.string().nullable(),
+  location_text: z.string().nullable(),
+});
+export type AssistantQuote = z.infer<typeof assistantQuoteSchema>;
+
+/** Where the reader found it, read off the host of `source_url`. */
+export const captureOriginSchema = z.enum(['linkedin', 'indeed', 'other', 'none']);
+export type CaptureOrigin = z.infer<typeof captureOriginSchema>;
+
+export const corpusMatchSchema = z.object({
+  job_id: z.string().uuid(),
+  title: z.string(),
+  company_name: z.string(),
+  status: jobStatusSchema,
+  /** `same_company_and_title` or `same_url`. Named so a client can say which. */
+  reason: z.string(),
+});
+export type CorpusMatch = z.infer<typeof corpusMatchSchema>;
+
+/**
+ * Whether Nightshift already holds this job — including "I could not look".
+ *
+ * `checked: false` with no matches is a **different statement** from
+ * `checked: true` with no matches, and a surface that renders them the same
+ * way tells a reader a posting is new to Nightshift when nobody established
+ * that. It is invariant I3's failure moved to duplicate detection.
+ */
+export const corpusCheckSchema = z.object({
+  checked: z.boolean(),
+  why_not: z.string().nullable(),
+  matches: corpusMatchSchema.array(),
+});
+export type CorpusCheck = z.infer<typeof corpusCheckSchema>;
+
 export const captureSchema = z.object({
   id: z.string().uuid(),
   status: captureStatusSchema,
   source_url: z.string().nullable(),
+  origin: captureOriginSchema,
   raw_text: z.string(),
   proposed: captureProposalSchema,
   parser_version: z.string(),
+  /** Null when no assistant was involved — a paste typed into this form. */
+  assistant: assistantQuoteSchema.nullable().default(null),
+  /**
+   * Field names the quoting rule turned down. Names only: the refused value is
+   * never stored and never sent, because showing a reader a possibly-invented
+   * company name is the thing the rule exists to prevent.
+   */
+  assistant_rejected_fields: z.string().array().default([]),
+  /** True when this proposal already existed rather than being created now. */
+  already_existed: z.boolean().default(false),
+  /** Present on any response showing a pending capture; absent once decided. */
+  corpus_check: corpusCheckSchema.nullable().default(null),
   /** Null until confirmed. The API's schema makes the other combination impossible. */
   job_id: z.string().uuid().nullable(),
   created_at: z.string().datetime({ offset: true }),

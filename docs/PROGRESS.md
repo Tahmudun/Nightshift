@@ -33,7 +33,58 @@
 **M4c Task 5 is done: the city speaks §6, and says what it is saying.** The table is one pure function (`treatments.ts`), the beacons carry per-instance colour, strength and pulse rate through a shader, four instanced meshes draw the marks §6 puts *on* a body, and an in-interface legend documents all thirteen rows — including the four that are not drawn, each with its reason. ADR 0028. `docs/reviews/milestone-4c-treatments.png` is the screenshot. Three defects were found by looking rather than by a test: a closed torus whose rotation was invisible by construction, a spin folded into the billboard that rolled every arc out of the camera plane, and a saved outline drawn cyan — which is exactly what ADR 0027's standing instruction ruled out.
 **M4c: Tasks 1, 2, 3 and 4 are done. The placement join and `GET /city/signals` (ADR 0024, which resolves a real conflict between I1 and `city.md` §4.4 rather than papering over it), the Three.js signal layer in MapLibre's own context (ADR 0025), and the field made legible, navigable and sortable. New York now has every open role floating above it, untethered, and none on a building — see `docs/reviews/milestone-4c-signals.png` and `docs/reviews/milestone-4c-roster.png`. Task 4 then made a role reachable: picking by raycast against the frame's own matrix, a reticle, a detail panel, and one selection shared by the list and the map (ADR 0027) — `docs/reviews/milestone-4c-selection.png`.**
 **Docker's daemon is no longer wedged.** It was force-quit and relaunched on 2026-08-12. `make up` was then run **from cold** — containers removed with `docker compose down` first — and created both from scratch to healthy, exit 0. **That closes the last open step in M4b's acceptance chain**; container startup is now proven rather than assumed. The seeded corpus survived and matches what this file records: 31 canonical jobs, 62 `job_locations`, 44 `city_only` + 18 `remote`, 0 mappable.
-**Current milestone: M5 — The Open Hand (A16). M5a, M5b and M5c are merged. M5c's Claude Desktop deviation is being closed on `m5c-claude-desktop`.**
+**Current milestone: M5 — The Open Hand (A16). M5a, M5b and M5c are merged, including M5c's Claude Desktop deviation (PR #20, `0765381`). M5d is COMPLETE — all six tasks, walk included — on `m5d-assisted-capture` at `d37e83c`; [PR #21](https://github.com/Tahmudun/Nightshift/pull/21) is open with all five CI jobs green.**
+**M5 itself is NOT closed.** Its four acceptance criteria have not been walked as a milestone — only the four slices' own. That walk, and the merge, are what stand between here and M6. See "Next exact action".
+**M5d — assisted capture from LinkedIn and Indeed. All six tasks done, including task 6.2's live walk against a real LinkedIn page.** Plan: `docs/plans/2026-08-22-m5d-assisted-capture.md`. Decisions: **ADR 0039**, five sections — §5 was added 2026-08-24 when the walk produced Q13.
+- **§1 — the page is read by the reader, not by us.** `board-discovery.md` §9's *no* stands; what changed is who does the reading. `captured_postings.source_url` carried the comment *"Never fetched"* and nothing enforced it. Now two guards, each shown able to fail: a transport guard that unplugs httpx and drives paste → read → confirm (`httpx.get(source_url)` in `create_capture` → *"the capture path reached the network: https://www.linkedin.com/jobs/view/4012345678/"*), and an AST guard that refuses a job-board host in any non-docstring string literal (a `BOARD_BASE` constant → *"domain/capture.py holds a job-board host in a string literal"*).
+- **§2 — an assistant may point, not paraphrase.** A field the reader's Claude proposes must appear **verbatim** in the pasted text; whitespace and case are forgiven, nothing else. It is `resume_extractions`' span trigger reached with a substring test. The rule is strict enough to refuse correct answers — "NYC" for "New York, NY" is right and is refused — because a gate with an exception for values that look right is the model's judgement wearing a check's clothes. Quotes are stored in **their own columns** beside `proposed_*`; refusals are stored as **field names only**, never values.
+- **§3 — one posting, one thing to review.** This **narrows a position M5c stated**: its test argued two pending captures of one posting are two honest records of a person pasting. Right about the corpus, wrong about the queue. `capture_paste` is idempotent over a person's *pending* rows, stops at a decision, and returns the existing row unmodified.
+- **§4 — the corpus answers before the reader reviews anything.** Nightshift polls thousands of boards first-hand, so most postings a reader finds elsewhere are already in it, with a score and a trusted location a capture never carries. Two deterministic rules (`same_company_and_title`, `same_url`), closed jobs returned rather than filtered, and — the part that matters — **"not checked" is never an empty list**. That collapse is I3's failure moved from source outages to duplicate detection.
+**Three defects M5d found in its own first drafts, all before commit:** the URL rule selected every job with a URL, limited to 5, then filtered in Python — it would have found the right job only if it happened to be among the five most recent rows in the whole corpus, and a two-row fixture is what caught it; `capture_origin` matched with `in`, so `linkedin.com.evil.example` read as LinkedIn; and the never-fetches guard's first draft patched `httpx.AsyncClient.send`, which the test client itself rides on, so it would have been asserting about its own plumbing.
+**One prediction of M5a's is corrected rather than inherited.** `schemas.ts` said assisted capture would be a second `sources` **name** of the same type. It is not: the channel is not a source, and two names would give each channel its own `source_job_records` row for identical text and hand the difference to the dedupe layer to undo.
+**The review is written and names its own weakness:** `docs/reviews/milestone-5d-review.md`. Three defects were found and fixed inside the branch, all the same kind — **a guard that would have passed for a reason unrelated to the thing it guards**: a transport patch that would have been asserting about the test harness, a URL rule that limited before it filtered and passed on a two-row fixture, and an origin label matched with `in` so `linkedin.com.evil.example` read as LinkedIn.
+
+**2026-08-23 — the stated gap was closed, and closing it found the worst defect in the milestone. The review queue had no screen.**
+- **What was wrong.** `capture_posting` answers with `review_url` and the sentence *"the reader confirms or discards it at `review_url`"*. The runbook said *"open `/operate/capture` and decide"*. ADR 0039 §3 spends a whole section arguing about what belongs on the queue. **`/operate/capture` rendered a paste box and the one proposal the current browser tab had just created** — so a capture made through the MCP server, which is the entire point of M5d, had a row in the database, a `pending` status, an origin of `linkedin`, and no way to be looked at. The instruction the tool gave the reader could not be followed.
+- **Why nothing caught it.** `GET /capture?status=pending` shipped in M5a and `fetchCaptures` was written against it in the web client — **with no caller**. A finished route and an unused client function read as *built* to any review that looks at the API and the components separately. And all thirteen component tests began by pasting, so not one of them could observe a proposal the browser had not created. **Thirteen tests that share a setup step cannot see a flow that lacks it.**
+- **What was built.** `components/CaptureQueue.tsx` — the pending list, each row naming where the posting was found, when it arrived, and whether Claude quoted from the page. Two consequences that are decisions rather than layout, both recorded in ADR 0039 §3: **`GET /capture/{id}` now runs §4's corpus check** (the reviewer never saw the paste response — it went to their Claude — so without it §4 protected only whoever typed the text into the browser), and the form gained a third exit, **Decide later**, because confirm and discard made *"I am not sure"* cost the same as *"no"*.
+- **A second gap the screenshots found: the review form showed no text to check the fields against.** The runbook has always said *"check every field against the text"*; there was no text on the page. Survivable while pasting was the only way in — the posting was in the reader's own clipboard — and not survivable for a capture made in Claude Desktop, where the person confirming never saw it. A confirmation with nothing to check against is the person's name on the parser's reading, which is the thing the two steps exist to prevent. The proposal now renders `raw_text` beside the fields.
+- **A third, smaller one:** a queue row read *"Campus AI Research Engineer (Intern) · two readings disagree"*, which puts the doubt on the title standing next to it rather than on the employer it is about. Both uncertain states now name their field.
+- **Evidence:** `docs/reviews/milestone-5d-queue.png` (the queue) and `milestone-5d-queue-review.png` (a Claude-made proposal opened for review — corpus check leading, employer blank with both readings shown, refused location named, the posting's own text underneath).
+
+**The e2e gap is closed.** `apps/web/e2e-seeded/capture.spec.ts` is the **first end-to-end coverage `/operate/capture` has ever had** — 4 tests, **all passing against a real seeded stack**, and the first one opens a proposal the browser never created. Two sabotages were run and watched go red: removing the corpus check from `get_capture` (test 3 fails), and rendering no queue at all (test 1 fails).
+
+**Every automated gate on this branch is green, 2026-08-23.**
+- **`make check` exits 0** on the final tree: format, lint, `mypy` 87 files, **2248 Python tests** (8m25s) and **823 web tests across 56 files** (was 799 at the start of the branch). `make lint` and `make typecheck` were re-run afterwards because two files were edited mid-run.
+- **`make acceptance` exits 0** — `up`, `migrate`, `drift`, `seed`, `test-e2e` (**30 passed**), `verify` (**all checks passed**), `test-e2e-seeded` (**91 passed, 1 skipped**, up from 87). **It took two runs**, and the first failure was not this branch's: `city.spec.ts`'s keyboard-pan test wanted a 20px pan and measured 0.8px. The branch touches no renderer file at all, and the test passes alone in 12.3s — it is the flake the offline config's own comments predict, where a busy CPU and a broken feature look identical. Recorded rather than re-run into silence.
+- **The first `make test-py` of the session is not the number above and should not be quoted.** It came back 2244 passed, 1 failed, 1 error, and **neither was a code defect**: the failure was `test_every_source_file_is_tracked_by_git` on a `CaptureQueue.tsx` that was untracked while the suite ran, and the error was `asyncpg.exceptions.DeadlockDetectedError` on the fixture `TRUNCATE`, because **a `make test-py` started by the *previous* session was still running against the same database** for the first two thirds of it. See Q8 — the published advice (stop `make dev`, check `lsof -ti:3000 -ti:8000`) does not cover a competing process that holds no port. `pgrep -fl pytest` does.
+
+
+**2026-08-24 — the session lost to a full disk, and the one thing actually waiting on the human.**
+- **Docker was down and a normal restart could not fix it.** The volume hit **zero bytes free** on 2026-08-23 at 07:34 UTC; Docker's VM died mid-write, unable to log its own crash (`logging console: … no space left on device`). macOS reclaimed space afterwards, so `df` later read 12 GB free and the disk looked innocent — **the only evidence it had ever been full was in the logs.**
+- **The part that cost the time: quitting Docker Desktop did not work.** A clean `quit`, a `pkill`, and a relaunch all returned successfully and the daemon still never came up across **seven minutes** of polling. One leftover `com.docker.backend` process from before the crash **ignores `SIGTERM`**, and while it lives a relaunched Docker Desktop attaches to the dead instance rather than building a new VM. The tell is that `com.docker.virtualization.log` **gains no new lines at all** — the app is starting and the VM is not. `pkill -9` and a relaunch brought it back in twenty seconds, containers and data intact (32 jobs, 64 `job_locations`, 3 `captured_postings`, 2 users). Written up as `docs/runbooks/docker-will-not-start.md`.
+- **The confusion was real and it was mine to prevent.** What was waiting on the human is **task 6.2 alone — the live Claude Desktop walk against a real LinkedIn page.** Everything else in task 6 is done. The previous session left that ask standing while the connector underneath it was broken, so the instruction could not have been followed even with perfect willingness.
+- **Both MCP tokens were dead, from the `make reset-db` this branch already documented.** The database was re-seeded 2026-08-23 04:15 UTC and **zero `origin='mcp'` sessions survived** — Claude Desktop's token and Claude Code's, in two different config files. The failure is silent by construction: the server starts, the handshake succeeds, and every tool answers `Nightshift rejected this token`. Re-minted both, verified each against `/auth/me` **with a dead token as the contrast** (`{"detail":"not signed in"}` vs. the account), and revoked one orphan. The MCP server itself was proven live over stdio: handshake OK, `serverInfo.version` `0.1.0` — M5c's fix still holding.
+- **A new sharp edge, found by cutting myself on it:** extracting a minted token with `grep -o 'nsk_[A-Za-z0-9]*'` **silently truncates it**. Tokens carry characters outside that class, so it yields a plausible-looking 20-character token that fails auth for a reason unrelated to the token. Same failure class this branch keeps finding — **a check that fails for a reason other than the one it is testing.** Recorded in the runbook with the correct `sed`.
+- **The outage wedged the web dev server too, and it did not recover on its own.** A `next dev` that had been up 21 hours through the crash served `/` with a `200` once Docker returned — then **every route hung twenty minutes later**, with `next-server` at **111% CPU**. `TIME` advancing 5.7s across a 5s wait is what separates spinning from compiling. Restarted the web side alone (the API served `/health` and `/capture` correctly throughout): ready in 3s, `/operate/capture` in 2s, back to 0.0% CPU. **The `200` on the first request after recovery proves nothing** — it came from a server that was already dying.
+- **The root cause is not fixed and cannot be by me.** The volume is **95% full, 205 GB of 233 GB**, and the largest consumer is `~/Downloads` at **78 GB** — the human's files, not this project's. `docker builder prune -af` freed 2.5 GB *inside the VM*, where `Docker.raw`'s sparse file never returns it to macOS: **host free space moved by zero bytes.** Until the disk gets headroom this recurs.
+
+**2026-08-24 — task 6.2 is walked. A real Notion posting from a real LinkedIn page, captured in Claude Desktop and confirmed.** `docs/reviews/milestone-5d-walk.md`.
+- **The parser read LinkedIn's image alt-text as the job title** — `Company logo for, Notion.` — and **Claude quoted the real one**, `Software Engineer Intern (Summer 2027)`. All three quotes matched the pasted text verbatim; `assistant_rejected_fields` empty. **This is the clearest argument the milestone has produced for ADR 0039 §2 existing at all: the assistant was right where the deterministic reader was wrong, and was still only allowed to point.** The corpus check ran and answered `{"checked": true, "matches": []}`.
+- **The defect the walk found: a capture from LinkedIn cannot say it came from LinkedIn.** `origin` came back **`none`** — Claude called `capture_posting` with no `source_url`, so the badge §5 promised is blank on the one channel M5d exists to serve. `capture_origin('')` declining to guess is correct; the gap is that **`source_url` is optional in the schema and load-bearing in the interface.** **Q13, answered and shipped the same day** — option 1 plus 3: ask for the URL, and say so when it is absent. `capture_posting`'s description **never mentioned `source_url` at all**, which is the whole reason the walk's capture carried none. `originLabel()` replaces a bare `ORIGIN_LABEL[origin]` lookup, because **the distinction the interface can honestly draw is not which website but whether an assistant took part** — recorded fact, in the quote columns. Inference was rejected: pattern-matching provenance out of body text invents a fact `location_confidence` exists to refuse. The walk's own capture now reads *"Origin not recorded"* where it read *"Pasted text"*; a browser paste is unchanged. `docs/reviews/milestone-5d-origin.png`.
+- **The confirm returned a bare 500, and it was not this branch's code.** `confirm_capture` was driven directly against the reader's own row and succeeded; the API process serving the browser had run **22 hours through the Docker outage** holding a pool pointed at a Postgres that had been killed underneath it. Reads drew fresh connections and worked, which is why the review screen rendered; the confirm was the first request needing a write. Proved by pasting the identical text under the second account and confirming through the real endpoint on a restarted API — **HTTP 200 in 2.2s** — then deleting every row that probe created (back to 32 jobs, 4 companies). **Stated rather than proved:** the old process was killed before its logs were captured. What *is* proved is that the code path is sound.
+- **A defect predicted by reading and refuted by measuring.** The confirmed title stored as `SOFTWARE ENGINEER INTERN (SUMMER 2027)`. The four review fields sit inside `uppercase` labels and, unlike the paste form's two, do not override `normal-case` — which reads exactly like a leak fixed in one place and missed in another. **In a real browser `text-transform` computes to `none` on all four.** The cascade predicted a defect; the measurement refuted it. The guard was kept anyway (`capture.spec.ts`, 6 passing) because `toHaveValue(...)` is blind to the cascade, and shown able to fail by adding `uppercase` to `FIELD_CLASS`.
+- **What is owed:** the **conversational half** — whether the model led with the corpus check and called the capture a proposal — was not captured at the time and is outstanding; task 6.2's acceptance is incomplete without it. Plus Q13, the 500's error surface, and the shouted title in the corpus.
+
+- **Both gates re-run green on the final tree, 2026-08-24.** **`make check` exits 0** — 204 files formatted, lint and typecheck clean, **2248 Python tests** (9m47s) and **826 web tests across 56 files** — 823 before Q13's three. Q13's own gate run needed two passes: the first failed `lint` on Prettier (`CaptureQueue.tsx`, `capture.test.ts`), which is the web formatter M1b added to `make check` precisely so it stops being CI's job alone. **`make acceptance` exits 0** — `up`, `migrate`, **no model/migration drift**, `seed`, `test-e2e` (**30 passed**), `verify` (**all checks passed**), `test-e2e-seeded` (**92 passed, 1 skipped**, up from 91 — the new casing guard is the extra). **One run each, no flake this time**; the `city.spec.ts` keyboard-pan flake that cost the previous session a second run did not recur.
+- **`make check` destroyed the walk's own data, which is Q8 doing exactly what Q8 says.** The Python suite `TRUNCATE`s the shared dev database, so the confirmed Notion job and its capture were gone the moment the gate ran — 33 jobs back to 32. Dumped beforehand (`pg_dump`, full and per-table) and **restored afterwards as a `pending` proposal rather than a confirmed one**, so the confirm stays the reader's action instead of being re-inserted on their behalf. **This is the third distinct cost Q8 has now billed** — wiped offices, a serialised session, and now a walk artifact — and it is still open.
+
+**PR #21 is open and CI is green**: https://github.com/Tahmudun/Nightshift/pull/21 — the branch had never been pushed, 20 commits local only. **All five jobs pass** at `27b1a07`: python 13m38s, e2e 10m59s, migrations 1m49s, web 1m33s, secret scan 12s. **15m21s wall clock**, which is Q12's accepted number holding steady rather than drifting.
+
+**The conversational half of the 6.2 walk is answered, 2026-08-24: the model led with the corpus check, and it called the capture a proposal — both *yes*, reported by the human.** Task 6.2 is complete. **It is recorded as their report, not as an observation**, because the transcript was not captured while it happened; M5c's walk found four defects precisely by keeping the raw log, and this one traded that for the database's version of events. **Capture the transcript next time** — free during, unrecoverable after.
+
+**Not real yet on this branch:** nothing. The remaining work is the merge and M5's own acceptance walk, both of which are listed under "Next exact action".
+
 **M5c: MERGED as [PR #19](https://github.com/Tahmudun/Nightshift/pull/19) (`ed234a7`) on 2026-08-21, on the human's call.**
 **2026-08-21, after the merge: Claude Desktop was installed, and the deviation M5c recorded rather than glossed is being closed.** Three of its four parts are done and the fourth is the human's. **Connecting a real Claude Desktop found four defects that a green suite, a review and a live Claude Code walk had all missed** — see `docs/reviews/milestone-5c-desktop-walk.md`:
 - **The import guard was reading an empty module and passing.** `test_the_mcp_package_never_reaches_the_database` imported `nightshift.mcp` — a package `__init__` that imports nothing — so it inspected an empty module graph. Sabotaging `server.py` with `from nightshift.db.session import session_scope` left it **green**. ADR 0038 §1's rule was an intention with a test in front of it. Now imports `nightshift.mcp.__main__`, the module that runs, and the same sabotage goes red. **Sixth instance in this milestone of a check that could not produce the failure it was written for.**
@@ -746,7 +797,141 @@ last rung of the three rather than the next.
 
 ## Next exact action
 
-### Current milestone: **M5 — The Open Hand**, on `m5c-claude-desktop`. **M5c is merged (`ed234a7`), and the Claude Desktop deviation it left open is CLOSED. `CLAUDE.md` §6's criterion is met by Claude Desktop itself.**
+### Current milestone: **M5 — The Open Hand**. **M5d is complete. [PR #21](https://github.com/Tahmudun/Nightshift/pull/21) is open, all five CI jobs pass, and the merge is the human's call.**
+
+> **START HERE, NEXT SESSION.** `main` is at `0765381`. The branch is
+> `m5d-assisted-capture`, pushed and up to date with its remote. **PR #21 is
+> open, and CI is green on the code at `27b1a07`** — commits after that one are
+> documentation only, so re-read the PR's checks rather than trusting this
+> line if anything has moved.
+>
+> **M5d is done, including the walk.** All six tasks. A real Notion posting
+> from a real LinkedIn page was captured in Claude Desktop and confirmed on
+> 2026-08-24 — `docs/reviews/milestone-5d-walk.md`. The reader confirms the
+> model **led with the corpus check** and **called the capture a proposal**;
+> both are recorded as their report rather than as an observation, because the
+> transcript was not captured. **Capture the transcript next time** — it costs
+> nothing during and is unrecoverable after.
+>
+> **Gates, on the final tree.** `make check` exits 0 — 2248 Python, 826 web
+> across 56 files. `make acceptance` exits 0 — `test-e2e` 30, `verify` all
+> checks passed, `test-e2e-seeded` 92 passed 1 skipped. CI: all five jobs green
+> at `27b1a07`, 15m21s.
+>
+> **What remains, in order:**
+>
+> 1. **Merge PR #21.** The human's call, as every merge on this repo has been.
+> 2. **Walk M5's own four acceptance criteria and close the milestone.** This
+>    has *not* been done — the four slices each have their own acceptance, and
+>    `CLAUDE.md` §5 asks for the milestone's. The criteria, and where the
+>    evidence should come from:
+>    - *Two users cannot see each other's data, proved by a test shown able to
+>      fail* — M5b. Find the test, re-run the sabotage, record the failure
+>      message. Do not accept "M5b says so".
+>    - *A pasted posting appears on the map with a capture badge; pasting it
+>      twice creates no duplicate.* **Check the map half honestly.** Idempotence
+>      is covered (`capture.spec.ts`); the *badge on the map* is the part most
+>      likely to be assumed rather than seen, and the walk's own capture had no
+>      confirmed office, so it would sit in the unresolved field rather than on
+>      a building.
+>    - *No parsed fact is stored as confirmed without a user action* — the
+>      two-step design, ADR 0039 §2, and the `Decide later` exit.
+>    - *Claude Desktop connects and captures a posting end to end* — **met**,
+>      by the M5c desktop walk plus this one.
+> 3. Then **M6 — The Archipelago** (`CLAUDE.md` §6, A16). Do not start it
+>    before M5 is closed with evidence.
+>
+> **Open and owed, none of it blocking the merge:**
+>
+> - **The confirm step's error surface.** A bare `Internal Server Error` from
+>   `api.ts:132` is what a reader gets when the confirm 500s, with no next step.
+>   Walk §3.
+> - **Q13 is shipped**, so nothing is owed there.
+> - **Q8 is still open and billed a third time this session** — `make check`
+>   truncates the shared dev database and destroyed the walk's own confirmed
+>   job mid-branch. The capture was restored as **pending**, deliberately, so
+>   the confirm stays the reader's. A `pg_dump` before any gate run is the
+>   current workaround and it is not a fix.
+> - **Q11** (nothing rate-limits sign-in) and **Q9** (the sky) are still open.
+> - The machine's disk was **97% full** at the end of this session, and the
+>   full-disk crash it caused is written up in
+>   `docs/runbooks/docker-will-not-start.md`. The human has said not to worry
+>   about it for now. It will recur.
+
+---
+
+### The M5d build action, kept because the walk it was waiting on is done
+
+### Current milestone: **M5 — The Open Hand**, on `m5d-assisted-capture`. **Tasks 1–5 of M5d are built and committed. Task 6 is docs and a walk, and half of it is the human's.**
+
+> **START HERE, NEXT SESSION.** `main` is at `0765381` — PR #20 merged
+> 2026-08-22. The branch is `m5d-assisted-capture`, off `main` at `0765381`.
+> No PR is open for it yet.
+>
+> **What this branch is.** M5c gave a reader's Claude a `capture_posting`
+> tool. It worked, and it was thin: one line parser, one row per call, no idea
+> whether the corpus already held the job, and nothing anywhere saying which
+> reader proposed what. M5d is the four things that make it worth choosing
+> over typing. `docs/plans/2026-08-22-m5d-assisted-capture.md` is the plan and
+> ADR 0039 is the four decisions.
+>
+> **The commits, in order:** the never-fetches guard (`6942f35`), the quoting
+> rule as a pure module (`4873758`), that rule wired through schema, domain,
+> route and MCP tool (`9d63a1f`), capture idempotence (`b25bd2b`), the corpus
+> check (`870738a`), the review surface and the runbook (`7e9a3da`).
+>
+> **What is done, with evidence.** `make lint` and `make typecheck` (87 files)
+> exit 0. `make test-web` is **816 passed across 56 files**, up from 799 across
+> 55. Every new guard was sabotaged and watched go red before being believed —
+> the exact sabotage and the exact failure message are written into each test's
+> docstring, which is `m5c-claude-desktop`'s lesson applied rather than
+> restated. Migrations `0026` and `0027` were applied, downgraded and
+> re-applied, and `0027`'s backfill was checked against the one real
+> `captured_postings` row in the dev database, which came back with its
+> fingerprint filled.
+>
+> **Done since that entry, 2026-08-23 (steps 1, 2, 3, 5 and the gates of 6):**
+> `make reset-db` ran and `/operate/capture` was looked at — which found that
+> **the review queue had no screen**, the milestone's worst defect, plus two
+> smaller ones. See the header block above and `docs/reviews/milestone-5d-review.md`
+> §2.4. `apps/web/e2e-seeded/capture.spec.ts` now exists and passes, closing
+> the gap the review had stated. The review is written and now records 2.4.
+>
+> **What remains, in order:**
+>
+> 1. **The walk, and it is the human's half.** A real LinkedIn job page, open
+>    in a browser, captured through Claude Desktop end to end. Not a fixture —
+>    the M5c walk found four defects that a green suite, a written review and a
+>    live Claude Code walk had all missed, and this is the same instrument
+>    pointed at new code. Record it in `docs/reviews/milestone-5d-walk.md`:
+>    what the model quoted, what was refused, whether it led with the corpus
+>    check, whether it called the capture a proposal, and — the question 2.4
+>    added — **whether following `review_url` actually finds the capture**,
+>    which was *no* until this session.
+> 2. Push, open the PR, watch CI. Every local gate is green — `make check` and
+>    `make acceptance` both exit 0 — so nothing here is waiting on a machine.
+>
+> **The thing this branch is most likely to be wrong about, stated before the
+> walk rather than after it: quotability may be too strict to be useful.** A
+> LinkedIn page shows "New York, NY (Hybrid)" and a model that writes "New
+> York, NY" is fine — that is a substring — but one that writes "New York" is
+> also fine and one that writes "NYC" is refused, and the line between those is
+> not obvious from outside. If the walk shows most fields refused, the honest
+> correction is **not** to loosen the rule quietly. It is to change what the
+> tool description asks the model to send, and if that fails, to record in ADR
+> 0039 that the gate was wrong and say what replaced it.
+> `assistant_rejected_fields` exists to make that argument from data.
+>
+> **One thing deliberately not built here.** M5c's desktop walk §4.4 found that
+> a job location's `means` sentence is false for any company with a confirmed
+> office, and scoped the substantive half to M5e. It is still M5e's. M5d
+> touched nothing about how a location is described.
+
+---
+
+### The Claude Desktop deviation's action, kept because that branch is merged (PR #20, `0765381`)
+
+### Milestone at the time: **M5 — The Open Hand**, on `m5c-claude-desktop`. **M5c is merged (`ed234a7`), and the Claude Desktop deviation it left open is CLOSED. `CLAUDE.md` §6's criterion is met by Claude Desktop itself.**
 
 > **THE WALK IS DONE.** Walked 2026-08-21 by the human, in the real app. Three
 > tool calls, all answered: `whoami` → `dev@nightshift.local` (36ms),

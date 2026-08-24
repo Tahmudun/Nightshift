@@ -270,3 +270,230 @@ async def test_the_internship_proposal_reaches_the_response(client: AsyncClient)
 
     ordinary = await _paste(client, "Staff Backend Engineer\nRamp · New York, NY")
     assert ordinary["proposed"]["employment_type"] is None
+
+
+async def test_an_assistants_quote_is_stored_apart_from_the_parsers(
+    client: AsyncClient,
+) -> None:
+    """Both readings survive the round trip, and they are told apart (M5d).
+
+    The parser reads line 2 as the employer. The assistant is asked for the
+    same field and quotes it. They agree here, and the response still says
+    which one said what — because the case that matters is the one where they
+    do not, and a shape that only distinguishes them on disagreement is a shape
+    that decided the answer before the reader did.
+    """
+    response = await client.post(
+        "/capture",
+        json={
+            "raw_text": LINKEDIN_PASTE,
+            "source_url": "https://www.linkedin.com/jobs/view/4012345678/",
+            "assistant": {
+                "title": "Staff Backend Engineer",
+                "company_name": "Ramp",
+                "location_text": "New York, NY",
+            },
+        },
+    )
+    assert response.status_code == 201, response.text
+    body = response.json()
+
+    assert body["assistant"] == {
+        "title": "Staff Backend Engineer",
+        "company_name": "Ramp",
+        "location_text": "New York, NY",
+    }
+    assert body["assistant_rejected_fields"] == []
+    assert body["proposed"]["company_name"] == "Ramp"
+    assert body["job_id"] is None
+
+
+async def test_a_company_the_text_never_mentions_is_refused_and_named(
+    client: AsyncClient,
+) -> None:
+    """The failure this whole feature is gated against.
+
+    A model that answers "Stripe" about a Ramp posting gets nothing stored and
+    the reader is told the quote did not match. The capture still succeeds:
+    a refused field is the rule working, not a broken request, and turning it
+    into a 4xx would make the model retry the paste rather than the quote.
+    """
+    response = await client.post(
+        "/capture",
+        json={
+            "raw_text": LINKEDIN_PASTE,
+            "assistant": {"title": "Staff Backend Engineer", "company_name": "Stripe"},
+        },
+    )
+    assert response.status_code == 201, response.text
+    body = response.json()
+
+    assert body["assistant"]["company_name"] is None
+    assert body["assistant"]["title"] == "Staff Backend Engineer"
+    assert body["assistant_rejected_fields"] == ["company_name"]
+    # The parser is untouched by the assistant's mistake. Two readers, two
+    # records, and one being wrong does not corrupt the other.
+    assert body["proposed"]["company_name"] == "Ramp"
+
+
+async def test_a_paste_with_no_assistant_reports_none_rather_than_nulls(
+    client: AsyncClient,
+) -> None:
+    """The web form's own paste, unchanged from M5a.
+
+    ``null`` rather than an object of nulls, so a client can tell "no assistant
+    was involved" from "the assistant quoted nothing that survived" — only the
+    second is worth putting in front of a reader.
+    """
+    body = await _paste(client)
+    assert body["assistant"] is None
+    assert body["assistant_rejected_fields"] == []
+
+
+async def test_pasting_the_same_posting_twice_returns_the_same_proposal(
+    client: AsyncClient,
+) -> None:
+    """One posting, one thing to review (M5d, ADR 0039 §3).
+
+    **This narrows a position M5c stated.** `test_mcp_capture.py` argued that
+    two captures of one posting are two honest records of a person pasting, and
+    checked only that they do not become two jobs. That is right about the
+    corpus and wrong about the queue: a review queue is a to-do list, and two
+    identical to-do items is a defect in one. A model that is unsure whether
+    its last call went through will call again, which is what makes this
+    common rather than theoretical.
+
+    The trailing whitespace on the second paste is deliberate — re-copying a
+    page rarely produces byte-identical text.
+    """
+    body = {"raw_text": LINKEDIN_PASTE}
+    first = await client.post("/capture", json=body)
+    second = await client.post("/capture", json={"raw_text": LINKEDIN_PASTE + "\n\n  "})
+
+    assert first.status_code == 201, first.text
+    assert second.status_code == 200, second.text
+    assert second.json()["id"] == first.json()["id"]
+    assert second.json()["already_existed"] is True
+    assert first.json()["already_existed"] is False
+
+    listed = await client.get("/capture", params={"status": "pending"})
+    assert listed.json()["total"] == 1
+
+
+async def test_a_different_posting_is_a_different_proposal(client: AsyncClient) -> None:
+    first = await client.post("/capture", json={"raw_text": LINKEDIN_PASTE})
+    second = await client.post(
+        "/capture", json={"raw_text": LINKEDIN_PASTE.replace("Ramp", "Datadog")}
+    )
+    assert second.status_code == 201, second.text
+    assert second.json()["id"] != first.json()["id"]
+
+
+async def test_a_decided_capture_does_not_absorb_a_later_paste(client: AsyncClient) -> None:
+    """Idempotence covers the pending queue only, and stops at a decision.
+
+    Once a person has confirmed or discarded, the row is a record of what they
+    decided. Folding a fresh paste into it would rewrite that record, and it
+    would leave a reader who deliberately re-captured something with nothing to
+    review. The corpus check (§4) is what tells them the re-capture is
+    redundant; silence would not.
+    """
+    first = await client.post("/capture", json={"raw_text": LINKEDIN_PASTE})
+    discarded = await client.post(f"/capture/{first.json()['id']}/discard")
+    assert discarded.status_code == 200, discarded.text
+
+    again = await client.post("/capture", json={"raw_text": LINKEDIN_PASTE})
+    assert again.status_code == 201, again.text
+    assert again.json()["id"] != first.json()["id"]
+
+
+async def test_two_people_pasting_the_same_posting_get_their_own_proposals(
+    client: AsyncClient, db_session: AsyncSession, other_user: User
+) -> None:
+    """The fingerprint is scoped to a person, and that is not an optimisation.
+
+    A shared proposal id would hand one reader a row belonging to another and
+    let them confirm or discard it — the isolation M5b exists to enforce,
+    broken by a deduplication shortcut.
+    """
+    from nightshift.domain.capture import capture_paste
+
+    mine = await client.post("/capture", json={"raw_text": LINKEDIN_PASTE})
+    theirs = await capture_paste(
+        db_session, user_id=other_user.id, raw_text=LINKEDIN_PASTE, source_url=None
+    )
+
+    assert theirs.created is True
+    assert theirs.capture.id != uuid.UUID(mine.json()["id"])
+
+
+async def test_reading_a_capture_back_carries_the_corpus_check(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """§4 has to hold for the reader, not only for the paste (M5d).
+
+    A capture made through the MCP server is read for the first time by ``GET
+    /capture/{id}`` — the person deciding never saw the paste response, because
+    it went to their Claude. Answering without the duplicate check would leave
+    ADR 0039 §4 protecting only whoever typed the text into the browser, which
+    is the rarer half of this milestone.
+
+    **Sabotage:** drop ``corpus_check=await _corpus_for(session, capture)`` from
+    ``get_capture``. Fails with ``assert None is not None``.
+    """
+    from nightshift.adapters.greenhouse import normalize_title
+    from nightshift.db.base import JobStatus
+    from nightshift.db.types import utcnow
+    from nightshift.domain.ingestion import get_or_create_company
+
+    company = await get_or_create_company(db_session, "Ramp")
+    now = utcnow()
+    db_session.add(
+        Job(
+            company_id=company.id,
+            title="Staff Backend Engineer",
+            normalized_title=normalize_title("Staff Backend Engineer"),
+            first_seen_at=now,
+            last_seen_at=now,
+            status=JobStatus.OPEN,
+        )
+    )
+    await db_session.flush()
+
+    pasted = await _paste(client)
+    assert pasted["corpus_check"]["matches"], "the paste itself should have found it"
+
+    read_back = await client.get(f"/capture/{pasted['id']}")
+    assert read_back.status_code == 200, read_back.text
+    check = read_back.json()["corpus_check"]
+    assert check is not None
+    assert [match["title"] for match in check["matches"]] == ["Staff Backend Engineer"]
+    assert check["checked"] is True
+
+
+async def test_a_decided_capture_is_read_back_without_a_corpus_check(
+    client: AsyncClient,
+) -> None:
+    """The question is closed once somebody has answered it.
+
+    A confirmed capture *is* a job in the corpus, so a check run against it
+    would find the job it just created and report the reader's own decision
+    back to them as a duplicate.
+
+    **Sabotage:** delete the ``status is not PENDING`` guard in ``_corpus_for``.
+    Fails with the confirmed capture's own job in ``matches``.
+    """
+    pasted = await _paste(client)
+    confirmed = await client.post(
+        f"/capture/{pasted['id']}/confirm",
+        json={
+            "title": "Staff Backend Engineer",
+            "company_name": "Ramp",
+            "location_text": "New York, NY",
+            "employment_type": "full_time",
+        },
+    )
+    assert confirmed.status_code == 200, confirmed.text
+
+    read_back = await client.get(f"/capture/{pasted['id']}")
+    assert read_back.json()["corpus_check"] is None

@@ -29,11 +29,13 @@ from nightshift.db.base import (
 from nightshift.db.models import CapturedPosting, Company, Job, JobLocation, User
 from nightshift.domain.capture import (
     CaptureAlreadyDecidedError,
+    capture_origin,
     capture_source_job_id,
     confirm_capture,
     create_capture,
     discard_capture,
     propose,
+    text_fingerprint,
 )
 from tests.conftest import requires_db
 
@@ -230,6 +232,10 @@ async def test_the_schema_refuses_a_pending_capture_that_carries_a_job(
         CapturedPosting(
             user_id=user.id,
             raw_text="anything",
+            # NOT NULL since 0027 and irrelevant to what this test asserts.
+            # Supplied through the real function rather than as a literal so
+            # this row stays a row the application could actually have written.
+            text_fingerprint=text_fingerprint("anything"),
             status=CaptureStatus.PENDING,
             parser_version="1",
             job_id=job.id,
@@ -469,3 +475,34 @@ async def test_a_captured_job_is_attributed_to_a_source_that_says_so(
         )
     ).scalar_one()
     assert record.raw_payload["captured"]["raw_text"] == LINKEDIN_PASTE
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        ("https://www.linkedin.com/jobs/view/4012345678/", "linkedin"),
+        ("https://linkedin.com/jobs/view/1", "linkedin"),
+        ("https://uk.linkedin.com/jobs/view/1", "linkedin"),
+        ("https://www.indeed.com/viewjob?jk=abc", "indeed"),
+        ("https://boards.greenhouse.io/ramp/jobs/1", "other"),
+        ("", "none"),
+        (None, "none"),
+    ],
+)
+def test_capture_origin_reads_the_host(url: str | None, expected: str) -> None:
+    assert capture_origin(url) == expected
+
+
+def test_capture_origin_is_not_fooled_by_a_lookalike_host() -> None:
+    """The reason this matches by suffix rather than with ``in``.
+
+    ``linkedin.com.evil.example`` contains the string "linkedin.com" and is
+    not LinkedIn. Labelling it as LinkedIn in a review form would tell a reader
+    a URL is trustworthy on the strength of an attacker's subdomain.
+
+    **Sabotage:** replace the host comparison with
+    ``if registrable in source_url`` and this test goes red while every other
+    case above stays green — which is exactly why it is written out separately.
+    """
+    assert capture_origin("https://linkedin.com.evil.example/jobs/view/1") == "other"
+    assert capture_origin("https://evil.example/?next=https://www.linkedin.com/") == "other"

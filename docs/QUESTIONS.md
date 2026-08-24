@@ -7,6 +7,50 @@ the date, because the reasoning is usually worth more than the decision.
 
 ---
 
+## Q13 — A capture from LinkedIn cannot say it came from LinkedIn. Press for the URL, infer it, or accept it?
+
+**Raised:** 2026-08-24 (M5d, task 6.2's live walk) · **Answered:** 2026-08-24 · **Type:** product · **Blocking:** no
+
+**ANSWERED 2026-08-24 — option 1 plus option 3, shipped, and recorded as ADR 0039 §5.** Ask for the URL properly, and when it is absent say so rather than rendering a confident blank. Inference was rejected for the reason below: it invents a fact about where a posting came from.
+
+**What shipped.** `capture_posting`'s description never mentioned `source_url` at all, which is why the walk's capture had none — it now asks for the link, says what it costs to omit it, repeats that it is never fetched, and says not to reconstruct one. On the screen, `originLabel()` replaces a bare `ORIGIN_LABEL[origin]` lookup: **the honest distinction is not which website but whether an assistant took part**, which the quote columns record as fact. A capture with quotes and no link now reads *"Origin not recorded"*; a browser paste still reads *"Pasted text"*. Evidence: `docs/reviews/milestone-5d-origin.png`.
+
+**What happened.** The walk captured a real Notion posting through Claude
+Desktop and the queue row's `origin` came back **`none`**. Claude called
+`capture_posting` without a `source_url`, the column holds `''`, and
+`capture_origin` correctly declines to guess — so **the one channel this
+milestone exists to serve produced a row that cannot name where it came from.**
+
+Nothing throws. `capture_origin('')` returning `none` is I1's temperament
+applied to provenance and is right. The gap is upstream: `source_url` is
+optional in the schema and load-bearing in the interface, and the reader in
+Claude Desktop has no reason to know that omitting it costs the badge.
+
+**Why this needs a person.** All three answers are defensible and they trade
+different things:
+
+1. **Press harder in the tool description** — make `source_url` read as expected
+   rather than optional. Cheapest, and it is a request to a model rather than a
+   guarantee; a model that does not have the URL to hand still cannot supply it.
+2. **Infer the origin from the pasted text.** LinkedIn's copy-paste is
+   recognisable — the walk's own text opens `Company logo for, Notion.` and
+   carries `Responses managed off LinkedIn`. But this is **pattern-matching a
+   provenance claim out of body text**, and getting it wrong labels a posting
+   with a site it never came from. That is close enough to I1's territory to
+   deserve a deliberate decision rather than a commit.
+3. **Accept that assisted captures are often origin-less**, and make the queue
+   row say *"origin not recorded"* rather than showing nothing. Honest, costs
+   the badge, and the badge was a stated deliverable of §5.
+
+**My recommendation is 1 plus 3** — ask for the URL properly, and when it is
+absent say so out loud instead of rendering a blank. Inference buys a label this
+project would then have to defend, and `location_confidence` exists because this
+codebase already decided how it feels about inferred provenance.
+
+**Not blocking.** M5d's acceptance does not rest on the badge.
+
+---
+
 ## Q12 — CI takes fifteen minutes against a five-minute target. Spend a slice on it, or accept it?
 
 **Raised:** 2026-08-21 (M5b, opening PR #18) · **Answered:** 2026-08-21 · **Type:** working practice · **Blocking:** no
@@ -265,6 +309,31 @@ without being asked. The options, roughly:
   after every `make check`, forever, and relies on somebody noticing.
 
 I would take the first. Say the word and it is the next thing I do.
+
+> **Still open, and 2026-08-22 added a cost the question did not name: the
+> shared database serialises the whole session.** M5d's full Python run took
+> **95 minutes of wall clock for 17 minutes of test time**, because a web suite
+> and a handful of targeted `pytest` runs were touching the same Postgres —
+> every `TRUNCATE` waits for an ACCESS EXCLUSIVE lock nobody else knew they
+> were holding. Worse than the delay: **`make seed` could not be run at all**
+> while the suite was going, so a seed change written at the start of the
+> session could not be verified until the end of it. Nothing was lost and
+> nothing was wrong; the work just could not proceed in parallel with its own
+> tests. That is a second argument for `nightshift_test`, and it is one the
+> original framing missed because it only looked at what a wipe destroys.
+>
+> **2026-08-23 added a third, and this one produced a red suite rather than a
+> slow one.** A `make test-py` started in the *previous* session was still
+> running in the background when this session started its own, and the two met
+> on the fixture `TRUNCATE`: `asyncpg.exceptions.DeadlockDetectedError`, one
+> test erroring at setup for a reason that has nothing to do with the code
+> under test. **The published advice — stop `make dev`, check `lsof -ti:3000
+> -ti:8000` — does not cover it**, because the competing process holds no port.
+> `pgrep -fl pytest` does, and a separate test database makes the check
+> unnecessary. A suite that can go red because of something a *finished*
+> session left running is a suite whose failures have to be triaged before they
+> can be read, which is the habit A14 is worried about arriving by a different
+> road.
 
 ---
 

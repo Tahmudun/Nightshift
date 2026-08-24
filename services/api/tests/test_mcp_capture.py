@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 
 import pytest
 import pytest_asyncio
@@ -190,9 +191,15 @@ async def test_capturing_the_same_posting_twice_creates_no_duplicate(
 ) -> None:
     """M5's acceptance names this in as many words.
 
-    Two captures of one posting are two *records of a person pasting*, which is
-    honest — but they must not become two jobs, and neither is confirmed here,
-    so the corpus count is the thing that must not move.
+    Two captures of one posting must not become two jobs, and neither is
+    confirmed here, so the corpus count is the thing that must not move.
+
+    **M5c's version of this test stopped there, and its docstring argued that
+    two pending proposals are two honest records of a person pasting.** That is
+    right about the corpus and wrong about the queue — a review queue is a
+    to-do list, and two identical to-do items is a defect in one. M5d makes the
+    second call return the first proposal; ADR 0039 §3 records the reversal.
+    The corpus assertion below is unchanged and still the stronger one.
     """
     jobs_before = (await db_session.execute(select(func.count()).select_from(Job))).scalar_one()
 
@@ -201,5 +208,190 @@ async def test_capturing_the_same_posting_twice_creates_no_duplicate(
         second = await session.call_tool("capture_posting", {"raw_text": LINKEDIN_PASTE})
 
     assert not first.is_error and not second.is_error
+    assert first.structured_content is not None
+    assert second.structured_content is not None
+
+    assert first.structured_content["already_existed"] is False
+    assert second.structured_content["already_existed"] is True
+    assert second.structured_content["capture_id"] == first.structured_content["capture_id"]
+    # The model is told in words, not only in a boolean: a successful call with
+    # a flag set still reads as "it worked" and gets reported as a capture.
+    assert "already in their queue" in second.structured_content["what_just_happened"]
+    assert "Nothing new was created" in second.structured_content["what_just_happened"]
+
     jobs_after = (await db_session.execute(select(func.count()).select_from(Job))).scalar_one()
     assert jobs_after == jobs_before
+
+
+@_async
+async def test_a_quote_the_model_can_point_at_is_kept(
+    server: MCPServer, db_session: AsyncSession
+) -> None:
+    """M5d. The reader's Claude read the page; it may say what it saw.
+
+    Stored in its own columns, never merged into the parser's — the review
+    surface has to be able to say which of the two read it.
+    """
+    async with connected(server) as session:
+        result = await session.call_tool(
+            "capture_posting",
+            {
+                "raw_text": LINKEDIN_PASTE,
+                "source_url": "https://www.linkedin.com/jobs/view/4012345678/",
+                "title": "Staff Backend Engineer",
+                "company_name": "Ramp",
+            },
+        )
+
+    assert not result.is_error, result.content
+    assert result.structured_content is not None
+    assert result.structured_content["assistant_accepted"] == {
+        "title": "Staff Backend Engineer",
+        "company_name": "Ramp",
+        "location_text": None,
+    }
+    assert result.structured_content["assistant_refused"] == []
+
+    row = (
+        await db_session.execute(
+            select(CapturedPosting).where(
+                CapturedPosting.id == uuid.UUID(result.structured_content["capture_id"])
+            )
+        )
+    ).scalar_one()
+    assert row.assistant_company_name == "Ramp"
+    assert row.assistant_rejected_fields == []
+
+
+@_async
+async def test_a_company_the_page_never_named_is_refused_and_the_model_is_told_why(
+    server: MCPServer, db_session: AsyncSession
+) -> None:
+    """The failure the quoting rule exists for, at the surface it arrives on.
+
+    A model answering "Stripe" about a Ramp posting is the one thing that
+    separates an assistant proposal from a parser proposal, and it must not
+    reach the database. The capture still succeeds — a refusal is the check
+    working, and a 4xx would make the model retry the paste rather than fix
+    the quote.
+
+    **Sabotage:** have `create_capture` store `assistant` unread instead of
+    calling `read_assistant`, and the stored-value assertion below goes red.
+    """
+    async with connected(server) as session:
+        result = await session.call_tool(
+            "capture_posting",
+            {"raw_text": LINKEDIN_PASTE, "company_name": "Stripe"},
+        )
+
+    assert not result.is_error, result.content
+    assert result.structured_content is not None
+    assert result.structured_content["assistant_refused"] == ["company_name"]
+    assert result.structured_content["assistant_accepted"]["company_name"] is None
+
+    guidance = result.structured_content["about_your_quotes"]
+    assert "word for word" in guidance
+    assert "Do not call this tool again with the same value." in guidance
+
+    row = (
+        await db_session.execute(
+            select(CapturedPosting).where(
+                CapturedPosting.id == uuid.UUID(result.structured_content["capture_id"])
+            )
+        )
+    ).scalar_one()
+    assert row.assistant_company_name is None, "a refused quote reached the database"
+    assert "Stripe" not in (row.raw_text or "")
+    # The refused *value* is never stored. Only the field name is, because a
+    # possibly-invented company name in this table is the thing being prevented.
+    assert row.assistant_rejected_fields == ["company_name"]
+
+
+@_async
+async def test_a_capture_with_no_quotes_says_so_rather_than_reporting_nulls(
+    server: MCPServer,
+) -> None:
+    """The web form's paste and a model that declined look the same, correctly.
+
+    `assistant_accepted` is `None` rather than an object of nulls, and there is
+    no `about_your_quotes` sentence — there is nothing to tell the reader.
+    """
+    async with connected(server) as session:
+        result = await session.call_tool("capture_posting", {"raw_text": LINKEDIN_PASTE})
+
+    assert result.structured_content is not None
+    assert result.structured_content["assistant_accepted"] is None
+    assert result.structured_content["assistant_refused"] == []
+    assert "about_your_quotes" not in result.structured_content
+
+
+@_async
+async def test_a_posting_the_corpus_already_holds_is_named_first(
+    server: MCPServer, db_session: AsyncSession
+) -> None:
+    """M5d's best moment: don't make the reader review a job they already have.
+
+    Nightshift polls the employers' own boards, so the corpus copy is
+    first-hand — it carries a location the system trusts and a score this
+    capture never will. The proposal is still created; what changes is what the
+    model is told to say about it.
+
+    **Sabotage:** return `matches=()` unconditionally from `check_corpus` and
+    the `already_in_nightshift` assertion goes red.
+    """
+    from nightshift.adapters.greenhouse import normalize_title
+    from nightshift.db.base import JobStatus
+    from nightshift.domain.ingestion import get_or_create_company
+
+    company = await get_or_create_company(db_session, "Ramp")
+    now = datetime.now(tz=UTC)
+    existing = Job(
+        company_id=company.id,
+        title="Staff Backend Engineer",
+        normalized_title=normalize_title("Staff Backend Engineer"),
+        first_seen_at=now,
+        last_seen_at=now,
+        status=JobStatus.OPEN,
+    )
+    db_session.add(existing)
+    await db_session.flush()
+
+    async with connected(server) as session:
+        result = await session.call_tool(
+            "capture_posting",
+            {"raw_text": LINKEDIN_PASTE, "source_url": None},
+        )
+
+    assert result.structured_content is not None
+    named = result.structured_content["already_in_nightshift"]
+    assert [m["job_id"] for m in named] == [str(existing.id)]
+    assert named[0]["reason"] == "same_company_and_title"
+    assert named[0]["status"] == "open"
+
+    guidance = result.structured_content["read_this_first"]
+    assert "Nightshift already holds" in guidance
+    assert "Lead with that" in guidance
+    # The proposal is still created — the reader decides, not this check.
+    assert result.structured_content["status"] == CaptureStatus.PENDING.value
+
+
+@_async
+async def test_an_unreadable_paste_says_nobody_looked_rather_than_nothing_found(
+    server: MCPServer,
+) -> None:
+    """The I3 failure, in the place M5d could most easily introduce it.
+
+    A capture whose company the parser declined to read is one this check
+    cannot answer for. An empty `already_in_nightshift` beside silence reads as
+    "this posting is new to Nightshift", which nobody established.
+    """
+    async with connected(server) as session:
+        result = await session.call_tool(
+            "capture_posting", {"raw_text": "A posting with no useful structure at all."}
+        )
+
+    assert result.structured_content is not None
+    assert result.structured_content["already_in_nightshift"] == []
+    guidance = result.structured_content["read_this_first"]
+    assert "not the same as finding no duplicates" in guidance
+    assert "Do not tell the reader this posting is new to Nightshift" in guidance

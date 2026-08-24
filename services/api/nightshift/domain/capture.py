@@ -47,6 +47,7 @@ import re
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
+from urllib.parse import urlsplit
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -55,6 +56,7 @@ from nightshift.adapters.base import NormalizedSourceJob, RawJob
 from nightshift.adapters.greenhouse import content_hash, normalize_title
 from nightshift.db.base import CaptureStatus, EmploymentType, LocationConfidence, SourceType
 from nightshift.db.models import CapturedPosting, Job, JobSourceLink, Source, SourceJobRecord
+from nightshift.domain.capture_assist import AssistantProposal, read_assistant
 from nightshift.domain.companies import normalize_company_name
 from nightshift.domain.ingestion import get_or_create_source, persist_source_job
 from nightshift.domain.locations import (
@@ -90,6 +92,8 @@ _LOCATION_SEARCH_LINES = 8
 _COMPANY_SEPARATOR = re.compile(r"\s+[·|—–]\s+|\s+-\s+|\s+@\s+", re.UNICODE)  # noqa: RUF001
 
 _URLISH = re.compile(r"https?://|www\.", re.IGNORECASE)
+
+_WHITESPACE = re.compile(r"\s+")
 
 #: Word-boundaried on purpose: "internal tooling" and "international" are not
 #: internships, and both appear in real titles.
@@ -207,14 +211,140 @@ def propose(raw_text: str) -> CaptureProposal:
     )
 
 
+#: Job boards a reader is likely to be looking at when they capture something,
+#: keyed by registrable host. Only used to *label* a capture — nothing here is
+#: ever fetched, and `tests/test_capture_never_fetches.py` is what holds that.
+_KNOWN_BOARDS: dict[str, str] = {
+    "linkedin.com": "linkedin",
+    "indeed.com": "indeed",
+}
+
+
+def capture_origin(source_url: str | None) -> str:
+    """Where the reader found this posting: ``linkedin``, ``indeed``,
+    ``other`` or ``none``.
+
+    Derived rather than stored, for the same reason ``employment_type_for_title``
+    is: a column could disagree with the URL sitting beside it in the form.
+
+    **Matched on the host, by suffix, and that is not pedantry.**
+    ``https://linkedin.com.evil.example/`` contains the string "linkedin.com"
+    and is not LinkedIn; labelling it as LinkedIn in a review form would tell a
+    reader a URL is trustworthy on the strength of an attacker's subdomain. A
+    substring test is the wrong tool and the test suite has the evil host in it.
+    """
+    if not source_url:
+        return "none"
+    host = (urlsplit(source_url).hostname or "").lower().removeprefix("www.")
+    for registrable, label in _KNOWN_BOARDS.items():
+        if host == registrable or host.endswith(f".{registrable}"):
+            return label
+    return "other"
+
+
+def text_fingerprint(raw_text: str) -> str:
+    """Identity for *the same paste*, scoped to nothing on its own.
+
+    Whitespace-collapsed and casefolded before hashing, because re-copying a
+    page rarely produces byte-identical text and a trailing newline is not a
+    second posting. The same normalisation ``capture_assist`` uses to decide
+    whether a quote is a quote, for the same reason.
+
+    Not to be confused with ``capture_source_job_id`` below. That one is the
+    identity of a *job* and is deliberately shared across users, so two people
+    capturing one opening land on one row in the corpus. This one is the
+    identity of a *paste* and is only ever looked up beside a ``user_id``.
+    """
+    flattened = _WHITESPACE.sub(" ", raw_text).strip().casefold()
+    return hashlib.sha256(flattened.encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True, slots=True)
+class CaptureOutcome:
+    """A capture, and whether this call is what made it.
+
+    A bare ``CapturedPosting`` cannot answer the second question, and the
+    caller needs it: a repeat paste is a 200 rather than a 201, and a model
+    that is told nothing will report a successful capture twice.
+    """
+
+    capture: CapturedPosting
+    created: bool
+
+
+async def capture_paste(
+    session: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    raw_text: str,
+    source_url: str | None,
+    assistant: AssistantProposal | None = None,
+) -> CaptureOutcome:
+    """A person pasted something. Give them one thing to review, not two.
+
+    The policy layer over ``create_capture``, which still creates
+    unconditionally and is what the seed wants. This is what a route wants:
+    **idempotent over one person's pending queue**, keyed on the fingerprint.
+
+    ADR 0039 §3 records why this narrows a position M5c stated. Two captures
+    of one posting are two honest records of a person pasting, and M5c checked
+    only that they do not become two jobs — right about the corpus, wrong about
+    the queue. A review queue is a to-do list, and two identical to-do items is
+    a defect in one.
+
+    **It stops at a decision.** Once a row is confirmed or discarded it is a
+    record of what somebody decided, and folding a fresh paste into it would
+    rewrite that record and leave a deliberate re-capture with nothing to
+    review. A repeat after a decision creates a new pending row; §4's corpus
+    check is what tells the reader it is redundant.
+
+    An existing row is returned **untouched** — no new assistant quotes, no new
+    ``source_url``. The stored row is what the reader is about to look at, and
+    quietly editing it under them while telling them it already existed is two
+    contradictory statements in one response.
+    """
+    fingerprint = text_fingerprint(raw_text)
+    existing = (
+        (
+            await session.execute(
+                select(CapturedPosting).where(
+                    CapturedPosting.user_id == user_id,
+                    CapturedPosting.text_fingerprint == fingerprint,
+                    CapturedPosting.status == CaptureStatus.PENDING,
+                )
+            )
+        )
+        .scalars()
+        .first()
+    )
+    if existing is not None:
+        return CaptureOutcome(capture=existing, created=False)
+
+    capture = await create_capture(
+        session,
+        user_id=user_id,
+        raw_text=raw_text,
+        source_url=source_url,
+        assistant=assistant,
+    )
+    return CaptureOutcome(capture=capture, created=True)
+
+
 async def create_capture(
     session: AsyncSession,
     *,
     user_id: uuid.UUID,
     raw_text: str,
     source_url: str | None,
+    assistant: AssistantProposal | None = None,
 ) -> CapturedPosting:
-    """Store the paste and the parser's reading of it. Creates no job.
+    """Store the paste and both readings of it. Creates no job.
+
+    Two proposers, kept apart. ``propose`` reads lines and is the only one that
+    runs for a paste typed into the web form. ``read_assistant`` gates what the
+    reader's Claude quoted, when there is one — see ``capture_assist`` for why
+    a quote and a reading are different things and why only the first is
+    accepted (M5d, ADR 0039 §2).
 
     Takes no ``now``, unlike its siblings below: ``created_at`` carries a server
     default and ``decided_at`` must stay NULL here — the check constraint
@@ -222,6 +352,7 @@ async def create_capture(
     time, which is the schema saying the same thing this signature does.
     """
     proposal = propose(raw_text)
+    reading = read_assistant(raw_text, assistant or AssistantProposal())
     capture = CapturedPosting(
         user_id=user_id,
         raw_text=raw_text,
@@ -231,6 +362,11 @@ async def create_capture(
         proposed_company_name=proposal.company_name,
         proposed_location_text=proposal.location_text,
         parser_version=CAPTURE_PARSER_VERSION,
+        text_fingerprint=text_fingerprint(raw_text),
+        assistant_title=reading.accepted.title,
+        assistant_company_name=reading.accepted.company_name,
+        assistant_location_text=reading.accepted.location_text,
+        assistant_rejected_fields=list(reading.rejected),
     )
     session.add(capture)
     await session.flush()
@@ -436,11 +572,15 @@ __all__ = [
     "CAPTURE_PARSER_VERSION",
     "CAPTURE_SOURCE_NAME",
     "CaptureAlreadyDecidedError",
+    "CaptureOutcome",
     "CaptureProposal",
+    "capture_origin",
+    "capture_paste",
     "capture_source_job_id",
     "confirm_capture",
     "create_capture",
     "discard_capture",
     "employment_type_for_title",
     "propose",
+    "text_fingerprint",
 ]

@@ -577,6 +577,19 @@ export function fetchCaptures(status?: CaptureStatus): Promise<CaptureList> {
 }
 
 /**
+ * One capture, read back for review.
+ *
+ * This is how a capture made somewhere else — the reader's own Claude, through
+ * the MCP server — reaches the review form. The list above says what is
+ * waiting; this fetches the one being opened, and it is a separate call
+ * because the API answers it with a live corpus check that a list of rows does
+ * not carry.
+ */
+export function fetchCapture(captureId: string): Promise<Capture> {
+  return request(`/capture/${captureId}`, captureSchema);
+}
+
+/**
  * The second of the two calls that can turn a proposal into a fact.
  *
  * Sends what the *person* approved rather than what the parser proposed, so
