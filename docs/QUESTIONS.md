@@ -276,6 +276,37 @@ be, say 85 and I will measure what it costs and tier it.
 **Raised:** 2026-08-17 (M4e Task 6) · **Type:** engineering, with a cost in your
 time · **Blocking:** no
 
+> **ANSWERED 2026-08-24, and shipped the same session.** The answer was the
+> first option — `nightshift_test`, a second database on the same container.
+> Commit `762315e`.
+>
+> **What it cost:** one setting (`POSTGRES_TEST_DB`), one derived property, and
+> about forty lines of `conftest.py`. Not the workflow migration this question
+> feared, because the lever turned out to be a single fixture: every committing
+> test reaches the database through `db_engine`, so moving `db_engine` moved all
+> of them at once. No ADR, no change to `make test`, no change to the CI job —
+> the test database is created and migrated on first use, so a machine that has
+> never run the suite needs no new step.
+>
+> **Two things the question did not anticipate.** The new database has none of
+> the extensions the cluster init script gives the first one, so the first
+> migration dies on `type "geometry" does not exist`;
+> `infra/postgres/init/001-extensions.sql` is now read and replayed rather than
+> its list retyped, because two copies drift. And `test_database_url` had to be
+> derived from `async_database_url` by *replacing the database name* rather than
+> rebuilt from the `POSTGRES_*` fields — `DATABASE_URL` overrides those, so the
+> rebuilt version would have isolated the suite on a laptop and not at all in
+> CI, which is exactly the kind of guard that passes for the wrong reason.
+>
+> **Evidence:** `jobs` in the dev database read 32 before
+> `test_merge_concurrency` and 32 after. The full suite — **2253 passed, exit
+> 0** — left it at 32 while `nightshift_test` took every write. Both guards in
+> `test_the_suite_has_its_own_database.py` were shown able to fail by making
+> `test_database_url` return `async_database_url`.
+>
+> The three costs this question accumulated are all retired by it: the silent
+> wipe, the serialised session, and the cross-session `TRUNCATE` deadlock.
+
 The Python suite runs against the same Postgres the dev stack uses. This is
 already known — PROGRESS records it as the `TRUNCATE` deadlock trap, where a
 test and a live dev session fight over the same table and one of them hangs.
