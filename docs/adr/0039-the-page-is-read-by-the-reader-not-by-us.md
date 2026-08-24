@@ -359,6 +359,62 @@ is about — so it is computed on the response to `POST /capture` and absent whe
 a stored capture is read back.
 
 
+## §5 — Decision: the interface names whether an assistant took part, never which website
+
+**Added 2026-08-24, after the live walk. Q13.**
+
+The walk captured a real LinkedIn posting through Claude Desktop and the queue
+row read **"Pasted text"**. `origin` is derived from `source_url` alone, Claude
+sent none, and `none` had exactly one label — written when the browser form was
+the only way in. The row is the reader's only account of where a posting came
+from, and it was saying something false about the one channel this milestone
+exists to serve.
+
+**Two things were wrong, and only one of them was the label.**
+`capture_posting`'s description **never mentioned `source_url` at all**. A
+field a tool never asks for is a field a model has no reason to send, and the
+schema calling it optional is not a request. It now asks for the link, says
+what omitting it costs, repeats that it is never fetched (§1), and says not to
+reconstruct one — **a wrong link is worse than none**, because a link is the
+thing a reader clicks to check.
+
+**The decision proper: what an interface may claim about provenance.**
+
+- **Whether an assistant took part is recorded fact.** Its quotes are in their
+  own columns (§2). Saying so costs nothing and invents nothing.
+- **Which website a posting came from is not**, unless a URL says so. It could
+  be guessed — LinkedIn's copy-paste is recognisable, and the walk's own text
+  carries `Responses managed off LinkedIn` — and guessing it is refused.
+
+So `originLabel()` renders *"Origin not recorded"* for a capture that carries
+assistant quotes and no link, and leaves a browser paste reading *"Pasted
+text"*. Both are true of what actually happened.
+
+### The alternative that was rejected
+
+**Infer the origin from the pasted text.** It would have filled the badge in
+most real cases, and it is the option that makes the interface look most
+complete.
+
+It is refused because **it manufactures a claim about a real company's posting
+from a pattern in body text.** This codebase already has a name for that
+argument: `location_confidence` exists because "New York, NY" in a job posting
+is not a street address, and the whole of I1 is the refusal to upgrade a weak
+signal into a specific claim because the specific claim renders better. A
+provenance badge is the same shape — a fact about a real posting, asserted from
+a heuristic, displayed with no confidence attached. A row that says *"From
+LinkedIn"* when nobody recorded a link is the map placing a beacon on a
+building nobody confirmed.
+
+**"Origin not recorded" is the `unknown` of provenance**, and I1's sentence
+applies unchanged: if you cannot resolve honestly, the value is unknown.
+
+### What this does not do
+
+It does not make `source_url` required. A reader pasting from a newsletter or a
+friend's message legitimately has no URL, and refusing their capture to protect
+a badge would trade a real posting for a label.
+
 ## Consequences
 
 - The parse quality of a captured posting is bounded by what the reader's
@@ -367,6 +423,10 @@ a stored capture is read back.
 - Nothing in M5d can be re-read. A captured posting still has no freshness or
   closure signal (I3 already says silence is not evidence of closure; for a
   capture, silence is all there is).
+- §5 means the origin badge is blank more often than it would be with
+  inference, and that is the intended cost. `assistant_rejected_fields` and the
+  origin label are both places this milestone chose a visible gap over an
+  invisible guess.
 - The guard is narrow on purpose. It covers the capture request path, not the
   whole package — the Greenhouse adapter fetches boards deliberately and a
   guard that scanned everything would be asserting about the wrong module.

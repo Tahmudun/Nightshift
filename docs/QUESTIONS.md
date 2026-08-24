@@ -11,7 +11,7 @@ the date, because the reasoning is usually worth more than the decision.
 
 **Raised:** 2026-08-24 (M5d, task 6.2's live walk) · **Answered:** 2026-08-24 · **Type:** product · **Blocking:** no
 
-**ANSWERED 2026-08-24 — option 1 plus option 3, and shipped.** Ask for the URL properly, and when it is absent say so rather than rendering a confident blank. Inference was rejected for the reason below: it invents a fact about where a posting came from.
+**ANSWERED 2026-08-24 — option 1 plus option 3, shipped, and recorded as ADR 0039 §5.** Ask for the URL properly, and when it is absent say so rather than rendering a confident blank. Inference was rejected for the reason below: it invents a fact about where a posting came from.
 
 **What shipped.** `capture_posting`'s description never mentioned `source_url` at all, which is why the walk's capture had none — it now asks for the link, says what it costs to omit it, repeats that it is never fetched, and says not to reconstruct one. On the screen, `originLabel()` replaces a bare `ORIGIN_LABEL[origin]` lookup: **the honest distinction is not which website but whether an assistant took part**, which the quote columns record as fact. A capture with quotes and no link now reads *"Origin not recorded"*; a browser paste still reads *"Pasted text"*. Evidence: `docs/reviews/milestone-5d-origin.png`.
 

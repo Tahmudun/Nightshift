@@ -88,8 +88,8 @@ reason to know that omitting it costs the badge.
 This is the same failure class the branch keeps producing, one layer out: a
 field that is optional in the schema and load-bearing in the interface.
 
-**Raised as Q13 and answered the same day: ask for the URL, and say so when it
-is absent.** Inference was rejected — pattern-matching a provenance claim out
+**Raised as Q13, answered the same day, and recorded as ADR 0039 §5: ask for
+the URL, and say so when it is absent.** Inference was rejected — pattern-matching a provenance claim out
 of body text invents a fact about where a posting came from, which is the thing
 `location_confidence` exists to refuse. `capture_posting`'s description never
 mentioned `source_url` at all, which is the whole reason the walk's capture
