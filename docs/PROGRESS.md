@@ -33,7 +33,7 @@
 **M4c Task 5 is done: the city speaks §6, and says what it is saying.** The table is one pure function (`treatments.ts`), the beacons carry per-instance colour, strength and pulse rate through a shader, four instanced meshes draw the marks §6 puts *on* a body, and an in-interface legend documents all thirteen rows — including the four that are not drawn, each with its reason. ADR 0028. `docs/reviews/milestone-4c-treatments.png` is the screenshot. Three defects were found by looking rather than by a test: a closed torus whose rotation was invisible by construction, a spin folded into the billboard that rolled every arc out of the camera plane, and a saved outline drawn cyan — which is exactly what ADR 0027's standing instruction ruled out.
 **M4c: Tasks 1, 2, 3 and 4 are done. The placement join and `GET /city/signals` (ADR 0024, which resolves a real conflict between I1 and `city.md` §4.4 rather than papering over it), the Three.js signal layer in MapLibre's own context (ADR 0025), and the field made legible, navigable and sortable. New York now has every open role floating above it, untethered, and none on a building — see `docs/reviews/milestone-4c-signals.png` and `docs/reviews/milestone-4c-roster.png`. Task 4 then made a role reachable: picking by raycast against the frame's own matrix, a reticle, a detail panel, and one selection shared by the list and the map (ADR 0027) — `docs/reviews/milestone-4c-selection.png`.**
 **Docker's daemon is no longer wedged.** It was force-quit and relaunched on 2026-08-12. `make up` was then run **from cold** — containers removed with `docker compose down` first — and created both from scratch to healthy, exit 0. **That closes the last open step in M4b's acceptance chain**; container startup is now proven rather than assumed. The seeded corpus survived and matches what this file records: 31 canonical jobs, 62 `job_locations`, 44 `city_only` + 18 `remote`, 0 mappable.
-**Current milestone: M6 — The Archipelago (A16). BLOCKED on Q14 — 43% of the now-real corpus is physically in another city and has no home in the Island's design. `main` is at `a622750`; [PR #24](https://github.com/Tahmudun/Nightshift/pull/24) is open. See "Next exact action".**
+**Current milestone: M6 — The Archipelago (A16). BLOCKED on Q14 — 43% of the now-real corpus is physically in another city and has no home in the Island's design. `main` is at `a44d338`, with PRs #22, #23 and #24 all merged and green. See "Next exact action".**
 
 **Superseded (kept for the record): Current milestone: M5 — The Open Hand (A16). M5a, M5b and M5c are merged, including M5c's Claude Desktop deviation (PR #20, `0765381`). M5d is COMPLETE — all six tasks, walk included — on `m5d-assisted-capture` at `d37e83c`; [PR #21](https://github.com/Tahmudun/Nightshift/pull/21) is open with all five CI jobs green.**
 **M5 itself is NOT closed.** Its four acceptance criteria have not been walked as a milestone — only the four slices' own. That walk, and the merge, are what stand between here and M6. See "Next exact action".
@@ -852,9 +852,9 @@ last rung of the three rather than the next.
 
 ### Current milestone: **M6 — The Archipelago. BLOCKED on Q14, which is the human's to answer.**
 
-> **START HERE, NEXT SESSION.** `main` is at `a622750` — PR #22 (M5 acceptance)
-> and PR #23 (Q8) both merged. [PR #24](https://github.com/Tahmudun/Nightshift/pull/24)
-> is open on `location-split-depth` with the location-splitter fix.
+> **START HERE, NEXT SESSION.** `main` is at `a44d338`. PR #22 (M5
+> acceptance), PR #23 (Q8) and PR #24 (the location splitter) are all merged,
+> and `main` is green after each. **Nothing is in flight.**
 >
 > **M6 cannot be designed until Q14 is answered.** The corpus is now real —
 > **1200 jobs, 23 companies, 22 boards, 0 failures** — and it says something
