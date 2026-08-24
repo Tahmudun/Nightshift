@@ -166,3 +166,83 @@ async def test_whoami_returns_the_account_the_connection_belongs_to(
     assert not result.is_error, result.content
     assert result.structured_content is not None
     assert result.structured_content["email"] == account.email
+
+
+#: What each tool is allowed to do to the reader's data, and every registered
+#: tool must appear here exactly once.
+#:
+#: ``reads``
+#:     Answers a question. Writes nothing.
+#: ``proposes``
+#:     Creates a row the reader must still act on. `capture_posting` is the
+#:     only one, and what it creates is `pending`.
+#:
+#: **There is deliberately no third kind.** I5 says no irreversible action is
+#: taken for the reader, and M5's fourth criterion turns on a captured posting
+#: staying a proposal — so "decides" is not a category a tool may be filed
+#: under. Adding one means editing this comment, which is an argument somebody
+#: has to make in a diff rather than a parameter somebody forgets.
+_TOOL_KINDS: dict[str, str] = {
+    "whoami": "reads",
+    "search_jobs": "reads",
+    "get_job": "reads",
+    "explain_match": "reads",
+    "list_applications": "reads",
+    "capture_posting": "proposes",
+}
+
+
+@_async
+async def test_every_tool_is_classified_and_none_of_them_decides(server: MCPServer) -> None:
+    """M5's *"no parsed fact is stored as confirmed without a user action"*,
+    made structural on the surface most likely to erode it.
+
+    The prose already says it — `capture_posting`'s own description tells the
+    model *"You cannot confirm it yourself. There is no tool for that, and its
+    absence is deliberate"*. Prose is not a guard. The failure this catches is
+    a `confirm_capture` tool added in M8 by somebody who read the queue as a
+    chore rather than as the consent step, and nothing in the suite noticing.
+
+    Enumerated rather than spot-checked, for M5b's reason: a list of the tools
+    that exist today proves nothing about the one added tomorrow. An unlisted
+    tool fails here on the day it is registered.
+    """
+    async with connected(server) as session:
+        listed = await session.list_tools()
+
+    registered = {tool.name for tool in listed.tools}
+
+    unclassified = registered - set(_TOOL_KINDS)
+    assert not unclassified, (
+        "these tools have no entry in `_TOOL_KINDS` — add one, and note that "
+        "'decides' is not an available kind (I5): " + str(sorted(unclassified))
+    )
+
+    stale = set(_TOOL_KINDS) - registered
+    assert not stale, f"`_TOOL_KINDS` names tools that no longer exist: {sorted(stale)}"
+
+    assert sorted(name for name, kind in _TOOL_KINDS.items() if kind == "proposes") == [
+        "capture_posting"
+    ], "a second tool now writes on the reader's behalf; M5's consent step needs re-arguing"
+
+
+@_async
+async def test_the_capture_tool_tells_the_model_it_cannot_confirm(server: MCPServer) -> None:
+    """The other half, and it is not redundant with the test above.
+
+    A tool surface can be correct and still mislead: `capture_posting` could
+    exist, write only `pending` rows, and be described in a way that lets a
+    model announce *"I've added it to Nightshift"*. The reader would then
+    believe a decision was made that was not. The description is the only place
+    that misunderstanding can be prevented, so its content is asserted rather
+    than assumed — it must say the reader decides, and it must say this tool
+    cannot.
+    """
+    async with connected(server) as session:
+        listed = await session.list_tools()
+
+    capture = next(tool for tool in listed.tools if tool.name == "capture_posting")
+    description = (capture.description or "").lower()
+
+    assert "cannot confirm it yourself" in description
+    assert "proposal" in description
