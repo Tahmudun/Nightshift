@@ -8,6 +8,9 @@ local file is a suite that passes on one machine and fails in CI, so every
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
@@ -252,17 +255,132 @@ async def store_score(
     return result
 
 
+async def _ensure_test_database(settings: Settings) -> None:
+    """Create the suite's database if this machine has never run the suite.
+
+    ``CREATE DATABASE`` cannot run inside a transaction, hence ``AUTOCOMMIT``.
+    The maintenance connection goes to ``postgres``, the database every server
+    has, because the one we want may not exist yet.
+    """
+    # The query string is carried over rather than dropped: on a server that
+    # requires `?ssl=require`, a maintenance connection without it does not
+    # connect, and the failure would read as "database unreachable" on the one
+    # machine that has never run the suite.
+    base, _, query = settings.test_database_url.partition("?")
+    admin_url = base.rsplit("/", 1)[0] + "/postgres" + (f"?{query}" if query else "")
+    admin = create_async_engine(admin_url, future=True, isolation_level="AUTOCOMMIT")
+    try:
+        async with admin.connect() as connection:
+            exists = await connection.scalar(
+                text("SELECT 1 FROM pg_database WHERE datname = :name"),
+                {"name": settings.postgres_test_db},
+            )
+            if not exists:
+                # The name comes from settings, not from a test, and Postgres
+                # has no bind parameters in DDL. Quoted so an unusual but legal
+                # name cannot break the statement.
+                await connection.execute(text(f'CREATE DATABASE "{settings.postgres_test_db}"'))
+    finally:
+        await admin.dispose()
+
+    await _install_extensions(settings)
+
+
+def _read_extension_statements() -> tuple[str, ...]:
+    """The statements in `infra/postgres/init/001-extensions.sql`.
+
+    Read at import rather than inside the async fixture, so there is no
+    blocking file I/O on the event loop to either commit or apologise for with
+    a `noqa`.
+
+    Comments are stripped line by line *before* splitting on ";". Splitting
+    first and then discarding chunks that begin with "--" would discard the
+    `postgis` statement, because the file's header comment shares a chunk with
+    it — and PostGIS is the one extension whose absence is fatal.
+    """
+    sql_path = (
+        Path(__file__).resolve().parents[3] / "infra" / "postgres" / "init" / "001-extensions.sql"
+    )
+    body = "\n".join(
+        line
+        for line in sql_path.read_text(encoding="utf-8").splitlines()
+        if not line.strip().startswith("--")
+    )
+    return tuple(chunk.strip() for chunk in body.split(";") if chunk.strip())
+
+
+#: Replayed against the test database, rather than the list being retyped here,
+#: because two copies of it drift and the way you find out is a migration that
+#: only fails on a machine which has never run the suite before.
+EXTENSION_STATEMENTS = _read_extension_statements()
+
+
+async def _install_extensions(settings: Settings) -> None:
+    """Give the test database the extensions the dev one gets for free.
+
+    `infra/postgres/init/001-extensions.sql` runs once per *cluster*, against
+    the database named in compose, so a second database created later has no
+    PostGIS and the first migration fails on `type "geometry" does not exist`.
+    """
+    statements = EXTENSION_STATEMENTS
+    engine = create_async_engine(
+        settings.test_database_url, future=True, isolation_level="AUTOCOMMIT"
+    )
+    try:
+        async with engine.connect() as connection:
+            for statement in statements:
+                await connection.execute(text(statement))
+    finally:
+        await engine.dispose()
+
+
+def _migrate_test_database(settings: Settings) -> None:
+    """``alembic upgrade head`` against the test database, in a subprocess.
+
+    A subprocess because ``migrations/env.py`` reads ``get_settings()``, which
+    is ``lru_cache``d and already populated in this process by the time a
+    fixture runs. Overriding ``DATABASE_URL`` in a child is honest; reaching
+    into another module's cache is not.
+    """
+    api_dir = Path(__file__).resolve().parent.parent
+    env = {**os.environ, "DATABASE_URL": settings.test_database_url}
+    result = subprocess.run(
+        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        cwd=api_dir,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            "could not migrate the test database "
+            f"({settings.postgres_test_db}):\n{result.stdout}\n{result.stderr}"
+        )
+
+
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def db_engine() -> AsyncIterator[AsyncEngine]:
-    """One engine per test session, bound to the project's own settings.
+    """One engine per test session, bound to the suite's **own** database.
 
     `Settings()` (not `make_settings()`) deliberately reads the real
     environment here: these tests need the actual running Postgres, not a
     hermetic stand-in. Its defaults already match this project's `.env`
-    (`localhost:5433/nightshift`), so it works whether or not `.env` is
-    visible from the test process's working directory.
+    (`localhost:5433`), so it works whether or not `.env` is visible from the
+    test process's working directory.
+
+    It binds to `test_database_url`, never `async_database_url`. One test in
+    this suite commits and truncates twenty-one tables, by necessity — see
+    `tests/test_the_suite_has_its_own_database.py` for why that is correct and
+    why it may not happen in the database a person keeps their corpus in.
     """
-    url = Settings().async_database_url
+    settings = Settings()
+    url = settings.test_database_url
+    try:
+        await _ensure_test_database(settings)
+    except (OSError, OperationalError) as exc:
+        pytest.skip(f"database unreachable ({url}): {exc}")
+    _migrate_test_database(settings)
     engine = create_async_engine(url, future=True)
     try:
         async with engine.connect() as connection:
