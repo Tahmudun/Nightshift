@@ -33,7 +33,9 @@
 **M4c Task 5 is done: the city speaks §6, and says what it is saying.** The table is one pure function (`treatments.ts`), the beacons carry per-instance colour, strength and pulse rate through a shader, four instanced meshes draw the marks §6 puts *on* a body, and an in-interface legend documents all thirteen rows — including the four that are not drawn, each with its reason. ADR 0028. `docs/reviews/milestone-4c-treatments.png` is the screenshot. Three defects were found by looking rather than by a test: a closed torus whose rotation was invisible by construction, a spin folded into the billboard that rolled every arc out of the camera plane, and a saved outline drawn cyan — which is exactly what ADR 0027's standing instruction ruled out.
 **M4c: Tasks 1, 2, 3 and 4 are done. The placement join and `GET /city/signals` (ADR 0024, which resolves a real conflict between I1 and `city.md` §4.4 rather than papering over it), the Three.js signal layer in MapLibre's own context (ADR 0025), and the field made legible, navigable and sortable. New York now has every open role floating above it, untethered, and none on a building — see `docs/reviews/milestone-4c-signals.png` and `docs/reviews/milestone-4c-roster.png`. Task 4 then made a role reachable: picking by raycast against the frame's own matrix, a reticle, a detail panel, and one selection shared by the list and the map (ADR 0027) — `docs/reviews/milestone-4c-selection.png`.**
 **Docker's daemon is no longer wedged.** It was force-quit and relaunched on 2026-08-12. `make up` was then run **from cold** — containers removed with `docker compose down` first — and created both from scratch to healthy, exit 0. **That closes the last open step in M4b's acceptance chain**; container startup is now proven rather than assumed. The seeded corpus survived and matches what this file records: 31 canonical jobs, 62 `job_locations`, 44 `city_only` + 18 `remote`, 0 mappable.
-**Current milestone: M5 — The Open Hand (A16). M5a, M5b and M5c are merged, including M5c's Claude Desktop deviation (PR #20, `0765381`). M5d is COMPLETE — all six tasks, walk included — on `m5d-assisted-capture` at `d37e83c`; [PR #21](https://github.com/Tahmudun/Nightshift/pull/21) is open with all five CI jobs green.**
+**Current milestone: M6 — The Archipelago (A16). BLOCKED on Q14 — 43% of the now-real corpus is physically in another city and has no home in the Island's design. `main` is at `a622750`; [PR #24](https://github.com/Tahmudun/Nightshift/pull/24) is open. See "Next exact action".**
+
+**Superseded (kept for the record): Current milestone: M5 — The Open Hand (A16). M5a, M5b and M5c are merged, including M5c's Claude Desktop deviation (PR #20, `0765381`). M5d is COMPLETE — all six tasks, walk included — on `m5d-assisted-capture` at `d37e83c`; [PR #21](https://github.com/Tahmudun/Nightshift/pull/21) is open with all five CI jobs green.**
 **M5 itself is NOT closed.** Its four acceptance criteria have not been walked as a milestone — only the four slices' own. That walk, and the merge, are what stand between here and M6. See "Next exact action".
 **M5: CLOSED. All four acceptance criteria walked with evidence on 2026-08-24 — `docs/reviews/milestone-5-acceptance.md`. One of the four was not met and was fixed in the walk.**
 - **Criterion 1 (two users cannot see each other's data) — met**, and shown able to fail twice: removing the ownership filter from `applications.py`'s one loader failed 7 of 94, including a `POST .../interviews` that returned **201** writing onto somebody else's application; removing the router-level `require_session` let **12 of the 43 protected routes** answer a stranger, and *which* twelve is the finding — the shared-corpus ones that have no `CurrentUserId` to protect them.
@@ -847,6 +849,49 @@ last rung of the three rather than the next.
 ---
 
 ## Next exact action
+
+### Current milestone: **M6 — The Archipelago. BLOCKED on Q14, which is the human's to answer.**
+
+> **START HERE, NEXT SESSION.** `main` is at `a622750` — PR #22 (M5 acceptance)
+> and PR #23 (Q8) both merged. [PR #24](https://github.com/Tahmudun/Nightshift/pull/24)
+> is open on `location-split-depth` with the location-splitter fix.
+>
+> **M6 cannot be designed until Q14 is answered.** The corpus is now real —
+> **1200 jobs, 23 companies, 22 boards, 0 failures** — and it says something
+> the fixture corpus could not: **521 roles, 43%, are physically in another
+> city** (San Francisco, London, Toronto, Miami, Barcelona). The Island as
+> specified holds remote and address-unknown roles — that is 384, and it works.
+> The 521 have no home in the design, cannot go on a New York building, and are
+> not location-less. Island / filter / literal regions: see Q14. **The
+> recommendation on file is the filter, at the canonical-job layer rather than
+> the adapter**, so `source_job_records` keeps everything and reversing it is a
+> backfill rather than a re-crawl.
+>
+> **What was done this session, in order:** M5 merged; the corpus measured and
+> found to be 31 fixtures plus one capture, which is why M6 did not start; Q8
+> answered and shipped (`nightshift_test`); the first live polling pass this
+> project has ever run; a fabricated-location defect found in it and fixed; the
+> 80 damaged rows repaired from stored raw payloads.
+>
+> **Two gaps found and not yet closed:**
+>
+> - **`make ingest` reaches 2 of 23 registered boards.** It hardcodes
+>   `pollable(ats="greenhouse")`, and the registry is 20 Ashby, 2 Greenhouse, 1
+>   Lever. The ATS-general path is the worker's (`poll_board` → `adapter_for`);
+>   **two of the three adapters M1 built have no live CLI entry point at all.**
+>   The pass that filled the corpus used a throwaway script driving
+>   `poll_one_board` with one shared `PoliteClient`, which is the property that
+>   keeps the per-host rate limit honest across a back-to-back loop. That script
+>   is not in the repo and the gap is real.
+> - **`make test-e2e` cannot pass on a machine where the API is running, and
+>   nothing says so** (carried over from M5, still true).
+>
+> **Also still open:** Q13, Q12, Q11, Q10, Q9, Q7, Q6. `OUTBOUND_HTTP_ENABLED`
+> is now `true` in the local `.env` (gitignored; the repo's offline guarantee
+> is untouched), so this machine's worker will poll live boards on schedule.
+
+---
+
 
 ### Current milestone: **M5 — The Open Hand. CLOSED.** All four acceptance criteria walked with evidence on `main` at `079749b`. One of them failed and was fixed. `docs/reviews/milestone-5-acceptance.md`.
 
