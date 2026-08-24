@@ -29,6 +29,9 @@ interface Signals {
   readonly signals: readonly {
     readonly job_id: string;
     readonly company_name: string;
+    // M5's capture badge. Whether a person pasted this role in rather than a
+    // poller finding it — recorded fact, read off the `manual_capture` source.
+    readonly captured: boolean;
     readonly placement: { readonly kind: string };
   }[];
 }
@@ -1022,3 +1025,64 @@ async function drawnJobIds(page: Page): Promise<string[]> {
     return ids;
   }, CITY_DEBUG_KEY);
 }
+
+test('a posting somebody pasted in is on the map, and the map says so', async ({ page }) => {
+  /**
+   * **M5's second acceptance criterion, in the browser it is a claim about.**
+   *
+   * *"A pasted posting appears on the map with a capture badge."* Walking M5
+   * found the first half true and the second half untestable: `/city/signals`
+   * carried no provenance, so a role somebody pasted in reached the renderer
+   * indistinguishable from one a poller found, and the only "added by hand"
+   * badge in the product was on `/explore/jobs/[id]` — one click away, which is
+   * not the map.
+   *
+   * `CityDetail.test.tsx` proves the badge renders when the flag is set, and
+   * `test_city_routes.py` proves the flag is set for the right role. Neither
+   * can prove the two halves are wired to each other through a real payload,
+   * a real Zod parse and a real page — which is what this does, against the
+   * confirmed capture `make seed` plants through `create_capture` and
+   * `confirm_capture` (see `seed_demo_capture`).
+   *
+   * **The control is in here rather than in a second test** because it is the
+   * assertion that catches the likeliest regression: a badge rendered
+   * unconditionally would pass the first half and put "added by hand" on the
+   * whole corpus. So the polled role is asserted in the same run, on the same
+   * page, one selection later.
+   */
+  const body = await signalsFromApi();
+  const captured = body.signals.filter((signal) => signal.captured);
+  const polled = body.signals.find((signal) => !signal.captured);
+
+  expect(
+    captured.length,
+    'the seeded corpus holds no confirmed capture — `make seed` plants one; ' +
+      'without it the assertions below would pass over nothing',
+  ).toBeGreaterThan(0);
+  expect(
+    polled,
+    'every role in the corpus is a capture, so the control proves nothing',
+  ).toBeDefined();
+
+  await page.goto(`/explore/city?job=${captured[0]!.job_id}`);
+  await expect(page.getByRole('button', { name: 'Reset view' })).toBeVisible({ timeout: 60_000 });
+  await cityHasSignals(page);
+
+  // It is on the map at all — the first half, and the reason `drawnJobIds` is
+  // read rather than trusting that a selected role is a drawn one.
+  expect(await drawnJobIds(page)).toContain(captured[0]!.job_id);
+
+  const panel = page.getByTestId('city-detail');
+  await expect(panel).toBeVisible({ timeout: 30_000 });
+  await expect(panel.getByTestId('city-captured-badge')).toHaveText('added by hand');
+  // Nothing polled it, so the panel must not say ingestion found it.
+  await expect(panel).toContainText(/Pasted in and confirmed/);
+  await expect(panel).not.toContainText(/First seen by ingestion/);
+
+  // The control, on the same page: a role a poller found carries no badge.
+  await page.goto(`/explore/city?job=${polled!.job_id}`);
+  await cityHasSignals(page);
+  await expect(panel).toBeVisible({ timeout: 30_000 });
+  await expect(panel.getByTestId('city-captured-badge')).toHaveCount(0);
+  await expect(panel).toContainText(/First seen by ingestion/);
+});

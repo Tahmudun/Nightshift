@@ -1242,6 +1242,16 @@ export const citySignalSchema = z.object({
   last_verified_at: z.string().datetime({ offset: true }).nullable(),
   /** The second half of §6's gold. Null on almost every posting. */
   application_deadline: z.string().datetime({ offset: true }).nullable(),
+  /**
+   * Whether a person pasted this role in rather than a poller finding it.
+   *
+   * Recorded fact, read on the server off the `manual_capture` source every
+   * confirmed capture is attributed to — never inferred from the text. ADR
+   * 0039 §5 draws the line: *whether* a posting arrived by hand is written
+   * down, *which website* it came from is not, and the map claims only the
+   * first.
+   */
+  captured: z.boolean(),
   placement: placementSchema,
 });
 export type CitySignal = z.infer<typeof citySignalSchema>;

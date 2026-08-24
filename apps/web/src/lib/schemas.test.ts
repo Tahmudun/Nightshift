@@ -745,6 +745,7 @@ describe('citySignalSchema — the two observations §6 keeps apart', () => {
     last_seen_at: '2026-08-10T00:00:00Z',
     last_verified_at: '2026-07-02T00:00:00Z',
     application_deadline: null,
+    captured: false,
     placement: {
       kind: 'unresolved' as const,
       latitude: null,
@@ -779,5 +780,21 @@ describe('citySignalSchema — the two observations §6 keeps apart', () => {
       application_deadline: '2026-08-20T00:00:00Z',
     });
     expect(parsed.application_deadline).toBe('2026-08-20T00:00:00Z');
+  });
+
+  it('refuses a signal that does not say whether it was pasted in', () => {
+    // Required rather than defaulted to `false`, and that is the whole point.
+    // A default would let the server drop the field — renamed, or a route
+    // somebody forgets to update — and the map would go on rendering every
+    // captured role as polled, silently and forever. Zod is the only place
+    // that mismatch can be made loud.
+    const withoutIt: Record<string, unknown> = { ...signal };
+    delete withoutIt.captured;
+
+    expect(() => citySignalSchema.parse(withoutIt)).toThrow(/captured/);
+  });
+
+  it('carries the fact that a person pasted this role in', () => {
+    expect(citySignalSchema.parse({ ...signal, captured: true }).captured).toBe(true);
   });
 });
