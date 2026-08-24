@@ -35,7 +35,49 @@ from nightshift.db.base import LocationConfidence, ResolutionMethod
 
 # ATS providers delimit multiple locations with ';' (Greenhouse, Ashby) or
 # occasionally '|' (some Lever boards).
-_SEGMENT_SPLIT = re.compile(r"\s*[;|]\s*")
+_SEGMENT_DELIMITERS = frozenset(";|")
+
+#: Delimiters are only delimiters at the top level. Providers also use them
+#: *inside* a parenthetical annotation as an ordinary list separator, and there
+#: the same character separates two countries one role is remote across rather
+#: than two places one posting is in.
+_SEGMENT_NESTING = {"(": ")", "[": "]"}
+
+
+def _split_segments(raw: str) -> list[str]:
+    """Split a location string on ';' or '|', but only at nesting depth zero.
+
+    The first live polling pass this project ran (2026-08-24) found
+    ``"Remote (United States | Canada)"`` on a real Ashby board. Splitting it
+    on the pipe produced ``"Remote (United States"`` and ``"Canada)"`` — the
+    second a **fabricated location**, named after half a parenthetical, at 40
+    of the first 312 jobs. I1 forbids inventing a location; a row that exists
+    for a place that does not is exactly that, whatever confidence it carries.
+
+    Depth rather than a character exemption, because the same shape appears
+    with ``;`` and the fix should not have to be found twice. Unbalanced input
+    is not rejected — a stray ``)`` in real board data should degrade to "no
+    split here", never to an exception on the ingestion path — so a closer with
+    nothing open is treated as an ordinary character.
+    """
+    segments: list[str] = []
+    current: list[str] = []
+    # The stack *is* the depth. A separate counter would be a second source of
+    # truth for one fact, and the two drift the first time a branch is added.
+    closers: list[str] = []
+    for char in raw:
+        if char in _SEGMENT_NESTING:
+            closers.append(_SEGMENT_NESTING[char])
+        elif closers and char == closers[-1]:
+            closers.pop()
+        elif char in _SEGMENT_DELIMITERS and not closers:
+            segments.append("".join(current))
+            current = []
+            continue
+        current.append(char)
+    segments.append("".join(current))
+    return [segment.strip() for segment in segments]
+
 
 # "Remote", "Remote - Anywhere", "Remote (US)", "Fully Remote".
 _REMOTE_TOKEN = re.compile(r"^(?:fully\s+|100%\s+)?remote\b", re.IGNORECASE)
@@ -583,7 +625,7 @@ def parse_location_list(segments: Sequence[str]) -> list[ParsedLocation]:
     cleaned: list[str] = []
     seen: set[str] = set()
     for chunk in segments:
-        for piece in _SEGMENT_SPLIT.split(chunk or ""):
+        for piece in _split_segments(chunk or ""):
             text = " ".join(piece.split())
             if not text:
                 continue
@@ -613,7 +655,7 @@ def parse_location_field(raw: str | None) -> list[ParsedLocation]:
     real location the posting names, so ordering affects sorting and never
     correctness.
     """
-    return parse_location_list(_SEGMENT_SPLIT.split(raw or ""))
+    return parse_location_list(_split_segments(raw or ""))
 
 
 def infer_remote_policy(locations: list[ParsedLocation]) -> str:
