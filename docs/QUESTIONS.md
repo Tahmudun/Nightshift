@@ -7,6 +7,57 @@ the date, because the reasoning is usually worth more than the decision.
 
 ---
 
+## Q14 — 43% of the corpus is in another city. Island, filter, or regions?
+
+**Raised:** 2026-08-24 (first live polling pass) · **Type:** product, and it
+changes what M6 is · **Blocking:** yes, for M6
+
+The first live pass filled the corpus from 32 jobs to **1200**. Measured on it:
+
+| | Jobs | Share |
+|---|---|---|
+| **Total** | **1200** | |
+| In New York | 295 | 24.6% |
+| Not in New York | 905 | 75.4% |
+| — remote or address-unknown | 384 | 32.0% |
+| — **physically in another city** | **521** | **43.4%** |
+
+M6's Island is specified to hold "every remote and address-unknown role" —
+that is the 384, and it works. **The 521 have no home in the design.** They are
+in San Francisco, London, Toronto, Miami, Barcelona. They cannot go on a New
+York building, and calling them location-less is false: their location is known
+and it is Dublin. Nothing filters postings to NYC at ingestion, and neither
+`city.md` nor A16 says what the renderer should do with them.
+
+This is not answerable by measuring more. Three shapes, and they are genuinely
+different products:
+
+- **The Island absorbs "not this city" as well as "no address".** Cheapest, and
+  it makes the Island mean two things at once — which is exactly the kind of
+  overloaded signal I1 exists to prevent. A role in London and a role that is
+  remote-anywhere are not the same fact.
+- **Ingestion filters to NYC, and the coverage page says what was dropped.**
+  Honest, and it makes the corpus match the product's name. It also throws away
+  75% of what these boards publish, and forecloses M12 (Continental) arriving
+  as anything but a re-ingest.
+- **Regions become literal — other cities get drawn.** The most ambitious, and
+  the closest to what "The Archipelago" already sounds like. It is also the
+  largest amount of work in the milestone by some distance.
+
+**My recommendation is the second, with a caveat.** Nightshift is "live career
+intelligence for New York tech"; a corpus that is three-quarters not-New-York
+is not that product, and the filter is the only option that makes the numbers
+on every other screen mean what they say. The caveat is that the filter belongs
+at the **canonical-job** layer and not at the adapter: `source_job_records`
+should keep everything the board published, so that turning the filter off
+later is a backfill rather than a re-crawl — the same property that made
+today's location repair possible without touching the network.
+
+**What I need from you:** which of the three. The measurement is done and
+nothing else in M6 can be designed until this is settled.
+
+---
+
 ## Q13 — A capture from LinkedIn cannot say it came from LinkedIn. Press for the URL, infer it, or accept it?
 
 **Raised:** 2026-08-24 (M5d, task 6.2's live walk) · **Answered:** 2026-08-24 · **Type:** product · **Blocking:** no

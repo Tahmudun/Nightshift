@@ -33,13 +33,60 @@
 **M4c Task 5 is done: the city speaks §6, and says what it is saying.** The table is one pure function (`treatments.ts`), the beacons carry per-instance colour, strength and pulse rate through a shader, four instanced meshes draw the marks §6 puts *on* a body, and an in-interface legend documents all thirteen rows — including the four that are not drawn, each with its reason. ADR 0028. `docs/reviews/milestone-4c-treatments.png` is the screenshot. Three defects were found by looking rather than by a test: a closed torus whose rotation was invisible by construction, a spin folded into the billboard that rolled every arc out of the camera plane, and a saved outline drawn cyan — which is exactly what ADR 0027's standing instruction ruled out.
 **M4c: Tasks 1, 2, 3 and 4 are done. The placement join and `GET /city/signals` (ADR 0024, which resolves a real conflict between I1 and `city.md` §4.4 rather than papering over it), the Three.js signal layer in MapLibre's own context (ADR 0025), and the field made legible, navigable and sortable. New York now has every open role floating above it, untethered, and none on a building — see `docs/reviews/milestone-4c-signals.png` and `docs/reviews/milestone-4c-roster.png`. Task 4 then made a role reachable: picking by raycast against the frame's own matrix, a reticle, a detail panel, and one selection shared by the list and the map (ADR 0027) — `docs/reviews/milestone-4c-selection.png`.**
 **Docker's daemon is no longer wedged.** It was force-quit and relaunched on 2026-08-12. `make up` was then run **from cold** — containers removed with `docker compose down` first — and created both from scratch to healthy, exit 0. **That closes the last open step in M4b's acceptance chain**; container startup is now proven rather than assumed. The seeded corpus survived and matches what this file records: 31 canonical jobs, 62 `job_locations`, 44 `city_only` + 18 `remote`, 0 mappable.
-**Current milestone: M5 — The Open Hand (A16). M5a, M5b and M5c are merged, including M5c's Claude Desktop deviation (PR #20, `0765381`). M5d is COMPLETE — all six tasks, walk included — on `m5d-assisted-capture` at `d37e83c`; [PR #21](https://github.com/Tahmudun/Nightshift/pull/21) is open with all five CI jobs green.**
+**Current milestone: M6 — The Archipelago (A16). BLOCKED on Q14 — 43% of the now-real corpus is physically in another city and has no home in the Island's design. `main` is at `a622750`; [PR #24](https://github.com/Tahmudun/Nightshift/pull/24) is open. See "Next exact action".**
+
+**Superseded (kept for the record): Current milestone: M5 — The Open Hand (A16). M5a, M5b and M5c are merged, including M5c's Claude Desktop deviation (PR #20, `0765381`). M5d is COMPLETE — all six tasks, walk included — on `m5d-assisted-capture` at `d37e83c`; [PR #21](https://github.com/Tahmudun/Nightshift/pull/21) is open with all five CI jobs green.**
 **M5 itself is NOT closed.** Its four acceptance criteria have not been walked as a milestone — only the four slices' own. That walk, and the merge, are what stand between here and M6. See "Next exact action".
 **M5: CLOSED. All four acceptance criteria walked with evidence on 2026-08-24 — `docs/reviews/milestone-5-acceptance.md`. One of the four was not met and was fixed in the walk.**
 - **Criterion 1 (two users cannot see each other's data) — met**, and shown able to fail twice: removing the ownership filter from `applications.py`'s one loader failed 7 of 94, including a `POST .../interviews` that returned **201** writing onto somebody else's application; removing the router-level `require_session` let **12 of the 43 protected routes** answer a stranger, and *which* twelve is the finding — the shared-corpus ones that have no `CurrentUserId` to protect them.
 - **Criterion 2 (a pasted posting on the map with a capture badge) — the idempotence half was met and the map half was not.** `/city/signals` carried no provenance, so a role somebody pasted in reached the renderer indistinguishable from one a poller found; the `added by hand` badge existed only on `/explore/jobs/[id]`, **one click away, which is not the map**. The panel also said *"First seen by ingestion"* about a role ingestion never saw. Fixed: `CitySignalOut.captured` (one grouped join on the `manual_capture` source — recorded fact, ADR 0039 §5, never inferred), a **required** `citySignalSchema.captured` so server and client cannot drift, and the badge plus an honest date line in `CityDetail.tsx`. Tested at three levels, **every one with a polled control**, because a badge rendered unconditionally passes the captured case and puts "added by hand" on the whole corpus — which is exactly what the API sabotage produced.
 - **Criterion 3 (no parsed fact stored as confirmed without a user action) — met** at the database (two check constraints), the application (`proposed_*` columns, the reader's values on confirm) and the interface (`Decide later`, the third exit). **Two guards added** where it was most likely to erode: `test_mcp_server.py` now enumerates the MCP tools and requires each to be `reads` or `proposes` with **no third kind**, and asserts `capture_posting`'s description still tells the model it cannot confirm. Prose was doing that job alone.
 - **Criterion 4 (Claude Desktop connects and captures end to end) — met** by `milestone-5c-desktop-walk.md` and `milestone-5d-walk.md`, with the latter's stated limit intact: the model-behaviour half is the reader's report, because the transcript was not captured.
+
+
+**2026-08-24 (second session) — M5 merged, Q8 closed, and the corpus filled for the first time. The fill immediately found a location bug no fixture could have.**
+
+**M5 is merged.** PR #22, `main` at `e5529ee`. The acceptance branch had been committed but never pushed.
+
+**M6 was not started, because its precondition was not met, and measuring that is what this session is mostly about.** A16's ordering rule — *data before rendering* — names the two times this project tuned a look against a corpus too small to reveal how it reads (20 lit roles, then 31). The database held **32 jobs: 31 committed fixtures and one manual capture**. `greenhouse`, `lever` and `ashby` had **zero `source_job_records` between them**, and `make ingest` appears nowhere in this file's history. The Island is specified to house "every remote and address-unknown role"; that was **19 rows**. Designing the Archipelago against it would have been the third repetition. The human chose to fill the corpus first.
+
+**Q8 is ANSWERED and shipped — [PR #23](https://github.com/Tahmudun/Nightshift/pull/23), branch `q8-test-database`.** The suite gets its own database, `nightshift_test`.
+- **The culprit is not the fixture everyone suspected.** `db_session` truncates inside a transaction it rolls back and is innocent. `tests/test_merge_concurrency.py::_cleanup` runs `TRUNCATE` over twenty-one tables inside `session.begin()`, **which commits** — including `jobs`, `companies`, `captured_postings`, `applications` and `geocode_cache`. Three tests, every `make check`.
+- **That test is right to commit.** It observes two concurrent transactions merging the same pair of jobs, which cannot be seen from inside a rolled-back transaction, and it cleans up with `TRUNCATE` because `job_merge_events` is append-only and refuses a `DELETE` — M1b's trigger working as intended. The fix is not to stop it committing; it is to stop it committing *here*.
+- **It cost ~40 lines, not the workflow migration the question feared, because the lever is one fixture.** Every committing test reaches Postgres through `db_engine`, so moving `db_engine` moved all of them at once. No ADR, no change to `make test`, no change to the CI job — the database is created and migrated on first use.
+- **Two things the question did not anticipate.** A new database has none of the extensions the cluster init script gives the first one, so the first migration dies on `type "geometry" does not exist`; `001-extensions.sql` is now **read and replayed** rather than its list retyped. And `test_database_url` had to be derived from `async_database_url` by **replacing the database name** rather than rebuilt from the `POSTGRES_*` fields — `DATABASE_URL` overrides those, so the rebuilt form would have isolated the suite on a laptop and **not at all in CI**, which is a guard that passes for the wrong reason.
+- **Evidence:** `jobs` in the dev database read **32 before** `test_merge_concurrency` and **32 after**; the full suite (**2253 passed, exit 0**) left it at 32 while `nightshift_test` took every write. Both guards shown able to fail by making `test_database_url` return `async_database_url`.
+
+**The first live polling pass this project has ever run.** Not `make ingest` — that hardcodes `pollable(ats="greenhouse")` and reaches **2 of the 23 registered boards**, because the registry is 20 Ashby, 2 Greenhouse, 1 Lever. **The ATS-general path is the worker's** (`poll_board` → `adapter_for`), so the pass drove that instead, sharing **one `PoliteClient` across all boards** so the per-provider-host rate limit holds across the whole run — a client per board would reset the limiter and hit Ashby twenty times faster than the ceiling allows. That gap is worth recording on its own: **two of the three adapters M1 built have no live entry point in the CLI at all.**
+
+**The defect the real data found within seven boards: a delimiter inside a parenthetical was splitting one location into two, and inventing a place.**
+- 1Password's Ashby board writes a multi-country remote role as **`"Remote (United States | Canada)"`**. The pipe is a list separator *inside an annotation*, not a delimiter between two locations. `_SEGMENT_SPLIT = re.compile(r"\s*[;|]\s*")` carries `|` because some Lever boards genuinely delimit with it.
+- The result was two rows: **`"Remote (United States"`** at `remote`, and **`"Canada)"`** at `unknown`. The second is a **fabricated location** — a place named after half a parenthetical — on **40 of the first 312 jobs**, every one of them destined for the Island as an address-unknown role that does not exist. **I1 forbids inventing a location; a row that exists for a place that does not is exactly that, whatever confidence it carries.**
+- **No fixture contains that string**, which is the entire argument for filling the corpus before designing anything on top of it.
+- Fixed by splitting **only at nesting depth zero** (`_split_segments`), written depth-based rather than as a pipe exemption because the same shape occurs with `;`. Unbalanced input degrades to "no split here" rather than raising on the ingestion path. Three fixture cases written first: the real 1Password string, the `;` variant, and **a control proving a depth-zero pipe still separates two real places** — the first two went red, the control was green throughout.
+- **The repair is a backfill, not a re-poll.** ADR 0007's conditional polling means an unchanged board answers `304` and re-parses nothing, so the bad rows would survive every future poll. `RawJob.payload`'s own docstring promised this case — *"a normalization bug is a backfill rather than a re-crawl"* — and this is the first time that promise has been cashed.
+
+**The pass completed: 22 of 22 boards, 0 failures, 0 raised.** The corpus went from **32 jobs to 1200**, across **23 companies** and **1831 `job_locations` rows**. Dedupe ran on real data for the first time and merged genuine duplicates by all three of its reasons — `same_canonical_url` (1.0), `identical_content` (0.99) and `similar_description` (0.95).
+
+**The repair ran and is verified independently.** 40 jobs repaired, **0 refused**, and a direct SQL count confirms **0 unbalanced rows remain**. The script asserts that itself before committing, so it cannot report success on a partial repair. Two defects in its own first draft were caught by the dry run and are worth recording, because both are the failure mode this project reviews for:
+- It compared stored rows to a re-parse as **ordered sequences**, so 96 jobs looked changed when only their read order differed — it would have rewritten 96 jobs to change nothing.
+- **`_replace_locations` rewrites a job's locations from ONE source record**, but a merged job's locations are a union across several. The dry run caught a job losing `Toronto, ON` — a real location, silently dropped. The rewrite selects on the defect's own signature (unbalanced parentheses) and **refuses** a job with more than one source record rather than guessing. Measured first: of the 40 damaged jobs, **zero were multi-source**, which is what made the targeted path safe.
+
+**THE THREE NUMBERS M6 NEEDS, measured 2026-08-24 on the real corpus.**
+
+| | Jobs | Share |
+|---|---|---|
+| **Total** | **1200** | |
+| In New York | **295** | 24.6% |
+| Not in New York | **905** | 75.4% |
+| — of those, remote or address-unknown | **384** | 32.0% |
+| — of those, **physically in another city** | **521** | **43.4%** |
+
+`location_confidence` across all 1831 location rows: `city_only` **1228**, `unknown` **322**, `remote` **281**.
+
+**The NYC share is 24.6%, against city.md §4.1's fixture-measured 23.5% — the one prediction from the small corpus that held.**
+
+**The finding that M6 has to answer, and it is a product decision rather than an engineering one.** The Island as specified holds "every remote and address-unknown role" — that is the 384. But **521 roles, 43% of the corpus, are physically in San Francisco, London, Toronto, Miami or Barcelona.** They are neither placeable on a New York building nor honestly describable as location-less. Nothing filters postings to NYC at ingestion, and nothing in `city.md` or A16 says what the renderer should do with them. Three shapes are possible — the Island absorbs "not this city" as well as "no address"; ingestion drops non-NYC postings and the coverage page says so; or regions become literal and other cities are drawn. **This is Q14.** It cannot be answered by measuring, and it changes what M6 is.
 
 **M5d — assisted capture from LinkedIn and Indeed. All six tasks done, including task 6.2's live walk against a real LinkedIn page.** Plan: `docs/plans/2026-08-22-m5d-assisted-capture.md`. Decisions: **ADR 0039**, five sections — §5 was added 2026-08-24 when the walk produced Q13.
 - **§1 — the page is read by the reader, not by us.** `board-discovery.md` §9's *no* stands; what changed is who does the reading. `captured_postings.source_url` carried the comment *"Never fetched"* and nothing enforced it. Now two guards, each shown able to fail: a transport guard that unplugs httpx and drives paste → read → confirm (`httpx.get(source_url)` in `create_capture` → *"the capture path reached the network: https://www.linkedin.com/jobs/view/4012345678/"*), and an AST guard that refuses a job-board host in any non-docstring string literal (a `BOARD_BASE` constant → *"domain/capture.py holds a job-board host in a string literal"*).
@@ -802,6 +849,49 @@ last rung of the three rather than the next.
 ---
 
 ## Next exact action
+
+### Current milestone: **M6 — The Archipelago. BLOCKED on Q14, which is the human's to answer.**
+
+> **START HERE, NEXT SESSION.** `main` is at `a622750` — PR #22 (M5 acceptance)
+> and PR #23 (Q8) both merged. [PR #24](https://github.com/Tahmudun/Nightshift/pull/24)
+> is open on `location-split-depth` with the location-splitter fix.
+>
+> **M6 cannot be designed until Q14 is answered.** The corpus is now real —
+> **1200 jobs, 23 companies, 22 boards, 0 failures** — and it says something
+> the fixture corpus could not: **521 roles, 43%, are physically in another
+> city** (San Francisco, London, Toronto, Miami, Barcelona). The Island as
+> specified holds remote and address-unknown roles — that is 384, and it works.
+> The 521 have no home in the design, cannot go on a New York building, and are
+> not location-less. Island / filter / literal regions: see Q14. **The
+> recommendation on file is the filter, at the canonical-job layer rather than
+> the adapter**, so `source_job_records` keeps everything and reversing it is a
+> backfill rather than a re-crawl.
+>
+> **What was done this session, in order:** M5 merged; the corpus measured and
+> found to be 31 fixtures plus one capture, which is why M6 did not start; Q8
+> answered and shipped (`nightshift_test`); the first live polling pass this
+> project has ever run; a fabricated-location defect found in it and fixed; the
+> 80 damaged rows repaired from stored raw payloads.
+>
+> **Two gaps found and not yet closed:**
+>
+> - **`make ingest` reaches 2 of 23 registered boards.** It hardcodes
+>   `pollable(ats="greenhouse")`, and the registry is 20 Ashby, 2 Greenhouse, 1
+>   Lever. The ATS-general path is the worker's (`poll_board` → `adapter_for`);
+>   **two of the three adapters M1 built have no live CLI entry point at all.**
+>   The pass that filled the corpus used a throwaway script driving
+>   `poll_one_board` with one shared `PoliteClient`, which is the property that
+>   keeps the per-host rate limit honest across a back-to-back loop. That script
+>   is not in the repo and the gap is real.
+> - **`make test-e2e` cannot pass on a machine where the API is running, and
+>   nothing says so** (carried over from M5, still true).
+>
+> **Also still open:** Q13, Q12, Q11, Q10, Q9, Q7, Q6. `OUTBOUND_HTTP_ENABLED`
+> is now `true` in the local `.env` (gitignored; the repo's offline guarantee
+> is untouched), so this machine's worker will poll live boards on schedule.
+
+---
+
 
 ### Current milestone: **M5 — The Open Hand. CLOSED.** All four acceptance criteria walked with evidence on `main` at `079749b`. One of them failed and was fixed. `docs/reviews/milestone-5-acceptance.md`.
 

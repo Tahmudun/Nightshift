@@ -579,3 +579,64 @@ cases:
         country: null
         confidence: remote
         is_primary: true
+
+  # -------------------------------------------------------------------------
+  # Regression: a segment delimiter inside a parenthetical split the
+  # parenthetical in half and invented a place.
+  #
+  # Found by the first live polling pass this project ever ran (2026-08-24),
+  # on the 1Password Ashby board. The provider writes a multi-country remote
+  # role as "Remote (United States | Canada)" — the pipe is a list separator
+  # *inside an annotation*, not a delimiter between two locations. `|` is in
+  # the segment splitter because some Lever boards genuinely delimit with it.
+  #
+  # The result was two rows: "Remote (United States" at `remote`, and
+  # "Canada)" at `unknown`. The second is a fabricated location — a place
+  # named after half a parenthetical — and at 40 of the first 312 jobs it was
+  # about to put forty phantom signals on the map. I1 says never fabricate a
+  # location; a row that exists for a place that does not is exactly that,
+  # whatever confidence it carries.
+  #
+  # Balanced delimiters are honoured: a split may only happen at depth zero.
+  # -------------------------------------------------------------------------
+  - name: pipe_inside_parenthetical_is_not_a_segment_delimiter
+    raw: "Remote (United States | Canada)"
+    expect:
+      - raw_text: "Remote (United States | Canada)"
+        city: null
+        state: null
+        country: null
+        confidence: remote
+        is_primary: true
+
+  # The same shape with the delimiter this project sees far more often, and
+  # the reason the fix is about depth rather than about the pipe character.
+  - name: semicolon_inside_parenthetical_is_not_a_segment_delimiter
+    synthetic: true
+    raw: "Remote (United States; Canada)"
+    expect:
+      - raw_text: "Remote (United States; Canada)"
+        city: null
+        state: null
+        country: null
+        confidence: remote
+        is_primary: true
+
+  # And the case the splitter exists for must keep working: a delimiter at
+  # depth zero still separates two real places.
+  - name: pipe_at_depth_zero_still_separates_two_locations
+    synthetic: true
+    raw: "New York, NY | Boston, MA"
+    expect:
+      - raw_text: "New York, NY"
+        city: "New York"
+        state: "New York"
+        country: null
+        confidence: city_only
+        is_primary: true
+      - raw_text: "Boston, MA"
+        city: "Boston"
+        state: "Massachusetts"
+        country: null
+        confidence: city_only
+        is_primary: false
