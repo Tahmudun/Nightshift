@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ORIGIN_LABEL, readCapture, readField } from '@/lib/capture';
+import { ORIGIN_LABEL, originLabel, readCapture, readField } from '@/lib/capture';
 
 describe('readField', () => {
   it('shows the parser when it is the only reader', () => {
@@ -75,8 +75,38 @@ describe('readCapture', () => {
   });
 });
 
-describe('ORIGIN_LABEL', () => {
+describe('originLabel', () => {
+  /**
+   * Q13, answered 2026-08-24. The live walk captured a real LinkedIn posting
+   * through Claude Desktop and the queue row read **"Pasted text"** — because
+   * Claude sent no `source_url`, so `origin` was `none`, and `none` had one
+   * label written for the browser form.
+   *
+   * "Pasted text" is true of somebody typing into the box and false of a
+   * capture made in a Claude session, and the row is the reader's only account
+   * of where a posting came from. The distinction the UI *can* honestly draw
+   * is not which website — nothing recorded that — but **whether an assistant
+   * was involved**, which the quote columns state as fact.
+   */
   it('names every origin the API can send', () => {
     expect(Object.keys(ORIGIN_LABEL).sort()).toEqual(['indeed', 'linkedin', 'none', 'other']);
+  });
+
+  it('says a link was never recorded when Claude captured it without one', () => {
+    expect(
+      originLabel('none', { title: 'Staff Engineer', company_name: null, location_text: null }),
+    ).toBe('Origin not recorded');
+  });
+
+  it('still calls a browser paste a browser paste', () => {
+    expect(originLabel('none', null)).toBe('Pasted text');
+  });
+
+  it('leaves an origin that is actually known alone', () => {
+    expect(originLabel('linkedin', { title: 'x', company_name: null, location_text: null })).toBe(
+      'From LinkedIn',
+    );
+    expect(originLabel('indeed', null)).toBe('From Indeed');
+    expect(originLabel('other', null)).toBe('From a link');
   });
 });

@@ -76,3 +76,29 @@ export const ORIGIN_LABEL: Readonly<Record<string, string>> = {
   other: 'From a link',
   none: 'Pasted text',
 };
+
+/**
+ * The origin line for one capture — Q13, answered 2026-08-24.
+ *
+ * `origin` is derived from `source_url` alone, so a capture made in Claude
+ * Desktop without a link is `none`, exactly like a capture typed into the
+ * browser form. The live walk hit this: a real LinkedIn posting arrived
+ * through the MCP server and its queue row read **"Pasted text"**, which is
+ * true of somebody using the form and false of what actually happened.
+ *
+ * **The honest distinction is not which website.** Nothing recorded that, and
+ * pattern-matching a provenance claim out of the body text would invent a fact
+ * about where a posting came from — the same class of thing
+ * `location_confidence` exists to refuse. What *is* recorded is whether an
+ * assistant took part, because its quotes are in their own columns. So a
+ * capture with quotes and no link is one whose origin **was not recorded**,
+ * and saying that is better than naming the wrong channel or rendering a
+ * confident blank.
+ *
+ * The other half of Q13's answer lives in `capture_posting`'s tool
+ * description, which now asks for the URL instead of never mentioning it.
+ */
+export function originLabel(origin: string, assistant: AssistantQuote | null): string {
+  if (origin === 'none' && assistant !== null) return 'Origin not recorded';
+  return ORIGIN_LABEL[origin] ?? 'Origin not recorded';
+}

@@ -86,11 +86,19 @@ contract makes the URL feel required**, and the reader in Claude Desktop has no
 reason to know that omitting it costs the badge.
 
 This is the same failure class the branch keeps producing, one layer out: a
-field that is optional in the schema and load-bearing in the interface. It is
-recorded here rather than fixed, because the fix is a product decision — press
-harder for the URL in the tool description, infer the origin from the text, or
-accept that assisted captures are often origin-less — and `docs/QUESTIONS.md`
-is where that belongs.
+field that is optional in the schema and load-bearing in the interface.
+
+**Raised as Q13 and answered the same day: ask for the URL, and say so when it
+is absent.** Inference was rejected — pattern-matching a provenance claim out
+of body text invents a fact about where a posting came from, which is the thing
+`location_confidence` exists to refuse. `capture_posting`'s description never
+mentioned `source_url` at all, which is the whole reason the walk's capture
+carried none; it now asks for it. And `originLabel()` replaces the bare lookup,
+because **the distinction the interface can honestly draw is not which website
+but whether an assistant took part** — recorded fact, in the quote columns. The
+walk's own capture now reads *"Origin not recorded"* where it read *"Pasted
+text"*, and a browser paste still reads *"Pasted text"*.
+`docs/reviews/milestone-5d-origin.png`.
 
 ---
 
@@ -189,7 +197,9 @@ nothing offers to edit a confirmed capture afterwards.
    this document is written from the database — the transcript was not captured
    at the time. Those two answers are outstanding and the acceptance claim is
    incomplete without them.
-2. **The origin gap** (§2) needs a product decision, and a `QUESTIONS.md` entry.
-3. **The 500's error surface** (§3) — a bare `Internal Server Error` on the
+2. **The 500's error surface** (§3) — a bare `Internal Server Error` on the
    confirm step deserves better than the generic client string.
-4. **The title in the corpus** (§4) is the reader's to correct or keep.
+3. **The title in the corpus** (§4) is the reader's to correct or keep. It was
+   destroyed by `make check`'s `TRUNCATE` before either could happen (Q8's
+   third bill), and the capture was restored as a **pending** proposal rather
+   than a confirmed one, so the decision is still the reader's to make.

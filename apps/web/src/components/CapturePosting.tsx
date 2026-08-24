@@ -40,7 +40,7 @@ import {
   fetchCaptures,
   fetchMe,
 } from '@/lib/api';
-import { ORIGIN_LABEL, readCapture, type FieldReading } from '@/lib/capture';
+import { originLabel, readCapture, type FieldReading } from '@/lib/capture';
 import type { Capture, CorpusCheck, EmploymentType } from '@/lib/schemas';
 
 /** Everything that has to be re-read once a capture is created or decided. */
@@ -309,7 +309,7 @@ export function CapturePosting() {
             data-testid="capture-origin"
             className="border border-ink-700 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-paper-faint"
           >
-            {ORIGIN_LABEL[capture.origin]}
+            {originLabel(capture.origin, capture.assistant)}
           </span>
           {capture.already_existed && (
             <span

@@ -24,7 +24,7 @@
  * 2026-08-21; see `docs/reviews/milestone-5c-desktop-walk.md` finding 5.
  */
 
-import { ORIGIN_LABEL, readCapture, type FieldReading } from '@/lib/capture';
+import { originLabel, readCapture, type FieldReading } from '@/lib/capture';
 import type { Capture } from '@/lib/schemas';
 
 function formatWhen(iso: string): string {
@@ -135,7 +135,8 @@ export function CaptureQueue({
                   <Summary reading={reading.company_name} noun="employer" />
                 </p>
                 <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-paper-faint">
-                  {ORIGIN_LABEL[capture.origin]} · {formatWhen(capture.created_at)}
+                  {originLabel(capture.origin, capture.assistant)} ·{' '}
+                  {formatWhen(capture.created_at)}
                   {quoted && ' · Claude quoted from the page'}
                 </p>
               </div>
