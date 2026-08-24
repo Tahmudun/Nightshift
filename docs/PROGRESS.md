@@ -33,8 +33,9 @@
 **M4c Task 5 is done: the city speaks §6, and says what it is saying.** The table is one pure function (`treatments.ts`), the beacons carry per-instance colour, strength and pulse rate through a shader, four instanced meshes draw the marks §6 puts *on* a body, and an in-interface legend documents all thirteen rows — including the four that are not drawn, each with its reason. ADR 0028. `docs/reviews/milestone-4c-treatments.png` is the screenshot. Three defects were found by looking rather than by a test: a closed torus whose rotation was invisible by construction, a spin folded into the billboard that rolled every arc out of the camera plane, and a saved outline drawn cyan — which is exactly what ADR 0027's standing instruction ruled out.
 **M4c: Tasks 1, 2, 3 and 4 are done. The placement join and `GET /city/signals` (ADR 0024, which resolves a real conflict between I1 and `city.md` §4.4 rather than papering over it), the Three.js signal layer in MapLibre's own context (ADR 0025), and the field made legible, navigable and sortable. New York now has every open role floating above it, untethered, and none on a building — see `docs/reviews/milestone-4c-signals.png` and `docs/reviews/milestone-4c-roster.png`. Task 4 then made a role reachable: picking by raycast against the frame's own matrix, a reticle, a detail panel, and one selection shared by the list and the map (ADR 0027) — `docs/reviews/milestone-4c-selection.png`.**
 **Docker's daemon is no longer wedged.** It was force-quit and relaunched on 2026-08-12. `make up` was then run **from cold** — containers removed with `docker compose down` first — and created both from scratch to healthy, exit 0. **That closes the last open step in M4b's acceptance chain**; container startup is now proven rather than assumed. The seeded corpus survived and matches what this file records: 31 canonical jobs, 62 `job_locations`, 44 `city_only` + 18 `remote`, 0 mappable.
-**Current milestone: M5 — The Open Hand (A16). M5a, M5b and M5c are merged, including M5c's Claude Desktop deviation (PR #20, `0765381`). M5d is being built on `m5d-assisted-capture`.**
-**M5d — assisted capture from LinkedIn and Indeed. Tasks 1–5 are built; task 6 is docs plus a walk that is the human's.** Plan: `docs/plans/2026-08-22-m5d-assisted-capture.md`. Decisions: **ADR 0039**, four sections.
+**Current milestone: M5 — The Open Hand (A16). M5a, M5b and M5c are merged, including M5c's Claude Desktop deviation (PR #20, `0765381`). M5d is COMPLETE — all six tasks, walk included — on `m5d-assisted-capture` at `d37e83c`; [PR #21](https://github.com/Tahmudun/Nightshift/pull/21) is open with all five CI jobs green.**
+**M5 itself is NOT closed.** Its four acceptance criteria have not been walked as a milestone — only the four slices' own. That walk, and the merge, are what stand between here and M6. See "Next exact action".
+**M5d — assisted capture from LinkedIn and Indeed. All six tasks done, including task 6.2's live walk against a real LinkedIn page.** Plan: `docs/plans/2026-08-22-m5d-assisted-capture.md`. Decisions: **ADR 0039**, four sections.
 - **§1 — the page is read by the reader, not by us.** `board-discovery.md` §9's *no* stands; what changed is who does the reading. `captured_postings.source_url` carried the comment *"Never fetched"* and nothing enforced it. Now two guards, each shown able to fail: a transport guard that unplugs httpx and drives paste → read → confirm (`httpx.get(source_url)` in `create_capture` → *"the capture path reached the network: https://www.linkedin.com/jobs/view/4012345678/"*), and an AST guard that refuses a job-board host in any non-docstring string literal (a `BOARD_BASE` constant → *"domain/capture.py holds a job-board host in a string literal"*).
 - **§2 — an assistant may point, not paraphrase.** A field the reader's Claude proposes must appear **verbatim** in the pasted text; whitespace and case are forgiven, nothing else. It is `resume_extractions`' span trigger reached with a substring test. The rule is strict enough to refuse correct answers — "NYC" for "New York, NY" is right and is refused — because a gate with an exception for values that look right is the model's judgement wearing a check's clothes. Quotes are stored in **their own columns** beside `proposed_*`; refusals are stored as **field names only**, never values.
 - **§3 — one posting, one thing to review.** This **narrows a position M5c stated**: its test argued two pending captures of one posting are two honest records of a person pasting. Right about the corpus, wrong about the queue. `capture_paste` is idempotent over a person's *pending* rows, stops at a decision, and returns the existing row unmodified.
@@ -80,7 +81,9 @@
 
 **PR #21 is open and CI is green**: https://github.com/Tahmudun/Nightshift/pull/21 — the branch had never been pushed, 20 commits local only. **All five jobs pass** at `27b1a07`: python 13m38s, e2e 10m59s, migrations 1m49s, web 1m33s, secret scan 12s. **15m21s wall clock**, which is Q12's accepted number holding steady rather than drifting.
 
-**Not real yet on this branch:** the conversational half of the 6.2 walk (led-with-corpus-check, described-as-proposal) — the transcript was not captured at the time and only the human saw it. Task 6.2's acceptance is incomplete without those two answers, and this file says so rather than counting the walk as fully done.
+**The conversational half of the 6.2 walk is answered, 2026-08-24: the model led with the corpus check, and it called the capture a proposal — both *yes*, reported by the human.** Task 6.2 is complete. **It is recorded as their report, not as an observation**, because the transcript was not captured while it happened; M5c's walk found four defects precisely by keeping the raw log, and this one traded that for the database's version of events. **Capture the transcript next time** — free during, unrecoverable after.
+
+**Not real yet on this branch:** nothing. The remaining work is the merge and M5's own acceptance walk, both of which are listed under "Next exact action".
 
 **M5c: MERGED as [PR #19](https://github.com/Tahmudun/Nightshift/pull/19) (`ed234a7`) on 2026-08-21, on the human's call.**
 **2026-08-21, after the merge: Claude Desktop was installed, and the deviation M5c recorded rather than glossed is being closed.** Three of its four parts are done and the fourth is the human's. **Connecting a real Claude Desktop found four defects that a green suite, a review and a live Claude Code walk had all missed** — see `docs/reviews/milestone-5c-desktop-walk.md`:
@@ -793,6 +796,71 @@ last rung of the three rather than the next.
 ---
 
 ## Next exact action
+
+### Current milestone: **M5 — The Open Hand**. **M5d is complete. [PR #21](https://github.com/Tahmudun/Nightshift/pull/21) is open, all five CI jobs pass, and the merge is the human's call.**
+
+> **START HERE, NEXT SESSION.** `main` is at `0765381`. The branch is
+> `m5d-assisted-capture`, pushed and up to date with its remote. **PR #21 is
+> open, and CI is green on the code at `27b1a07`** — commits after that one are
+> documentation only, so re-read the PR's checks rather than trusting this
+> line if anything has moved.
+>
+> **M5d is done, including the walk.** All six tasks. A real Notion posting
+> from a real LinkedIn page was captured in Claude Desktop and confirmed on
+> 2026-08-24 — `docs/reviews/milestone-5d-walk.md`. The reader confirms the
+> model **led with the corpus check** and **called the capture a proposal**;
+> both are recorded as their report rather than as an observation, because the
+> transcript was not captured. **Capture the transcript next time** — it costs
+> nothing during and is unrecoverable after.
+>
+> **Gates, on the final tree.** `make check` exits 0 — 2248 Python, 826 web
+> across 56 files. `make acceptance` exits 0 — `test-e2e` 30, `verify` all
+> checks passed, `test-e2e-seeded` 92 passed 1 skipped. CI: all five jobs green
+> at `27b1a07`, 15m21s.
+>
+> **What remains, in order:**
+>
+> 1. **Merge PR #21.** The human's call, as every merge on this repo has been.
+> 2. **Walk M5's own four acceptance criteria and close the milestone.** This
+>    has *not* been done — the four slices each have their own acceptance, and
+>    `CLAUDE.md` §5 asks for the milestone's. The criteria, and where the
+>    evidence should come from:
+>    - *Two users cannot see each other's data, proved by a test shown able to
+>      fail* — M5b. Find the test, re-run the sabotage, record the failure
+>      message. Do not accept "M5b says so".
+>    - *A pasted posting appears on the map with a capture badge; pasting it
+>      twice creates no duplicate.* **Check the map half honestly.** Idempotence
+>      is covered (`capture.spec.ts`); the *badge on the map* is the part most
+>      likely to be assumed rather than seen, and the walk's own capture had no
+>      confirmed office, so it would sit in the unresolved field rather than on
+>      a building.
+>    - *No parsed fact is stored as confirmed without a user action* — the
+>      two-step design, ADR 0039 §2, and the `Decide later` exit.
+>    - *Claude Desktop connects and captures a posting end to end* — **met**,
+>      by the M5c desktop walk plus this one.
+> 3. Then **M6 — The Archipelago** (`CLAUDE.md` §6, A16). Do not start it
+>    before M5 is closed with evidence.
+>
+> **Open and owed, none of it blocking the merge:**
+>
+> - **The confirm step's error surface.** A bare `Internal Server Error` from
+>   `api.ts:132` is what a reader gets when the confirm 500s, with no next step.
+>   Walk §3.
+> - **Q13 is shipped**, so nothing is owed there.
+> - **Q8 is still open and billed a third time this session** — `make check`
+>   truncates the shared dev database and destroyed the walk's own confirmed
+>   job mid-branch. The capture was restored as **pending**, deliberately, so
+>   the confirm stays the reader's. A `pg_dump` before any gate run is the
+>   current workaround and it is not a fix.
+> - **Q11** (nothing rate-limits sign-in) and **Q9** (the sky) are still open.
+> - The machine's disk was **97% full** at the end of this session, and the
+>   full-disk crash it caused is written up in
+>   `docs/runbooks/docker-will-not-start.md`. The human has said not to worry
+>   about it for now. It will recur.
+
+---
+
+### The M5d build action, kept because the walk it was waiting on is done
 
 ### Current milestone: **M5 — The Open Hand**, on `m5d-assisted-capture`. **Tasks 1–5 of M5d are built and committed. Task 6 is docs and a walk, and half of it is the human's.**
 

@@ -171,7 +171,37 @@ nothing offers to edit a confirmed capture afterwards.
 
 ---
 
-## 5. What held
+## 5. The conversation itself — the half only the reader saw
+
+Task 6.2 asks four things of the walk. Two are properties of the database and
+are evidenced above. **The other two are properties of the conversation**, and
+this document was written from the database because the transcript was not
+captured at the time. They are recorded here as **the reader's own report**,
+given on 2026-08-24, and marked as such rather than dressed up as an
+observation:
+
+- **Did the model lead with the corpus check?** — *yes.*
+- **Did it describe the capture as a proposal rather than a saved job?** —
+  *yes.*
+
+Both are what the tool description asks for, and both are the behaviours that
+matter most, because they are the two places where an assistant could quietly
+undo the design. Leading with the corpus check is what stops a reader creating
+a thin duplicate of a job Nightshift already holds properly. Calling it a
+proposal is I5 surviving contact with a model that has just done something on
+the reader's behalf and is inclined to report success.
+
+**What this does and does not establish.** It closes task 6.2: a real posting,
+from a real page, through a real Claude Desktop, end to end. It does **not**
+establish that the model behaves this way reliably — that is one conversation,
+self-reported, with no transcript to re-read. M5c's walk found four defects
+precisely by keeping the raw log; this one traded that for the database's
+version of events. **A future walk should capture the transcript as it
+happens**, which costs nothing at the time and is unrecoverable afterwards.
+
+---
+
+## 6. What held
 
 - **I5 held.** Claude captured and stopped. There is no confirm tool and its
   absence is what forced the decision back to a person and a screen.
@@ -189,17 +219,11 @@ nothing offers to edit a confirmed capture afterwards.
   `remote_policy` `on_site`, `status` `open`, one `job_locations` row, corpus
   32 → 33 jobs.
 
-## 6. What is owed
+## 7. What is owed
 
-1. **The conversational half of this walk is not recorded here.** Task 6.2 asks
-   whether the model **led with the corpus check** and whether it **described
-   the capture as a proposal**. Both are properties of the conversation, and
-   this document is written from the database — the transcript was not captured
-   at the time. Those two answers are outstanding and the acceptance claim is
-   incomplete without them.
-2. **The 500's error surface** (§3) — a bare `Internal Server Error` on the
+1. **The 500's error surface** (§3) — a bare `Internal Server Error` on the
    confirm step deserves better than the generic client string.
-3. **The title in the corpus** (§4) is the reader's to correct or keep. It was
+2. **The title in the corpus** (§4) is the reader's to correct or keep. It was
    destroyed by `make check`'s `TRUNCATE` before either could happen (Q8's
    third bill), and the capture was restored as a **pending** proposal rather
    than a confirmed one, so the decision is still the reader's to make.
