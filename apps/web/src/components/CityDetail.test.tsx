@@ -297,3 +297,60 @@ describe('the detail panel says how the role is drawn — §5.6’s non-3D equiv
     expect(screen.getByTestId('city-detail')).not.toHaveTextContent(/how this role is drawn/i);
   });
 });
+
+describe('a role somebody pasted in says so, on the map', () => {
+  /**
+   * M5's second acceptance criterion, the half the milestone walk found unmet.
+   *
+   * *"A pasted posting appears on the map with a capture badge."* It appeared —
+   * unresolved, floating, which is honest — and it appeared looking exactly
+   * like the thirty-one roles a poller found. The badge existed only on
+   * `/explore/jobs/[id]`, one click away, which is not the map.
+   *
+   * The two assertions below are one claim each, and the second is the one
+   * that keeps the first honest: a badge rendered unconditionally would pass
+   * the captured case and put "added by hand" on the whole corpus.
+   */
+  it('marks a captured role as added by hand', () => {
+    useCityScene.setState({
+      signals: [signal({ captured: true })],
+      status: { kind: 'ready' },
+      selected: JOB,
+    });
+
+    show();
+
+    expect(screen.getByTestId('city-captured-badge')).toHaveTextContent('added by hand');
+  });
+
+  it('leaves a polled role unmarked', () => {
+    useCityScene.setState({
+      signals: [signal({ captured: false })],
+      status: { kind: 'ready' },
+      selected: JOB,
+    });
+
+    show();
+
+    expect(screen.queryByTestId('city-captured-badge')).toBeNull();
+  });
+
+  it('does not tell a reader ingestion found a role nobody polled', () => {
+    /**
+     * The panel's "First seen by ingestion" line is false of a capture, and
+     * quietly so — ingestion never saw it, a person pasted it. Nothing
+     * re-reads a captured posting either, so the date cannot mean what the
+     * same date means one row above it.
+     */
+    useCityScene.setState({
+      signals: [signal({ captured: true })],
+      status: { kind: 'ready' },
+      selected: JOB,
+    });
+
+    show();
+
+    expect(screen.queryByText(/First seen by ingestion/)).toBeNull();
+    expect(screen.getByText(/Pasted in/)).toBeInTheDocument();
+  });
+});

@@ -35,6 +35,12 @@
 **Docker's daemon is no longer wedged.** It was force-quit and relaunched on 2026-08-12. `make up` was then run **from cold** — containers removed with `docker compose down` first — and created both from scratch to healthy, exit 0. **That closes the last open step in M4b's acceptance chain**; container startup is now proven rather than assumed. The seeded corpus survived and matches what this file records: 31 canonical jobs, 62 `job_locations`, 44 `city_only` + 18 `remote`, 0 mappable.
 **Current milestone: M5 — The Open Hand (A16). M5a, M5b and M5c are merged, including M5c's Claude Desktop deviation (PR #20, `0765381`). M5d is COMPLETE — all six tasks, walk included — on `m5d-assisted-capture` at `d37e83c`; [PR #21](https://github.com/Tahmudun/Nightshift/pull/21) is open with all five CI jobs green.**
 **M5 itself is NOT closed.** Its four acceptance criteria have not been walked as a milestone — only the four slices' own. That walk, and the merge, are what stand between here and M6. See "Next exact action".
+**M5: CLOSED. All four acceptance criteria walked with evidence on 2026-08-24 — `docs/reviews/milestone-5-acceptance.md`. One of the four was not met and was fixed in the walk.**
+- **Criterion 1 (two users cannot see each other's data) — met**, and shown able to fail twice: removing the ownership filter from `applications.py`'s one loader failed 7 of 94, including a `POST .../interviews` that returned **201** writing onto somebody else's application; removing the router-level `require_session` let **12 of the 43 protected routes** answer a stranger, and *which* twelve is the finding — the shared-corpus ones that have no `CurrentUserId` to protect them.
+- **Criterion 2 (a pasted posting on the map with a capture badge) — the idempotence half was met and the map half was not.** `/city/signals` carried no provenance, so a role somebody pasted in reached the renderer indistinguishable from one a poller found; the `added by hand` badge existed only on `/explore/jobs/[id]`, **one click away, which is not the map**. The panel also said *"First seen by ingestion"* about a role ingestion never saw. Fixed: `CitySignalOut.captured` (one grouped join on the `manual_capture` source — recorded fact, ADR 0039 §5, never inferred), a **required** `citySignalSchema.captured` so server and client cannot drift, and the badge plus an honest date line in `CityDetail.tsx`. Tested at three levels, **every one with a polled control**, because a badge rendered unconditionally passes the captured case and puts "added by hand" on the whole corpus — which is exactly what the API sabotage produced.
+- **Criterion 3 (no parsed fact stored as confirmed without a user action) — met** at the database (two check constraints), the application (`proposed_*` columns, the reader's values on confirm) and the interface (`Decide later`, the third exit). **Two guards added** where it was most likely to erode: `test_mcp_server.py` now enumerates the MCP tools and requires each to be `reads` or `proposes` with **no third kind**, and asserts `capture_posting`'s description still tells the model it cannot confirm. Prose was doing that job alone.
+- **Criterion 4 (Claude Desktop connects and captures end to end) — met** by `milestone-5c-desktop-walk.md` and `milestone-5d-walk.md`, with the latter's stated limit intact: the model-behaviour half is the reader's report, because the transcript was not captured.
+
 **M5d — assisted capture from LinkedIn and Indeed. All six tasks done, including task 6.2's live walk against a real LinkedIn page.** Plan: `docs/plans/2026-08-22-m5d-assisted-capture.md`. Decisions: **ADR 0039**, five sections — §5 was added 2026-08-24 when the walk produced Q13.
 - **§1 — the page is read by the reader, not by us.** `board-discovery.md` §9's *no* stands; what changed is who does the reading. `captured_postings.source_url` carried the comment *"Never fetched"* and nothing enforced it. Now two guards, each shown able to fail: a transport guard that unplugs httpx and drives paste → read → confirm (`httpx.get(source_url)` in `create_capture` → *"the capture path reached the network: https://www.linkedin.com/jobs/view/4012345678/"*), and an AST guard that refuses a job-board host in any non-docstring string literal (a `BOARD_BASE` constant → *"domain/capture.py holds a job-board host in a string literal"*).
 - **§2 — an assistant may point, not paraphrase.** A field the reader's Claude proposes must appear **verbatim** in the pasted text; whitespace and case are forgiven, nothing else. It is `resume_extractions`' span trigger reached with a substring test. The rule is strict enough to refuse correct answers — "NYC" for "New York, NY" is right and is refused — because a gate with an exception for values that look right is the model's judgement wearing a check's clothes. Quotes are stored in **their own columns** beside `proposed_*`; refusals are stored as **field names only**, never values.
@@ -797,66 +803,79 @@ last rung of the three rather than the next.
 
 ## Next exact action
 
-### Current milestone: **M5 — The Open Hand**. **M5d is complete. [PR #21](https://github.com/Tahmudun/Nightshift/pull/21) is open, all five CI jobs pass, and the merge is the human's call.**
+### Current milestone: **M5 — The Open Hand. CLOSED.** All four acceptance criteria walked with evidence on `main` at `079749b`. One of them failed and was fixed. `docs/reviews/milestone-5-acceptance.md`.
 
-> **START HERE, NEXT SESSION.** `main` is at `0765381`. The branch is
-> `m5d-assisted-capture`, pushed and up to date with its remote. **PR #21 is
-> open, and CI is green on the code at `27b1a07`** — commits after that one are
-> documentation only, so re-read the PR's checks rather than trusting this
-> line if anything has moved.
+> **START HERE, NEXT SESSION.** `main` is at `079749b` — PR #21 merged. The M5
+> acceptance work is on the branch **`m5-acceptance`**, committed, not pushed
+> and no PR opened. **M5 is closed. M6 — The Archipelago is next**
+> (`CLAUDE.md` §6, A16).
 >
-> **M5d is done, including the walk.** All six tasks. A real Notion posting
-> from a real LinkedIn page was captured in Claude Desktop and confirmed on
-> 2026-08-24 — `docs/reviews/milestone-5d-walk.md`. The reader confirms the
-> model **led with the corpus check** and **called the capture a proposal**;
-> both are recorded as their report rather than as an observation, because the
-> transcript was not captured. **Capture the transcript next time** — it costs
-> nothing during and is unrecoverable after.
+> **The walk found one criterion unmet, which is why it was worth doing.**
+> *"A pasted posting appears on the map with a capture badge"* — the posting
+> reached the map (unresolved and floating, which is I1 working), and the map
+> had no way to know it was a capture. `/city/signals` carried no provenance at
+> all, and the only `added by hand` badge in the product was on
+> `/explore/jobs/[id]` — **one click away, which is not the map.** The panel
+> also told every reader *"First seen by ingestion"* about a role ingestion
+> never saw.
 >
-> **Gates, on the final tree.** `make check` exits 0 — 2248 Python, 826 web
-> across 56 files. `make acceptance` exits 0 — `test-e2e` 30, `verify` all
-> checks passed, `test-e2e-seeded` 92 passed 1 skipped. CI: all five jobs green
-> at `27b1a07`, 15m21s.
+> **Fixed, and tested at three levels, each shown able to fail.**
+> `CitySignalOut.captured` (one grouped join on the `manual_capture` source —
+> recorded fact, never inferred, ADR 0039 §5), `citySignalSchema.captured`
+> **required** so server and client cannot drift, and the badge in
+> `CityDetail.tsx`. Every test carries a **polled control**, because a badge
+> rendered unconditionally passes the captured case and puts "added by hand" on
+> the whole corpus — the API sabotage produced exactly that and named nine
+> roles.
 >
-> **What remains, in order:**
+> **Two guards added to the surface most likely to erode criterion 3.**
+> `capture_posting`'s description says *"You cannot confirm it yourself"* and
+> prose is not a guard. `test_mcp_server.py` now enumerates the registered
+> tools and requires each to be `reads` or `proposes`, with **no third kind** —
+> so a `confirm_capture` tool added in a later milestone turns CI red on the day
+> it is registered.
 >
-> 1. **Merge PR #21.** The human's call, as every merge on this repo has been.
-> 2. **Walk M5's own four acceptance criteria and close the milestone.** This
->    has *not* been done — the four slices each have their own acceptance, and
->    `CLAUDE.md` §5 asks for the milestone's. The criteria, and where the
->    evidence should come from:
->    - *Two users cannot see each other's data, proved by a test shown able to
->      fail* — M5b. Find the test, re-run the sabotage, record the failure
->      message. Do not accept "M5b says so".
->    - *A pasted posting appears on the map with a capture badge; pasting it
->      twice creates no duplicate.* **Check the map half honestly.** Idempotence
->      is covered (`capture.spec.ts`); the *badge on the map* is the part most
->      likely to be assumed rather than seen, and the walk's own capture had no
->      confirmed office, so it would sit in the unresolved field rather than on
->      a building.
->    - *No parsed fact is stored as confirmed without a user action* — the
->      two-step design, ADR 0039 §2, and the `Decide later` exit.
->    - *Claude Desktop connects and captures a posting end to end* — **met**,
->      by the M5c desktop walk plus this one.
-> 3. Then **M6 — The Archipelago** (`CLAUDE.md` §6, A16). Do not start it
->    before M5 is closed with evidence.
+> **The gates, on the final tree.** `make acceptance` **exits 0** — `test-e2e`
+> 32 collected / **30 passed**, `verify` **all checks passed**,
+> `test-e2e-seeded` **93 passed, 1 skipped** (up from 92: the new browser test).
+> `make check` **exits 0** — format, lint, `mypy` 87 files, **2251 Python**
+> (9m29s, up from 2248) and **831 web across 56 files** (up from 826).
 >
-> **Open and owed, none of it blocking the merge:**
+> **Two diagnoses this session that are worth more than the code.**
 >
-> - **The confirm step's error surface.** A bare `Internal Server Error` from
->   `api.ts:132` is what a reader gets when the confirm 500s, with no next step.
->   Walk §3.
-> - **Q13 is shipped**, so nothing is owed there.
-> - **Q8 is still open and billed a third time this session** — `make check`
->   truncates the shared dev database and destroyed the walk's own confirmed
->   job mid-branch. The capture was restored as **pending**, deliberately, so
->   the confirm stays the reader's. A `pg_dump` before any gate run is the
->   current workaround and it is not a fix.
-> - **Q11** (nothing rate-limits sign-in) and **Q9** (the sky) are still open.
-> - The machine's disk was **97% full** at the end of this session, and the
->   full-disk crash it caused is written up in
->   `docs/runbooks/docker-will-not-start.md`. The human has said not to worry
->   about it for now. It will recur.
+> 1. **`make test-e2e` cannot pass on a machine where the API is running, and
+>    nothing says so.** All six `city-acceptance.spec.ts` tests went red against
+>    a *sign-in form*. `SessionGate.tsx:63` renders the app when the API is
+>    **unreachable** (a 500) and shows sign-in when it is **reachable and you
+>    are nobody** (a 401) — so the degraded suite, whose premise is "no API",
+>    silently asserts against a login screen if one is listening on :8000.
+>    `reuseExistingServer` makes that easy to hit locally and invisible in CI.
+>    It looked exactly like the documented parallelism flake and was not: it
+>    reproduced at `--workers=1` and on stashed `HEAD`. **The culprit was a
+>    `uvicorn` and a `next dev` left `nohup`'d by an earlier automated
+>    session.** Stopping them: 6 passed. **Worth fixing** — `test-e2e` should
+>    refuse to run when something holds the API port.
+> 2. **Q8's culprit is named at last, after four billings.** The `db_session`
+>    fixture is innocent — it truncates inside a transaction it rolls back.
+>    `tests/test_merge_concurrency.py::_cleanup` is not: it runs
+>    `TRUNCATE` over twenty-one tables inside `session.begin()`, which
+>    **commits**. That list includes `captured_postings`, `jobs`, `companies`,
+>    `company_locations`, `geocode_cache` and `applications`. Three tests, every
+>    `make check`. Recorded in QUESTIONS.md under Q8; the separate-database
+>    decision is still the human's.
+>
+> **Still open and owed, none of it blocking M6:**
+>
+> - **The confirm step's error surface** — a bare `Internal Server Error` from
+>   `api.ts:132` with no next step. M5d walk §3.
+> - **The beacon itself is not marked.** The capture badge is on the panel that
+>   describes a selected role, not on the mesh in the field, so a person
+>   scanning the city cannot see which roles were pasted in without selecting
+>   them. That is a visual-system question and belongs with M6's field work.
+> - **Q11** (nothing rate-limits sign-in) and **Q9** (the sky).
+> - The Playwright browser cache was **purged by the machine mid-session** under
+>   disk pressure and had to be reinstalled (`make browsers`). The disk problem
+>   in `docs/runbooks/docker-will-not-start.md` is still live.
 
 ---
 

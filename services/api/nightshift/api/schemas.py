@@ -1279,6 +1279,18 @@ class CitySignalOut(BaseModel):
     #: date — which is why the legend counts how many roles actually carry one
     #: rather than implying the treatment is live.
     application_deadline: datetime | None
+    #: Whether a person pasted this role in rather than a poller finding it.
+    #: Recorded fact, read off the ``manual_capture`` source every confirmed
+    #: capture is attributed to — the same join ``/jobs/{id}`` uses for its own
+    #: badge, not a guess from the text. ADR 0039 §5 draws the line this stays
+    #: on: *whether* an assistant or a paste took part is written down, *which
+    #: website* it came from is not, and the map claims only the first.
+    #:
+    #: It is here rather than left to the detail page because a captured role
+    #: is a different kind of fact from a polled one and the map is where a
+    #: person meets it first: nothing re-reads a capture, so its dates mean
+    #: something else and it can never go stale on its own.
+    captured: bool
     placement: PlacementOut
 
 

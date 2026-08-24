@@ -67,6 +67,9 @@ function corpus(count: number, employers: number) {
     last_seen_at: '2026-08-12T00:00:00Z',
     last_verified_at: '2026-08-12T00:00:00Z',
     application_deadline: null,
+    // Polled, like everything a board produces. These fixtures measure the
+    // renderer, and one badge would not change what they measure.
+    captured: false,
     placement: UNRESOLVED,
   }));
 }

@@ -79,6 +79,9 @@ function role(index: number, employer: number, placement: unknown = UNRESOLVED):
     last_seen_at: '2026-01-01T00:00:00Z',
     last_verified_at: '2026-01-01T00:00:00Z',
     application_deadline: null,
+    // Polled, like everything a board produces. These fixtures measure the
+    // renderer, and one badge would not change what they measure.
+    captured: false,
     placement,
   };
 }

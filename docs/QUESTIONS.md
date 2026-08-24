@@ -334,6 +334,35 @@ I would take the first. Say the word and it is the next thing I do.
 > session left running is a suite whose failures have to be triaged before they
 > can be read, which is the habit A14 is worried about arriving by a different
 > road.
+>
+> **2026-08-24 — the culprit is named, and it is one line.** This has now been
+> billed four times without anybody pinning down *what* does the wiping, so:
+> **the `db_session` fixture is not it.** It truncates inside a transaction it
+> rolls back, exactly as its docstring says, and the dev rows survive it.
+>
+> What does not roll back is `tests/test_merge_concurrency.py::_cleanup`:
+>
+> ```python
+> async with maker() as session, session.begin():
+>     await session.execute(text(f"TRUNCATE TABLE {', '.join(_INGESTION_TABLES)}"))
+> ```
+>
+> `session.begin()` commits. `_INGESTION_TABLES` is twenty-one tables and
+> includes `captured_postings`, `jobs`, `companies`, `company_locations`,
+> `geocode_cache` and `applications` — which is precisely the list this question
+> opened by complaining about. **Three tests, run on every `make check`, empty
+> the corpus for real.**
+>
+> The helper is not wrong to want a cleanup. It commits its fixtures on purpose,
+> because the two contending sessions it tests have to be able to see them, so
+> it genuinely cannot use the rolled-back fixture. It is wrong to clean up by
+> truncating the whole corpus when it created three rows it can name and already
+> holds their ids.
+>
+> **This does not change the recommendation** — `nightshift_test` is still the
+> right answer and still yours to call. It does mean the damage is not diffuse
+> or mysterious, and if the answer is "leave it for now", scoping that one
+> cleanup is a much smaller stopgap than the recovery ritual currently is.
 
 ---
 

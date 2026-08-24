@@ -22,10 +22,18 @@ from sqlalchemy.orm import selectinload
 
 from nightshift.api.deps import current_user_id
 from nightshift.api.main import create_app
-from nightshift.db.base import JobStatus, LocationConfidence, RemotePolicy, ResolutionMethod
+from nightshift.db.base import (
+    EmploymentType,
+    JobStatus,
+    LocationConfidence,
+    RemotePolicy,
+    ResolutionMethod,
+)
 from nightshift.db.models import Company, CompanyLocation, Job, JobSourceLink, SourceJobRecord
 from nightshift.db.session import get_db_session
+from nightshift.domain.capture import confirm_capture, create_capture
 from tests.conftest import requires_db
+from tests.test_capture import _a_user
 from tests.test_routes import _seed_alloy_board
 
 pytestmark = [requires_db, pytest.mark.asyncio(loop_scope="session")]
@@ -403,3 +411,58 @@ async def test_a_signal_carries_its_deadline_when_the_posting_named_one(
 
     signal = next(s for s in body["signals"] if s["job_id"] == str(job.id))
     assert datetime.fromisoformat(signal["application_deadline"]) == closes
+
+
+async def test_a_captured_role_reaches_the_map_saying_it_was_added_by_hand(
+    seeded_client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """M5's second acceptance criterion, the half that had never been walked.
+
+    *"A pasted posting appears on the map with a capture badge."* Before this,
+    the first half was true and the second could not be: ``/city/signals``
+    carried no provenance at all, so a role somebody pasted in arrived at the
+    renderer indistinguishable from one a poller found. The detail page had the
+    badge; the map had no way to know.
+
+    ``captured`` is **recorded fact and not a guess** — it is read off the
+    source every confirmed capture is attributed to (``manual_capture``), the
+    same join ``/jobs/{id}`` already uses for its own badge. ADR 0039 §5 draws
+    the line this stays on: *whether* a posting came in by hand is written
+    down, and *which website* it came from is not.
+
+    The polled control matters as much as the captured case. A test that only
+    asserts ``captured is True`` passes just as well against a field hard-wired
+    to ``True``, which would put "added by hand" on all 32 roles in this corpus.
+    """
+    user = await _a_user(db_session)
+    capture = await create_capture(
+        db_session,
+        user_id=user.id,
+        raw_text="Staff Engineer, Platform\nPasted Co.\nNew York, NY\n",
+        source_url=None,
+    )
+    captured_job = await confirm_capture(
+        db_session,
+        capture=capture,
+        title="Staff Engineer, Platform",
+        company_name="Pasted Co.",
+        location_text="New York, NY",
+        employment_type=EmploymentType.FULL_TIME,
+        now=datetime(2026, 8, 24, 12, 0, tzinfo=UTC),
+    )
+    await db_session.flush()
+
+    body = (await seeded_client.get("/city/signals")).json()
+    by_id = {signal["job_id"]: signal for signal in body["signals"]}
+
+    assert by_id[str(captured_job.id)]["captured"] is True
+
+    polled = [
+        signal
+        for job_id, signal in by_id.items()
+        if job_id != str(captured_job.id) and signal["captured"]
+    ]
+    assert not polled, (
+        "roles nobody pasted came back marked as added by hand: "
+        f"{[signal['title'] for signal in polled]}"
+    )

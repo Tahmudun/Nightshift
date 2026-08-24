@@ -48,6 +48,9 @@ export function signalFixture(
     last_seen_at: '2026-01-01T00:00:00Z',
     last_verified_at: '2026-01-01T00:00:00Z',
     application_deadline: null,
+    // The corpus default: almost every role was polled, not pasted. A fixture
+    // defaulting to `true` would make the badge's own control test vacuous.
+    captured: false,
     placement: UNRESOLVED_PLACEMENT,
     ...overrides,
   };

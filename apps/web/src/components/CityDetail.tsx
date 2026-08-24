@@ -408,6 +408,20 @@ export function CityDetail() {
         <span className={`${CHIP} border-ink-600 text-paper-dim`}>
           {REMOTE_LABELS[signal.remote_policy]}
         </span>
+        {signal.captured && (
+          /* M5's second acceptance criterion. The badge lived only on
+             `/explore/jobs/[id]`, so a role somebody pasted in looked, on the
+             map, exactly like one a poller found — and one click from the truth
+             is not the map saying it. Gold, and the same two words as
+             `JobDetail`, because a reader who has seen one should recognise the
+             other rather than wonder whether they mean the same thing. */
+          <span
+            data-testid="city-captured-badge"
+            className={`${CHIP} border-gold-400/40 text-gold-400`}
+          >
+            added by hand
+          </span>
+        )}
         <SaveJobButton jobId={signal.job_id} />
       </div>
 
@@ -455,11 +469,26 @@ export function CityDetail() {
 
         {/* Labelled for what it is. "First seen" is our observation; no ATS in
             this corpus reports a publication date we would trust, so this is
-            never rendered as "Posted". */}
-        <p className="text-[12px] leading-relaxed text-paper-dim">
-          First seen by ingestion{' '}
-          <span className="text-paper">{firstSeenPhrase(signal.first_seen_at)}</span>.
-        </p>
+            never rendered as "Posted".
+
+            And it is only our observation when there was one. Nothing polled a
+            captured role — a person pasted it — so "First seen by ingestion"
+            is not a softer version of the truth there, it is a different event
+            attributed to a machine that never ran. The second sentence is the
+            one a reader needs: this date will not move, and neither will the
+            role's status, because nothing re-reads it. */}
+        {signal.captured ? (
+          <p className="text-[12px] leading-relaxed text-paper-dim">
+            Pasted in and confirmed{' '}
+            <span className="text-paper">{firstSeenPhrase(signal.first_seen_at)}</span>. Nothing
+            re-reads it, so it will not age or close on its own.
+          </p>
+        ) : (
+          <p className="text-[12px] leading-relaxed text-paper-dim">
+            First seen by ingestion{' '}
+            <span className="text-paper">{firstSeenPhrase(signal.first_seen_at)}</span>.
+          </p>
+        )}
 
         <Link
           href={`/explore/jobs/${signal.job_id}`}
