@@ -7,10 +7,78 @@ the date, because the reasoning is usually worth more than the decision.
 
 ---
 
+## Q15 — The Island's second district is on loan. What redeems it?
+
+**Raised:** 2026-08-25 (Q14's answer) · **Type:** product · **Blocking:** no —
+Q14's interim answer unblocks M6, and this is the debt that answer took on
+
+Q14 was answered *"for now they can be in the island but we will need a better
+system later."* This question is the "later", written down so it is a decision
+waiting to be made rather than a good intention.
+
+**The situation the interim answer creates.** The Island holds two districts:
+**Unplaced** (remote and address-unknown, 384 roles) and **Elsewhere** (a known
+address in a city that is not New York, 521 roles). They are visibly distinct,
+so nothing on screen is false. But *Elsewhere* is a holding pen: it is the only
+part of the map where a role's real, known location is represented by a place
+that is not it. That is honest — the district says so — and it is still not
+what those roles deserve.
+
+**Three redemptions, and they are the same three Q14 offered, minus the one
+that was just spent:**
+
+- **Filter them out at the canonical-job layer.** Q14's original
+  recommendation, still available and still cheap, and now cheaper: the
+  district gives it an exact population to remove and a page that already
+  names them. Cost is one rule plus a backfill. It makes Nightshift's numbers
+  match its name.
+- **Draw the cities.** *Elsewhere* stops being a district and becomes real
+  landmasses — the Archipelago as the name promises. Blocked on building
+  geometry for cities NYC Open Data does not cover, which is a per-city data
+  hunt, not one task.
+- **Keep the district permanently and stop calling it interim.** Defensible if
+  the reader turns out to *want* the out-of-town roles surfaced. Requires
+  evidence from use, which does not exist yet.
+
+**What would settle it, and neither exists today:** whether the reader ever
+opens *Elsewhere* on purpose, and whether its 521 shrink or grow as the board
+registry does. The share is a property of *which 23 companies are registered*,
+not of the market — a registry weighted toward NYC-headquartered employers
+would move it a long way on its own. Measure before deciding.
+
+**Trigger:** revisit when the registry passes ~100 boards, when M12
+(Continental) is planned, or the first time the reader says the Island is
+noisy — whichever comes first.
+
+---
 ## Q14 — 43% of the corpus is in another city. Island, filter, or regions?
 
 **Raised:** 2026-08-24 (first live polling pass) · **Type:** product, and it
 changes what M6 is · **Blocking:** yes, for M6
+
+> **ANSWERED 2026-08-25.** The second option — **the Island absorbs them** —
+> chosen explicitly as an interim measure. The human's words: *"for now they
+> can be in the island but we will need a better system later."*
+>
+> **This is not the option I recommended, and the recommendation stands as
+> written above.** The filter would have made every number on every screen mean
+> what it says. The Island keeps 1200 jobs visible today at the cost of a
+> landmass that means two things. That trade was the human's to make and they
+> made it knowingly, with the expiry stated in the same sentence.
+>
+> **What changes in the build because of the "for now".** The overload concern
+> in the third bullet above is real and I1 does not bend for an interim
+> decision, so the Island is built with **two districts, visibly distinct**: a
+> role in London and a role that is remote-anywhere land in different places on
+> the same landmass and do not share a treatment. The Island therefore never
+> claims a role is location-less when it is not. This costs a little more than
+> the cheapest reading of "put them on the Island" and it is what makes the
+> cheapest reading survivable.
+>
+> **What "a better system later" is owed.** Recorded as **Q15**, which asks the
+> question this one deferred rather than leaving it as an intention. The seam
+> the districts create is what Q15's answer cuts along — whichever way it goes,
+> the work is a re-home of one district, not a re-design of the Island.
 
 The first live pass filled the corpus from 32 jobs to **1200**. Measured on it:
 

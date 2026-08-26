@@ -30,6 +30,7 @@ detail lives in `docs/spec/` and you read those files on demand.
 | `docs/architecture/command-center.md` | **Required before any M2 work.** Decides the M2 table shapes, the slice order, and which spec'd filters are deferred and why |
 | `docs/architecture/matching.md` | **Required before any M3 work.** Decides the M3 slice order and tables, where a semantic model may and may not touch a score, and which spec'd score components are deferred and why |
 | `docs/architecture/city.md` | **Required before any M4 work** — any geocoder, any MapLibre, any Three.js. Decides why the geo spine comes before the renderer, the rendering architecture, the palette, and which spec'd city features are deferred to M5. `docs/design/references/` is its visual reference |
+| `docs/architecture/archipelago.md` | **Required before any M6 work** — any landmass, any `landmass` column, any crossing. Decides why the geo spine comes before the water, that the Island is four landmasses rather than one, that a bare city name needs a gazetteer rather than a longer list (ADR 0008's own terms), and which spec'd features are deferred to M12 |
 | `docs/adr/*.md` | Revisiting or contradicting a past decision |
 
 **Precedence when documents disagree:**
