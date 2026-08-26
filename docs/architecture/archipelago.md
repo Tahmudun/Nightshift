@@ -113,10 +113,15 @@ something — you sail away from what is known.
 
 | `landmass` | UI name | Population | What it claims |
 |---|---|---|---|
-| `new_york` | New York | 295 (after §6) | Hirable in New York. Drawn over the city. |
-| `elsewhere_city` | The Near Isles | 568 + ~118 (after §5) | A named city that is not New York. |
-| `elsewhere_broad` | The Reach | 239 | A country or a state. No city. |
-| `unplaced` | The Verge | ~51 (after §5) | Nothing. Remote-anywhere, or silent. |
+| `new_york` | New York | 224, and 295 after §6 | Hirable in New York. Drawn over the city. |
+| `elsewhere_city` | The Near Isles | **675** | A named city that is not New York. |
+| `elsewhere_broad` | The Reach | **239** | A country or a state. No city. |
+| `unplaced` | The Verge | **62** | Nothing. Remote-anywhere, or silent. |
+
+Those are measured after §5 shipped, not projected: `elsewhere_city` rose from
+568 and `unplaced` fell from 169 as the gazetteer resolved 107 primary rows that
+had been claiming nothing was known. The 62 that remain are 51 genuinely remote
+and 11 the gazetteer refused.
 
 **Why four and not two.** Two districts (place-known / place-unknown) would put
 *"Remote — United States"* and *"Remote — anywhere on Earth"* in the same water.
@@ -160,6 +165,12 @@ falls through to `unknown` with the city discarded:
 | `Los Angeles`, `Toronto`, `Dallas`, `Shenzhen`, `Belfast` | 1 each |
 
 17 distinct names, 128 rows, 118 of them primary.
+
+**Shipped 2026-08-25.** ADR 0040, `data/city-gazetteer.tsv`, and a row-wise
+backfill: **111 rows resolved, 17 refused** — `Barcelona` ×9 by the ambiguity
+rule, `HQ - Los Angeles` ×5 and `Virginia Beach. VA` ×3 by being different
+parser gaps that this deliberately does not fix. Zero of the 111 carry a
+coordinate.
 
 **This is not fixed by adding London to the list.** ADR 0008 anticipated this
 milestone and ruled on it in advance:

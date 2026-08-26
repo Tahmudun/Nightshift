@@ -33,7 +33,7 @@
 **M4c Task 5 is done: the city speaks §6, and says what it is saying.** The table is one pure function (`treatments.ts`), the beacons carry per-instance colour, strength and pulse rate through a shader, four instanced meshes draw the marks §6 puts *on* a body, and an in-interface legend documents all thirteen rows — including the four that are not drawn, each with its reason. ADR 0028. `docs/reviews/milestone-4c-treatments.png` is the screenshot. Three defects were found by looking rather than by a test: a closed torus whose rotation was invisible by construction, a spin folded into the billboard that rolled every arc out of the camera plane, and a saved outline drawn cyan — which is exactly what ADR 0027's standing instruction ruled out.
 **M4c: Tasks 1, 2, 3 and 4 are done. The placement join and `GET /city/signals` (ADR 0024, which resolves a real conflict between I1 and `city.md` §4.4 rather than papering over it), the Three.js signal layer in MapLibre's own context (ADR 0025), and the field made legible, navigable and sortable. New York now has every open role floating above it, untethered, and none on a building — see `docs/reviews/milestone-4c-signals.png` and `docs/reviews/milestone-4c-roster.png`. Task 4 then made a role reachable: picking by raycast against the frame's own matrix, a reticle, a detail panel, and one selection shared by the list and the map (ADR 0027) — `docs/reviews/milestone-4c-selection.png`.**
 **Docker's daemon is no longer wedged.** It was force-quit and relaunched on 2026-08-12. `make up` was then run **from cold** — containers removed with `docker compose down` first — and created both from scratch to healthy, exit 0. **That closes the last open step in M4b's acceptance chain**; container startup is now proven rather than assumed. The seeded corpus survived and matches what this file records: 31 canonical jobs, 62 `job_locations`, 44 `city_only` + 18 `remote`, 0 mappable.
-**Current milestone: M6 — The Archipelago (A16). BLOCKED on Q14 — 43% of the now-real corpus is physically in another city and has no home in the Island's design. `main` is at `a44d338`, with PRs #22, #23 and #24 all merged and green. See "Next exact action".**
+**Current milestone: M6 — The Archipelago (A16). UNBLOCKED — Q14 answered 2026-08-25. M6a is in flight on `m6a-geo-spine`: the design (`docs/architecture/archipelago.md`), ADR 0040, and the gazetteer are done and the corpus is backfilled. See "Next exact action".**
 
 **Superseded (kept for the record): Current milestone: M5 — The Open Hand (A16). M5a, M5b and M5c are merged, including M5c's Claude Desktop deviation (PR #20, `0765381`). M5d is COMPLETE — all six tasks, walk included — on `m5d-assisted-capture` at `d37e83c`; [PR #21](https://github.com/Tahmudun/Nightshift/pull/21) is open with all five CI jobs green.**
 **M5 itself is NOT closed.** Its four acceptance criteria have not been walked as a milestone — only the four slices' own. That walk, and the merge, are what stand between here and M6. See "Next exact action".
@@ -848,9 +848,86 @@ last rung of the three rather than the next.
 
 ---
 
+**2026-08-25 — Q14 answered, M6 designed, and the parser was found losing cities it had been told.**
+
+**Q14 is ANSWERED: the Island absorbs the other-city roles, as an interim measure.** The human's words: *"for now they can be in the island but we will need a better system later."* That is not the option on file as the recommendation (the filter was, and still is), and it was chosen knowingly with its own expiry stated. **Q15 records the debt** so the "later" is a decision waiting rather than an intention. The interim does not license an untrue landmass: I1 does not bend for a placeholder, so the archipelago carries the distinctions the data already contains.
+
+**`docs/architecture/archipelago.md` is written** and `CLAUDE.md`'s read-order table points at it. Measuring the corpus before designing on top of it (A16's ordering rule) contradicted the one-line M6 spec twice:
+
+- **"Every remote and address-unknown role" is not one population.** By the location that actually places a job — the primary, which `placement.py:246` selects — the corpus is New York 224, a known city elsewhere 568, a country or state only 239, and nothing at all 169. A role in London and a role that is remote-anywhere are not the same fact, so the archipelago is **four landmasses and distance from the mainland encodes uncertainty**. Named `landmass`, not `region`: `scoring.py:195` already uses `region` for a US state.
+- **71 New York roles are invisible to the map.** 295 jobs name New York in some location row; only 224 name it in the primary, and `is_primary` is assigned from the first segment the employer typed. A 24% undercount of the city caused by a form-filling artifact. The fix (placement prefers a New York location) is designed in §6 and **not yet built**.
+
+**The defect the measurement found, and what ADR 0008 had to say about it.** 118 primary locations resolved to `unknown` with every field null while their `raw_text` read `London`, `San Francisco`, `Barcelona`. `_DECIDED_BARE_PLACES` (`locations.py:346`) is an enumerated reviewed list and it contains **only New York and its boroughs** — every other bare city name falls through. ADR 0008 predicted this milestone and **forbade the easy fix in advance**: *"a real gazetteer, a provenance field on the resolution, and its own ADR — extending this list to get there would be the slow version of the thing this ADR refuses."*
+
+**Done on ADR 0008's terms — ADR 0040.** GeoNames `cities15000`, CC BY 4.0, built into `data/city-gazetteer.tsv` (409K, committed) by a committed generator. **Every judgement is made at build time**, so what ships is a decided list of 14,293 names — 13,948 resolved, **345 refusals shipped alongside them** so a refusal is auditable and countable rather than a silence. Three rules, each a refusal: a **50,000 population floor** (the long tail is where ordinary English words turn out to be towns — `Best`, `Central`, `Liberty`, `University` are all real places), a **10× dominance ratio** (`London` 21× resolves; `Barcelona` 2.1×, `Springfield` 1.1× do not — refuse on ambiguity, never pick the biggest; 5× was tried and rejected because it admits `Birmingham`), and **no coordinates in the artifact at all**, so I1 is enforced by the shape of the file rather than by anyone's care.
+
+- **`resolution_method` gains `gazetteer`** (migration `0028`, **verified reversible**: 8 enum values → 7 → 8). Provenance is what makes the decision reversible without a re-crawl — every affected row is one query away.
+- **Never consulted on a remote-marked segment.** A trailing token after `Remote` names a scope, not a workplace.
+- **The backfill is row-wise on purpose.** ADR 0007's conditional polling means an unchanged board answers `304` and re-parses nothing, so these rows would survive every future poll. The 2026-08-24 repair's second lesson — a merged job's locations are a union across several source records, so rebuilding a set from one record silently drops the others — is sidestepped entirely by correcting rows in place and never reconstructing a set. **111 rows resolved, 17 refused, 0 carrying a coordinate.** `unknown` fell from 322 rows to 211.
+- **The script is committed this time.** `scripts/backfill_gazetteer_cities.py` and `scripts/build_city_gazetteer.py`. The two throwaway scripts from 2026-08-24 are named in PROGRESS as a real gap; this milestone stops adding to it.
+
+**A sabotage caught a test that could not fail, and a wrong sentence in the ADR.** The remote-guard fixture used `Remote - Central` — and `Central`, Louisiana is *under* the population floor, so the gazetteer refuses it anyway and removing the guard broke nothing. The fixture proved nothing and ADR 0040's justifying example was wrong with it. Both now use `Remote - Austin` (Austin resolves at 39×), and removing the guard now fails the fixture. **Every new fixture was shown able to fail.**
+
+**Landmass split after the backfill:** New York 224, a known city elsewhere **675**, a country or state only **239**, nothing at all **62** — of which 51 are genuinely remote and 11 are the gazetteer's refusals.
+
+**The backfill's own test run found a defect older than the backfill, and it is the most valuable thing in this session.** `make check` failed three ways. Two were mechanical (an untracked file; the browser's Zod enum not knowing `gazetteer` — `test_enum_parity` catching exactly what it exists for). **The third was the golden matching file**, and chasing it down led here:
+
+- **`matching.md` §4.2 says a changed job invalidates its stored scores, and four database triggers enforce it** — on `jobs.description_text`, `job_requirements`, `user_skills` and `user_projects`. **`job_locations` was not among them.** The score has a location component worth up to 10 points that reads that table.
+- So a job could change which city it is in while its stored score went on being served as **current**, because `current_result_for` decides staleness by comparing `ruleset_version` and has no way to see that the *inputs* moved underneath a version that did not. §4.2's own principle — *a stale result is never silently served* — was false by the one route the design did not cover.
+- **218 stored results** were describing cities their jobs no longer state, several reading *"this posting states no location"* about a job whose posting names Chicago. **The defect predates M6a**: the 2026-08-24 parenthetical repair changed 80 location rows the same way and left the same wreckage, unnoticed.
+- **Migration 0029** attaches the *existing* trigger function to `job_locations` — it already keys on `job_id`, so this is one more table on a mechanism that works, not a new mechanism — and clears what the gap let through. Verified reversible. Two tests, **both shown able to fail by dropping the trigger**, and the second is a **negative control**: a trigger that deleted the whole table on any location write would pass the positive case alone and quietly rescore the corpus on every ingestion insert.
+
+**`RULESET_LOGIC_VERSION` bumped 3 → 4, after arguing myself out of the opposite position.** No rule and no weight changed, so the first read was that bumping states something false. What settled it is that the constant's own docstring names three triggers and the third is *"a component computed from something else"* — the location component now is. A bare `Chicago` posting stops scoring `location —` out of 30 and starts scoring `location 0` out of 40: **the numerator never moves, only the denominator grows**, so out-of-town roles stop being excused against a New-York-seeking profile. That is the improvement and it is still a change to numbers people were shown. It errs safe (2182 scores recompute; §4.2 keeps the old rows alongside), uses the documented path, and avoids inventing an escape hatch in the matching subsystem's most safety-critical guard — which `test_matching_golden.py`'s own docstring warns is how a guard gets bypassed.
+
+**Gates on the final tree: `make check` exits 0** — format, lint, typecheck, **2297 Python** (12m08s, up from 2292) and **831 web across 56 files**. Migrations 0028 and 0029 both verified reversible.
+
+**Not real yet on this branch:** the `landmass` enum and column, the placement preference rule (§6), and the coverage page's landmass and refusal counts. All three are M6a and none of them is written.
+
+**Also owed, and small:** `locations.py`'s `TODO(M1)` on the corroboration gap still says the problem is "not fixable without a gazetteer of real city names". A gazetteer now exists and still does not fix it — the corroborated path never consults one — so the comment's reasoning is stale even though its conclusion holds.
+
+---
+
+
 ## Next exact action
 
-### Current milestone: **M6 — The Archipelago. BLOCKED on Q14, which is the human's to answer.**
+### Current milestone: **M6 — The Archipelago. M6a in flight on `m6a-geo-spine`.**
+
+> **START HERE, NEXT SESSION.** Q14 is answered and M6 is unblocked. The design
+> is `docs/architecture/archipelago.md` — **read it before touching anything in
+> this milestone.** Branch `m6a-geo-spine` carries the design, ADR 0040, the
+> committed gazetteer and the backfill. Nothing is merged; no PR is open yet.
+>
+> **The next three things, in order, all of them M6a and none of them started:**
+>
+> 1. **The `landmass` enum and column.** `new_york | elsewhere_city |
+>    elsewhere_broad | unplaced`, written at ingestion by one pure function and
+>    backfilled. Not called `region` — `scoring.py:195` already uses that for a
+>    US state. archipelago.md §4 has the definitions and the measured
+>    populations (224 / 675 / 239 / 62).
+> 2. **The placement preference rule.** archipelago.md §6. Placement currently
+>    selects `is_primary`, which is assigned from the first segment the employer
+>    typed, and that hides **71 New York roles — 24% of the city**. The rule is
+>    *a New York location wins, then the primary, then the first*, with a
+>    fixture per branch including a job with no New York location at all, which
+>    must be untouched.
+> 3. **The coverage page.** Per-landmass counts, the gazetteer's **345
+>    ambiguity refusals** as a number a reader can see, the CC BY 4.0
+>    attribution the licence requires, and the districts named as interim per
+>    Q15.
+>
+> Then M6b — the archipelago is drawn. Not before 1–3: A16's ordering rule is
+> *data before rendering*, and this milestone has already found two data
+> defects that a renderer built first would have shipped on top of.
+>
+> **Still open and not blocking:** Q15 (the Island's second and third districts
+> are on loan), Q13, Q12, Q11, Q10, Q9, Q7, Q6. And the two repo gaps carried
+> from 2026-08-24 — `make ingest` reaches 2 of 23 registered boards because it
+> hardcodes `pollable(ats="greenhouse")`, and `make test-e2e` cannot pass on a
+> machine where the API is running and says nothing about why.
+
+---
+
+### Superseded: **M6 — BLOCKED on Q14, which is the human's to answer.**
 
 > **START HERE, NEXT SESSION.** `main` is at `a44d338`. PR #22 (M5
 > acceptance), PR #23 (Q8) and PR #24 (the location splitter) are all merged,
