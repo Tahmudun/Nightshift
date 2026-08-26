@@ -40,12 +40,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from nightshift.db.base import (
     JobStatus,
     JobTextField,
+    LocationConfidence,
     MatchComponent,
     ProficiencyLevel,
     RemotePreference,
+    ResolutionMethod,
     SkillSourceType,
 )
-from nightshift.db.models import Job, MatchEvidence, MatchResult, User, UserSkill
+from nightshift.db.models import Job, JobLocation, MatchEvidence, MatchResult, User, UserSkill
 from nightshift.domain import matching
 from nightshift.domain.ingestion import sync_requirements
 from nightshift.domain.matching_weights import load_weights
@@ -552,3 +554,73 @@ async def test_confirming_a_graduation_year_clears_the_scores(
     cleared = await matching.clear_scores_for_user(db_session, user.id)
     assert cleared == 1
     assert await _score_count(db_session, user_id=user.id) == 0
+
+
+async def test_a_location_change_clears_the_jobs_scores(
+    db_session: AsyncSession,
+) -> None:
+    """Migration 0029. §4.2's *changed job* trigger, on the table it had missed.
+
+    Four triggers were written at M3b Task 2 and `job_locations` was not one of
+    them, so a job could change the cities the location component reads while
+    its stored score — filtered on `ruleset_version` alone — went on being
+    served as current. M6a's gazetteer backfill made that concrete: 111 rows
+    changed city and 218 stored results kept describing the old ones, several
+    of them reading *"this posting states no location"* about a job whose
+    posting names Chicago.
+    """
+    user = await _user(db_session, years_experience=1)
+    job = await _job(db_session)
+    await matching.recompute_pending(db_session, limit=50, as_of=TODAY)
+    await db_session.flush()
+    assert await _score_count(db_session, job_id=job.id) == 1
+
+    db_session.add(
+        JobLocation(
+            job_id=job.id,
+            raw_text="London",
+            city="London",
+            location_confidence=LocationConfidence.CITY_ONLY,
+            resolution_method=ResolutionMethod.GAZETTEER,
+            is_primary=True,
+        )
+    )
+    await db_session.flush()
+
+    assert await _score_count(db_session, job_id=job.id) == 0
+    assert (user.id, job.id) in await matching.pending_pairs(
+        db_session, ruleset=load_weights().ruleset_version, limit=50
+    )
+
+
+async def test_another_jobs_location_leaves_this_jobs_score_alone(
+    db_session: AsyncSession,
+) -> None:
+    """The negative control, and the reason it is not optional.
+
+    A trigger that deleted the whole table on any location write would pass the
+    test above and quietly rescore the corpus every time ingestion inserts a
+    row. The function keys on `job_id`; this is what says so.
+    """
+    user = await _user(db_session, years_experience=1)
+    job = await _job(db_session)
+    other = await _job(db_session, description=DESCRIPTION + " Also hiring in Berlin.")
+    await matching.recompute_pending(db_session, limit=50, as_of=TODAY)
+    await db_session.flush()
+    assert await _score_count(db_session, job_id=job.id) == 1
+
+    db_session.add(
+        JobLocation(
+            job_id=other.id,
+            raw_text="London",
+            city="London",
+            location_confidence=LocationConfidence.CITY_ONLY,
+            resolution_method=ResolutionMethod.GAZETTEER,
+            is_primary=True,
+        )
+    )
+    await db_session.flush()
+
+    assert await _score_count(db_session, job_id=job.id) == 1
+    assert await _score_count(db_session, job_id=other.id) == 0
+    assert user is not None
