@@ -97,6 +97,12 @@ class ResolutionMethod(enum.StrEnum):
     # employer's office is here" are different claims, and the detail panel has
     # to be able to say which one placed the beacon.
     COMPANY_OFFICE = "company_office"
+    # A bare city name matched against the committed gazetteer (ADR 0040).
+    # Distinct from `source_text_parse` on purpose: the posting's own structure
+    # did not corroborate this city, a list did, and every row that happened to
+    # must be findable in one query — which is what makes the decision
+    # reversible without a re-crawl.
+    GAZETTEER = "gazetteer"
 
 
 class JobStatus(enum.StrEnum):

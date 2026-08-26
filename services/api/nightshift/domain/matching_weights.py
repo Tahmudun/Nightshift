@@ -41,7 +41,21 @@ DEFAULT_WEIGHTS_PATH = Path(__file__).resolve().parents[4] / "data" / "matching.
 #: a row appearing is a change to what a person is told. The golden test refused
 #: to regenerate until this line moved, which is the paragraph above working
 #: rather than a developer remembering.
-RULESET_LOGIC_VERSION = "3"
+#: ``4`` since M6a: the location component is *computed from something else*,
+#: which is the third case this docstring names. No rule and no weight moved —
+#: ADR 0040's gazetteer did, and a posting whose location text is a bare
+#: ``London`` or ``Chicago`` now arrives at the scorer with a city where it used
+#: to arrive with none. The component stops reading "this posting states no
+#: location" and starts scoring the preference it can now compare, so the
+#: denominator grows by ten and the fraction falls for every out-of-town role a
+#: New-York-seeking profile sees. That is the improvement, and it is still a
+#: change to numbers people were shown, so it bumps.
+#:
+#: Migration 0029 makes this the belt to its braces rather than the only guard:
+#: `job_locations` had no trigger clearing a changed job's scores, so before it
+#: a location change left a stale row behind that this version could not have
+#: caught either.
+RULESET_LOGIC_VERSION = "4"
 
 #: The six components, in the order §5.1 lists them. Named here rather than read
 #: from the file: a component the code has never heard of must be a load error,

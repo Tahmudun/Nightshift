@@ -31,6 +31,11 @@ export const resolutionMethodSchema = z.enum([
   // M4a and missing here until M4c, which `test_enum_parity.py` did not catch
   // because this enum was not in its list. It is now.
   'company_office',
+  // A bare city name matched against the committed gazetteer — ADR 0040, M6a.
+  // Distinct from `source_text_parse` because the posting's own structure did
+  // not corroborate the city; a decided list did, and the panel has to be able
+  // to say which.
+  'gazetteer',
 ]);
 
 export const jobStatusSchema = z.enum(['open', 'possibly_stale', 'unverified', 'closed']);

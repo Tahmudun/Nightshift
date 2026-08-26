@@ -62,6 +62,14 @@ def test_parses_fixture_case(case: dict[str, Any]) -> None:
             f"{case['name']}: confidence"
         )
         assert actual.is_primary == want["is_primary"], f"{case['name']}: is_primary"
+        # Optional, because most fixtures predate ADR 0040 and every one of
+        # them means `source_text_parse`. Where a fixture states it, it is
+        # asserted — a resolution_method key that nothing checked would make
+        # the gazetteer fixtures tests that cannot fail.
+        if "resolution_method" in want:
+            assert actual.resolution_method == ResolutionMethod(want["resolution_method"]), (
+                f"{case['name']}: resolution_method"
+            )
 
 
 @pytest.mark.parametrize("case", LIST_CASES, ids=[c["name"] for c in LIST_CASES])
@@ -91,6 +99,14 @@ def test_list_entry_point_matches_field_entry_point(case: dict[str, Any]) -> Non
             f"{case['name']}: confidence"
         )
         assert actual.is_primary == want["is_primary"], f"{case['name']}: is_primary"
+        # Optional, because most fixtures predate ADR 0040 and every one of
+        # them means `source_text_parse`. Where a fixture states it, it is
+        # asserted — a resolution_method key that nothing checked would make
+        # the gazetteer fixtures tests that cannot fail.
+        if "resolution_method" in want:
+            assert actual.resolution_method == ResolutionMethod(want["resolution_method"]), (
+                f"{case['name']}: resolution_method"
+            )
 
 
 @pytest.mark.parametrize("case", CASES, ids=[c["name"] for c in CASES])
@@ -99,11 +115,23 @@ def test_never_produces_coordinates(case: dict[str, Any]) -> None:
 
     Asserted structurally rather than by value — if someone adds latitude to
     :class:`ParsedLocation` to make a map feature easier, this fails.
+
+    The method allow-list is the second half. Both members are parse-time: the
+    posting's own structure, or the committed gazetteer (ADR 0040), neither of
+    which can reach a coordinate. Every *other* member of the enum can —
+    `nyc_geosearch`, `nominatim` and `neighborhood_centroid` exist precisely to
+    produce one — so a parser that starts returning one of those has grown a
+    geocoding path, and this fails rather than waiting for a beacon to appear in
+    the wrong place.
     """
+    parse_time_only = {
+        ResolutionMethod.SOURCE_TEXT_PARSE,
+        ResolutionMethod.GAZETTEER,
+    }
     for parsed in parse_location_field(case["raw"]):
         assert not hasattr(parsed, "latitude")
         assert not hasattr(parsed, "longitude")
-        assert parsed.resolution_method is ResolutionMethod.SOURCE_TEXT_PARSE
+        assert parsed.resolution_method in parse_time_only
 
 
 @pytest.mark.parametrize("case", CASES, ids=[c["name"] for c in CASES])

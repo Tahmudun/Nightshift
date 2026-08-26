@@ -381,19 +381,75 @@ cases:
         confidence: city_only
         is_primary: true
 
-  # A single foreign city with nothing corroborating it. Stays `unknown`
-  # deliberately: a world gazetteer is not in scope, and ADR 0008 limits the
-  # decided-name list to places NYC-ness depends on. The cost is real and is
-  # named on the coverage page rather than hidden.
-  - name: ashby_bare_foreign_city_stays_unknown
+  # A single foreign city with nothing corroborating it. ADR 0008 left this
+  # `unknown` and said so on the coverage page; ADR 0040 resolves it from the
+  # committed gazetteer. `resolution_method` is what carries the difference —
+  # the posting's structure did not corroborate this city, a list did.
+  #
+  # Note what is still absent: no state, no country. The posting said one word
+  # and this records one word.
+  - name: bare_foreign_city_resolves_from_gazetteer
     synthetic: true
     raw: "London"
     expect:
       - raw_text: "London"
+        city: "London"
+        state: null
+        country: null
+        confidence: city_only
+        resolution_method: gazetteer
+        is_primary: true
+
+  # The ambiguity rule, on a name the corpus actually contains. Barcelona,
+  # Spain is only 2.1x Barcelona, Venezuela, which is under the 10x dominance
+  # ratio, so the gazetteer ships it as `ambiguous` and it stays unknown. This
+  # is the rule working, not a gap to close by lowering the ratio.
+  - name: contested_bare_city_stays_unknown
+    synthetic: true
+    raw: "Barcelona"
+    expect:
+      - raw_text: "Barcelona"
         city: null
         state: null
         country: null
         confidence: unknown
+        is_primary: true
+
+  # The gazetteer is never consulted on a remote-marked segment. A trailing
+  # token after `Remote` names a scope — an anchor city, a time zone, a hiring
+  # region — not a workplace, and "Remote - Austin" is a shape US employers
+  # write constantly. Austin resolves at 39x, so without this guard a fully
+  # remote role would carry a city it does not have.
+  #
+  # Deliberately not "Remote - Central": Central, Louisiana is under the
+  # population floor, so that string proves nothing about this guard. The
+  # sabotage that caught it is in the M6a notes.
+  - name: remote_scope_is_not_a_gazetteer_city
+    synthetic: true
+    raw: "Remote - Austin"
+    expect:
+      - raw_text: "Remote - Austin"
+        city: null
+        state: null
+        country: null
+        confidence: remote
+        is_primary: true
+
+  # ADR 0008's list is consulted first and still wins. New York resolves its
+  # *state* as well as its city, which the gazetteer deliberately does not do,
+  # and ADR 0007's hot-tier decision depends on that. If this ever reports
+  # `gazetteer`, the two lists have been reordered and NYC-ness has quietly
+  # lost its state.
+  - name: decided_list_wins_over_gazetteer
+    synthetic: true
+    raw: "New York"
+    expect:
+      - raw_text: "New York"
+        city: "New York"
+        state: "New York"
+        country: null
+        confidence: city_only
+        resolution_method: source_text_parse
         is_primary: true
 
   # -------------------------------------------------------------------------

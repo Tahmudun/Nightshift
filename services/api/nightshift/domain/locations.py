@@ -32,6 +32,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from nightshift.db.base import LocationConfidence, ResolutionMethod
+from nightshift.domain.gazetteer import gazetteer
 
 # ATS providers delimit multiple locations with ';' (Greenhouse, Ashby) or
 # occasionally '|' (some Lever boards).
@@ -567,6 +568,7 @@ def parse_location_segment(segment: str, *, is_primary: bool) -> ParsedLocation:
     city: str | None = None
     state = tail.state
     country = tail.country
+    resolution_method = ResolutionMethod.SOURCE_TEXT_PARSE
     if tail.parts:
         # With a street address the city is the *last* unconsumed part:
         # "620 8th Ave, New York" -> "New York".
@@ -587,6 +589,23 @@ def parse_location_segment(segment: str, *, is_primary: bool) -> ParsedLocation:
                     state or decided[1],
                     country or decided[2],
                 )
+            elif not tail.remote:
+                # ADR 0040. Consulted only after ADR 0008's list declines, and
+                # never on a remote-marked segment: a trailing token after
+                # `Remote` names a *scope* — an anchor city, a time zone, a
+                # hiring region — not a workplace. The corpus contains
+                # "Remote - Pacific Time"; "Remote - Austin" is the same shape
+                # and Austin is a city this gazetteer resolves.
+                #
+                # Yields a city name and nothing else. No state, no country, no
+                # coordinate: the posting said one word and this records one
+                # word. `resolution_method` marks the row so every city that
+                # came from a list rather than from the posting's own structure
+                # is findable in one query.
+                matched = gazetteer().lookup(candidate)
+                if matched is not None:
+                    city = matched
+                    resolution_method = ResolutionMethod.GAZETTEER
 
     if tail.remote:
         confidence = LocationConfidence.REMOTE
@@ -604,6 +623,7 @@ def parse_location_segment(segment: str, *, is_primary: bool) -> ParsedLocation:
         country=country,
         confidence=confidence,
         is_primary=is_primary,
+        resolution_method=resolution_method,
     )
 
 
