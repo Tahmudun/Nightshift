@@ -766,8 +766,22 @@ async def pending_pairs(
     ranked list filters out, and I3 is what makes `status` trustworthy enough to
     filter on: a source outage does not close anything.
 
+    **And only postings `score_pair` can actually score.** It refuses one with no
+    description (§5.1.1) and writes nothing, so such a pair stays pending
+    forever — and a bounded sweep ordered by `first_seen_at` returns the same
+    slice on every tick. M6a made that concrete: the internship lists added 2,524
+    postings with no description, because a list entry is a pointer rather than a
+    posting, and `make score` reported `scored 0, skipped 500` on a corpus with
+    1,267 scorable rows sitting behind them. It would have reported it forever.
+
+    The refusal itself is unchanged and correct — those pairs still have no
+    score, which is true of them. What changes is that they are no longer claimed
+    as *due*, because work that can never be done is not pending work.
+
     Ordered so that a bounded sweep makes progress rather than re-examining the
-    same slice — `limit` is a batch size, not a cap on the work.
+    same slice — `limit` is a batch size, not a cap on the work. That sentence
+    was false between M6a's first ingest and this filter, which is why it now has
+    a test with `limit=1` behind it rather than only a docstring.
     """
     rows = await session.execute(
         select(User.id, Job.id)
@@ -778,7 +792,11 @@ async def pending_pairs(
             & (MatchResult.job_id == Job.id)
             & (MatchResult.ruleset_version == ruleset),
         )
-        .where(MatchResult.id.is_(None))
+        .where(
+            MatchResult.id.is_(None),
+            Job.description_text.is_not(None),
+            Job.description_text != "",
+        )
         .order_by(User.id, Job.first_seen_at, Job.id)
         .limit(limit)
     )

@@ -428,6 +428,61 @@ async def test_a_closed_posting_is_never_swept(db_session: AsyncSession) -> None
     assert (user.id, job.id) not in pending
 
 
+async def test_a_posting_with_no_description_is_never_swept(db_session: AsyncSession) -> None:
+    """M6a. `score_pair` refuses a posting with no description (§5.1.1) — the
+    three components that could still be computed would be scored out of a
+    denominator claiming the other three were assessable.
+
+    So such a pair must not be *claimed* as due either. It writes no row, so it
+    stays pending forever, and a bounded sweep ordered by `first_seen_at` comes
+    back to the same slice on every tick.
+    """
+    user = await _user(db_session, years_experience=1)
+    job = await make_job_with_text(db_session, None)
+    job.title = "Software Engineer Intern"
+    await db_session.flush()
+
+    pending = await matching.pending_pairs(
+        db_session, ruleset=load_weights().ruleset_version, limit=50
+    )
+    assert (user.id, job.id) not in pending
+
+
+async def test_a_sweep_makes_progress_past_postings_it_cannot_score(
+    db_session: AsyncSession,
+) -> None:
+    """The defect this pair exists for, and the reason the test above is not enough.
+
+    M6a's internship lists added 2,524 postings with no description — an entry is
+    a pointer, not a posting. `pending_pairs` is bounded and ordered by
+    `first_seen_at`, and `score_pair` writes nothing for a posting it refuses, so
+    the batch filled with unscorable pairs and returned **the same ones every
+    time**. `make score` reported `scored 0, skipped 500` on the live corpus and
+    would have reported it forever: 1,267 scorable postings sat behind a wall of
+    2,524 that could never clear.
+
+    The `limit=1` is the whole test. With a batch of one and the unscorable
+    posting first, a sweep that cannot step past it scores nothing, ever.
+    """
+    # The user has to exist for a pair to exist at all; the test asserts about
+    # the jobs, so the row is created and not named.
+    await _user(db_session, years_experience=1)
+    unscorable = await make_job_with_text(db_session, None)
+    unscorable.title = "Software Engineer Intern"
+    unscorable.first_seen_at = datetime.now(tz=UTC) - timedelta(days=30)
+    await db_session.flush()
+    scorable = await _job(db_session)
+    scorable.first_seen_at = datetime.now(tz=UTC)
+    await db_session.flush()
+
+    report = await matching.recompute_pending(db_session, limit=1, as_of=TODAY)
+    await db_session.flush()
+
+    assert report.scored == 1, "the sweep never reached the posting it could score"
+    assert await _score_count(db_session, job_id=scorable.id) == 1
+    assert await _score_count(db_session, job_id=unscorable.id) == 0
+
+
 async def test_a_ruleset_version_bump_makes_every_pair_due_again(
     db_session: AsyncSession,
 ) -> None:
