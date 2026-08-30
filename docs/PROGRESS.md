@@ -2734,6 +2734,83 @@ only M4d.
 
 ---
 
+## M6a Task 8 — the reader exists, and the sweep was jammed
+
+**2026-08-30. The reader's account is real and his profile is scored.** CUNY
+Brooklyn College, Computer Science, graduating 2027-09, `us_citizen`. Resume
+uploaded as a PDF (5,920 characters parsed), **19 skills confirmed** and reaching
+`user_skills`, degree and school confirmed. **I2 holds**: zero confirmed
+extractions carry a null `decided_at`.
+
+### The sweep could not make progress, and would not have said so
+
+`make score` reported **`scored 0, skipped 500`** and repeated it identically on
+every run. `pending_pairs` selects unscored pairs oldest-first with a bounded
+batch; `score_pair` refuses a posting with no `description_text` (§5.1.1, so the
+three computable components are not scored out of a denominator claiming six were
+assessable) and **writes nothing**. A refused pair therefore stays pending and
+comes back in the next batch, forever.
+
+Before M6a every posting came from an ATS board and had a description, so the
+refusal path never met a bounded sweep. The internship lists added **2,524
+description-less postings** — an entry is a pointer, not a posting — and **1,267
+scorable postings sat behind a wall that could never clear.**
+
+`pending_pairs` now excludes postings that cannot be scored. The refusal itself is
+unchanged and still correct: those pairs have no score, which is true of them.
+What changed is that they are no longer claimed as *due*, because work that can
+never be done is not pending work. The docstring's claim that "`limit` is a batch
+size, not a cap on the work" was **false** between the first list ingest and this
+fix, and now has a `limit=1` test behind it rather than only a sentence.
+
+After the fix: **1,189 scored — 408 eligible, 781 uncertain.**
+
+### And the finding that matters more than the defect
+
+**Of the 2,347 early-career roles M6a delivered, 8 can be scored.** The scored
+pool is 548 `unclear`, 284 `senior`, 190 `mid`, 97 `staff`, 62 `director` and 8
+early-career, so **the reader's ranked list is topped by Senior Product Manager
+and Director roles** for a 2027 graduate. His best early-career match is a
+Graduate AI Engineer at 24/50; the fourth is a CNC Machine Park Internship.
+
+M6a delivered **volume, not rankability**, and the-hunt.md §5.3 predicted exactly
+this — it called a list-only score "thin". It is not thin, it is *absent*: a
+posting with no description is refused outright.
+
+**§5.3's bridge is Task 6, and it is measurable.** Of the 2,339 unscorable
+early-career roles, **547 link to a Greenhouse, Ashby or Lever board**. Approving
+those boards and polling them fetches the full postings, which dedupe against the
+list entries on `canonical_url` — already observed working during the ingest —
+and bring their descriptions with them. That would take the reader's scorable
+early-career roles from **8 to roughly 555**. The other 1,792 point at Workday,
+iCIMS and company career pages, which have no adapter and are a stated blind spot.
+
+**So the 234 pending board approvals are not breadth for its own sake. They are
+what makes this milestone's corpus rankable, and that reframes the decision.**
+
+### Two profile fields have no way to be filled in
+
+- **`is_enrolled` has no control on the profile form.** The column exists, the
+  API patches it, the eligibility gate reads it, and there is no field. It is an
+  M3b gate input, so blank means the gate answers `uncertain` where it could
+  answer `eligible` — and internships routinely require current enrollment.
+- **`years_experience` is blank** for the same practical reason.
+
+### The resume's project extractor produces unusable names
+
+All **7 project extractions are `pending`** and every one has a wrong `name`,
+while its `evidence` is correct. The extractor takes the text immediately
+preceding the first bullet, which is sometimes the wrapped tail of the *previous*
+project's last bullet (`"polling from user request latency."`,
+`"downstream analysis accuracy."`) and sometimes the tech-stack line, yielding a
+name of `"Python"`, `"React"` or `"Swift"` for a project.
+
+**I2 held** — all seven are proposals and nothing was promoted — but the reader
+cannot usefully confirm any of them, so `user_projects` is 0 and the project
+evidence component has nothing to read. Not fixed in this session.
+
+---
+
 ## M6a Tasks 1–7 and 9 — the corpus triples, and four things the tests could not see
 
 **Built 2026-08-29/30 on `m6a-geo-spine`.** The milestone was re-cut mid-flight

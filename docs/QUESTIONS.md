@@ -7,6 +7,44 @@ the date, because the reasoning is usually worth more than the decision.
 
 ---
 
+## Q18 — Two profile facts have no field, and the resume's project names are unusable
+
+**Raised:** 2026-08-30 (M6a Task 8) · **Type:** product / engineering · **Blocking:** no
+
+Three gaps found by the reader actually filling in his profile, which is the only
+way any of them could have been found.
+
+**1. `is_enrolled` has no control on the profile form.** The column exists, the
+API reads and patches it, and the M3b eligibility gate reads it — with no way to
+set it. Blank means the gate answers `uncertain` where it could answer
+`eligible`, and internships routinely require current enrollment. This is the
+reader's own primary category, so the field's absence costs him directly.
+
+**2. `years_experience` is blank** and is also a gate input. There may be a field
+for it; the reader left it empty either way, and a student's honest answer is
+often `0`, which the gate treats differently from null on purpose (null is "you
+have not told us", 0 is "none" and passes a zero-experience requirement).
+
+**3. The resume project extractor produces unusable names.** All 7 of the
+reader's project extractions are `pending` with correct `evidence` and a wrong
+`name`. It takes the text immediately before the first bullet, which is sometimes
+the wrapped tail of the previous project's last bullet — `"polling from user
+request latency."`, `"downstream analysis accuracy."` — and sometimes the
+tech-stack line, giving a project called `"Python"`, `"React"` or `"Swift"`.
+
+I2 held: all seven are proposals and nothing was promoted. But none can honestly
+be confirmed, so `user_projects` is 0 and the **project evidence** component of
+every score has nothing to read.
+
+**The choice:** add the two fields and fix the project name heuristic as one small
+slice; or fix only the fields and leave projects for M3's own evaluation work,
+where the extractor's quality is already measured.
+
+**What it costs to leave:** two gate inputs stay `uncertain`, and one of six score
+components is permanently empty for this reader.
+
+---
+
 ## Q17 — `make ingest` re-downloads 11.2 MB every run. Wire it to conditional polling?
 
 **Raised:** 2026-08-30 (M6a Task 4) · **Type:** engineering · **Blocking:** no
