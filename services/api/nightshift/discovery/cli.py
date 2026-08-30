@@ -29,8 +29,13 @@ import urllib.parse
 from datetime import UTC, date, datetime
 from pathlib import Path
 
+from sqlalchemy import select
+
 from nightshift.adapters.http import MAX_TEXT_BYTES, PoliteClient
 from nightshift.config import get_settings
+from nightshift.db.base import SourceType
+from nightshift.db.models import Source, SourceJobRecord
+from nightshift.db.session import session_scope
 from nightshift.discovery.approve import approvable, approval_report, promote
 from nightshift.discovery.candidates import (
     DEFAULT_PATH,
@@ -46,9 +51,10 @@ from nightshift.discovery.sources.crawl_index import (
     PROVIDER_PATTERNS,
     tokens_from_cdx,
 )
+from nightshift.discovery.sources.list_urls import tokens_from_listing_urls
 from nightshift.discovery.validate import validate_token
 from nightshift.domain.companies import normalize_company_name
-from nightshift.domain.registry import DEFAULT_REGISTRY_PATH, load_registry
+from nightshift.domain.registry import DEFAULT_REGISTRY_PATH, get_registry, load_registry
 from nightshift.logging import configure_logging
 
 #: Which host each provider's tokens live under. Kept beside the patterns
@@ -71,8 +77,86 @@ def _crawl_fixture(provider: str) -> Path:
     return FIXTURE_ROOT / f"{provider}_{CRAWL_ID.lower().replace('-', '_')}.jsonl"
 
 
+async def _discover_from_lists(args: argparse.Namespace) -> int:
+    """Harvest tokens out of the URLs the internship lists already gave us.
+
+    the-hunt.md §5.3. Reads `source_job_records.raw_payload` for the two list
+    sources — no network, because the payloads are already stored — and mines
+    each entry's `url` for a board token.
+
+    This is discovery aimed at companies that **demonstrably hire interns**,
+    which is a far better filter for this reader than a Common Crawl sweep of
+    every company that has ever had a job board. It feeds the same
+    `discover` -> `validate` -> `approve` chain, with no new approval
+    machinery: ADR 0005's rules apply unchanged, including that a live board
+    whose employer cannot be named never reaches bulk approval.
+    """
+    urls: list[str] = []
+    async with session_scope() as session:
+        rows = (
+            await session.execute(
+                select(SourceJobRecord.raw_payload)
+                .join(Source, Source.id == SourceJobRecord.source_id)
+                .where(Source.source_type == SourceType.INTERNSHIP_LIST)
+            )
+        ).scalars()
+        for payload in rows:
+            if isinstance(payload, dict):
+                url = payload.get("url")
+                if isinstance(url, str):
+                    urls.append(url)
+
+    if not urls:
+        print(
+            "no internship-list records are stored yet. Run `make ingest` first — "
+            "this reads what the lists already gave us, and asks no provider anything.",
+            file=sys.stderr,
+        )
+        return 2
+
+    pairs = tokens_from_listing_urls(urls)
+    file = load_candidates(args.candidates)
+    today = _today()
+    known = {candidate.key for candidate in file.candidates}
+    registry_known = {(entry.ats, entry.token) for entry in get_registry().boards}
+    added = 0
+    already_registered = 0
+    for ats, token in pairs:
+        if (ats, token) in registry_known:
+            already_registered += 1
+            continue
+        if (ats, token) in known:
+            continue
+        file = merge_candidate(
+            file,
+            Candidate(
+                ats=ats,
+                token=token,
+                verdict=Verdict.UNVALIDATED,
+                first_seen=today,
+                # Not `today`: nothing has validated this. See cmd_discover.
+                last_validated=date.min,
+                source="list_urls",
+                notes="mined from an internship-list entry's URL; no provider has been asked yet",
+            ),
+        )
+        added += 1
+
+    save_candidates(file, args.candidates)
+    print(
+        f"{len(urls)} list URLs -> {len(pairs)} distinct (ats, token) pairs; "
+        f"{already_registered} already in the registry, {added} new candidate(s), "
+        f"{len(file.candidates)} total."
+    )
+    print("Nothing is in the registry yet. Next: `make registry-validate`.")
+    return 0
+
+
 async def cmd_discover(args: argparse.Namespace) -> int:
     """Harvest tokens into the candidate file. Offline unless --live."""
+    if getattr(args, "from_lists", False):
+        return await _discover_from_lists(args)
+
     provider = args.provider
     if provider not in PROVIDER_PATTERNS:
         # Named rather than silently empty: `lever` is the one somebody will
@@ -312,6 +396,14 @@ def main(argv: list[str] | None = None) -> int:
         help="re-query Common Crawl instead of reading the committed fixture",
     )
     discover.add_argument("--limit", type=int, default=400, help="CDX row limit for --live")
+    discover.add_argument(
+        "--from-lists",
+        action="store_true",
+        help=(
+            "mine tokens from the stored internship-list payloads instead of a crawl "
+            "index. Reads the database, asks no provider anything, needs no network."
+        ),
+    )
 
     validate = subparsers.add_parser("validate", help="probe candidates and classify them")
     validate.add_argument("--limit", type=int, default=0, help="stop after N candidates (0 = all)")
