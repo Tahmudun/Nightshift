@@ -1113,6 +1113,7 @@ SOURCE_LABELS: dict[SourceType, str] = {
     SourceType.GOVERNMENT: "live",
     SourceType.FIXTURE: "fixture",
     SourceType.MANUAL_CAPTURE: "pasted by hand, never re-read",
+    SourceType.INTERNSHIP_LIST: "community list, re-read on every poll",
 }
 
 

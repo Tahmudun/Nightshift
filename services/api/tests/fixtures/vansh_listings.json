@@ -1,0 +1,918 @@
+[
+  {
+    "date_updated": 1749260792,
+    "url": "https://ats.rippling.com/en-GB/rippling/jobs/3fd9615a-d0c7-458c-a0fc-5d9d7f0ce77c",
+    "locations": [
+      "New York, NY",
+      "San Francisco, CA"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Rippling",
+    "title": "Frontend Software Engineer Intern",
+    "season": "Winter",
+    "source": "vanshb03",
+    "id": "df70fa57-977b-4f31-832e-a0e57ed070b5",
+    "date_posted": 1749260792,
+    "company_url": "",
+    "is_visible": true
+  },
+  {
+    "date_updated": 1749260811,
+    "url": "https://ats.rippling.com/en-GB/rippling/jobs/ee1ec0b1-9a55-408d-979d-9c74f257e9ea",
+    "locations": [
+      "San Francisco, CA"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Rippling",
+    "title": "Machine Learning Engineer Intern",
+    "season": "Winter",
+    "source": "vanshb03",
+    "id": "62b793bb-caea-465f-a95f-ce43bb81f1fc",
+    "date_posted": 1749260811,
+    "company_url": "",
+    "is_visible": true
+  },
+  {
+    "date_updated": 1749262000,
+    "url": "https://ats.rippling.com/en-GB/rippling/jobs/203e0cac-0e30-4603-8087-f764e8c3f85c",
+    "locations": [
+      "New York, NY",
+      "San Francisco, CA"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Rippling",
+    "title": "Software Engineer Intern",
+    "season": "Winter",
+    "source": "vanshb03",
+    "id": "859558cb-6cc3-4251-8a23-4545fdfaebfa",
+    "date_posted": 1749262000,
+    "company_url": "",
+    "is_visible": true
+  },
+  {
+    "date_updated": 1757658515,
+    "url": "https://jobs.lever.co/belvederetrading/5e07daf3-a6bb-40d4-8125-b56d2ea20d81",
+    "locations": [
+      "Chicago, IL"
+    ],
+    "sponsorship": "Does Not Offer Sponsorship",
+    "active": false,
+    "company_name": "Belvedere Trading",
+    "title": "Quantitative Trading Intern",
+    "source": "vanshb03",
+    "id": "cfb9420c-289e-4b59-822d-a687edbdac21",
+    "date_posted": 1752524369,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1762978011,
+    "url": "https://job-boards.greenhouse.io/fiveringsllc/jobs/4634686008",
+    "locations": [
+      "New York, NY"
+    ],
+    "sponsorship": "Other",
+    "active": false,
+    "company_name": "Five Rings",
+    "title": "Software Developer Intern",
+    "source": "vanshb03",
+    "id": "c87bf68b-ddca-4032-876e-fb494c2ef406",
+    "date_posted": 1752691362,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1754199929,
+    "url": "https://www.tesla.com/careers/search/job/244845?source=Indeed&source=Indeed&tags=organicjob",
+    "locations": [
+      "Brooklyn Park, MN",
+      "Elgin, IL",
+      "Grand Rapids, MI"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Tesla",
+    "title": "Automation Development & Tooling Engineer Intern",
+    "source": "vanshb03",
+    "id": "9256bd41-01d4-484f-94a3-eda4709d9de6",
+    "date_posted": 1754199929,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1754199933,
+    "url": "https://www.tesla.com/careers/search/job/244786?source=Indeed&source=Indeed&tags=organicjob",
+    "locations": [
+      "Fremont, CA"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Tesla",
+    "title": "Machine Learning Engineer Intern, Noise Vibration Harshness Engineering",
+    "source": "vanshb03",
+    "id": "19e7cd23-5523-47d5-a0e3-fa819636bf40",
+    "date_posted": 1754199933,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1754666209,
+    "url": "https://www.tesla.com/careers/search/job/247990",
+    "locations": [
+      "Palo Alto, CA"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Tesla",
+    "title": "Chassis Validation Engineer Intern, Vehicle Firmware",
+    "source": "vanshb03",
+    "id": "020292c9-4a70-4388-a707-6084cce20cb6",
+    "date_posted": 1754666209,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1754666224,
+    "url": "https://www.tesla.com/careers/search/job/247862",
+    "locations": [
+      "Palo Alto, CA"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Tesla",
+    "title": "C++ Software Engineer Intern, Systems, AI",
+    "source": "vanshb03",
+    "id": "8c025004-2b27-43e8-8d60-a9f2eca60b3a",
+    "date_posted": 1754666224,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1754666230,
+    "url": "https://www.tesla.com/careers/search/job/247889",
+    "locations": [
+      "Palo Alto, CA"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Tesla",
+    "title": "Software Compiler Engineer Intern, AI Inference",
+    "source": "vanshb03",
+    "id": "081541d1-52bb-41c4-8962-263271c11537",
+    "date_posted": 1754666230,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1754666235,
+    "url": "https://www.tesla.com/careers/search/job/247873?source=Indeed&source=Indeed&tags=organicjob",
+    "locations": [
+      "Palo Alto, CA"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Tesla",
+    "title": "Software Integration Engineer Intern, AI Platforms",
+    "source": "vanshb03",
+    "id": "c4682ada-4a5b-48bd-b9fd-61f17680ee9b",
+    "date_posted": 1754666235,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1754666243,
+    "url": "https://www.tesla.com/careers/search/job/247989?source=Indeed&source=Indeed&tags=organicjob",
+    "locations": [
+      "Palo Alto, CA"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Tesla",
+    "title": "Chassis Integration Engineer Intern, Vehicle Firmware",
+    "source": "vanshb03",
+    "id": "cb4d410c-659a-49c3-b1b6-43ba7a6aedca",
+    "date_posted": 1754666243,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1754696114,
+    "url": "https://jobs.ashbyhq.com/notion/39d70209-37f6-4623-949b-18fbd8889933",
+    "locations": [
+      "San Francisco, CA",
+      "New York, NY"
+    ],
+    "sponsorship": "Offers Sponsorship",
+    "active": true,
+    "company_name": "Notion",
+    "title": "Software Engineer, AI Intern",
+    "season": "Winter",
+    "source": "amhw460",
+    "id": "c8d37f5f-6835-4d6f-b57b-1a98e90b191e",
+    "date_posted": 1754696114,
+    "company_url": "",
+    "is_visible": true
+  },
+  {
+    "date_updated": 1754803849,
+    "url": "https://jobs.ashbyhq.com/notion/fc762b58-24c9-4f34-bf5f-2af6e8adc644",
+    "locations": [
+      "San Francisco, CA",
+      "New York, NY"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Notion",
+    "title": "Software Engineer Intern",
+    "source": "vanshb03",
+    "id": "a405e7dd-4aa4-4671-b28c-e9b2f0d4a3a9",
+    "date_posted": 1754803849,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1754803873,
+    "url": "https://jobs.ashbyhq.com/notion/3e56e35b-f35b-4b1a-ba2b-0ccdc6f60421",
+    "locations": [
+      "San Francisco, CA",
+      "New York, NY"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Notion",
+    "title": "Software Engineer Intern, Mobile",
+    "source": "vanshb03",
+    "id": "d6e8c2c2-c141-4d6d-bcd9-da3f96d51a18",
+    "date_posted": 1754803873,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1754805657,
+    "url": "https://www.tesla.com/careers/search/job/248070?source=Indeed&source=Indeed&tags=organicjob",
+    "locations": [
+      "Palo Alto, CA"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Tesla",
+    "title": "Charging Distributed Systems Software Engineer Intern, Energy Engineering",
+    "source": "vanshb03",
+    "id": "ae51687f-ada7-4d45-b3df-5b4f65f7cba5",
+    "date_posted": 1754805657,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1755091306,
+    "url": "https://www.tesla.com/careers/search/job/248358",
+    "locations": [
+      "Palo Alto, CA",
+      "Austin, TX"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Tesla",
+    "title": "Backend Software Engineer Intern, Diagnostics",
+    "source": "vanshb03",
+    "id": "10a4c1fc-00fd-4484-a2cb-67f889fde2c0",
+    "date_posted": 1755091306,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1755091317,
+    "url": "https://www.tesla.com/careers/search/job/248019?source=Indeed&source=Indeed&tags=organicjob",
+    "locations": [
+      "Palo Alto, CA"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Tesla",
+    "title": "Software Engineer Intern, Maps & Self-Driving Navigation",
+    "source": "vanshb03",
+    "id": "1598d29a-fd49-438c-b311-639e9bb943a7",
+    "date_posted": 1755091317,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1755262283,
+    "url": "https://www.tesla.com/careers/search/job/248064",
+    "locations": [
+      "Palo Alto, CA"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Tesla",
+    "title": "System Software Engineer Intern, System Software",
+    "source": "vanshb03",
+    "id": "08cd4385-b164-4898-b651-ad3901142318",
+    "date_posted": 1755262283,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1755262291,
+    "url": "https://www.tesla.com/careers/search/job/248104",
+    "locations": [
+      "Palo Alto, CA"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Tesla",
+    "title": "Software Engineer Intern, Update Systems",
+    "source": "vanshb03",
+    "id": "be3adfc0-8208-4675-a53f-0ce6b4c3f606",
+    "date_posted": 1755262291,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1755262300,
+    "url": "https://www.tesla.com/careers/search/job/248062",
+    "locations": [
+      "Palo Alto, CA"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Tesla",
+    "title": "Software Engineer Intern, Linux Update Systems",
+    "source": "vanshb03",
+    "id": "0d42096b-7395-4849-ad5e-1a6afb0bdcc0",
+    "date_posted": 1755262300,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1755263049,
+    "url": "https://jobs.ashbyhq.com/AtomicSemi/13e95284-dbcf-4cf2-8151-c9687dfc1889",
+    "locations": [
+      "San Francisco, CA"
+    ],
+    "sponsorship": "Offers Sponsorship",
+    "active": true,
+    "company_name": "Atomic Semi",
+    "title": "Embedded Software Engineering Intern",
+    "source": "vanshb03",
+    "id": "e7cf7714-2071-4a0d-ad3a-ba69ecbb2e4b",
+    "date_posted": 1755263049,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1755550213,
+    "url": "https://careers.datadoghq.com/detail/6954161/?gh_jid=6954161",
+    "locations": [
+      "Boston, MA",
+      "New York, NY"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Datadog",
+    "title": "Software Engineering Intern",
+    "season": "Winter",
+    "source": "sbui056",
+    "id": "0df51a0e-d9fa-466a-a91f-330f30e81f1d",
+    "date_posted": 1755550213,
+    "company_url": "",
+    "is_visible": true
+  },
+  {
+    "date_updated": 1755604160,
+    "url": "https://www.shopify.com/careers/canada-engineering-internships-winter-2026_04cf2b87-6660-45c7-95f2-e734b7844612",
+    "locations": [
+      "Remote",
+      "Canada"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Shopify",
+    "title": "Engineering and Data Intern",
+    "season": "Winter",
+    "source": "Mfon-19",
+    "id": "516d31ee-7c11-4198-b5eb-db701a4c7cbe",
+    "date_posted": 1755604160,
+    "company_url": "",
+    "is_visible": true
+  },
+  {
+    "date_updated": 1757658580,
+    "url": "https://capitalone.wd12.myworkdayjobs.com/Capital_One/job/Toronto-ON/Intern--Full-Stack-Software-Engineer---Team-Sprout---Winter-2026_R223395",
+    "locations": [
+      "Toronto, Canada"
+    ],
+    "sponsorship": "Other",
+    "active": false,
+    "company_name": "Capital One",
+    "title": "Full Stack Software Engineer Intern, Team Sprout",
+    "source": "vanshb03",
+    "id": "46446209-0097-44e7-bbc0-c6f5b18a689a",
+    "date_posted": 1755726355,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1758913561,
+    "url": "https://capitalone.wd12.myworkdayjobs.com/Capital_One/job/Toronto-ON/Intern--Backend-Software-Engineer---Customer-Acquisitions---Winter-2025_R223400",
+    "locations": [
+      "Toronto, Canada"
+    ],
+    "sponsorship": "Other",
+    "active": false,
+    "company_name": "Capital One",
+    "title": "Backend Software Engineer Intern, Customer Acquisitions",
+    "source": "vanshb03",
+    "id": "1a8eda14-0c81-494b-9a60-e12e6a8c4541",
+    "date_posted": 1755726361,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1759255622,
+    "url": "https://capitalone.wd12.myworkdayjobs.com/Capital_One/job/Toronto-ON/Intern--Backend-Software-Engineer---Team-Planet-Express---Winter-2026_R223398",
+    "locations": [
+      "Toronto, Canada"
+    ],
+    "sponsorship": "Other",
+    "active": false,
+    "company_name": "Capital One",
+    "title": "Backend Software Engineer Intern, Team Planet Express",
+    "source": "vanshb03",
+    "id": "26a7499a-de8d-4583-98aa-5b6b99dad044",
+    "date_posted": 1755726366,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1759255625,
+    "url": "https://capitalone.wd12.myworkdayjobs.com/Capital_One/job/Toronto-ON/Intern--Full-Stack-Software-Engineer---Integrated-Storefront---Winter-2025_R223399",
+    "locations": [
+      "Toronto, Canada"
+    ],
+    "sponsorship": "Other",
+    "active": false,
+    "company_name": "Capital One",
+    "title": "Full Stack Software Engineer Intern, Integrated Storefront",
+    "source": "vanshb03",
+    "id": "8dc2d57d-3850-4389-9a81-5a2143dc519c",
+    "date_posted": 1755726371,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1759255627,
+    "url": "https://capitalone.wd12.myworkdayjobs.com/Capital_One/job/Toronto-ON/Intern--Mobile-Software-Engineer---Blue-Jays---Winter-2026_R223402",
+    "locations": [
+      "Toronto, Canada"
+    ],
+    "sponsorship": "Other",
+    "active": false,
+    "company_name": "Capital One",
+    "title": "Mobile Software Engineer Intern, Capital One Travel",
+    "source": "vanshb03",
+    "id": "013f6f79-a11e-463c-93c4-fb3d01a4c0af",
+    "date_posted": 1755726380,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1755809606,
+    "url": "https://www.tesla.com/careers/search/job/248805",
+    "locations": [
+      "Palo Alto, CA"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Tesla",
+    "title": "Commercial UI Software Engineer Intern, Energy Engineering",
+    "source": "vanshb03",
+    "id": "3ab83ab5-17ee-4730-b4ca-aacaa9fa3288",
+    "date_posted": 1755809606,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1755809613,
+    "url": "https://www.tesla.com/careers/search/job/248920",
+    "locations": [
+      "Palo Alto, CA"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Tesla",
+    "title": "Software Machine Learning Engineer Intern, Reliability Energy Engineering",
+    "source": "vanshb03",
+    "id": "232ecda7-7781-4356-9ba4-8dcdb4cb0570",
+    "date_posted": 1755809613,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1757962950,
+    "url": "https://job-boards.greenhouse.io/bitgointernships/jobs/8133819002",
+    "locations": [
+      "Waterloo, Canada"
+    ],
+    "sponsorship": "Other",
+    "active": false,
+    "company_name": "BitGo",
+    "title": "Software Engineering Intern, Wallet Core",
+    "source": "vanshb03",
+    "id": "c61715b1-90e3-4878-9d22-809cb3c8f920",
+    "date_posted": 1755991604,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1757962950,
+    "url": "https://job-boards.greenhouse.io/bitgointernships/jobs/8133783002",
+    "locations": [
+      "Waterloo, Canada"
+    ],
+    "sponsorship": "Other",
+    "active": false,
+    "company_name": "BitGo",
+    "title": "Software Engineering Intern, HSM",
+    "source": "vanshb03",
+    "id": "fbff1dd9-8514-4507-9014-1e2a64137d4d",
+    "date_posted": 1755991612,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1756595618,
+    "url": "https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite/job/US-CA-Santa-Clara/Embedded-Systems-Software-Intern--Linux-and-Jetson---Winter-2026_JR2001802-1?source=Appcast_Indeedo&source=jobboardindeed&ittk=NFPYJGP0UO",
+    "locations": [
+      "Santa Clara, CA"
+    ],
+    "sponsorship": "Other",
+    "active": false,
+    "company_name": "NVIDIA",
+    "title": "Embedded Systems Software Intern, Linux and Jetson",
+    "source": "vanshb03",
+    "id": "12a3002b-c978-46d8-b6a5-3b138dbbad15",
+    "date_posted": 1756068163,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1756341692,
+    "url": "https://www.amazon.jobs/en/jobs/3066646/business-intelligence-engineer-co-op-2026-us",
+    "locations": [
+      "Seattle, WA"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Amazon",
+    "title": "Business Intelligence Engineer Co-Op",
+    "season": "Winter",
+    "source": "aprameyak",
+    "id": "46fbb9cb-7a88-410b-93f5-eb316fd423ea",
+    "date_posted": 1756341692,
+    "company_url": "",
+    "is_visible": true
+  },
+  {
+    "date_updated": 1756538056,
+    "url": "https://www.tesla.com/careers/search/job/248001",
+    "locations": [
+      "Fremont, CA"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Tesla",
+    "title": "Software Engineer Intern, Factory Software",
+    "source": "vanshb03",
+    "id": "14a6bbc2-315f-4165-83eb-40fefb6d95a7",
+    "date_posted": 1756538056,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1757658863,
+    "url": "https://www.tesla.com/careers/search/job/250807",
+    "locations": [
+      "Palo Alto, CA"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Tesla",
+    "title": "Software Integration Engineer Intern, Energy Engineering",
+    "source": "vanshb03",
+    "id": "3ce99a88-1ca2-4f7b-875b-3e46530da636",
+    "date_posted": 1757658863,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1757733987,
+    "url": "https://career4.successfactors.com/careers?career_ns=job_listing&company=colgate&selected_lang=nl-NL&career_job_req_id=169295",
+    "locations": [
+      "Piscataway, NJ"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Colgate-Palmolive",
+    "title": "Software Development Intern",
+    "source": "vanshb03",
+    "id": "a2d054d1-b2ed-45cc-b1ab-e49e5f38130c",
+    "date_posted": 1757733987,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1757963647,
+    "url": "https://jobs.ashbyhq.com/ethglobal/4522a1d6-956c-4434-a6db-9365f19c60fb",
+    "locations": [
+      "Remote"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "ETHGlobal",
+    "title": "Software Engineering Intern",
+    "source": "vanshb03",
+    "id": "396bfd06-acc3-4e16-94fd-5f7f297277d9",
+    "date_posted": 1757963647,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1760209088,
+    "url": "https://job-boards.greenhouse.io/figureai/jobs/4601309006",
+    "locations": [
+      "San Jose, CA"
+    ],
+    "sponsorship": "Other",
+    "active": false,
+    "company_name": "Figure",
+    "title": "Firmware Engineer Intern",
+    "source": "vanshb03",
+    "id": "24875f0e-7824-4ff1-b8d8-aefb29086b24",
+    "date_posted": 1757963680,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1759596567,
+    "url": "https://www.amazon.jobs/en/jobs/3101249/software-development-engineer-internship-winter-2026-us",
+    "locations": [
+      "Phoenix, AZ",
+      "Tempe, AZ",
+      "Berkeley, CA",
+      "Culver City, CA",
+      "Cupertino, CA",
+      "East Palo Alto, CA",
+      "Irvine, CA",
+      "Los Angeles, CA",
+      "Manhattan Beach, CA",
+      "Palo Alto, CA",
+      "San Diego, CA",
+      "San Francisco, CA",
+      "San Jose, CA",
+      "San Luis Obispo, CA",
+      "Santa Barbara, CA",
+      "Santa Clara, CA",
+      "Santa Cruz, CA",
+      "Santa Monica, CA",
+      "Sunnyvale, CA",
+      "Boulder, CO",
+      "Denver, CO",
+      "Atlanta, GA",
+      "Kennesaw, GA",
+      "Chicago, IL",
+      "Boston, MA",
+      "Cambridge, MA",
+      "Hudson, MA",
+      "North Reading, MA",
+      "Westborough, MA",
+      "Baltimore, MD",
+      "Detroit, MI",
+      "Minneapolis, MN",
+      "Jersey City, NJ",
+      "New York, NY",
+      "Portland, OR",
+      "Philadelphia, PA",
+      "Pittsburgh, PA",
+      "Nashville, TN",
+      "Austin, TX",
+      "Dallas, TX",
+      "Arlington, VA",
+      "Herndon, VA",
+      "Madison, WI",
+      "Bellevue, WA",
+      "Seattle, WA",
+      "Redmond, WA"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Amazon",
+    "title": "Software Development Engineer Intern",
+    "source": "vanshb03",
+    "id": "5523431f-7de5-4e00-be54-8f529bcf2e50",
+    "date_posted": 1759596567,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Winter"
+  },
+  {
+    "date_updated": 1776617698,
+    "url": "https://careers.point72.com/CSJobDetail?jobName=summer-2027-quantitative-developer-internship&jobCode=CSS-0012293",
+    "locations": [
+      "New York, NY"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Point72",
+    "title": "Quantitative Developer Intern",
+    "source": "vanshb03",
+    "id": "3dcc8f0b-f7f0-49db-800f-487fa5be8b4f",
+    "date_posted": 1776617698,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Summer"
+  },
+  {
+    "date_updated": 1776617702,
+    "url": "https://careers.point72.com/CSJobDetail?jobName=summer-2027-quantitative-researcher-internship&jobCode=CSS-0012295",
+    "locations": [
+      "New York, NY"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Point72",
+    "title": "Quantitative Researcher Intern",
+    "source": "vanshb03",
+    "id": "27cdff11-8ec9-4c5c-9919-a4c6c5585824",
+    "date_posted": 1776617702,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Summer"
+  },
+  {
+    "date_updated": 1776617707,
+    "url": "https://careers.point72.com/CSJobDetail?jobName=2027-point72-academy-investment-analyst-summer-internship-program-us&jobCode=CPA-0014081",
+    "locations": [
+      "New York, NY",
+      "San Francisco, CA",
+      "Chicago, IL",
+      "West Palm Beach, FL",
+      "Miami, FL"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Point72",
+    "title": "Investment Analyst Intern, Point72 Academy",
+    "source": "vanshb03",
+    "id": "2d295ad5-b2e7-4771-98ad-e40ef675596e",
+    "date_posted": 1776617707,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Summer"
+  },
+  {
+    "date_updated": 1776726849,
+    "url": "https://jobs.smartrecruiters.com/NBCUniversal3/744000121848194",
+    "locations": [
+      "New York, NY"
+    ],
+    "sponsorship": "Does Not Offer Sponsorship",
+    "active": true,
+    "company_name": "NBCUniversal",
+    "title": "Software Engineering Intern",
+    "source": "vanshb03",
+    "id": "556c1091-31ca-47ab-8cdb-09e98cfe8fd2",
+    "date_posted": 1776726849,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Fall"
+  },
+  {
+    "date_updated": 1776727516,
+    "url": "https://careers.ice.com/jobs/12830?lang=en-us&iis=LinkedIn&iisn=Linkedin&mode=apply&jr_id=69e67bb27820c036924d0af9",
+    "locations": [
+      "New York, NY"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Intercontinental Exchange, Inc.",
+    "title": "Artificial Intelligence, Data & Machine Learning Intern",
+    "source": "vanshb03",
+    "id": "dc1a0aba-b671-4f48-ae78-d8b7fabe5d03",
+    "date_posted": 1776727516,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Summer"
+  },
+  {
+    "date_updated": 1776727656,
+    "url": "https://www.pathai.com/career/job-post?gh_jid=8202342002",
+    "locations": [
+      "Boston, MA",
+      "New York, NY",
+      "Remote"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "PathAI",
+    "title": "Machine Learning Intern, AI Product and ML Core",
+    "source": "vanshb03",
+    "id": "c5b7e827-3448-42e4-9b8b-73daad336373",
+    "date_posted": 1776727656,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Fall"
+  },
+  {
+    "date_updated": 1776727688,
+    "url": "https://www.pinterestcareers.com/jobs/7255640/phd-fall-machine-learning-intern-atg-visual-multimodal-and-recommender-systems/?jr_id=69e683219b6eb37e26f80c4f&gh_jid=7255640",
+    "locations": [
+      "San Francisco, CA",
+      "Palo Alto, CA",
+      "Seattle, WA",
+      "New York, NY"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Pinterest",
+    "title": "Machine Learning Intern, PhD",
+    "source": "vanshb03",
+    "id": "a1c939ef-c882-448c-80e0-e32498076b69",
+    "date_posted": 1776727688,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Fall"
+  },
+  {
+    "date_updated": 1776914894,
+    "url": "https://jobs.ashbyhq.com/ether.fi/6dcb712c-8fe5-4725-ad6a-0e9771af22cb",
+    "locations": [
+      "Cayman",
+      "Denver",
+      "New York"
+    ],
+    "sponsorship": "Other",
+    "active": true,
+    "company_name": "Ether.fi",
+    "title": "GTM Engineer Intern",
+    "source": "vanshb03",
+    "id": "9f07a128-2de0-4118-ab14-8b39c835dfa4",
+    "date_posted": 1776914894,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Summer"
+  },
+  {
+    "date_updated": 1778324474,
+    "url": "https://www.workatastartup.com/jobs/94211",
+    "locations": [
+      "New York, NY"
+    ],
+    "sponsorship": "Offers Sponsorship",
+    "active": true,
+    "company_name": "DimeHealth AI",
+    "title": "Forward Deployed Engineering Intern",
+    "source": "vanshb03",
+    "id": "7a75a616-e61d-470a-9a5a-073977fbb898",
+    "date_posted": 1778324474,
+    "company_url": "",
+    "is_visible": true,
+    "season": "Summer"
+  }
+]

@@ -1,0 +1,53 @@
+{
+  "provenance": {
+    "endpoint": "https://raw.githubusercontent.com/SimplifyJobs/Summer2027-Internships/dev/.github/scripts/listings.json",
+    "recorded_at": "2026-08-30T02:39:46.693432+00:00",
+    "provider": "SimplifyJobs/Summer2027-Internships",
+    "http_status": 200,
+    "full_response_entry_count": 14918,
+    "licence": "None stated by the repository. See the-hunt.md section 10, and Q16.",
+    "note": "Recorded verbatim and reduced (14918 -> 50). Nothing inside an entry was edited, redacted or synthesised. The selection rule is deterministic and has two parts: the first 40 entries of the file in file order, then the first 10 active-and-visible entries naming New York that the head did not already contain, also in file order. The second part is not decoration. Simplify's head-40 holds zero New York entries and 39 inactive ones, so a fixture cut at 40 would never exercise the path this milestone exists for."
+  },
+  "what_this_fixture_proves": {
+    "entries": 50,
+    "entries_naming_new_york": 10,
+    "entries_marked_inactive": 39,
+    "entries_with_more_than_one_location": 9,
+    "distinct_employers": 32,
+    "why_it_matters": "One board, many employers, is the entire shape of this source, and the suite asserts the employer comes from the entry rather than from the board. The inactive entries are what I3 is proven against: an entry marked inactive is a volunteer's belief about a board this project does not poll, and it closes nothing here."
+  },
+  "measured_on_the_whole_file_when_recorded": {
+    "entries": 14918,
+    "active_and_visible": 2254,
+    "active_and_visible_naming_new_york": 202,
+    "distinct_employers_in_that_new_york_subset": 103,
+    "most_common_location_strings": [
+      [
+        "San Jose, CA",
+        239
+      ],
+      [
+        "NYC",
+        195
+      ],
+      [
+        "London, UK",
+        128
+      ],
+      [
+        "Toronto, ON, Canada",
+        110
+      ],
+      [
+        "Chicago, IL",
+        96
+      ],
+      [
+        "SF",
+        92
+      ]
+    ],
+    "schema_note": "The two lists do not agree on their own schema. Simplify carries a 'terms' array and a 'category'; vanshb03 carries a 'season' string and neither of the others. The adapter reads none of the three.",
+    "abbreviation_note": "Simplify writes its home city as the bare token 'NYC', which the shared normalizer resolves to New York, and San Francisco as 'SF', which it does not resolve. Those 'SF' rows land unknown rather than guessed (I1)."
+  }
+}

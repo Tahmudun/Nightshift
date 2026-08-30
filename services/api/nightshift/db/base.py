@@ -165,6 +165,14 @@ class SourceType(enum.StrEnum):
     #: with more force here than anywhere else: silence about a captured job is
     #: the *only* thing we will ever hear about it.
     MANUAL_CAPTURE = "manual_capture"
+    #: A publicly published, machine-readable list of internship postings
+    #: (the-hunt.md §5.2). Not an ATS: one request returns hundreds of
+    #: employers, and the entries are pointers rather than postings — no
+    #: description, so any score built on one alone is thin and says so.
+    #:
+    #: Its `active: false` is a volunteer's belief about a board we do not
+    #: poll, and I3 makes it a fact to record rather than a closure signal.
+    INTERNSHIP_LIST = "internship_list"
 
 
 class CaptureStatus(enum.StrEnum):

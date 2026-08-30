@@ -37,7 +37,7 @@ class BoardEntry(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     company: str = Field(min_length=1)
-    ats: Literal["greenhouse", "lever", "ashby"]
+    ats: Literal["greenhouse", "lever", "ashby", "simplify_list", "vansh_list"]
     token: str = Field(min_length=1)
     added: date
     verified_at: date | None = None
