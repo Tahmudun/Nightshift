@@ -56,6 +56,14 @@ class TestTheCommittedRegistry:
             ("greenhouse", "stripe"),
             ("lever", "alloy"),
             ("ashby", "ramp"),
+            # M6a. The two internship lists are hand-added, and belong here for
+            # exactly the reason this set exists: they did not come through ADR
+            # 0005's gate, so they are enumerated and reviewed instead. They
+            # could not have come through it — the gate validates a *board* by
+            # asking a provider who owns it, and neither of these is a board or
+            # has an owner to name (the-hunt.md §5.2).
+            ("simplify_list", "summer2027"),
+            ("vansh_list", "summer2027"),
         }
     )
 
@@ -76,6 +84,8 @@ class TestTheCommittedRegistry:
             ("greenhouse", "datadog"),
             ("lever", "alloy"),
             ("ashby", "ramp"),
+            ("simplify_list", "summer2027"),
+            ("vansh_list", "summer2027"),
         }, "a hand-curated board changed status without this test being updated"
 
     def test_every_other_pollable_board_records_how_it_got_there(self) -> None:

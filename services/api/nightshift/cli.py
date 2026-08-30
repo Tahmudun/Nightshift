@@ -1011,33 +1011,75 @@ async def cmd_ingest(args: argparse.Namespace) -> int:
         )
         return 1
 
-    boards = [entry.to_ref() for entry in get_registry().pollable(ats="greenhouse")]
-    if not boards:
-        print("no active greenhouse boards in data/board-registry.yaml", file=sys.stderr)
+    wanted: str | None = getattr(args, "ats", None)
+    entries = get_registry().pollable(ats=wanted)
+    if not entries:
+        scope = f"{wanted} " if wanted else ""
+        print(f"no active {scope}boards in data/board-registry.yaml", file=sys.stderr)
         return 1
 
-    print(f"polling {len(boards)} board(s): {', '.join(b.token for b in boards)}")
-    async with PoliteClient() as client, session_scope() as session:
-        adapter = GreenhouseAdapter(client)
-        source = await get_or_create_source(
-            session,
-            name="greenhouse",
-            source_type=SourceType.ATS_GREENHOUSE,
-            base_url="https://boards-api.greenhouse.io",
-        )
-        run, stats = await ingest_boards(session, adapter, boards, source=source)
+    by_ats: dict[str, list[BoardRef]] = {}
+    for entry in entries:
+        by_ats.setdefault(entry.ats, []).append(entry.to_ref())
+
+    unservable = sorted(set(by_ats) - set(ADAPTERS))
+    if unservable:
+        # A board nobody polls and nobody reports is the failure A1's registry
+        # exists to prevent, so this stops the run rather than skipping quietly.
         print(
-            f"  {run.status.value}: fetched={stats.fetched} created={stats.created} "
-            f"updated={stats.updated} unchanged={stats.unchanged} failed={stats.failed}"
+            f"error: the registry names {', '.join(unservable)}, which no adapter serves.",
+            file=sys.stderr,
         )
-        if stats.boards_failed:
-            print(f"  boards failed: {', '.join(stats.boards_failed)}")
-        if stats.errors:
-            for error in stats.errors[:10]:
-                print(f"    ! {error}")
+        return 1
+
+    print(
+        f"polling {len(entries)} board(s) across {len(by_ats)} source(s): "
+        + ", ".join(f"{ats} ({len(refs)})" for ats, refs in sorted(by_ats.items()))
+    )
+
+    failed_runs = 0
+    # **One client for the whole run, one transaction per source.**
+    #
+    # The client is shared because a client per group resets the rate limiter,
+    # and the per-host ceiling `PoliteClient` enforces stops meaning anything
+    # the moment two groups poll the same host — which the two internship lists
+    # do, both being raw.githubusercontent.com.
+    #
+    # The session is *not* shared, and that was a defect found by running this:
+    # a single `session_scope()` around all five sources means nothing is
+    # durable until the last one finishes. The first live run spent 40 minutes
+    # on the lists and was killed, and every board that had already succeeded
+    # rolled back with it. A source is the right unit of work — it is what a
+    # run is reported against.
+    async with PoliteClient() as client:
+        for ats, refs in sorted(by_ats.items()):
+            spec = ADAPTERS[ats]
+            adapter = spec.factory(client)
+            async with session_scope() as session:
+                source = await get_or_create_source(
+                    session,
+                    name=spec.source_name,
+                    source_type=spec.source_type,
+                    base_url=spec.base_url,
+                )
+                run, stats = await ingest_boards(session, adapter, refs, source=source)
+            print(
+                f"  {ats}: {run.status.value} fetched={stats.fetched} "
+                f"created={stats.created} updated={stats.updated} "
+                f"unchanged={stats.unchanged} failed={stats.failed}"
+            )
+            if stats.boards_failed:
+                failed_runs += 1
+                print(f"    boards failed: {', '.join(stats.boards_failed)}")
+            if stats.errors:
+                for error in stats.errors[:10]:
+                    print(f"    ! {error}")
 
     await _print_summary()
-    return 0
+    # I3: a failed board is not a failed run in the sense that matters — nothing
+    # was closed — but the exit code has to say something happened, or a
+    # scheduled ingest that reaches nothing looks identical to a quiet day.
+    return 1 if failed_runs == len(by_ats) else 0
 
 
 async def cmd_enqueue(args: argparse.Namespace) -> int:
@@ -1669,7 +1711,13 @@ def main(argv: list[str] | None = None) -> int:
         help="worksheet file (default: data/company-locations.yaml)",
     )
     subparsers.add_parser("score", help="score every pair due at the current ruleset version")
-    subparsers.add_parser("ingest", help="poll live boards from the registry")
+    ingest = subparsers.add_parser("ingest", help="poll live boards from the registry")
+    ingest.add_argument(
+        "--ats",
+        default=None,
+        choices=sorted(ADAPTERS),
+        help="narrow the run to one source (default: every registered board)",
+    )
     poll = subparsers.add_parser(
         "poll", help="poll one board conditionally, through board_poll_state"
     )

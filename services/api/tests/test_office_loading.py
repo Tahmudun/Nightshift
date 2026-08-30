@@ -12,7 +12,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from nightshift.db.base import LocationConfidence, ResolutionMethod
+from nightshift.db.base import LocationConfidence, ResolutionMethod, SourceType
 from nightshift.db.models import Company, CompanyLocation, JobLocation
 from nightshift.domain.company_locations import read_worksheet
 from nightshift.domain.geocoding import (
@@ -22,6 +22,7 @@ from nightshift.domain.geocoding import (
     Unresolved,
 )
 from nightshift.domain.office_loading import load_offices
+from nightshift.domain.polling import ADAPTERS
 from nightshift.domain.registry import get_registry
 from tests.conftest import requires_db
 
@@ -210,7 +211,17 @@ async def test_the_committed_worksheet_is_loadable(db_session: AsyncSession) -> 
     # number written here as well would have to be edited by hand every time a
     # board is promoted — which is how a test starts failing for a reason that
     # is not a defect.
-    assert report.considered == len(get_registry().boards)
+    #
+    # Against the rows that name an *employer*, which since M6a is not all of
+    # them: an internship list is a board with hundreds of employers named in
+    # its payload, and it has no office to geocode. Same exclusion, same reason,
+    # as `_employer_boards` in the worksheet's own test.
+    employer_boards = [
+        board
+        for board in get_registry().boards
+        if ADAPTERS[board.ats].source_type is not SourceType.INTERNSHIP_LIST
+    ]
+    assert report.considered == len(employer_boards)
 
     # The sharp one. A refusal is a defect in a file a person wrote — an address
     # with no date, a locality that names no street — and it is the only outcome

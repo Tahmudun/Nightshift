@@ -15,7 +15,9 @@ from __future__ import annotations
 from datetime import date
 from pathlib import Path
 
+from nightshift.db.base import SourceType
 from nightshift.domain.company_locations import read_worksheet
+from nightshift.domain.polling import ADAPTERS
 from nightshift.domain.registry import get_registry
 
 WORKSHEET = Path(__file__).parent.parent.parent.parent / "data" / "company-locations.yaml"
@@ -209,11 +211,36 @@ def test_an_empty_file_reads_as_empty_rather_than_crashing() -> None:
 # --------------------------------------------------------------------------
 
 
+def _employer_boards() -> set[str]:
+    """Registry rows that name an **employer**, which is not all of them.
+
+    Since M6a the registry also holds the two internship lists, and a list is a
+    board with one token and *hundreds* of employers, named per entry in the
+    payload (the-hunt.md §5.2). Its `company` field names the list.
+
+    They are excluded here rather than given worksheet rows, because a
+    worksheet row is an invitation to type a street address and geocode it, and
+    the address of a GitHub repository is not a thing. The employers those
+    lists name reach `companies` through ingestion like any other, and an
+    office for one of them is added the day somebody confirms it — the
+    worksheet was never per-company for the whole corpus, only per registry
+    board.
+
+    Derived from the adapter's declared `source_type` rather than from a list of
+    names here, so a third list added later is excluded by being what it is.
+    """
+    return {
+        board.company
+        for board in get_registry().boards
+        if ADAPTERS[board.ats].source_type is not SourceType.INTERNSHIP_LIST
+    }
+
+
 def test_the_committed_worksheet_parses() -> None:
     """A worksheet that had silently stopped parsing would look identical to one
     nobody had filled in yet — both produce zero offices."""
     reading = read_worksheet(WORKSHEET.read_text())
-    assert reading.total == len(get_registry().boards), reading.summary()
+    assert reading.total == len(_employer_boards()), reading.summary()
     assert reading.problems == [], reading.summary()
 
 
@@ -247,7 +274,7 @@ def test_every_registry_board_has_a_row_to_fill() -> None:
     text, and posting text is not a company directory: a board whose postings
     all say "Remote" can still be run out of an office on Lafayette Street.
     """
-    missing = {board.company for board in get_registry().boards} - _named_in_worksheet()
+    missing = _employer_boards() - _named_in_worksheet()
     assert not missing, f"in data/board-registry.yaml but not in the worksheet: {sorted(missing)}"
 
 
@@ -257,5 +284,5 @@ def test_the_worksheet_names_no_company_the_registry_does_not() -> None:
     belongs to is reported `not ingested` forever — a line in the report that
     can never turn green and that nobody can act on.
     """
-    unknown = _named_in_worksheet() - {board.company for board in get_registry().boards}
+    unknown = _named_in_worksheet() - _employer_boards()
     assert not unknown, f"in the worksheet but not in data/board-registry.yaml: {sorted(unknown)}"

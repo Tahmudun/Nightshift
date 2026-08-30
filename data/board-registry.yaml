@@ -15,7 +15,7 @@
 #
 # Fields:
 #   company       display name
-#   ats           greenhouse | lever | ashby
+#   ats           greenhouse | lever | ashby | simplify_list | vansh_list
 #   token         the board slug used in the provider's URL
 #   added         date the entry was first committed
 #   verified_at   date a human last confirmed it serves real postings
@@ -24,6 +24,43 @@
 #   notes         anything a future reader needs
 
 boards:
+  # The two internship lists (M6a, the-hunt.md §5.2). These are NOT ATS boards
+  # and they break the one-board-one-employer assumption every other row here
+  # makes: one token, hundreds of employers, the employer named per entry. The
+  # `company` field below names the *list*, not a company, and the adapter takes
+  # the employer from the payload instead — which is the whole reason one
+  # request is worth hundreds of boards.
+  #
+  # `nyc_presence: true` on both: measured on 2026-08-29, the Simplify file
+  # carried 206 active roles naming New York across 105 employers, and vanshb03
+  # carried 75 across 38. This field only prioritises polling order.
+  - company: Simplify Summer 2027 Internships
+    ats: simplify_list
+    token: summer2027
+    added: '2026-08-29'
+    verified_at: '2026-08-29'
+    status: active
+    nyc_presence: true
+    notes: >-
+      Community list, read as one public file over HTTPS, no crawling. The
+      repository states NO LICENCE (the-hunt.md §10; logged as Q16). Attributed
+      on the coverage page, and every entry links out to the employer's own
+      posting rather than reproducing it. Droppable without touching vansh_list.
+      14,918 entries at recording, 2,254 active and visible.
+
+  - company: vanshb03 Summer 2027 Internships
+    ats: vansh_list
+    token: summer2027
+    added: '2026-08-29'
+    verified_at: '2026-08-29'
+    status: active
+    nyc_presence: true
+    notes: >-
+      Community list, read as one public file over HTTPS, no crawling. MIT
+      licensed, stated by the repository. Attributed on the coverage page, and
+      every entry links out to the employer's own posting. 471 entries at
+      recording, 371 active and visible.
+
   # M0 polls exactly one board (§28 / AMENDMENTS A6: one real listing, end to
   # end, before any breadth). Datadog is the choice because its headquarters is
   # in Manhattan, its board is large enough to be representative at 426

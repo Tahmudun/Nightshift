@@ -44,6 +44,7 @@ documentation:
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Final
 
@@ -112,6 +113,30 @@ def _location_strings(payload: dict[str, Any]) -> list[str]:
     return [item.strip() for item in locations if isinstance(item, str) and item.strip()]
 
 
+#: Not frozen, unlike most dataclasses here: `AdapterFactory` declares
+#: `parser_version` as a settable variable, because the other factories are
+#: adapter *classes* where it is one. A frozen dataclass makes it read-only and
+#: fails the Protocol.
+@dataclass(slots=True)
+class InternshipListFactory:
+    """How to build one list's adapter, and how to answer for it without one.
+
+    A lambda would do the construction, and was the first draft. It cannot do
+    the second half: ``sync_board_poll_state`` reads ``parser_version`` off the
+    *factory* for a board it has never polled and therefore holds no instance
+    of, which is why :class:`~nightshift.domain.polling.AdapterFactory` is a
+    Protocol with an attribute rather than a bare callable. mypy caught this;
+    at runtime it would have been an ``AttributeError`` on a board's first poll.
+    """
+
+    list_name: str
+    raw_url: str
+    parser_version: str = PARSER_VERSION
+
+    def __call__(self, client: ConditionalJsonClient) -> InternshipListAdapter:
+        return InternshipListAdapter(client, list_name=self.list_name, raw_url=self.raw_url)
+
+
 class InternshipListAdapter:
     """Implements :class:`~nightshift.adapters.base.JobSourceAdapter`.
 
@@ -119,6 +144,25 @@ class InternshipListAdapter:
     what makes two lists two sources rather than one — they overlap heavily, and
     collapsing them would make the dedupe layer's job invisible instead of doing
     it.
+
+    **`active: false` is listed and not ingested**, which is the one rule here
+    that is neither obvious nor free. Two things have to be true at once:
+
+    * An entry the publisher marks closed must not become a canonical job
+      claiming to be open. 12,663 of Simplify's 14,918 entries are inactive
+      Summer 2026 roles; minting an open job for each would assert something
+      false about a real employer 12,663 times, and would cost an embedding
+      apiece to do it.
+    * It must not *close* anything either (I3). A job already in this database
+      whose list entry later flips to inactive stays exactly as it was — a
+      volunteer's edit is not evidence about a board this project polls.
+
+    Those pull in opposite directions, and `FetchOutcome`'s `listed`/`jobs`
+    split is what holds both: `listed` names every entry, so freshness never
+    ages a job off the back of this flag, and `jobs` carries only the active
+    ones, so nothing new is minted from a posting that is over. A list where
+    *everything* went inactive is therefore a full board with no new content —
+    emphatically not `is_authoritative_empty`.
     """
 
     source_type = SourceType.INTERNSHIP_LIST
@@ -203,6 +247,8 @@ class InternshipListAdapter:
             )
 
         jobs: list[RawJob] = []
+        listed: list[ListedPosting] = []
+        closed = 0
         for entry in payload:
             if not isinstance(entry, dict) or entry.get("id") is None:
                 continue
@@ -213,10 +259,38 @@ class InternshipListAdapter:
                 continue
             if not isinstance(entry.get("title"), str) or not entry["title"].strip():
                 continue
+
+            listed.append(
+                ListedPosting(
+                    source_job_id=str(entry["id"]),
+                    # Both lists publish `date_updated`, but it moves whenever a
+                    # volunteer edits the row rather than when the employer
+                    # changes the posting. Feeding it to conditional polling
+                    # would re-fetch on somebody's typo fix.
+                    source_updated_at=None,
+                )
+            )
+
+            if entry.get("active") is False:
+                # **Listed, and not ingested.** See the class docstring: an
+                # inactive entry must neither mint an open job nor close one,
+                # and those pull in opposite directions. Staying in `listed`
+                # is what keeps freshness from ageing a job we already hold;
+                # staying out of `jobs` is what stops 12,663 closed Summer 2026
+                # postings from entering the corpus claiming to be open.
+                closed += 1
+                continue
+
             jobs.append(
                 RawJob(
                     source_job_id=str(entry["id"]),
-                    source_company_key=str(entry["company_name"]).strip(),
+                    # The **board**, not the employer, which every other
+                    # adapter also does and which two ageing queries key on:
+                    # `source_company_key IN (polled tokens)`. An employer name
+                    # here makes every list record invisible to freshness.
+                    # The employer travels in the payload, and `normalize`
+                    # reads it from there.
+                    source_company_key=board.token,
                     canonical_url=entry.get("url") or None,
                     payload=entry,
                 )
@@ -227,23 +301,15 @@ class InternshipListAdapter:
             list_name=self.source_name,
             board=board.token,
             entries=len(payload),
+            listed=len(listed),
             jobs=len(jobs),
+            closed_upstream=closed,
         )
         return FetchOutcome(
             board=board,
             ok=True,
             jobs=tuple(jobs),
-            listed=tuple(
-                ListedPosting(
-                    source_job_id=job.source_job_id,
-                    # Both lists publish `date_updated`, but it moves whenever a
-                    # volunteer edits the row rather than when the employer
-                    # changes the posting. Feeding it to conditional polling
-                    # would re-fetch on somebody's typo fix.
-                    source_updated_at=None,
-                )
-                for job in jobs
-            ),
+            listed=tuple(listed),
             etag=response.etag,
             http_status=response.http_status,
         )

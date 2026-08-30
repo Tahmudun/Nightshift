@@ -36,6 +36,7 @@ from nightshift.adapters.ashby import AshbyAdapter
 from nightshift.adapters.base import JobSourceAdapter
 from nightshift.adapters.greenhouse import GreenhouseAdapter
 from nightshift.adapters.http import PoliteClient
+from nightshift.adapters.internship_list import LIST_URLS, InternshipListFactory
 from nightshift.adapters.lever import LeverAdapter
 from nightshift.config import get_settings
 from nightshift.db.base import BoardTier, SourceType
@@ -88,6 +89,22 @@ ADAPTERS: dict[str, AdapterSpec] = {
     ),
     "lever": AdapterSpec(LeverAdapter, "lever", SourceType.ATS_LEVER, "https://api.lever.co"),
     "ashby": AdapterSpec(AshbyAdapter, "ashby", SourceType.ATS_ASHBY, "https://api.ashbyhq.com"),
+    # the-hunt.md §5.2. Not an ATS: one token, hundreds of employers. They are
+    # two entries rather than one because they are genuinely different
+    # publishers with different data, and collapsing them would hide which one
+    # was right about a posting they disagree on.
+    "simplify_list": AdapterSpec(
+        InternshipListFactory("simplify_list", LIST_URLS["simplify_list"]),
+        "simplify_list",
+        SourceType.INTERNSHIP_LIST,
+        "https://raw.githubusercontent.com",
+    ),
+    "vansh_list": AdapterSpec(
+        InternshipListFactory("vansh_list", LIST_URLS["vansh_list"]),
+        "vansh_list",
+        SourceType.INTERNSHIP_LIST,
+        "https://raw.githubusercontent.com",
+    ),
 }
 
 
