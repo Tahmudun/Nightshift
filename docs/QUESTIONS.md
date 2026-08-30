@@ -7,6 +7,85 @@ the date, because the reasoning is usually worth more than the decision.
 
 ---
 
+## Q17 — `make ingest` re-downloads 11.2 MB every run. Wire it to conditional polling?
+
+**Raised:** 2026-08-30 (M6a Task 4) · **Type:** engineering · **Blocking:** no
+
+**The finding.** `board_poll_state` holds an ETag per board, and
+`poll_one_board` — the worker's scheduled path — reads it, sends it, stores what
+came back, and discards one earned by a stale parser (ADR 0007). `cmd_ingest`,
+the path behind `make ingest`, does none of that. It passes no ETag and stores
+none, so **every manual run re-downloads every board in full.**
+
+Measured 2026-08-30: `board_poll_state` has rows for `greenhouse/datadog` and
+`lever/alloy` and none at all for either internship list. Simplify's file is
+**11.2 MB**; vanshb03's is 275 KB. Greenhouse's boards are unaffected in
+practice, because ADR 0007's two-phase diff already stops phase 2 refetching
+unchanged postings — the second run of the session reported `fetched=0` for
+greenhouse. It is single-phase sources, and the lists above all, that pay.
+
+**Why it was not fixed in the slice that found it.** The plumbing exists on both
+ends: `ingest_boards` already accepts an `etags` mapping and returns what each
+board served on `stats.etags`. What is missing is the middle — reading and
+writing `board_poll_state`, and applying ADR 0007's parser-version rule, which
+`poll_one_board` already implements. Duplicating that rule in a second place is
+how the two drift; the honest fix is to put `make ingest` **on** the
+`poll_one_board` path rather than beside it, and that is a rewrite of the
+command rather than an addition to it.
+
+**Why it does not block.** Nothing is incorrect — a full re-download produces the
+same corpus, and the second run of 2026-08-30 proved idempotence on it
+(`created=0` across all five sources). It costs bandwidth and about five minutes
+per manual run, against a product whose polling cadence is daily.
+
+**The choice:** rewrite `cmd_ingest` onto `poll_one_board` as its own slice, or
+leave the manual command unconditional and let the scheduled worker — which does
+this correctly — be the path that runs often.
+
+---
+
+## Q16 — One of the two internship lists states no licence. Read it anyway?
+
+**Raised:** 2026-08-30 (M6a Task 3) · **Type:** legal / ToS · **Blocking:** no
+
+**The situation.** M6a reads two publicly published, machine-readable lists of
+internship postings:
+
+| Repo | Licence | Entries (2026-08-29) |
+|---|---|---|
+| `vanshb03/Summer2027-Internships` | **MIT** | 471, 371 active |
+| `SimplifyJobs/Summer2027-Internships` | **none stated** | 14,918, 2,254 active |
+
+The second states no licence at all, which under default copyright means no
+licence granted rather than a permissive one.
+
+**What was decided in the meantime, and why it does not block.** Both are read as
+a single public file over HTTPS with no crawling and no login. Both are published
+expressly so job-seekers can find postings. Both are attributed on the coverage
+page with their licence status stated, and **every entry links out to the
+employer's own posting rather than reproducing it** — what is stored is a
+pointer, a title and a location, not the posting's text. There is no description
+on a list entry to reproduce. For one person's personal job search this is
+unobjectionable.
+
+It is nonetheless an unstated licence, and `CLAUDE.md` §5 says to raise that
+rather than decide it silently.
+
+**What makes it cheap to reverse.** The two lists are two sources with two
+registry rows and two `source_job_records` populations. Dropping `simplify_list`
+is a registry edit and a `DELETE` by source; the MIT list keeps working
+untouched. That was the reason for modelling them as two sources rather than one
+(the-hunt.md §5.2), and it is what makes this question answerable later without
+a re-crawl.
+
+**The choice:** keep reading both; drop Simplify and accept the MIT list's 371
+entries alone; or ask the maintainers to state a licence.
+
+**What it costs to drop it:** measured 2026-08-30, Simplify contributed 2,255 of
+the 2,626 list postings, and 206 of the 281 active list roles naming New York.
+
+---
+
 ## Q15 — The Island's second district is on loan. What redeems it?
 
 **Raised:** 2026-08-25 (Q14's answer) · **Type:** product · **Blocking:** no —

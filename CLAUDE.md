@@ -30,7 +30,8 @@ detail lives in `docs/spec/` and you read those files on demand.
 | `docs/architecture/command-center.md` | **Required before any M2 work.** Decides the M2 table shapes, the slice order, and which spec'd filters are deferred and why |
 | `docs/architecture/matching.md` | **Required before any M3 work.** Decides the M3 slice order and tables, where a semantic model may and may not touch a score, and which spec'd score components are deferred and why |
 | `docs/architecture/city.md` | **Required before any M4 work** — any geocoder, any MapLibre, any Three.js. Decides why the geo spine comes before the renderer, the rendering architecture, the palette, and which spec'd city features are deferred to M5. `docs/design/references/` is its visual reference |
-| `docs/architecture/archipelago.md` | **Required before any M6 work** — any landmass, any `landmass` column, any crossing. Decides why the geo spine comes before the water, that the Island is four landmasses rather than one, that a bare city name needs a gazetteer rather than a longer list (ADR 0008's own terms), and which spec'd features are deferred to M12 |
+| `docs/architecture/the-hunt.md` | **Required before any M6 work.** Decides that M6 is The Hunt rather than the Archipelago, that an internship list is a board with many employers, and what the corpus had to look like before a map of it was worth drawing (A17) |
+| `docs/architecture/archipelago.md` | **Required before any M7 work** — any landmass, any crossing. Decides that the Island is four landmasses rather than one, that a bare city name needs a gazetteer rather than a longer list (ADR 0008's own terms), and which spec'd features are deferred. Its `landmass` column and placement rule already shipped in M6a: they are data, and data comes first |
 | `docs/adr/*.md` | Revisiting or contradicting a past decision |
 
 **Precedence when documents disagree:**
@@ -340,28 +341,45 @@ fail. A pasted posting appears on the map with a capture badge; pasting it twice
 creates no duplicate. No parsed fact is stored as confirmed without a user action.
 Claude Desktop connects and captures a posting end to end.
 
-### M6 — The Archipelago
+### M6 — The Hunt
+
+**The reader exists, and there is something worth ranking.** His own account, his
+own confirmed resume, and a corpus with thousands of real early-career postings
+instead of eight. The mechanism is one adapter: a community internship list is a
+board with one token and many employers. Plus the two *data* pieces of the
+Archipelago — the `landmass` column and the placement rule — because they are
+data and data comes first.
+
+Re-cut from The Archipelago by **A17**, after the corpus was measured against the
+reader and found to hold 8 internships. Drawing a map of that would have been the
+third time this project tuned a look against a corpus too small to justify it.
+
+### M7 — The Archipelago
 
 Regions, and the Island: a Tron-blue landmass across the water housing every
 remote and address-unknown role, reached by a cinematic crossing. This absorbs the
 old M5's cinematic visual system. The Island is an explicit *non*-location, which
 is how it satisfies I1 rather than straining it.
 
-### M7 — Smooth. **This is the ship.**
+### M8 — Smooth. **This is the ship.**
 
 M4d Tasks 2–7 finally tuned against real volume on a real GPU — adaptive quality
 tiers, level-of-detail, field-at-scale, automated accessibility — plus the first
-public deploy. A15's "M4 is the ship" is superseded by A16.
+public deploy. A15's "M4 is the ship" is superseded by A16, and A16's numbering by
+A17.
 
-### M8–M13
+### M9–M14
 
 Gmail-assisted tracking → the Overworld (rejection intelligence, above the clouds)
 → Jarvis (voice and hands) → historical intelligence → Continental (multi-state) →
-hardening. **See `docs/spec/AMENDMENTS.md` A16 for the full map and the old→new
-mapping.** Do not plan these in detail yet.
+hardening. **See `docs/spec/AMENDMENTS.md` A17 for the full map and the old→new
+mapping; A16 for the re-cut before it.** Do not plan these in detail yet.
 
 **The ordering rule: data before rendering.** This project has twice tuned a look
-against a corpus too small to reveal how it reads. Do not do it a third time.
+against a corpus too small to reveal how it reads, and on 2026-08-29 came within
+a slice of doing it a third time — M6 was going to draw an archipelago over a
+corpus holding eight of the roles its reader wants. A17 is what the rule caught.
+It works. Keep applying it.
 
 ---
 

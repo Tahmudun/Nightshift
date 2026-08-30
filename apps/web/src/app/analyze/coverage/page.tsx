@@ -103,9 +103,65 @@ export default function CoveragePage() {
               ))}
             </ul>
           </section>
+
+          <Attribution />
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * Where the community lists come from, and what they permit.
+ *
+ * On this page rather than buried in a doc, because it belongs beside the
+ * numbers those lists produce. One of the two states no licence (Q16); saying
+ * so here is the difference between a decision and an omission.
+ */
+function Attribution() {
+  return (
+    <section
+      aria-labelledby="attribution-heading"
+      className="border border-ink-600 bg-ink-900/60 p-5"
+    >
+      <h2
+        id="attribution-heading"
+        className="font-mono text-[10px] uppercase tracking-[0.16em] text-paper-faint"
+      >
+        Where the internship lists come from
+      </h2>
+      <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-paper-dim">
+        Two community-maintained lists are read as single public files over HTTPS. Nothing is
+        crawled and no posting text is reproduced: every entry links out to the employer&rsquo;s
+        own posting, which is the link on each job here.
+      </p>
+      <ul className="mt-4 space-y-3">
+        {[
+          {
+            name: 'SimplifyJobs/Summer2027-Internships',
+            href: 'https://github.com/SimplifyJobs/Summer2027-Internships',
+            licence: 'No licence stated by the repository.',
+          },
+          {
+            name: 'vanshb03/Summer2027-Internships',
+            href: 'https://github.com/vanshb03/Summer2027-Internships',
+            licence: 'MIT licensed.',
+          },
+        ].map((list) => (
+          <li key={list.name}>
+            <a
+              className="text-[13px] text-signal-400 underline underline-offset-2"
+              href={list.href}
+              rel="noreferrer noopener"
+              target="_blank"
+            >
+              {list.name}
+            </a>
+            <p className="mt-0.5 text-[12px] leading-relaxed text-paper-dim">{list.licence}</p>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

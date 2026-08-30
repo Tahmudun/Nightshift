@@ -448,3 +448,77 @@ provider abstraction for a second LLM that does not exist yet.
 
 The subscription business model is a real future intention and an explicitly
 deferred one. It changes nothing about what gets built now.
+
+---
+
+## A17 — M6 is The Hunt. The Archipelago moves to M7.
+
+**Overrides:** A16's map from M6 onward, and `CLAUDE.md` §6's milestone list.
+
+### What changed
+
+A16 put M6 at The Archipelago: regions, the Island, a cinematic crossing. M6a
+began there — the design is written (`docs/architecture/archipelago.md`), ADR
+0040 shipped, and the `landmass` column and placement rule are built and
+merged. Then the corpus was measured against the reader it is for, and the
+ordering was wrong.
+
+**The measurement, 2026-08-29.** The corpus held 1,200 jobs, 23 companies, and
+**8 internships.** The reader is a student looking for early-career work in New
+York. The Archipelago would have drawn a beautiful map of a database with
+almost nothing on it for him — which is A16's own ordering rule, *data before
+rendering*, failing on the milestone that stated it.
+
+**The re-cut.** M6 becomes **The Hunt**: the reader exists as a real account
+with a confirmed resume, and there is enough early-career work in the database
+to rank. The Archipelago's own deliverables are not dropped or reduced; they
+move to M7 intact, and the two pieces of it that are *data* rather than
+rendering — `landmass` and the placement rule — stay in M6a where they were
+built, because M7 needs them and they were the right work either way.
+
+### What The Hunt delivered, measured
+
+Full design: `docs/architecture/the-hunt.md`. Measured on 2026-08-30 after one
+live ingestion pass:
+
+| | Before | After |
+|---|---|---|
+| Canonical jobs | 1,200 | **3,790** |
+| Companies | 23 | **851** |
+| Early-career roles | 8 | **2,347** |
+| Early-career **in New York** | — | **249**, across 122 companies |
+
+The mechanism is one adapter: a community internship list is **a board with one
+token and many employers**, which needed no pipeline change because ingestion
+already creates the company per job from the payload.
+
+### The map
+
+| New | Name | Was (A16) |
+|---|---|---|
+| M6 | **The Hunt** — the reader exists, and there is something worth ranking | — |
+| M7 | **The Archipelago** — regions, the Island, cinematic traversal | M6 |
+| M8 | **Smooth** — perf, quality tiers, first public deploy. **The ship.** | M7 |
+| M9 | Gmail-assisted tracking | M8 |
+| M10 | **The Overworld** — rejection intelligence | M9 |
+| M11 | **Jarvis** — voice and hands | M10 |
+| M12 | Historical intelligence | M11 |
+| M13 | **Continental** — multi-state | M12 |
+| M14 | Hardening | M13 |
+
+**Deployment moves with its milestone.** A16 put the first public deploy in
+Smooth; it stays there, now M8. Nothing about the ship's *content* changed —
+only its number.
+
+### The ordering rule, restated because it caught this one
+
+**Data before rendering.** A16 wrote the rule after being burned twice, and M6
+would have been the third time: an archipelago is a rendering, and the corpus
+it was to render had eight of the roles this reader wants. The rule now has a
+third instance behind it, and this amendment exists because the rule worked.
+
+### What this does not change
+
+The Archipelago's design stands as written. `archipelago.md` is still the
+required reading before any landmass, water or crossing work — it is simply
+required at M7 rather than M6. ADR 0040 and the `landmass` column stand.

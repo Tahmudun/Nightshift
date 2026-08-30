@@ -33,7 +33,24 @@
 **M4c Task 5 is done: the city speaks §6, and says what it is saying.** The table is one pure function (`treatments.ts`), the beacons carry per-instance colour, strength and pulse rate through a shader, four instanced meshes draw the marks §6 puts *on* a body, and an in-interface legend documents all thirteen rows — including the four that are not drawn, each with its reason. ADR 0028. `docs/reviews/milestone-4c-treatments.png` is the screenshot. Three defects were found by looking rather than by a test: a closed torus whose rotation was invisible by construction, a spin folded into the billboard that rolled every arc out of the camera plane, and a saved outline drawn cyan — which is exactly what ADR 0027's standing instruction ruled out.
 **M4c: Tasks 1, 2, 3 and 4 are done. The placement join and `GET /city/signals` (ADR 0024, which resolves a real conflict between I1 and `city.md` §4.4 rather than papering over it), the Three.js signal layer in MapLibre's own context (ADR 0025), and the field made legible, navigable and sortable. New York now has every open role floating above it, untethered, and none on a building — see `docs/reviews/milestone-4c-signals.png` and `docs/reviews/milestone-4c-roster.png`. Task 4 then made a role reachable: picking by raycast against the frame's own matrix, a reticle, a detail panel, and one selection shared by the list and the map (ADR 0027) — `docs/reviews/milestone-4c-selection.png`.**
 **Docker's daemon is no longer wedged.** It was force-quit and relaunched on 2026-08-12. `make up` was then run **from cold** — containers removed with `docker compose down` first — and created both from scratch to healthy, exit 0. **That closes the last open step in M4b's acceptance chain**; container startup is now proven rather than assumed. The seeded corpus survived and matches what this file records: 31 canonical jobs, 62 `job_locations`, 44 `city_only` + 18 `remote`, 0 mappable.
-**Current milestone: M6 — The Archipelago (A16). UNBLOCKED — Q14 answered 2026-08-25. M6a is in flight on `m6a-geo-spine`: the design (`docs/architecture/archipelago.md`), ADR 0040, and the gazetteer are done and the corpus is backfilled. See "Next exact action".**
+**Current milestone: M6 — The Hunt (A17). M6a is in flight on `m6a-geo-spine`. Tasks 1–7 and 9 are built; Task 6's registry approval and Task 8 are the human's. See "Next exact action".**
+
+**M6 was re-cut on 2026-08-29 and the re-cut is A17.** It was The Archipelago; it is now The Hunt. The corpus was measured against the reader it is for — a student looking for early-career work in New York — and held **8 internships**. An archipelago is a rendering, and A16's own ordering rule says data comes first. The Archipelago moves to M7 with its design intact; its two *data* pieces, the `landmass` column and the placement rule, stay here because they were the right work either way.
+
+**One live ingestion pass, 2026-08-30, 14m47s, five sources, zero failures, zero closures:**
+
+| | Before | After |
+|---|---|---|
+| Canonical jobs | 1,200 | **3,790** |
+| Companies | 23 | **851** |
+| Raw source records | 1,237 | **3,936** |
+| `job_locations` | 1,829 | **5,566** |
+| Early-career roles (internship/new_grad/junior) | 8 | **2,347** |
+| Early-career **with a New York location** | — | **249**, across 122 companies |
+| Jobs with a New York location | 295 | **577** |
+| Database size | 72 MB | 100 MB |
+
+Per source: ashby 734 fetched / 41 created / 56 updated / 637 unchanged (102s); greenhouse 454 / 30 / 424 / 0 (390s); lever 7 / 2 / 1 / 4 (2s); simplify_list 2,255 / 2,255 / 0 / 0 (312s); vansh_list 371 / 371 / 0 / 0 (75s). **3,936 raw records became 3,790 canonical jobs** — the two lists overlap and the dedupe layer merged them on `same_canonical_url`, which is the shape the-hunt.md §5.2 predicted when it argued for two sources rather than one.
 
 **Superseded (kept for the record): Current milestone: M5 — The Open Hand (A16). M5a, M5b and M5c are merged, including M5c's Claude Desktop deviation (PR #20, `0765381`). M5d is COMPLETE — all six tasks, walk included — on `m5d-assisted-capture` at `d37e83c`; [PR #21](https://github.com/Tahmudun/Nightshift/pull/21) is open with all five CI jobs green.**
 **M5 itself is NOT closed.** Its four acceptance criteria have not been walked as a milestone — only the four slices' own. That walk, and the merge, are what stand between here and M6. See "Next exact action".
@@ -881,7 +898,9 @@ last rung of the three rather than the next.
 
 **Gates on the final tree: `make check` exits 0** — format, lint, typecheck, **2297 Python** (12m08s, up from 2292) and **831 web across 56 files**. Migrations 0028 and 0029 both verified reversible.
 
-**Not real yet on this branch:** the `landmass` enum and column, the placement preference rule (§6), and the coverage page's landmass and refusal counts. All three are M6a and none of them is written.
+**Not real yet on this branch:** the coverage page's per-landmass counts and the gazetteer's 345 ambiguity refusals as a number a reader can see. The attribution half of that page shipped (both lists named and linked, with their licence status stated); the counts did not. The `landmass` enum and column and the placement preference rule are both **done and merged** — see the M6a entries above.
+
+**Superseded (kept for the record):** the `landmass` enum and column, the placement preference rule (§6), and the coverage page's landmass and refusal counts. All three are M6a and none of them is written.
 
 **Also owed, and small:** `locations.py`'s `TODO(M1)` on the corroboration gap still says the problem is "not fixable without a gazetteer of real city names". A gazetteer now exists and still does not fix it — the corroborated path never consults one — so the comment's reasoning is stale even though its conclusion holds.
 
@@ -890,7 +909,92 @@ last rung of the three rather than the next.
 
 ## Next exact action
 
-### Current milestone: **M6 — The Archipelago. M6a in flight on `m6a-geo-spine`.**
+### Current milestone: **M6 — The Hunt (A17). M6a in flight on `m6a-geo-spine`.**
+
+> **START HERE, NEXT SESSION.** Plan: `docs/plans/2026-08-29-m6a-the-hunt.md`.
+> Design: `docs/architecture/the-hunt.md`. The re-cut is **A17**.
+>
+> **Tasks 1–7 and 9 are built.** Two things are waiting on the human and
+> nothing else in the plan is blocked by them:
+>
+> 1. **Task 6 — `approve --write`.** `data/board-candidates.yaml` holds 288
+>    candidates; 265 were mined from the internship lists' own URLs and
+>    validated live. **234 are eligible for bulk approval**, led by Anthropic
+>    (571 postings, 286 NYC), Jane Street (233/100), Point72 (239/73), The Trade
+>    Desk (191/67). Writing them is a **10x registry expansion** (25 -> ~259)
+>    and ADR 0005 reserves batch approval for a person. Run
+>    `python -m nightshift.discovery.cli approve` to re-read the report.
+>    **Three things to look at first:** `General Intuition &amp; Medal` has an
+>    undecoded HTML entity in its extracted name; `Genius AI` sits on token
+>    `glossgenius`; `AtomicSemi` and `atomicsemi` are both present and both
+>    unreachable.
+> 2. **Task 8 — the reader exists.** Needs his resume file and four facts
+>    (graduation month and year, school and degree, work authorization,
+>    currently enrolled), entered and **confirmed by him** through the real
+>    screens. I2 forbids the agent confirming them, and a wrong graduation year
+>    silently re-ranks the whole corpus through the eligibility gate.
+>
+> **All 28 Lever boards validated `live_unnamed`, and that is correct.** Lever
+> publishes no company name anywhere in its API — the adapter takes the employer
+> from the registry entry a human approved, precisely because deriving one from
+> the token is the I2 failure ADR 0005 exists to catch. So no Lever board can
+> reach bulk approval automatically. M1's criterion *"a live-but-unnameable
+> board cannot reach bulk approval"* just did its job on 28 real boards.
+>
+> **What did not go as the plan predicted — five things, all recorded because
+> the mismatches are worth more than the wins:**
+>
+> - **The adapter minted open jobs from closed postings.** 12,663 of Simplify's
+>   14,918 entries are `active: false` — historical Summer 2026 roles. Creating
+>   a canonical job for each would assert something false about a real employer
+>   12,663 times, at an embedding apiece. But *dropping* them violates I3: a job
+>   already held whose entry later flips inactive would fall out of `listed`,
+>   get aged, and close three polls later. `FetchOutcome`'s `listed`/`jobs`
+>   split holds both halves — every entry stays `listed`, only active ones
+>   become `jobs`. The first run spent **40 minutes** on this before it was
+>   killed.
+> - **`source_company_key` held the employer name, not the board token.** Every
+>   other adapter sets it to `board.token`, and two ageing queries filter
+>   `source_company_key IN (polled tokens)` — so **no list record could ever be
+>   aged, missed, or closed.** 2,626 rows were already stored that way and were
+>   repaired with an `UPDATE`. Found by sabotaging the `listed`/`jobs` split and
+>   watching the test that should have caught it stay green.
+> - **That test was hollow twice over.** First it asserted `stats.closed == 0`,
+>   which is true whatever happens — closure takes three consecutive misses, so
+>   one pass closes nothing either way. Replaced with the miss counter itself.
+>   It *still* passed under sabotage, because the test built its `RawJob`s by
+>   hand with the employer name in `source_company_key` and was asserting about
+>   a row shape the adapter never writes.
+> - **The whole ingest was one transaction.** All five sources shared a single
+>   `session_scope()`, so nothing was durable until the last finished and the
+>   killed 40-minute run rolled back every board that had already succeeded. Now
+>   one client for the whole run (the rate limiter must stay shared — both lists
+>   are on `raw.githubusercontent.com`) and **one transaction per source**.
+> - **The plan's idempotence assertion was wrong.** It expected `updated_at`
+>   unmoved on a second run. `last_seen_at` moves on every poll by design — it
+>   is freshness evidence and I3's closure machine depends on it — and it drags
+>   the row's audit column with it. The real property was verified instead: a
+>   content fingerprint over Lever's jobs was **byte-identical** across a run
+>   reporting `unchanged=7`, and run 2 gave `created=0` across all five sources
+>   with the job count unchanged at 3,790.
+>
+> **Also found and logged, not fixed:** `make ingest` never sends or stores an
+> ETag, so every manual run re-downloads Simplify's **11.2 MB** file in full.
+> The worker's scheduled path (`poll_one_board`) does this correctly. **Q17.**
+>
+> **Task 1's populations matched `archipelago.md` §4 exactly** on the
+> pre-ingest corpus: 675 / 239 / 224 / 62 placing rows, summing to 1200.
+> **Task 2's placement rule now rescues 160 jobs, not the 71 §6 predicted** —
+> 577 jobs carry a New York location and only 417 have one as `is_primary`. The
+> number grew with the corpus; the rule did not change.
+>
+> **Still open and not blocking:** Q17, Q16, Q15, Q13, Q12, Q11, Q10, Q9, Q7,
+> Q6. And `make test-e2e` still cannot pass on a machine where the API is
+> running, and says nothing about why.
+
+---
+
+### Superseded: **M6 — The Archipelago. M6a in flight on `m6a-geo-spine`.**
 
 > **START HERE, NEXT SESSION.** Q14 is answered and M6 is unblocked. The design
 > is `docs/architecture/archipelago.md` — **read it before touching anything in
@@ -2627,6 +2731,154 @@ and 11 still float, which is exactly the mix §4.8 designs for.
 
 **Q2 (deployment target) is the only open question that blocks anything**, and
 only M4d.
+
+---
+
+## M6a Tasks 1–7 and 9 — the corpus triples, and four things the tests could not see
+
+**Built 2026-08-29/30 on `m6a-geo-spine`.** The milestone was re-cut mid-flight
+(**A17**) and the plan is `docs/plans/2026-08-29-m6a-the-hunt.md`.
+
+### What shipped, task by task
+
+**Task 1 — the `landmass` column** (`2509565`). A four-value enum, one pure
+function of a `ParsedLocation`, migration `0030` round-tripped up/down/up with no
+drift, written at ingestion and backfilled by `nightshift.cli backfill-landmass`.
+The backfill touched 1,760 of 1,829 rows and the placing-row populations matched
+`archipelago.md` §4 **exactly**: `elsewhere_city` 675, `elsewhere_broad` 239,
+`new_york` 224, `unplaced` 62, summing to 1200. The ingestion test was shown able
+to fail by removing the write.
+
+**Task 2 — placement prefers New York** (`47b048b`). `_primary_location` becomes
+`placement_location`: a New York location, then the primary, then the first.
+`is_primary` is assigned from the first segment the employer typed, which is a
+form-filling artifact rather than a claim about where the job is. **§6 predicted
+this would rescue 71 roles; after the ingest it rescues 160** — 577 jobs carry a
+New York location and only 417 have one as `is_primary`. The rule did not change;
+the corpus did.
+
+**Task 3 — the internship-list adapter** (`98362b4`). One HTTP request per list,
+hundreds of employers. Needed no pipeline change: ingestion already creates the
+company per job from the payload. Migration `0031` for
+`SourceType.INTERNSHIP_LIST`. Three things read off the real files rather than
+from documentation: **the two lists disagree on their own schema** (Simplify has
+`terms` and `category`, vanshb03 has `season` and neither — the adapter reads
+none of the three); `date_posted` is epoch **seconds**, not Lever's milliseconds;
+and **Simplify writes its home city as the bare token `NYC`**, which carries 195
+of its 206 New York roles and which the shared normalizer does resolve. `SF` (92
+roles) it does not, and those land `unknown` rather than guessed (I1).
+
+**Task 4 — every board, including the lists.** `make ingest` no longer hardcodes
+`pollable(ats="greenhouse")` — it groups every registry board by ATS and drives
+each through `ADAPTERS`. **Two of the three M1 adapters had had no live CLI entry
+point at all.** The plan's suggested `lambda client: InternshipListAdapter(...)`
+would have failed at runtime: `AdapterFactory` is a Protocol carrying a settable
+`parser_version`, because `sync_board_poll_state` reads it off the *factory* for
+a board it has never polled. mypy caught it; live it would have been an
+`AttributeError` on each list's first poll.
+
+**Task 5 — the two filters the reader needs.** `landmass` and a **repeatable**
+`seniority`, neither applied by default. Repeatable rather than an
+`early_career` flag: the band is the reader's to define, and `params.append`
+rather than `set`, which would have turned "internships or new grad" into "new
+grad" with nothing on screen to say so. Both exposed on the wire as **required**
+Zod fields — which broke six hand-built test fixtures, and that is the schema
+working rather than failing.
+
+**Task 6 — the lists name the companies that hire interns.** 2,626 stored list
+URLs yielded **266 distinct `(ats, token)` pairs, 265 new**: 133 Ashby, 104
+Greenhouse, **28 Lever**. That last number matters — ADR 0006 records that
+`jobs.lever.co/robots.txt` disallows CCBot, so no Lever board is in any Common
+Crawl index and never will be. **This route reaches boards the crawl path
+structurally cannot.** Validation: 233 `live_named`, 29 `live_unnamed`, 3
+unreachable. All 28 Lever boards are `live_unnamed` and correctly so — Lever
+publishes no company name anywhere, which is why M1's criterion *"a
+live-but-unnameable board cannot reach bulk approval"* exists. **234 eligible,
+holding 15,293 postings. Not written: ADR 0005 reserves batch approval for a
+person.**
+
+**Task 7 — `make backup`.** `pg_dump -Fc` through `scripts/backup.sh`, restore
+through its sibling, `backups/` gitignored, a runbook, and `make reset-db` now
+prints the jobs/applications/users it is about to destroy before doing it. Run
+for real against the live corpus: 8.3 MB.
+
+**Task 9 — the record.** A17, `CLAUDE.md` §6, Q16 (Simplify's unstated licence),
+Q17 (the ETag gap), and both lists attributed with their licence status on the
+coverage page.
+
+### The live pass, 2026-08-30
+
+14m47s, five sources, **zero boards failed, zero jobs closed, zero jobs without a
+source link**. 1,200 -> **3,790 jobs**; 23 -> **851 companies**; 8 -> **2,347
+early-career roles**, 249 of them with a New York location across 122 companies.
+3,936 raw records became 3,790 canonical jobs — the two lists overlap and dedupe
+merged them on `same_canonical_url`, which is the shape the-hunt.md §5.2
+predicted when it argued for two sources rather than one.
+
+Run 2 gave `created=0` across all five sources with the job count unchanged.
+
+### The four things the tests could not see
+
+**1. The adapter minted open jobs from closed postings.** 12,663 of Simplify's
+14,918 entries are `active: false` — historical Summer 2026 roles. Minting an
+open canonical job for each asserts something false about a real employer 12,663
+times, at an embedding apiece. But *dropping* them violates I3: a job already
+held whose entry later flips inactive falls out of `listed`, gets aged, and
+closes three polls later. `FetchOutcome`'s `listed`/`jobs` split holds both —
+every entry stays `listed`, only active ones become `jobs`. **The first live run
+spent 40 minutes on this before it was killed.**
+
+**2. `source_company_key` held the employer name, not the board token.** Every
+other adapter sets it to `board.token`, and two ageing queries filter
+`source_company_key IN (polled tokens)` — so **no list record could ever be aged,
+missed, or closed**. 2,626 rows were already stored that way and were repaired
+with an `UPDATE`. It was found by sabotaging the split in (1) and watching the
+test that should have caught it stay green.
+
+**3. That test was hollow twice over.** It first asserted `stats.closed == 0`,
+which is true whatever happens — closure takes three consecutive misses, so one
+pass closes nothing either way. Replaced with the miss counter itself. It *still*
+passed under sabotage, because the test built its `RawJob`s by hand with the
+employer name in `source_company_key`, and so was asserting about a row shape the
+adapter never writes. **Both helpers now build rows the way `fetch_board` does.**
+Add this to the milestone's running tally of checks that could not produce the
+failure they were written for.
+
+**4. The whole ingest was one transaction.** All five sources shared one
+`session_scope()`, so nothing was durable until the last finished — and the
+killed 40-minute run rolled back every board that had already succeeded. Now one
+client for the whole run (the rate limiter must stay shared: both lists are on
+`raw.githubusercontent.com`) and **one transaction per source**.
+
+### And one self-inflicted wound worth recording
+
+**The backup test leaked a committed user into `nightshift_test`.** Its cleanup
+was a single transaction; an FK-ordering error rolled all four deletes back and
+left the user behind. Nothing said so. It surfaced twenty minutes later as two
+*unrelated* scoring tests failing `score_count == 1` with `2`, because
+`recompute_pending` scores every (user, job) pair. It was nearly mis-diagnosed as
+a pre-existing flake — it failed with the changes stashed too, and the giveaway
+was that stashing changes code, not database state. Fixed three ways: the row
+deleted, each cleanup statement in its own transaction, and **the test now
+asserts it leaked nothing**, so the next leak fails there rather than in somebody
+else's suite.
+
+### The plan's own idempotence assertion was wrong
+
+It expected `updated_at` unmoved on a second run. `last_seen_at` moves on every
+poll **by design** — it is freshness evidence and I3's closure machine depends on
+it — and it drags the row's audit column with it. The real property was verified
+instead: a content fingerprint over Lever's jobs was **byte-identical** across a
+run reporting `unchanged=7`.
+
+### Recorded, not fixed
+
+`make ingest` never sends or stores an ETag, so every manual run re-downloads
+Simplify's **11.2 MB** file in full. `board_poll_state` has rows for
+`greenhouse/datadog` and `lever/alloy` and none for either list. The worker's
+scheduled path (`poll_one_board`) does this correctly, including discarding an
+ETag earned by a stale parser. **Q17**, with the reasoning for why the fix is a
+rewrite of `cmd_ingest` onto that path rather than an addition beside it.
 
 ---
 
