@@ -45,7 +45,7 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from nightshift.db.base import LocationConfidence, RemotePolicy, ResolutionMethod
+from nightshift.db.base import Landmass, LocationConfidence, RemotePolicy, ResolutionMethod
 from nightshift.db.models import CompanyLocation, Job, JobLocation
 
 
@@ -164,7 +164,7 @@ def resolve_placement(job: Job, *, office: CompanyLocation | None) -> Placement:
     approximate claim into a building by way of a different row, which is the
     promotion §4.4 refuses.
     """
-    primary = _primary_location(job)
+    primary = placement_location(job)
 
     stated = primary.raw_text if primary is not None else None
 
@@ -243,16 +243,37 @@ def _unresolved(primary: JobLocation | None) -> Placement:
     )
 
 
-def _primary_location(job: Job) -> JobLocation | None:
-    """The row that speaks for a multi-location posting (A2).
+def placement_location(job: Job) -> JobLocation | None:
+    """The row that speaks for a multi-location posting (A2, archipelago.md §6).
 
-    The relationship is ordered `is_primary` first, but this does not lean on
-    that: an ordering declared in the model is an ordering a future `selectinload`
-    or a manual list assignment can lose, and losing it here would move a beacon
-    to Austin.
+    Preference order, first hit wins:
+
+    1. a location on the `new_york` landmass, if the job has one;
+    2. the `is_primary` row;
+    3. the first row as stored.
+
+    **Rule 1 moves beacons on purpose, and only in one direction.** `is_primary`
+    is assigned at ingestion from the first segment the employer typed, which is
+    a form-filling artifact rather than a claim about where the job mostly is —
+    and it was hiding 71 New York roles, 24% of the city, behind cities they are
+    also open in. Nothing is discarded: every other location is still stored,
+    still returned by the API, and still named in the detail panel. What changes
+    is which of several true statements the map speaks with.
+
+    The stored `landmass` column decides rule 1, not `landmass_for`. Placement
+    reads rows; recomputing here would let the map and the database disagree
+    about the same job.
+
+    Rules 2 and 3 do not lean on the relationship's declared `is_primary`-first
+    ordering: an ordering declared in the model is an ordering a future
+    `selectinload` or a manual list assignment can lose, and losing it here
+    would move a beacon to Austin — which, unlike rule 1, nobody asked for.
     """
     if not job.locations:
         return None
+    for row in job.locations:
+        if row.landmass is Landmass.NEW_YORK:
+            return row
     for row in job.locations:
         if row.is_primary:
             return row
