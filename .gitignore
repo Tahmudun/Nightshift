@@ -56,3 +56,7 @@ dist/
 
 # Playwright signed-in state (M5b). A real session token — never committed.
 apps/web/e2e-seeded/.auth/
+
+# Database dumps from `make backup`. The reader's own application history
+# lives in these; they are never committed.
+backups/

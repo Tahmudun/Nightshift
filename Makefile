@@ -27,6 +27,7 @@ LOADENV := set -a && source .env && set +a
 .PHONY: help setup up down migrate migrate-down seed dev demo test test-py test-web \
         test-e2e check fmt lint typecheck reset-db ingest logs ps clean doctor \
         verify acceptance test-e2e-seeded browsers drift constraints \
+        backup restore \
         discover registry-validate registry-approve registry-approve-write coverage \
         worksheets score tiles tiles-strict offices
 
@@ -137,12 +138,36 @@ score: setup ## Run the match sweep now instead of waiting for the worker's cron
 offices: setup ## Load data/company-locations.yaml -> geocode -> company_locations
 	@$(LOADENV) && $(PY) -m nightshift.cli offices
 
+backup: ## Dump the database to backups/nightshift-<utc timestamp>.dump
+	@./scripts/backup.sh
+
+restore: ## Load a dump back in. OVERWRITES the current database. FILE=path required
+ifndef FILE
+	@echo "usage: make restore FILE=backups/nightshift-<timestamp>.dump" >&2
+	@echo "       (a restore overwrites data, so it will not pick a file for you)" >&2
+	@exit 2
+endif
+	@./scripts/restore.sh "$(FILE)"
+
 # Also destroys every MCP token, because a token lives in `user_sessions` and
 # only its hash is stored — nothing can restore one. A connected Claude Desktop
 # breaks silently after this: it still launches, and every tool answers that
 # the token was rejected. Re-mint with `nightshift tokens --create
 # --merge-config`; see docs/runbooks/connecting-claude-desktop.md.
+#
+# Says what it is about to destroy before destroying it. Until M6a this target
+# printed nothing and dropped the volume, which was survivable while every row
+# came from a fixture and is not once a person's application history is in here.
 reset-db: ## Drop, recreate, migrate, seed (destroys MCP tokens — see the note above)
+	@echo "==> about to DROP the database volume. What is in it now:"
+	@$(COMPOSE) exec -T postgres psql -U "$${POSTGRES_USER:-nightshift}" \
+		-d "$${POSTGRES_DB:-nightshift}" -tAc \
+		"select '    '||count(*)||' jobs' from jobs union all \
+		 select '    '||count(*)||' applications' from applications union all \
+		 select '    '||count(*)||' users' from users;" 2>/dev/null \
+		|| echo "    (database not reachable — nothing to report)"
+	@echo "==> 'make backup' first if any of that matters. Continuing in 5s."
+	@sleep 5
 	@$(COMPOSE) down -v
 	@$(MAKE) up migrate seed
 
