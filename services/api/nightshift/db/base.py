@@ -105,6 +105,19 @@ class ResolutionMethod(enum.StrEnum):
     GAZETTEER = "gazetteer"
 
 
+class Landmass(enum.StrEnum):
+    """How much is known about where the work happens (archipelago.md §4).
+
+    Not ``region``: ``scoring.py:195`` already uses that word for a US state,
+    and CLAUDE.md §7 forbids a second meaning for a domain term.
+    """
+
+    NEW_YORK = "new_york"
+    ELSEWHERE_CITY = "elsewhere_city"
+    ELSEWHERE_BROAD = "elsewhere_broad"
+    UNPLACED = "unplaced"
+
+
 class JobStatus(enum.StrEnum):
     """Closure state machine (§7.4). Invariant I3 governs the transitions."""
 

@@ -24,7 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from nightshift.adapters.base import BoardRef, FetchOutcome, ListedPosting, RawJob
 from nightshift.adapters.greenhouse import GreenhouseAdapter
 from nightshift.adapters.lever import LeverAdapter
-from nightshift.db.base import JobStatus, SourceStatus, SourceType
+from nightshift.db.base import JobStatus, Landmass, SourceStatus, SourceType
 from nightshift.db.models import (
     Company,
     Job,
@@ -361,6 +361,32 @@ async def test_multi_location_posting_yields_multiple_rows(db_session: AsyncSess
     assert per_job
     assert max(count for _, count in per_job) >= 2, "no job has more than one location row"
     assert await _count(db_session, JobLocation) == 11  # 9 real (1 each) + synthetic (2)
+
+
+async def test_each_location_row_carries_its_own_landmass(db_session: AsyncSession) -> None:
+    """archipelago.md §4, written at ingestion rather than derived on read.
+
+    The synthetic multi-location posting above names New York and Boston, which
+    is the case that matters: one job, two rows, **two different landmasses**.
+    A landmass computed per *job* instead of per *row* would still pass every
+    other assertion in this file, and would silently sort a job that is hiring
+    in New York onto the wrong side of the water.
+    """
+    outcome = _lever_outcome()
+    outcome = outcome.model_copy(
+        update={"jobs": (*outcome.jobs, _synthetic_multi_location_raw_job())}
+    )
+    await _ingest(db_session, outcome)
+
+    rows = (
+        await db_session.execute(
+            select(JobLocation.raw_text, JobLocation.landmass).order_by(JobLocation.raw_text)
+        )
+    ).all()
+    by_text = dict(rows)
+    assert by_text["New York, NY"] is Landmass.NEW_YORK
+    assert by_text["Boston, MA"] is Landmass.ELSEWHERE_CITY
+    assert by_text["New York, NY"] is not by_text["Boston, MA"]
 
 
 async def test_no_location_row_has_a_coordinate(db_session: AsyncSession) -> None:

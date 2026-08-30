@@ -66,6 +66,7 @@ from nightshift.db.base import (
     InternshipSeason,
     JobStatus,
     JobTextField,
+    Landmass,
     LocationConfidence,
     MatchComponent,
     PenaltyName,
@@ -1015,6 +1016,7 @@ class JobLocation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         Index("ix_job_locations_city_lower", text("lower(city)")),
         Index("ix_job_locations_geom", "geom", postgresql_using="gist"),
         Index("ix_job_locations_location_confidence", "location_confidence"),
+        Index("ix_job_locations_landmass", "landmass"),
         # I1, at the database level: coordinates and a precision claim travel
         # together. A point with `unknown` confidence, or a `verified` claim
         # with no point, cannot be stored at all.
@@ -1070,6 +1072,13 @@ class JobLocation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     resolved_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     is_primary: Mapped[bool] = mapped_column(nullable=False, server_default=text("false"))
+    # archipelago.md §4. Stored rather than derived on read: the reader's
+    # landmass filter is a WHERE clause, and a Python property cannot be indexed.
+    landmass: Mapped[Landmass] = mapped_column(
+        _enum(Landmass, "landmass"),
+        nullable=False,
+        server_default=Landmass.UNPLACED.value,
+    )
 
     job: Mapped[Job] = relationship(back_populates="locations", foreign_keys=[job_id])
 

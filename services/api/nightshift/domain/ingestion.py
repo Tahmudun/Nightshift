@@ -80,6 +80,7 @@ from nightshift.domain.embeddings import (
     default_embedder,
 )
 from nightshift.domain.freshness import RecordObservation, decide_job_status
+from nightshift.domain.landmass import landmass_for
 from nightshift.domain.requirement_extraction import (
     EXTRACTOR_VERSION,
     extract_requirements,
@@ -241,6 +242,10 @@ async def _replace_locations(
             location_confidence=parsed.confidence,
             resolution_method=parsed.resolution_method,
             is_primary=parsed.is_primary,
+            # archipelago.md §4. A pure function of the fields above, written
+            # here so the reader's filter is an indexed WHERE rather than a
+            # recomputation on every read.
+            landmass=landmass_for(parsed),
         )
         session.add(row)
         if parsed.is_primary:

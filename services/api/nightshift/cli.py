@@ -23,6 +23,7 @@ import getpass
 import json
 import sys
 import uuid
+from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -45,6 +46,7 @@ from nightshift.db.base import (
     EmploymentType,
     EventActor,
     JobStatus,
+    Landmass,
     LocationConfidence,
     ProficiencyLevel,
     RemotePreference,
@@ -89,6 +91,8 @@ from nightshift.domain.identity import (
     set_password,
 )
 from nightshift.domain.ingestion import get_or_create_source, ingest_boards
+from nightshift.domain.landmass import landmass_for
+from nightshift.domain.locations import ParsedLocation
 from nightshift.domain.matching import recompute_pending
 from nightshift.domain.office_loading import LoadReport, load_offices
 from nightshift.domain.polling import (
@@ -1054,6 +1058,47 @@ async def cmd_stats(args: argparse.Namespace) -> int:
     return 0
 
 
+async def cmd_backfill_landmass(args: argparse.Namespace) -> int:
+    """Recompute `landmass` on every `job_locations` row from its stored fields.
+
+    Needed once, because migration `0030` gave every existing row the honest
+    default `unplaced` rather than claiming to have classified rows it never
+    read. Safe to re-run: `landmass_for` is pure, so a second pass over
+    unchanged rows writes nothing.
+
+    It reads only columns the row already holds. Nothing here re-parses source
+    text, contacts a geocoder, or upgrades a confidence — a backfill that could
+    do any of those would be a second, unaudited ingestion path.
+    """
+    async with session_scope() as session:
+        rows = (await session.execute(select(JobLocation))).scalars().all()
+        changed = 0
+        for row in rows:
+            parsed = ParsedLocation(
+                raw_text=row.raw_text,
+                city=row.city,
+                state=row.state,
+                country=row.country,
+                confidence=row.location_confidence,
+                is_primary=row.is_primary,
+                resolution_method=row.resolution_method,
+            )
+            computed = landmass_for(parsed)
+            if row.landmass is not computed:
+                row.landmass = computed
+                changed += 1
+
+    counts = Counter(row.landmass for row in rows)
+    primary_counts = Counter(row.landmass for row in rows if row.is_primary)
+    print(f"backfilled {changed} of {len(rows)} job_locations rows")
+    for landmass in Landmass:
+        print(
+            f"  {landmass.value:<16} {counts[landmass]:>5} rows"
+            f"   {primary_counts[landmass]:>5} placing rows"
+        )
+    return 0
+
+
 #: What the seed's summary calls each kind of source, and it is exhaustive on
 #: purpose. This was `"fixture" if ... else "live"` until M5a, which was true
 #: while there were two kinds of source and false the moment there were three:
@@ -1604,6 +1649,7 @@ COMMANDS = {
     "poll": cmd_poll,
     "enqueue": cmd_enqueue,
     "stats": cmd_stats,
+    "backfill-landmass": cmd_backfill_landmass,
     "users": cmd_users,
     "tokens": cmd_tokens,
 }
@@ -1630,6 +1676,9 @@ def main(argv: list[str] | None = None) -> int:
     poll.add_argument("--token", required=True)
     subparsers.add_parser("enqueue", help="queue the ingestion task for the worker")
     subparsers.add_parser("stats", help="print corpus counts")
+    subparsers.add_parser(
+        "backfill-landmass", help="recompute job_locations.landmass from stored fields"
+    )
     users = subparsers.add_parser(
         "users", help="create an account or set its password (registration is closed)"
     )
