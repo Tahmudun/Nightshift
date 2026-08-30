@@ -51,10 +51,12 @@ from nightshift.db.base import (
     EmploymentType,
     InternshipSeason,
     JobStatus,
+    Landmass,
     LocationConfidence,
     MatchComponent,
     PenaltyName,
     RemotePolicy,
+    Seniority,
 )
 from nightshift.db.models import (
     Company,
@@ -122,6 +124,7 @@ def _to_location(row: JobLocation) -> JobLocationOut:
         location_confidence=row.location_confidence,
         resolution_method=row.resolution_method,
         is_primary=row.is_primary,
+        landmass=row.landmass,
     )
 
 
@@ -139,6 +142,7 @@ def to_summary(job: Job) -> JobSummaryOut:
         status=job.status,
         locations=[_to_location(row) for row in job.locations],
         salary=_to_salary(job),
+        seniority=job.seniority,
         source_published_at=job.source_published_at,
         source_updated_at=job.source_updated_at,
         first_seen_at=job.first_seen_at,
@@ -186,6 +190,20 @@ async def list_jobs(
         int | None,
         Query(ge=2000, description="Only internships whose title states this year"),
     ] = None,
+    landmass: Annotated[
+        Landmass | None,
+        Query(description="Only jobs with at least one location on this landmass"),
+    ] = None,
+    seniority: Annotated[
+        list[Seniority] | None,
+        Query(
+            description=(
+                "Repeatable. `?seniority=internship&seniority=new_grad` is one query, "
+                "because the reader's real question is 'early career' and where that "
+                "band ends is theirs to decide."
+            )
+        ),
+    ] = None,
 ) -> JobListOut:
     """Search canonical jobs, most-recently-seen first.
 
@@ -208,6 +226,8 @@ async def list_jobs(
         skill=skill,
         internship_season=internship_season,
         internship_year=internship_year,
+        landmass=landmass,
+        seniority=tuple(seniority or ()),
     )
     filters = build_filters(query)
 

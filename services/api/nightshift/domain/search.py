@@ -23,6 +23,7 @@ from nightshift.db.base import (
     EmploymentType,
     InternshipSeason,
     JobStatus,
+    Landmass,
     LocationConfidence,
     RemotePolicy,
     RequirementKind,
@@ -72,6 +73,14 @@ class JobSearchQuery(BaseModel):
     # based on stated beside them, which is the human's decision of 2026-08-05.
     skill: str | None = None
     internship_season: InternshipSeason | None = None
+    # M6a. Neither is applied by default: the-hunt.md §5.6 keeps every role
+    # reachable, and a filter that quietly applies itself deletes the 521 roles
+    # in other cities the reader asked to keep.
+    landmass: Landmass | None = None
+    #: Repeatable, because the reader's real query is "early career", which is
+    #: more than one value. A named `early_career` flag would freeze one answer
+    #: to a question that is the reader's, not ours.
+    seniority: tuple[Seniority, ...] = ()
     #: Not bounded to a plausible window, for the same reason the column is not.
     #: A range meaning "near now" makes the filter behave differently next year;
     #: `ge=2000` only rejects what no posting states anyway.
@@ -237,6 +246,18 @@ def build_filters(query: JobSearchQuery) -> list[ColumnElement[bool]]:
                 )
             )
         )
+
+    if query.landmass is not None:
+        # `EXISTS` over `job_locations`, the shape `confidence` above already
+        # uses: a job is in New York if *any* of its locations is, which is the
+        # same reading `placement_location` takes when it picks which one the
+        # map speaks with.
+        filters.append(
+            Job.id.in_(select(JobLocation.job_id).where(JobLocation.landmass == query.landmass))
+        )
+
+    if query.seniority:
+        filters.append(Job.seniority.in_(query.seniority))
 
     if query.source and query.source.strip():
         needle = query.source.strip().lower()

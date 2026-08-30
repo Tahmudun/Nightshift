@@ -37,6 +37,30 @@ const INTERNSHIP_SEASONS = [
   ['spring', 'Spring'],
 ] as const;
 
+/**
+ * archipelago.md §4. The UI names, with a plain-language hint on each, because
+ * "The Reach" tells a reader nothing on its own. The enum values are the domain
+ * language; these names are presentation and live only here.
+ */
+const LANDMASSES = [
+  ['new_york', 'New York', 'Hirable in New York'],
+  ['elsewhere_city', 'The Near Isles', 'A named city that is not New York'],
+  ['elsewhere_broad', 'The Reach', 'A country or a state, no city named'],
+  ['unplaced', 'The Verge', 'Remote-anywhere, or the posting said nothing'],
+] as const;
+
+/**
+ * Not every level the enum carries — these four are the band this product is
+ * about, and a control offering `director` would be offering a filter for
+ * somebody else. The API accepts every value; the UI offers the useful ones.
+ */
+const SENIORITIES = [
+  ['internship', 'Internship'],
+  ['new_grad', 'New grad'],
+  ['junior', 'Junior'],
+  ['mid', 'Mid'],
+] as const;
+
 const LABEL = 'block font-mono text-[10px] uppercase tracking-[0.16em] text-paper-faint';
 const NOTE = 'mt-1 text-[12px] leading-relaxed text-paper-dim';
 const FIELD =
@@ -63,6 +87,16 @@ export function JobFilters({ value, onChange, deferred }: JobFiltersProps) {
     } else {
       (next as Record<string, string>)[key] = raw;
     }
+    onChange(next);
+  }
+
+  /** Repeatable, so this toggles one value in a set rather than replacing it. */
+  function toggleSeniority(level: string, checked: boolean): void {
+    const current = value.seniority ?? [];
+    const next: JobQuery = { ...value };
+    const wanted = checked ? [...current, level] : current.filter((existing) => existing !== level);
+    if (wanted.length === 0) delete next.seniority;
+    else next.seniority = wanted;
     onChange(next);
   }
 
@@ -161,6 +195,48 @@ export function JobFilters({ value, onChange, deferred }: JobFiltersProps) {
             ))}
           </select>
         </div>
+
+        <div>
+          <label className={LABEL} htmlFor="filter-landmass">
+            Where
+          </label>
+          <select
+            id="filter-landmass"
+            className={FIELD}
+            value={value.landmass ?? ''}
+            onChange={(event) => set('landmass', event.target.value)}
+          >
+            <option value="">Anywhere</option>
+            {LANDMASSES.map(([token, label, hint]) => (
+              <option key={token} value={token}>
+                {label} — {hint}
+              </option>
+            ))}
+          </select>
+          <p className={NOTE}>
+            Nothing is hidden by default. A role in another city is filtered, never discarded.
+          </p>
+        </div>
+
+        <fieldset>
+          <legend className={LABEL}>Level</legend>
+          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+            {SENIORITIES.map(([token, label]) => (
+              <label key={token} className="flex items-center gap-1.5 text-[13px] text-paper">
+                <input
+                  type="checkbox"
+                  checked={(value.seniority ?? []).includes(token)}
+                  onChange={(event) => toggleSeniority(token, event.target.checked)}
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+          <p className={NOTE}>
+            Pick as many as you like. Postings whose title states no level are hidden when any box
+            is ticked.
+          </p>
+        </fieldset>
 
         <div>
           <label className={LABEL} htmlFor="filter-salary">

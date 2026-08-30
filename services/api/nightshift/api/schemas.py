@@ -35,6 +35,7 @@ from nightshift.db.base import (
     IngestionRunStatus,
     JobStatus,
     JobTextField,
+    Landmass,
     LocationConfidence,
     MatchComponent,
     PenaltyName,
@@ -47,6 +48,7 @@ from nightshift.db.base import (
     ResolutionMethod,
     ResumeSourceKind,
     ResumeVariant,
+    Seniority,
     SkillSourceType,
     TransitionClass,
     WorkAuthorization,
@@ -92,6 +94,9 @@ class JobLocationOut(BaseModel):
     location_confidence: LocationConfidence
     resolution_method: ResolutionMethod
     is_primary: bool
+    #: archipelago.md §4. Required rather than optional, so the client cannot
+    #: drift from the server about a field the reader filters on.
+    landmass: Landmass
 
     @property
     def is_mappable(self) -> bool:
@@ -141,6 +146,9 @@ class JobSummaryOut(BaseModel):
     status: JobStatus
     locations: list[JobLocationOut]
     salary: SalaryOut
+    #: M3b classified it; until M6a nothing showed it. A reader filtering on
+    #: seniority has to be able to see what they filtered on.
+    seniority: Seniority | None
 
     # Named for what they are (A10). `source_published_at` is the source's own
     # publication date; `first_seen_at` is when *we* first saw it and is never

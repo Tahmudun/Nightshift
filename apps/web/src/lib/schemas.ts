@@ -54,6 +54,30 @@ export type EmploymentType = z.infer<typeof employmentTypeSchema>;
 export const remotePolicySchema = z.enum(['on_site', 'hybrid', 'remote', 'unknown']);
 export type RemotePolicy = z.infer<typeof remotePolicySchema>;
 
+export const senioritySchema = z.enum([
+  'internship',
+  'new_grad',
+  'junior',
+  'mid',
+  'senior',
+  'staff',
+  'director',
+  'unclear',
+]);
+export type Seniority = z.infer<typeof senioritySchema>;
+
+/**
+ * archipelago.md §4. How much is known about where the work happens, which is
+ * what distance from the mainland will encode once M7 draws it.
+ *
+ * The UI names are New York, The Near Isles, The Reach and The Verge; those are
+ * presentation and live beside the controls that use them. These four values
+ * are the domain language and match the Python enum exactly — `test_enum_parity`
+ * asserts that, so adding a fifth value in one language fails in the other.
+ */
+export const landmassSchema = z.enum(['new_york', 'elsewhere_city', 'elsewhere_broad', 'unplaced']);
+export type Landmass = z.infer<typeof landmassSchema>;
+
 export const jobLocationSchema = z
   .object({
     id: z.string().uuid(),
@@ -66,6 +90,9 @@ export const jobLocationSchema = z
     location_confidence: locationConfidenceSchema,
     resolution_method: resolutionMethodSchema,
     is_primary: z.boolean(),
+    // Required, not optional. An optional field is how the client and the
+    // server drift apart about something the reader filters on.
+    landmass: landmassSchema,
   })
   .superRefine((location, ctx) => {
     // I1, enforced on the client too. The database has the same constraint;
@@ -111,6 +138,9 @@ export const jobSummarySchema = z.object({
   status: jobStatusSchema,
   locations: z.array(jobLocationSchema),
   salary: salarySchema,
+  // Nullable: M3b's classifier declines to guess on a title it cannot read,
+  // and `null` is that refusal rather than a missing field.
+  seniority: senioritySchema.nullable(),
   source_published_at: z.string().datetime({ offset: true }).nullable(),
   source_updated_at: z.string().datetime({ offset: true }).nullable(),
   first_seen_at: z.string().datetime({ offset: true }),
@@ -197,18 +227,6 @@ export const roleFamilySchema = z.enum([
   'unclear',
 ]);
 export type RoleFamily = z.infer<typeof roleFamilySchema>;
-
-export const senioritySchema = z.enum([
-  'internship',
-  'new_grad',
-  'junior',
-  'mid',
-  'senior',
-  'staff',
-  'director',
-  'unclear',
-]);
-export type Seniority = z.infer<typeof senioritySchema>;
 
 /**
  * The academic terms, and not the year — that is `internship_year`, a separate

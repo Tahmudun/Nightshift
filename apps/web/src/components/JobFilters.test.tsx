@@ -53,6 +53,55 @@ describe('JobFilters', () => {
     expect(onChange.mock.calls[0]?.[0]).toEqual({ q: 'engineer', city: 'Queens' });
   });
 
+  describe('the two filters M6a turned on', () => {
+    it('offers every landmass, and applies none of them by default', () => {
+      render(<JobFilters value={{}} onChange={vi.fn()} deferred={[]} />);
+      const where = screen.getByLabelText(/^where$/i) as HTMLSelectElement;
+      expect(where.value).toBe('');
+      // Scoped to this select on purpose: "Remote-anywhere" is the hint on The
+      // Verge, so a page-wide search for /anywhere/ matches two options.
+      const options = [...where.options].map((option) => option.textContent ?? '');
+      expect(options[0]).toMatch(/anywhere/i);
+      expect(options).toHaveLength(5);
+      for (const name of [/new york/i, /near isles/i, /the reach/i, /the verge/i]) {
+        expect(options.some((text) => name.test(text))).toBe(true);
+      }
+    });
+
+    it('says beside the control that nothing is discarded', () => {
+      render(<JobFilters value={{}} onChange={vi.fn()} deferred={[]} />);
+      expect(screen.getByText(/filtered, never\s+discarded/i)).toBeVisible();
+    });
+
+    it('sends a landmass as the enum value, not the display name', () => {
+      const onChange = vi.fn();
+      render(<JobFilters value={{}} onChange={onChange} deferred={[]} />);
+      fireEvent.change(screen.getByLabelText(/^where$/i), {
+        target: { value: 'elsewhere_city' },
+      });
+      expect(onChange.mock.calls[0]?.[0]).toEqual({ landmass: 'elsewhere_city' });
+    });
+
+    it('accumulates seniority levels rather than replacing them', () => {
+      const onChange = vi.fn();
+      render(
+        <JobFilters value={{ seniority: ['internship'] }} onChange={onChange} deferred={[]} />,
+      );
+      fireEvent.click(screen.getByLabelText(/^new grad$/i));
+      expect(onChange.mock.calls[0]?.[0]).toEqual({ seniority: ['internship', 'new_grad'] });
+    });
+
+    it('unticking the last level removes the filter rather than sending an empty list', () => {
+      const onChange = vi.fn();
+      render(
+        <JobFilters value={{ seniority: ['internship'] }} onChange={onChange} deferred={[]} />,
+      );
+      fireEvent.click(screen.getByLabelText(/^internship$/i));
+      const next = onChange.mock.calls[0]?.[0] as { seniority?: readonly string[] };
+      expect('seniority' in next).toBe(false);
+    });
+  });
+
   describe('the two filters M3b turned on', () => {
     it('sends a skill as typed and lets the API resolve the alias', () => {
       // `golang` must reach the API unaltered. Resolving it here would put a

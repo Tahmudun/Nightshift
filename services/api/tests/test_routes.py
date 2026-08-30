@@ -745,6 +745,119 @@ async def test_a_year_filter_and_a_season_filter_hide_different_internships(
     assert by_season["excluded_no_season"] == 1, "it states no season"
 
 
+def _relocated(payload: list[dict[str, Any]], moves: dict[int, str]) -> list[dict[str, Any]]:
+    """Rewrite some postings' locations, leaving the rest of the payload alone."""
+    for index, location in moves.items():
+        payload[index]["categories"]["location"] = location
+        payload[index]["categories"]["allLocations"] = [location]
+    return payload
+
+
+async def test_the_landmass_filter_narrows_to_new_york(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """archipelago.md §4, reachable by a reader.
+
+    Seeds both sides, because a filter tested only against matching rows passes
+    just as well when it matches everything. The recorded Alloy board is
+    Washington, Denver and Vancouver — no New York at all — so both the hit and
+    the miss are put there deliberately.
+    """
+    payload = json.loads((FIXTURES / "lever" / "alloy_board.json").read_text())
+    payload = _relocated(payload, {0: "New York, NY", 1: "San Francisco, CA"})
+    await _ingest_alloy(db_session, jobs=payload)
+    await db_session.flush()
+
+    everything = (await client.get("/jobs", params={"limit": 100})).json()
+    body = (await client.get("/jobs", params={"landmass": "new_york", "limit": 100})).json()
+
+    assert 0 < body["total"] < everything["total"], "a filter matching everything is not a filter"
+    for item in body["items"]:
+        assert any(loc["landmass"] == "new_york" for loc in item["locations"])
+
+
+async def test_no_landmass_filter_returns_every_landmass(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """The control, and the-hunt.md §5.6's actual requirement: nothing is
+    deleted. A filter that quietly applied itself by default would satisfy the
+    test above and lose every role outside New York."""
+    payload = json.loads((FIXTURES / "lever" / "alloy_board.json").read_text())
+    payload = _relocated(payload, {0: "New York, NY", 1: "San Francisco, CA"})
+    await _ingest_alloy(db_session, jobs=payload)
+    await db_session.flush()
+
+    body = (await client.get("/jobs", params={"limit": 100})).json()
+    landmasses = {loc["landmass"] for item in body["items"] for loc in item["locations"]}
+
+    assert "new_york" in landmasses
+    assert len(landmasses) > 1, "the unfiltered corpus must still carry the roles elsewhere"
+
+
+async def test_the_seniority_filter_returns_only_that_seniority(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """The reader's primary query, which was unaskable until now.
+
+    `internship_season` only matches a title that states a season, which is 2 of
+    the 8 internships in the corpus — so "show me internships" had no filter at
+    all behind it.
+    """
+    payload = json.loads((FIXTURES / "lever" / "alloy_board.json").read_text())
+    payload[0]["text"] = "Software Engineer Intern"
+    payload[1]["text"] = "Senior Staff Software Engineer"
+    await _ingest_alloy(db_session, jobs=payload)
+    await db_session.flush()
+
+    everything = (await client.get("/jobs", params={"limit": 100})).json()
+    body = (await client.get("/jobs", params={"seniority": "internship", "limit": 100})).json()
+
+    assert 0 < body["total"] < everything["total"]
+    assert {item["seniority"] for item in body["items"]} == {"internship"}
+
+
+async def test_the_seniority_filter_accepts_several(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """The reader's real query is "early career", which is more than one value.
+
+    One repeatable parameter rather than a separate `early_career` flag: the
+    set of levels a person will consider is theirs, not ours, and a named band
+    would freeze one answer to that into the API.
+    """
+    payload = json.loads((FIXTURES / "lever" / "alloy_board.json").read_text())
+    payload[0]["text"] = "Software Engineer Intern"
+    payload[1]["text"] = "Software Engineer, New Grad"
+    payload[2]["text"] = "Senior Staff Software Engineer"
+    await _ingest_alloy(db_session, jobs=payload)
+    await db_session.flush()
+
+    one = (await client.get("/jobs", params={"seniority": "internship", "limit": 100})).json()
+    both = (
+        await client.get(
+            "/jobs",
+            params=[("seniority", "internship"), ("seniority", "new_grad"), ("limit", 100)],
+        )
+    ).json()
+
+    assert both["total"] > one["total"], "a second value must widen the result, not replace it"
+    assert {item["seniority"] for item in both["items"]} <= {"internship", "new_grad"}
+
+
+async def test_no_seniority_filter_returns_every_level(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """The same control as the landmass one, for the same reason."""
+    payload = json.loads((FIXTURES / "lever" / "alloy_board.json").read_text())
+    payload[0]["text"] = "Software Engineer Intern"
+    payload[1]["text"] = "Senior Staff Software Engineer"
+    await _ingest_alloy(db_session, jobs=payload)
+    await db_session.flush()
+
+    body = (await client.get("/jobs", params={"limit": 100})).json()
+    assert len({item["seniority"] for item in body["items"]}) > 1
+
+
 async def test_no_season_filter_means_no_season_exclusion_count(
     seeded_client: AsyncClient,
 ) -> None:

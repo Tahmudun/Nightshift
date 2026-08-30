@@ -33,6 +33,7 @@ const baseLocation = {
   location_confidence: 'city_only',
   resolution_method: 'source_text_parse',
   is_primary: true,
+  landmass: 'new_york',
 };
 
 describe('jobLocationSchema — invariant I1 at the network boundary', () => {
@@ -161,6 +162,7 @@ describe('jobDetailSchema', () => {
       source_updated_at: null,
       first_seen_at: '2026-08-03T00:00:00+00:00',
       last_seen_at: '2026-08-03T00:00:00+00:00',
+      seniority: null,
       application_deadline: null,
       description_text: null,
       description_html: null,
@@ -193,6 +195,7 @@ describe('jobDetailSchema', () => {
     source_updated_at: null,
     first_seen_at: '2026-08-03T00:00:00+00:00',
     last_seen_at: '2026-08-03T00:00:00+00:00',
+    seniority: null,
     application_deadline: null,
     description_text: description,
     description_html: null,
@@ -255,6 +258,7 @@ const jobSummaryFixture = {
   source_updated_at: null,
   first_seen_at: '2026-08-03T12:00:00Z',
   last_seen_at: '2026-08-03T12:00:00Z',
+  seniority: null,
   application_deadline: null,
 };
 

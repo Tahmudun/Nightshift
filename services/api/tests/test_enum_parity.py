@@ -39,6 +39,7 @@ from nightshift.db.base import (
     InternshipSeason,
     JobStatus,
     JobTextField,
+    Landmass,
     LocationConfidence,
     MatchComponent,
     PenaltyName,
@@ -153,6 +154,12 @@ PAIRS: tuple[tuple[str, type[enum.Enum]], ...] = (
     # M5a. Added in the same commit as the enum rather than a milestone later,
     # which every comment above this line is a record of not doing.
     ("captureStatusSchema", CaptureStatus),
+    # M6a. Added in the same commit as the enum, for the reason directly above.
+    # This one reaches the browser in both directions at once — a field on every
+    # location the page renders, and a filter value the reader sends back — so a
+    # drift here fails as a Zod refusal on one path and as a silently empty
+    # result on the other.
+    ("landmassSchema", Landmass),
 )
 
 

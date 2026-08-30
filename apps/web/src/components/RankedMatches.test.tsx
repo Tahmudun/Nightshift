@@ -33,6 +33,7 @@ function job(id: string, title: string) {
     status: 'open',
     locations: [],
     salary: { provided: false, minimum: null, maximum: null, currency: null, period: null },
+    seniority: null,
     source_published_at: null,
     source_updated_at: null,
     first_seen_at: '2026-08-01T00:00:00+00:00',

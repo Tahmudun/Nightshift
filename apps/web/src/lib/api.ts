@@ -185,6 +185,13 @@ export interface JobQuery {
   skill?: string;
   internship_season?: string;
   internship_year?: number;
+  /** archipelago.md §4. One value; never applied by default. */
+  landmass?: string;
+  /**
+   * Repeatable, and an array here for that reason. "Early career" is three
+   * values and where the band ends is the reader's call, not ours.
+   */
+  seniority?: readonly string[];
 }
 
 /**
@@ -211,10 +218,17 @@ export function fetchJobs(query: JobQuery = {}): Promise<JobList> {
     ['skill', query.skill],
     ['internship_season', query.internship_season],
     ['internship_year', query.internship_year],
+    ['landmass', query.landmass],
   ];
   for (const [key, value] of optional) {
     if (value === undefined || value === '' || value === false) continue;
     params.set(key, String(value));
+  }
+  // `append`, not `set`: FastAPI reads a repeated key as a list, and `set`
+  // would keep only the last one — turning "internships or new grad" into
+  // "new grad" with nothing on screen to say so.
+  for (const level of query.seniority ?? []) {
+    if (level !== '') params.append('seniority', level);
   }
   return request(`/jobs?${params.toString()}`, jobListSchema);
 }
