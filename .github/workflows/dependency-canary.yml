@@ -17,9 +17,11 @@ name: dependency canary
 #   - A red run means "a released version of something behaves differently",
 #     not "main is broken". The response is to read the diff below and decide,
 #     not to revert anything.
-#   - GitHub emails the repository owner when a scheduled workflow fails on the
-#     default branch. That is the whole notification design; there is no bot and
-#     no issue-filing, because one reader does not need a queue.
+#   - A red run opens one issue labelled `dependency-canary`, or comments on it
+#     if it is already open, and the next green run closes it (ADR 0040). That
+#     replaced "GitHub emails the owner" as the whole design after five red
+#     Mondays in a row (2026-08-31 to 2026-09-28) went unread. The email still
+#     arrives too.
 #
 # Python only. The web side installs with `npm ci` against a committed
 # package-lock.json, which is already a lockfile — there is no unpinned surface
@@ -35,6 +37,8 @@ on:
 
 permissions:
   contents: read
+  # The single red-canary issue (ADR 0040). Nothing else here writes anything.
+  issues: write
 
 env:
   PYTHON_VERSION: '3.12'
@@ -178,3 +182,37 @@ jobs:
             echo 'find the responsible release, and decide: fix the code, or pin past it'
             echo 'with a recorded reason.'
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Flag it where it will be seen
+        # ADR 0040: one issue, never a queue. Open it on the first red run,
+        # comment on it for every further one.
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          open=$(gh issue list --state open --label dependency-canary --json number --jq '.[0].number // empty')
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body "Still red on $(date -u +%F): $RUN_URL"
+          else
+            gh label create dependency-canary --color D93F0B --force \
+              --description 'The unpinned dependency canary is red (ADR 0040)'
+            gh issue create --label dependency-canary \
+              --title 'Dependency canary is red' \
+              --body "An unpinned install fails checks that the pinned CI passes: $RUN_URL
+
+          Pull requests are unaffected; they install from \`services/api/constraints-ci.txt\`. The run's job summary has the drift table: which releases moved. Fix the code or pin past the release with a recorded reason, then regenerate with \`make constraints\`. The next green canary run closes this issue."
+          fi
+
+      - name: Clear the flag
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          open=$(gh issue list --state open --label dependency-canary --json number --jq '.[0].number // empty')
+          if [ -n "$open" ]; then
+            gh issue close "$open" --comment "Green again: $RUN_URL"
+          fi
