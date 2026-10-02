@@ -55,6 +55,17 @@ from tests.conftest import requires_db
 # every async fixture that touches it must run on that loop too.
 pytestmark = [requires_db, pytest.mark.asyncio(loop_scope="session")]
 
+
+@pytest.fixture(autouse=True)
+def _every_market(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Search mechanics, tested over the committed Alloy board — whose roles are
+    in Denver, Vancouver and Washington, outside the default New York scope.
+    These tests are about what the filters, counts and shapes do, so they run
+    with the scope off (`MARKETS=all`). What the scope itself does is
+    `test_markets.py`'s, against the default."""
+    monkeypatch.setenv("MARKETS", "all")
+
+
 FIXTURES = Path(__file__).parent / "fixtures"
 LEVER_BOARD = BoardRef(company="Alloy", ats="lever", token="alloy", nyc_presence=True)
 

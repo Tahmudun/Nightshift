@@ -83,6 +83,7 @@ async def list_matches(
         ],
         total=len(ranking.rows),
         not_yet_scored=ranking.not_yet_scored,
+        excluded_out_of_market=ranking.excluded_out_of_market,
         ruleset_version=ranking.ruleset,
         deferred_components=[
             DeferredComponentOut(

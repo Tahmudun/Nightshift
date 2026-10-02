@@ -33,7 +33,9 @@
 **M4c Task 5 is done: the city speaks §6, and says what it is saying.** The table is one pure function (`treatments.ts`), the beacons carry per-instance colour, strength and pulse rate through a shader, four instanced meshes draw the marks §6 puts *on* a body, and an in-interface legend documents all thirteen rows — including the four that are not drawn, each with its reason. ADR 0028. `docs/reviews/milestone-4c-treatments.png` is the screenshot. Three defects were found by looking rather than by a test: a closed torus whose rotation was invisible by construction, a spin folded into the billboard that rolled every arc out of the camera plane, and a saved outline drawn cyan — which is exactly what ADR 0027's standing instruction ruled out.
 **M4c: Tasks 1, 2, 3 and 4 are done. The placement join and `GET /city/signals` (ADR 0024, which resolves a real conflict between I1 and `city.md` §4.4 rather than papering over it), the Three.js signal layer in MapLibre's own context (ADR 0025), and the field made legible, navigable and sortable. New York now has every open role floating above it, untethered, and none on a building — see `docs/reviews/milestone-4c-signals.png` and `docs/reviews/milestone-4c-roster.png`. Task 4 then made a role reachable: picking by raycast against the frame's own matrix, a reticle, a detail panel, and one selection shared by the list and the map (ADR 0027) — `docs/reviews/milestone-4c-selection.png`.**
 **Docker's daemon is no longer wedged.** It was force-quit and relaunched on 2026-08-12. `make up` was then run **from cold** — containers removed with `docker compose down` first — and created both from scratch to healthy, exit 0. **That closes the last open step in M4b's acceptance chain**; container startup is now proven rather than assumed. The seeded corpus survived and matches what this file records: 31 canonical jobs, 62 `job_locations`, 44 `city_only` + 18 `remote`, 0 mappable.
-**Current milestone: M6 — The Archipelago (A16). BLOCKED on Q14 — 43% of the now-real corpus is physically in another city and has no home in the Island's design. `main` is at `a44d338`, with PRs #22, #23 and #24 all merged and green. See "Next exact action".**
+**Current milestone: M6 — The Archipelago (A16). UNBLOCKED: Q14 answered 2026-10-02 and shipped as ADR 0041 (New York now, more markets by configuration). The pick-up work is on branch `pickup/hygiene` (pushed, not merged). See "Next exact action".**
+
+**Superseded (kept for the record): M6 BLOCKED on Q14 — 43% of the now-real corpus is physically in another city and has no home in the Island's design. `main` is at `a44d338`, with PRs #22, #23 and #24 all merged and green.**
 
 **Superseded (kept for the record): Current milestone: M5 — The Open Hand (A16). M5a, M5b and M5c are merged, including M5c's Claude Desktop deviation (PR #20, `0765381`). M5d is COMPLETE — all six tasks, walk included — on `m5d-assisted-capture` at `d37e83c`; [PR #21](https://github.com/Tahmudun/Nightshift/pull/21) is open with all five CI jobs green.**
 **M5 itself is NOT closed.** Its four acceptance criteria have not been walked as a milestone — only the four slices' own. That walk, and the merge, are what stand between here and M6. See "Next exact action".
@@ -43,6 +45,31 @@
 - **Criterion 3 (no parsed fact stored as confirmed without a user action) — met** at the database (two check constraints), the application (`proposed_*` columns, the reader's values on confirm) and the interface (`Decide later`, the third exit). **Two guards added** where it was most likely to erode: `test_mcp_server.py` now enumerates the MCP tools and requires each to be `reads` or `proposes` with **no third kind**, and asserts `capture_posting`'s description still tells the model it cannot confirm. Prose was doing that job alone.
 - **Criterion 4 (Claude Desktop connects and captures end to end) — met** by `milestone-5c-desktop-walk.md` and `milestone-5d-walk.md`, with the latter's stated limit intact: the model-behaviour half is the reader's report, because the transcript was not captured.
 
+
+**2026-10-02 — picked back up after five weeks: backups, a dependency refresh that found two real regressions, `make ingest` across every board, and Q14 answered.** Branch `pickup/hygiene`, nine commits on `main` at `1c28dc2`, plus `pickup/maplibre-6` (one more, held; see below). An audit came first (delivered to the human; its findings are the order of this list).
+
+**Backups, and `reset-db` stops deleting the only copy (`4e1a9d1`).** Everything personal (applications, interviews, notes, profile, resume facts, captures, typed offices, MCP tokens) lived in one Docker volume with no copy, and `make reset-db` deleted it with one word. `scripts/backup.py` (stdlib only): `make backup` writes a dump to a temporary name, reads it back with `pg_restore --list`, and only then renames it into `~/nightshift-backups`; `make restore` restores in one transaction; `make reset-db` backs up, then asks for the word `RESET`. `FORCE=1` skips the question, never the backup; skipping the backup is its own `SKIP_BACKUP=1`. **Live round trip on a real stack:** dump → mutate a user → restore → mutation gone; a truncated dump → restore fails and the database is untouched. 11 unit tests, three of them red under a sabotage that writes straight to the final name. Runbook: `docs/runbooks/backups.md`.
+
+**The dependency canary had been red for five Mondays and nobody saw it (ADR 0040).** 2026-08-31 to 2026-09-28. What it had found was real:
+- **SQLAlchemy 2.1** made `Select` variadic (three queue builders stopped type-checking: an `AnySelect` alias), and binds a bare Python float as `FLOAT`, so **the salary floor compiled to `numeric >= $1::FLOAT` and neither salary index could serve it.** Bound as the columns' own `NUMERIC(12, 2)` again. `test_query_plans` caught it once it was made to EXPLAIN the statement the database actually plans (`exec_driver_sql` with the session's dialect, since 2.1's typed binds no longer survive a `text()` round trip).
+- **mcp 2.2** shows the model only "Error executing tool search_jobs" for any exception that is not a `ToolError`, so I3's outage message never reached Claude. `NightshiftUnavailableError` is a `ToolError` now (works on 2.0 and 2.2).
+- The CI pin was regenerated (`make constraints`): pypdf 6.16.1 → 6.19.0 (it parses resumes; eight advisories), PyJWT → 2.15.1, urllib3 → 2.8.0. `pip-audit`: no known vulnerabilities.
+- Web: next 15.5.22 → 15.5.27, the image optimizer off (nothing renders `next/image`), npm overrides for postcss/nanoid/sharp. `npm audit`: **1 critical, deliberately** (was 2 critical, 3 high).
+- **The one left is maplibre-gl, and its upgrade is done but held on `pickup/maplibre-6`.** The advisory (a sanitizer bypass, fixed only in 6.x) needs attacker-controlled HTML; here the sanitizer only sees the committed tile manifests' attribution strings, and nothing calls `Popup.setHTML`. MapLibre 6 loads its worker by URL, which Next cannot bundle: the first try drew no city at all ("Worker failed to load"), and `scripts/copy-maplibre-worker.mjs` (MapLibre's own Next.js recipe) fixes it. **Why it is held:** under the software rasteriser the suites and CI use, the city's frame-timer test went from **2.1 min (v5) to 2.9 and 3.0 min (v6)** against its 180 s budget, and timed out once in three full-suite runs. That test was already recorded as fragile (M5b: "raising the timeout until it passes would hide the real regression it exists to catch"), and the rest of the city specs were as fast or faster on v6. So merge it after a headed `city-metrics.spec.ts` run on real hardware shows the frame times unchanged. `zoomLevelsToOverscale`'s new default was ruled out: with the camera at z18 and the archives at z15/z16 it changes nothing.
+- **A red canary now opens one `dependency-canary` issue, comments on it while red, and the next green run closes it.** Still informational; all four branches run against a stand-in `gh`.
+
+**`make ingest` reaches every board (`d7c3168`).** It hardcoded Greenhouse and reached 2 of 23. `poll_every_board` (domain/polling.py) is the throwaway script from 2026-08-24, kept: `poll_one_board` per board, one shared `PoliteClient`, one transaction per board, failures reported and the pass continued. `make ingest ATS=ashby` narrows it. 10 tests, each property shown able to fail by sabotage. A live run from the sandbox this was built in reached all 22 pollable boards; its egress proxy refused every provider, which the pass reported board by board. **The first real run is the human's.**
+
+**Q14 answered and shipped (ADR 0041).** *"For now filter to nyc but in the near future i dont want nyc to be a limiter, i wanna add the other major tech cities soon."* Markets are named sets of cities in `domain/markets.py`, `MARKETS` says which are on (`nyc` default; nine more defined; `all` turns it off), and the scope is a predicate evaluated at read time, so enabling a city is a `.env` line with no migration, backfill or re-poll. Hidden only on positive knowledge: remote, unresolved and location-less roles always show. Search, matches, the queue's internship row and MCP `search_jobs` report what they left out; `/stats` and the coverage page say where the rest are and which market would show them. **One defect found on the way:** placement's office-inheritance rule drew an employer's Denver roles on its confirmed Manhattan building, and a test asserted it. The city now always scopes to New York (`NEW_YORK`), whatever `MARKETS` says. Tests: `test_markets.py` (SQL rule and Python rule agree on a matrix of real parser output; every market matches what the parser writes; five sabotages, each caught).
+
+**`make verify` found one thing the unit suites could not.** It asserted the internship row had exactly two blind spots; Q14 added a third. The check now names the set it expects (`744c2ec`).
+
+**Found and not changed (recorded for the next session):**
+- The worker still runs the M1a `ingest_greenhouse` cron hourly **as well as** the per-board scheduler, so Datadog is polled twice an hour, once without its ETag. `nightshift enqueue` still enqueues that Greenhouse-only task.
+- Each scheduled `poll_board` job makes its own `PoliteClient`, so the limiter's spacing does not carry between consecutive jobs against the same provider.
+- **The newer local M6 branch the README mentions is not on GitHub.** It will meet this branch in `routes/city.py`, `api/schemas.py` and `package.json`, and `pickup/maplibre-6` in `CityMap.tsx`.
+
+**Evidence, on the final `pickup/hygiene` tree (CI's pinned set: SQLAlchemy 2.1.2, mcp 2.2.0, MapLibre 5.24):** `make check`'s parts all clean: ruff, mypy, **2314 pytest**, prettier, eslint, tsc, **833 vitest**. **`make acceptance` exit 0**: migrate, drift (none), seed, offline e2e **30 passed / 2 skipped**, `verify` **all 111 checks**, seeded e2e **93 passed / 1 skipped**, the same counts as `main`. `make reset-db` with `FORCE=1` backed up first (`~/nightshift-backups/nightshift-20261002T115003Z.dump`), then rebuilt. On the seeded corpus the scope shows **22 of 32** open roles: search, matches and the coverage page each say the other **10** are in Vancouver, Denver, Washington, Paris, Riyadh and San Francisco, and name `washington-dc` and `sf-bay-area` as the markets that would show them. Mobile 390px: no horizontal overflow.
 
 **2026-08-24 (second session) — M5 merged, Q8 closed, and the corpus filled for the first time. The fill immediately found a location bug no fixture could have.**
 
@@ -850,9 +877,27 @@ last rung of the three rather than the next.
 
 ## Next exact action
 
-### Current milestone: **M6 — The Archipelago. BLOCKED on Q14, which is the human's to answer.**
+### Current milestone: **M6 — The Archipelago. Unblocked: Q14 is ADR 0041.**
 
-> **START HERE, NEXT SESSION.** `main` is at `a44d338`. PR #22 (M5
+> **START HERE, NEXT SESSION (2026-10-02).** `main` is at `1c28dc2`; branch
+> `pickup/hygiene` carries the pick-up work (backups, the dependency refresh,
+> `make ingest` across every board, Q14's market scope) and is pushed but not
+> merged. In order:
+>
+> 1. **Push the local M6 branch** if it still exists only on one laptop, then
+>    merge `pickup/hygiene` (it touches `routes/city.py`, `api/schemas.py`
+>    and `package.json`, which M6 likely does too). `pickup/maplibre-6` waits
+>    for a headed `city-metrics.spec.ts` run on real hardware.
+> 2. **`make backup`, then `make ingest`** on the real machine. It is the first
+>    run of the every-board pass against live providers.
+> 3. **Read the coverage page's Markets section.** It names which defined market
+>    each out-of-scope role would join; `MARKETS=nyc,sf-bay-area` is the whole
+>    change to show the next one.
+> 4. **M6 design.** The Island now means exactly what A16 said.
+>
+> The previous START HERE, for the record:
+>
+> `main` was at `a44d338`. PR #22 (M5
 > acceptance), PR #23 (Q8) and PR #24 (the location splitter) are all merged,
 > and `main` is green after each. **Nothing is in flight.**
 >

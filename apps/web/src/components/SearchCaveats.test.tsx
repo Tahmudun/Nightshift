@@ -4,6 +4,36 @@ import { describe, expect, it } from 'vitest';
 import { SearchCaveats } from './SearchCaveats';
 
 describe('SearchCaveats', () => {
+  it('names the roles the market scope left out, and how to show them', () => {
+    // ADR 0041: a search that matches only in London must not read as "none".
+    render(
+      <SearchCaveats
+        excludedNoSalary={0}
+        excludedNoRequirements={0}
+        excludedNoSeason={0}
+        excludedOutOfMarket={14}
+        markets={['New York City']}
+      />,
+    );
+    const line = screen.getByText(/14 further roles are in other cities/i);
+    expect(line).toBeVisible();
+    expect(line.textContent).toMatch(/outside New York City/);
+    expect(line.textContent).toMatch(/MARKETS/);
+  });
+
+  it('says nothing about markets when nothing was left out', () => {
+    const { container } = render(
+      <SearchCaveats
+        excludedNoSalary={0}
+        excludedNoRequirements={0}
+        excludedNoSeason={0}
+        excludedOutOfMarket={0}
+        markets={['New York City']}
+      />,
+    );
+    expect(container).toBeEmptyDOMElement();
+  });
+
   it('says nothing when no filter hid anything', () => {
     const { container } = render(
       <SearchCaveats excludedNoSalary={0} excludedNoRequirements={0} excludedNoSeason={0} />,

@@ -11,6 +11,10 @@
  * Every number here is zero unless its own filter was asked for. A caveat shown
  * beside an unfiltered result is noise, and noise is what teaches people to
  * stop reading caveats.
+ *
+ * The one exception is the market scope (ADR 0041), which is always on: the
+ * list shows the enabled markets, so even an unfiltered result has left the
+ * other cities out, and says how many whenever it has.
  */
 
 const ROW = 'border-b border-ink-700 px-5 py-2 text-[12px] text-paper-dim';
@@ -19,15 +23,31 @@ export interface SearchCaveatsProps {
   readonly excludedNoSalary: number;
   readonly excludedNoRequirements: number;
   readonly excludedNoSeason: number;
+  /** Roles matching these filters in a city outside the enabled markets. */
+  readonly excludedOutOfMarket?: number;
+  /** The enabled markets' names, e.g. ["New York City"]. */
+  readonly markets?: readonly string[];
 }
 
 export function SearchCaveats({
   excludedNoSalary,
   excludedNoRequirements,
   excludedNoSeason,
+  excludedOutOfMarket = 0,
+  markets = [],
 }: SearchCaveatsProps) {
   return (
     <>
+      {excludedOutOfMarket > 0 && (
+        // Q14: kept, scored and counted, not shown. Without this line a search
+        // that matches only in London reads as "there are none".
+        <p className={ROW}>
+          {excludedOutOfMarket} further {excludedOutOfMarket === 1 ? 'role is' : 'roles are'} in
+          other cities{markets.length > 0 ? `, outside ${markets.join(' and ')}` : ''}. Set{' '}
+          <code className="font-mono text-[11px] text-signal-400">MARKETS</code> to show more
+          cities.
+        </p>
+      )}
       {excludedNoSalary > 0 && (
         // A10: absence of data is data. A salary floor necessarily hides every
         // posting that states no salary, and most postings do.

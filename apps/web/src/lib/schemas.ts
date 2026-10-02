@@ -484,6 +484,14 @@ export const jobListSchema = z.object({
    * titles state no season (11 of 19 in the recorded corpus) or no year.
    */
   excluded_no_season: z.number().int().default(0),
+  /**
+   * ADR 0041 (Q14): roles matching these filters whose every location is a
+   * known city outside the enabled markets. The scope is always on, so this is
+   * the one excluded count that can be non-zero on an unfiltered list.
+   */
+  excluded_out_of_market: z.number().int().default(0),
+  /** The enabled markets' names, e.g. ["New York City"]. */
+  markets: z.array(z.string()).default([]),
   deferred_filters: z.array(deferredFilterSchema).default([]),
 });
 export type JobList = z.infer<typeof jobListSchema>;
@@ -520,6 +528,12 @@ export const matchRankingSchema = z.object({
    * covering all 31.
    */
   not_yet_scored: z.number().int(),
+  /**
+   * ADR 0041: open postings in cities outside the enabled markets. Scored like
+   * every other posting and left off this list, so enabling their market ranks
+   * them at once.
+   */
+  excluded_out_of_market: z.number().int().default(0),
   ruleset_version: z.string(),
   unassessed_sort_last: z.literal(true).default(true),
   // What the list is sorted by. The printed fraction and the ordering key are
@@ -555,6 +569,19 @@ export const locationConfidenceBreakdownSchema = z.object({
   unknown: z.number().int(),
 });
 
+/** ADR 0041 (Q14): what the product shows, and what it keeps but does not. */
+export const marketScopeSchema = z.object({
+  everywhere: z.boolean().default(false),
+  enabled: z.array(z.object({ key: z.string(), name: z.string() })),
+  open_in_scope: z.number().int(),
+  open_out_of_scope: z.number().int(),
+  /** Largest first. A role naming two outside cities counts under both. */
+  elsewhere: z.array(
+    z.object({ label: z.string(), market_key: z.string().nullable(), jobs: z.number().int() }),
+  ),
+});
+export type MarketScope = z.infer<typeof marketScopeSchema>;
+
 export const statsSchema = z.object({
   total_jobs: z.number().int(),
   open_jobs: z.number().int(),
@@ -562,6 +589,8 @@ export const statsSchema = z.object({
   total_source_records: z.number().int(),
   location_confidence: locationConfidenceBreakdownSchema,
   mappable_locations: z.number().int(),
+  // Optional so a stats payload from an API that predates the scope parses.
+  market_scope: marketScopeSchema.optional(),
 });
 export type Stats = z.infer<typeof statsSchema>;
 

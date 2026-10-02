@@ -101,6 +101,7 @@ from nightshift.db.models import (
 from nightshift.db.types import utcnow
 from nightshift.domain.eligibility import evaluate, profile_from_user
 from nightshift.domain.eligibility_reading import read_posting
+from nightshift.domain.markets import in_scope_filter, out_of_scope_filter
 from nightshift.domain.matching_weights import MatchingWeights, load_weights
 from nightshift.domain.requirement_extraction import RequirementProposal
 from nightshift.domain.role_classification import classify_role
@@ -627,6 +628,10 @@ class Ranking:
     rows: list[tuple[Job, MatchResult]]
     not_yet_scored: int
     ruleset: str
+    #: Open postings the market scope left out of the list (ADR 0041). Scored
+    #: all the same, by `pending_pairs`, so enabling a market shows them ranked
+    #: at once instead of waiting for a sweep.
+    excluded_out_of_market: int = 0
 
 
 def band_rank() -> Any:
@@ -705,12 +710,14 @@ async def ranked_for(session: AsyncSession, *, user_id: uuid.UUID, limit: int) -
         MatchResult.ruleset_version == ruleset,
     )
     rank_key = coverage_weighted_rank()
+    # ADR 0041 (Q14): ranked inside the enabled markets, and counted outside them.
+    in_scope = in_scope_filter()
 
     rows = (
         await session.execute(
             select(Job, MatchResult)
             .join(MatchResult, MatchResult.job_id == Job.id)
-            .where(Job.status == JobStatus.OPEN, *current)
+            .where(Job.status == JobStatus.OPEN, in_scope, *current)
             .options(
                 selectinload(Job.company),
                 selectinload(Job.locations),
@@ -740,7 +747,14 @@ async def ranked_for(session: AsyncSession, *, user_id: uuid.UUID, limit: int) -
             select(func.count())
             .select_from(Job)
             .outerjoin(MatchResult, (MatchResult.job_id == Job.id) & and_(*current))
-            .where(Job.status == JobStatus.OPEN, MatchResult.id.is_(None))
+            .where(Job.status == JobStatus.OPEN, in_scope, MatchResult.id.is_(None))
+        )
+    ).scalar_one()
+    excluded_out_of_market = (
+        await session.execute(
+            select(func.count())
+            .select_from(Job)
+            .where(Job.status == JobStatus.OPEN, out_of_scope_filter())
         )
     ).scalar_one()
 
@@ -748,6 +762,7 @@ async def ranked_for(session: AsyncSession, *, user_id: uuid.UUID, limit: int) -
         rows=[(job, result) for job, result in rows],
         not_yet_scored=int(not_yet_scored),
         ruleset=ruleset,
+        excluded_out_of_market=int(excluded_out_of_market),
     )
 
 

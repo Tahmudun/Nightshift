@@ -254,8 +254,11 @@ async def check_daily_queue() -> None:
         (internships["note"] or "")[:60],
     )
     spots = internships["blind_spots"]
+    # Named rather than counted, so a fourth blind spot is a decision to update
+    # this line, not a silent `len` bump. `outside_markets` is ADR 0041's.
     check(
-        len(spots) == 2 and all(spot["because"].strip() for spot in spots),
+        {spot["name"] for spot in spots} == {"not_yet_scored", "level_not_read", "outside_markets"}
+        and all(spot["because"].strip() for spot in spots),
         "it says what it could not see, with a sentence per count",
         ", ".join(f"{spot['name']}={spot['count']}" for spot in spots),
     )

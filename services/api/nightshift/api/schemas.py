@@ -473,6 +473,13 @@ class JobListOut(BaseModel):
     # titles state no season (11 of 19 in the recorded corpus) or no year (9 of
     # 19). The most aggressive hider in the product — more than the salary floor.
     excluded_no_season: int = 0
+    # ADR 0041 (Q14): how many jobs matching these filters the market scope
+    # left out, because every place they name is a known city outside the
+    # enabled markets. Always computed: the scope is always on, so a result
+    # without this number would be the corpus quietly shrinking.
+    excluded_out_of_market: int = 0
+    #: The enabled markets' names, so a screen can say what the list covers.
+    markets: list[str] = []
     deferred_filters: list[DeferredFilterOut] = []
 
 
@@ -532,6 +539,8 @@ class MatchRankingOut(BaseModel):
     #: silently covers 12 of 31 postings looks exactly like a ranked list that
     #: covers all of them.
     not_yet_scored: int
+    # ADR 0041: open postings outside the enabled markets, scored but not listed.
+    excluded_out_of_market: int = 0
     #: Which arithmetic produced every row here, so a reader can tell that two
     #: numbers on the page were computed by the same rules.
     ruleset_version: str
@@ -681,6 +690,32 @@ class LocationConfidenceBreakdown(BaseModel):
     unknown: int = 0
 
 
+class MarketOut(BaseModel):
+    key: str
+    name: str
+
+
+class ElsewhereOut(BaseModel):
+    label: str
+    #: The defined market this place belongs to but which is not enabled, or
+    #: None for a city no market covers yet.
+    market_key: str | None
+    jobs: int
+
+
+class MarketScopeOut(BaseModel):
+    """ADR 0041 (Q14): what the product shows, and what it keeps but does not."""
+
+    #: `MARKETS=all`: the scope is off and `enabled` is empty.
+    everywhere: bool = False
+    enabled: list[MarketOut]
+    open_in_scope: int
+    open_out_of_scope: int
+    #: Where the out-of-scope roles are, largest first. A role naming two
+    #: outside cities counts under both.
+    elsewhere: list[ElsewhereOut]
+
+
 class StatsOut(BaseModel):
     total_jobs: int
     open_jobs: int
@@ -690,6 +725,7 @@ class StatsOut(BaseModel):
     mappable_locations: int = Field(
         description="Locations with real coordinates. Zero until M1 adds geocoding."
     )
+    market_scope: MarketScopeOut
 
 
 class JobAdminRowOut(BaseModel):
@@ -1315,6 +1351,14 @@ class CitySignalsOut(BaseModel):
     limit: int
     truncated: bool = Field(
         description="True when more roles matched than were returned. The map says so on screen."
+    )
+    excluded_out_of_market: int = Field(
+        default=0,
+        description=(
+            "Roles left out because every place they name is a known city outside "
+            "New York, which is the city this view draws (ADR 0041). Counted, "
+            "never drawn."
+        ),
     )
 
 

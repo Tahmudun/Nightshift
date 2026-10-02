@@ -16,12 +16,13 @@ from datetime import UTC, datetime
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from nightshift.api.deps import current_user_id
 from nightshift.api.main import create_app
+from nightshift.config import get_settings
 from nightshift.db.base import (
     EmploymentType,
     JobStatus,
@@ -29,9 +30,17 @@ from nightshift.db.base import (
     RemotePolicy,
     ResolutionMethod,
 )
-from nightshift.db.models import Company, CompanyLocation, Job, JobSourceLink, SourceJobRecord
+from nightshift.db.models import (
+    Company,
+    CompanyLocation,
+    Job,
+    JobLocation,
+    JobSourceLink,
+    SourceJobRecord,
+)
 from nightshift.db.session import get_db_session
 from nightshift.domain.capture import confirm_capture, create_capture
+from nightshift.domain.markets import current_scope
 from tests.conftest import requires_db
 from tests.test_capture import _a_user
 from tests.test_routes import _seed_alloy_board
@@ -75,7 +84,27 @@ async def client(db_session: AsyncSession) -> AsyncIterator[AsyncClient]:
 async def seeded_client(db_session: AsyncSession, client: AsyncClient) -> AsyncClient:
     created = await _seed_alloy_board(db_session)
     assert created > 0, "seed produced no jobs — the tests below would pass vacuously"
+    await _move_to_new_york(db_session)
     return client
+
+
+async def _move_to_new_york(session: AsyncSession) -> None:
+    """Put the committed Alloy board's roles in New York.
+
+    As committed they are in Denver, Vancouver and Washington, and the city
+    draws New York's roles only (ADR 0041), so none would reach it. The tests
+    that use this fixture are about what the city does with the roles it shows
+    (placement, inheritance, freshness), so every named city is moved to New
+    York, spelled the way the location parser writes it. What the city does
+    with a role that is elsewhere is tested on the board as committed, at the
+    end of this file.
+    """
+    await session.execute(
+        update(JobLocation)
+        .where(JobLocation.city.is_not(None))
+        .values(raw_text="New York, NY", city="New York", state="New York", country=None)
+    )
+    await session.flush()
 
 
 async def _confirm_office(
@@ -466,3 +495,59 @@ async def test_a_captured_role_reaches_the_map_saying_it_was_added_by_hand(
         "roles nobody pasted came back marked as added by hand: "
         f"{[signal['title'] for signal in polled]}"
     )
+
+
+# ---------------------------------------------------------------------------
+# ADR 0041 (Q14): a role in another city is counted, never drawn.
+# ---------------------------------------------------------------------------
+
+
+async def _elsewhere_job_ids(session: AsyncSession) -> set[uuid.UUID]:
+    """Alloy roles every one of whose locations is a named city: Denver,
+    Vancouver, Washington. Asserted non-empty, or the tests below test nothing."""
+    rows = (await session.execute(select(JobLocation.job_id, JobLocation.city))).all()
+    by_job: dict[uuid.UUID, list[str | None]] = {}
+    for job_id, city in rows:
+        by_job.setdefault(job_id, []).append(city)
+    elsewhere = {job_id for job_id, cities in by_job.items() if all(cities)}
+    assert elsewhere, "the committed board has no role in another city"
+    return elsewhere
+
+
+async def test_a_role_in_another_city_is_counted_not_drawn(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    """Placement's third rule draws a non-remote role at its employer's confirmed
+    office. With an office in Manhattan, Alloy's Denver roles would be drawn on a
+    Manhattan building — Q14's 521, on screen. The city leaves them out and says
+    how many it left out."""
+    await _seed_alloy_board(db_session)
+    alloy = (
+        await db_session.execute(select(Company).where(Company.canonical_name == "Alloy"))
+    ).scalar_one()
+    await _confirm_office(db_session, alloy)
+    elsewhere = await _elsewhere_job_ids(db_session)
+
+    body = (await client.get("/city/signals")).json()
+
+    shown = {uuid.UUID(signal["job_id"]) for signal in body["signals"]}
+    assert not shown & elsewhere
+    assert body["excluded_out_of_market"] == len(elsewhere)
+    assert body["counts"]["building"] == 0, "a role elsewhere was drawn on the New York office"
+
+
+async def test_the_city_stays_new_york_with_the_scope_off(
+    client: AsyncClient, db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`MARKETS=all` turns the product's scope off, not the city's. The city is a
+    model of New York; nothing else has a building in it."""
+    monkeypatch.setenv("MARKETS", "all")
+    get_settings.cache_clear()  # the app has already read them; see test_markets.py
+    assert current_scope().everywhere, "the scope did not turn off; this would pass vacuously"
+    await _seed_alloy_board(db_session)
+    elsewhere = await _elsewhere_job_ids(db_session)
+
+    body = (await client.get("/city/signals")).json()
+
+    assert not {uuid.UUID(signal["job_id"]) for signal in body["signals"]} & elsewhere
+    assert body["excluded_out_of_market"] == len(elsewhere)

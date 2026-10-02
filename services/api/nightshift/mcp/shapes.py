@@ -163,6 +163,11 @@ def search_result(payload: dict[str, Any]) -> dict[str, Any]:
         "jobs": [job_summary(job) for job in payload.get("items", [])],
         "total_matching": payload.get("total"),
         "returned": len(payload.get("items", [])),
+        # ADR 0041: the corpus is scoped to the reader's markets. A search that
+        # finds nothing in New York but fourteen roles in London must not reach
+        # the reader as "there are none".
+        "markets": payload.get("markets", []),
+        "matching_outside_markets": payload.get("excluded_out_of_market", 0),
     }
 
 

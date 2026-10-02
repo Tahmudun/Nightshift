@@ -7,10 +7,16 @@ the date, because the reasoning is usually worth more than the decision.
 
 ---
 
-## Q14 — 43% of the corpus is in another city. Island, filter, or regions?
+## Q14 — 43% of the corpus is in another city. Island, filter, or regions? (answered)
 
-**Raised:** 2026-08-24 (first live polling pass) · **Type:** product, and it
-changes what M6 is · **Blocking:** yes, for M6
+**Raised:** 2026-08-24 (first live polling pass) · **Answered:** 2026-10-02 · **Type:** product, and it
+changes what M6 is · **Blocking:** no longer
+
+**ANSWERED 2026-10-02 — the second option, without making New York the limit, shipped and recorded as ADR 0041.** The human: *"for now filter to nyc but in the near future i dont want nyc to be a limiter, i wanna add the other major tech cities soon."*
+
+**What shipped.** Markets are named sets of cities (`domain/markets.py`), and `MARKETS` says which are on: `nyc` by default, with `sf-bay-area`, `seattle`, `boston`, `austin`, `los-angeles`, `chicago`, `washington-dc`, `london` and `toronto` already defined, and `all` to turn the scope off. The scope is evaluated when a job is read, so turning a city on is a `.env` change with no migration, backfill or re-poll; every board is still ingested and kept in full, and every job is still scored. A job is hidden only when every place it names is a known city outside the scope: remote and unresolved roles always show (I3's temperament, applied to place). Search, matches and the queue say how many they left out, the coverage page says where the rest are and which market would show them, and MCP `search_jobs` carries the count so Claude cannot report "none" when there are fourteen in London. The city always shows New York, because placement's office-inheritance rule had been drawing employers' Denver roles on their Manhattan buildings.
+
+**What M6 gets.** The Island means what A16 said: remote and address-unknown roles. "Known to be elsewhere" is no longer its problem.
 
 The first live pass filled the corpus from 32 jobs to **1200**. Measured on it:
 

@@ -77,35 +77,38 @@ async def _plan(
 ) -> dict[str, Any]:
     """EXPLAIN this statement with sequential scans discouraged.
 
-    The job-search statements are compiled with ``paramstyle="named"`` and the
-    parameters passed through, rather than with ``literal_binds``. Literal
-    binding cannot render every type: ``websearch_to_tsquery``'s first argument
-    is a ``REGCONFIG``, and SQLAlchemy raises ``CompileError: No literal value
-    renderer is available`` on it. Named parameters sidestep that, and Postgres
-    still plans an index scan for a parameterised tsquery.
+    **The statement goes to the driver, not back through ``text()``.** The
+    first version compiled with ``paramstyle="named"`` and fed the string to
+    ``text()``. SQLAlchemy 2.1 renders a typed bind as ``:lower_1::VARCHAR``, and
+    ``text()`` does not read a name followed by ``::`` as a parameter, so
+    Postgres received a literal ``:lower_1`` and raised a syntax error at the
+    colon — seven tests red on a dependency bump that changed no query. The same
+    trap had already bitten UUIDs (``:user_id_1::UUID``). Compiling with the
+    session's own asyncpg dialect yields ``$1::VARCHAR``, which *is* valid SQL,
+    and ``exec_driver_sql`` passes it and its positional values straight to
+    asyncpg with no second parse. Postgres still plans a parameterised tsquery
+    with its index, which is the property the search statements need (literal
+    binding cannot render ``websearch_to_tsquery``'s ``REGCONFIG`` argument).
 
-    **The queue statements need the opposite** (``literal_binds=True``), and
-    both halves of the reason are real rather than a preference:
-
-    * a UUID parameter renders as ``:user_id_1::UUID``, and feeding that back
-      through ``text()`` is a Postgres syntax error at the second colon;
-    * ``current_stage NOT IN (...)`` compiles to ``__[POSTCOMPILE_...]``, which
-      is expanded at execution time and is not valid SQL on its own.
-
-    Neither statement contains a ``tsquery``, so the constraint that forced
-    named parameters on the search queries does not apply to them.
+    **The queue statements still use** ``literal_binds=True``: ``current_stage
+    NOT IN (...)`` compiles to an expanding ``__[POSTCOMPILE_...]`` bind that is
+    only valid SQL once SQLAlchemy expands it at execution time.
     """
-    dialect = postgresql.dialect(paramstyle="named")
     if literal_binds:
-        compiled = statement.compile(dialect=dialect, compile_kwargs={"literal_binds": True})
-        params: dict[str, Any] = {}
+        compiled = statement.compile(
+            dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
+        )
+        sql, args = str(compiled), ()
     else:
-        compiled = statement.compile(dialect=dialect)
-        params = dict(compiled.params)
+        assert session.bind is not None
+        compiled = statement.compile(dialect=session.bind.dialect)
+        values = compiled.construct_params()
+        sql, args = compiled.string, tuple(values[name] for name in compiled.positiontup or ())
     # SET LOCAL, so it reverts with the surrounding transaction and cannot leak
     # into another test's planner.
     await session.execute(text("SET LOCAL enable_seqscan = off"))
-    raw = (await session.execute(text(f"EXPLAIN (FORMAT JSON) {compiled}"), params)).scalar_one()
+    connection = await session.connection()
+    raw = (await connection.exec_driver_sql(f"EXPLAIN (FORMAT JSON) {sql}", args)).scalar_one()
     parsed = json.loads(raw) if isinstance(raw, str) else raw
     return dict(parsed[0]["Plan"])
 

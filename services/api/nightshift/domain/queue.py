@@ -48,8 +48,14 @@ from nightshift.db.base import (
     Seniority,
 )
 from nightshift.db.models import Application, ApplicationEvent, Company, Job, MatchResult
+from nightshift.domain.markets import in_scope_filter, out_of_scope_filter
 from nightshift.domain.matching import band_rank, coverage_weighted_rank, unmet_requirements
 from nightshift.domain.matching_weights import load_weights
+
+#: A select of any number of columns of any type. SQLAlchemy 2.1 made `Select`
+#: variadic over its column types, so the 2.0 spelling `Select[Any]` now means
+#: "one column" and every multi-column builder here stopped type-checking.
+type AnySelect = Select[*tuple[Any, ...]]
 
 #: Decided by the human on 2026-08-04 (`command-center.md` §7). A week is when
 #: silence after applying starts to mean something; three weeks of a saved job
@@ -250,11 +256,11 @@ def _row_columns() -> list[Any]:
     ]
 
 
-def _joined(stmt: Select[Any]) -> Select[Any]:
+def _joined(stmt: AnySelect) -> AnySelect:
     return stmt.join(Job, Job.id == Application.job_id).join(Company, Company.id == Job.company_id)
 
 
-def _follow_up_select(*, user_id: UUID, now: datetime) -> Select[Any]:
+def _follow_up_select(*, user_id: UUID, now: datetime) -> AnySelect:
     """Due by date, or silent past the threshold.
 
     Two branches, one row per application — an application matching both is
@@ -287,7 +293,7 @@ def _follow_up_select(*, user_id: UUID, now: datetime) -> Select[Any]:
     )
 
 
-def _interviews_select(*, user_id: UUID, now: datetime) -> Select[Any]:
+def _interviews_select(*, user_id: UUID, now: datetime) -> AnySelect:
     """Scheduled times inside the horizon. One row per interview, not per
     application — two interviews are two appointments to prepare for."""
     horizon = now + timedelta(days=INTERVIEW_HORIZON_DAYS)
@@ -304,7 +310,7 @@ def _interviews_select(*, user_id: UUID, now: datetime) -> Select[Any]:
     )
 
 
-def _stale_saved_select(*, user_id: UUID, now: datetime) -> Select[Any]:
+def _stale_saved_select(*, user_id: UUID, now: datetime) -> AnySelect:
     """Still at ``saved``, untouched past the threshold."""
     activity = _last_user_activity()
     stale_since = now - timedelta(days=STALE_SAVED_DAYS)
@@ -322,7 +328,7 @@ def _stale_saved_select(*, user_id: UUID, now: datetime) -> Select[Any]:
     )
 
 
-def _closed_while_saved_select(*, user_id: UUID, now: datetime) -> Select[Any]:
+def _closed_while_saved_select(*, user_id: UUID, now: datetime) -> AnySelect:
     """The listing is closed *right now*.
 
     §7.2's third rule: membership comes from ``jobs.status``, not from the
@@ -367,17 +373,24 @@ def _current_score(user_id: UUID) -> Any:
     )
 
 
-def _new_postings(now: datetime) -> list[Any]:
-    """Open, and first seen inside the window. Shared by the row and its blind
-    spots, so a count can never be taken over a wider corpus than the rows were.
-    """
+def _new_in_window(now: datetime) -> list[Any]:
+    """Open, and first seen inside the window, wherever the posting is."""
     return [
         Job.status == JobStatus.OPEN,
         Job.first_seen_at >= now - timedelta(days=NEW_INTERNSHIP_DAYS),
     ]
 
 
-def _internships_select(*, user_id: UUID, now: datetime) -> Select[Any]:
+def _new_postings(now: datetime) -> list[Any]:
+    """In the window and in the enabled markets (ADR 0041). Shared by the row and
+    its blind spots, so a count can never be taken over a wider corpus than the
+    rows were. The one count that looks past the markets is `outside_markets`,
+    and it says so.
+    """
+    return [*_new_in_window(now), in_scope_filter()]
+
+
+def _internships_select(*, user_id: UUID, now: datetime) -> AnySelect:
     """Recent internships this person has a current score for and is not tracking.
 
     **The ordering is imported, not written here** — `matching.band_rank` and
@@ -418,7 +431,7 @@ def _internships_select(*, user_id: UUID, now: datetime) -> Select[Any]:
     )
 
 
-def _gaps_select(*, user_id: UUID, now: datetime) -> Select[Any]:
+def _gaps_select(*, user_id: UUID, now: datetime) -> AnySelect:
     """Live applications with a current score, and everything a gap needs.
 
     Entities rather than columns, because the difference is taken in Python by
@@ -446,7 +459,7 @@ def _gaps_select(*, user_id: UUID, now: datetime) -> Select[Any]:
     )
 
 
-def queue_selects(*, user_id: UUID, now: datetime) -> dict[QueueSectionKey, Select[Any]]:
+def queue_selects(*, user_id: UUID, now: datetime) -> dict[QueueSectionKey, AnySelect]:
     """Exactly what ``build_queue`` runs, exposed for the query-plan test.
 
     Task 2 asserts each of these is servable by an index. It matters that it
@@ -555,7 +568,7 @@ def _to_offered_row(key: QueueSectionKey, *, row: Any, now: datetime) -> QueueRo
     )
 
 
-async def _count(session: AsyncSession, stmt: Select[Any]) -> int:
+async def _count(session: AsyncSession, stmt: AnySelect) -> int:
     """``order_by(None)`` strips the sort before counting — Postgres allows it
     inside the subquery, but sorting rows nobody reads is wasted work."""
     return int(
@@ -569,7 +582,7 @@ async def _build_section(
     session: AsyncSession,
     *,
     key: QueueSectionKey,
-    stmt: Select[Any],
+    stmt: AnySelect,
     now: datetime,
     to_row: Any = _to_application_row,
     blind_spots: tuple[BlindSpot, ...] = (),
@@ -601,6 +614,11 @@ _INTERNSHIP_BLIND_SPOTS: tuple[tuple[str, str], ...] = (
         "recent postings whose level could not be read from the title. Some of them are "
         "probably internships. This row cannot tell, so it does not guess either way.",
     ),
+    (
+        "outside_markets",
+        "recent internships in cities outside the markets you have turned on (MARKETS). "
+        "They are kept and scored; they are not shown until their market is enabled.",
+    ),
 )
 
 _INTERNSHIP_NOTE = (
@@ -613,9 +631,9 @@ _INTERNSHIP_NOTE = (
 async def _internship_blind_spots(
     session: AsyncSession, *, user_id: UUID, now: datetime
 ) -> tuple[BlindSpot, ...]:
-    """The two counts, taken against the same window the rows were.
+    """The three counts, taken against the same window the rows were.
 
-    Both exclude postings the reader already tracks, for the same reason the row
+    All exclude postings the reader already tracks, for the same reason the row
     does: a posting they have already decided about is not something this row
     failed to show them.
     """
@@ -631,7 +649,17 @@ async def _internship_blind_spots(
         .select_from(Job)
         .where(*untouched, or_(Job.seniority.is_(None), Job.seniority == Seniority.UNCLEAR))
     )
-    counts = [(await session.execute(stmt)).scalar_one() for stmt in (unscored, unread)]
+    elsewhere = (
+        select(func.count())
+        .select_from(Job)
+        .where(
+            *_new_in_window(now),
+            Job.id.not_in(_already_touched(user_id)),
+            Job.seniority == Seniority.INTERNSHIP,
+            out_of_scope_filter(),
+        )
+    )
+    counts = [(await session.execute(stmt)).scalar_one() for stmt in (unscored, unread, elsewhere)]
     return tuple(
         BlindSpot(name=name, count=int(count), because=because)
         for (name, because), count in zip(_INTERNSHIP_BLIND_SPOTS, counts, strict=True)
@@ -672,7 +700,7 @@ def _gap_sentence(values: list[str]) -> str:
 
 
 async def _build_requirement_gaps(
-    session: AsyncSession, *, user_id: UUID, stmt: Select[Any], now: datetime
+    session: AsyncSession, *, user_id: UUID, stmt: AnySelect, now: datetime
 ) -> QueueSection:
     """Tracked roles with an unanswered hard requirement, worst shortfall first.
 

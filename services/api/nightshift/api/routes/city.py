@@ -34,6 +34,7 @@ from nightshift.db.base import JobStatus
 from nightshift.db.models import Job, JobSourceLink, Source, SourceJobRecord
 from nightshift.db.session import get_db_session
 from nightshift.domain.capture import CAPTURE_SOURCE_NAME
+from nightshift.domain.markets import NEW_YORK, in_scope_filter, out_of_scope_filter
 from nightshift.domain.placement import (
     Placement,
     PlacementKind,
@@ -93,7 +94,7 @@ async def _last_verified(
         .where(JobSourceLink.job_id.in_(job_ids))
         .group_by(JobSourceLink.job_id)
     )
-    return dict(rows.all())  # type: ignore[arg-type]
+    return dict(rows.all())
 
 
 async def _captured(session: AsyncSession, job_ids: Sequence[UUID]) -> set[UUID]:
@@ -137,10 +138,10 @@ async def city_signals(
 
     **A fixed number of queries whatever the corpus size**, which is the
     property that matters and the one a count in a docstring stops describing
-    the moment somebody adds a field. Today it is five: the total, the jobs with
-    their locations and companies eager-loaded, then one lookup each for the
-    confirmed primary offices, the last-verified dates, and which roles were
-    captured by hand.
+    the moment somebody adds a field. Today it is six: the total, the count the
+    market scope left out, the jobs with their locations and companies
+    eager-loaded, then one lookup each for the confirmed primary offices, the
+    last-verified dates, and which roles were captured by hand.
 
     Each of the last three is one grouped query over the whole corpus rather
     than a lazy relationship per job, which would be thousands of round trips to
@@ -149,16 +150,30 @@ async def city_signals(
     cheaper and is not.
     """
     statuses = list(JobStatus) if include_closed else list(_DEFAULT_STATUSES)
+    # ADR 0041 (Q14): the city is New York's, and so is what it shows, whatever
+    # MARKETS says (see `NEW_YORK`). A role whose every location is another
+    # known city has no building and no honest place on the Island either; it
+    # is counted, not drawn.
+    in_scope = in_scope_filter(NEW_YORK)
 
     total = (
-        await session.execute(select(func.count()).select_from(Job).where(Job.status.in_(statuses)))
+        await session.execute(
+            select(func.count()).select_from(Job).where(Job.status.in_(statuses), in_scope)
+        )
+    ).scalar_one()
+    excluded_out_of_market = (
+        await session.execute(
+            select(func.count())
+            .select_from(Job)
+            .where(Job.status.in_(statuses), out_of_scope_filter(NEW_YORK))
+        )
     ).scalar_one()
 
     jobs = (
         (
             await session.execute(
                 select(Job)
-                .where(Job.status.in_(statuses))
+                .where(Job.status.in_(statuses), in_scope)
                 .options(selectinload(Job.locations), selectinload(Job.company))
                 # Stable across calls, so two loads of the same city produce the
                 # same instance buffer in the same order. A renderer diffing
@@ -209,4 +224,5 @@ async def city_signals(
         counts=counts,
         limit=limit,
         truncated=total > len(jobs),
+        excluded_out_of_market=excluded_out_of_market,
     )

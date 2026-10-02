@@ -1,6 +1,6 @@
 # ADR 0016 — CI pins what gates a merge, and an unpinned canary watches what does not
 
-- **Status:** accepted
+- **Status:** accepted; §4's notification paragraph superseded by ADR 0040 (2026-10-02)
 - **Date:** 2026-08-05
 - **Milestone:** between M3a and M3b
 - **Relates to:** `docs/QUESTIONS.md` Q3 (answered by this ADR), AMENDMENTS A14 (CI scope), `CLAUDE.md` §4
@@ -99,6 +99,8 @@ go and read.
 Notification is GitHub's default email to the repository owner on a failed
 scheduled run on the default branch. No bot, no issue-filing: one reader does
 not need a queue, and a queue nobody empties is worse than an email.
+*(Superseded by ADR 0040: five red runs in a row went unread, so a red run now
+also opens or comments on a single issue, and a green run closes it.)*
 
 ### 5. `make drift`, which is a separate gap this episode exposed
 

@@ -662,7 +662,7 @@ async def test_a_blind_spot_counts_only_inside_the_rows_own_window(
     )
     queue = await build_queue(db_session, user_id=user.id, now=NOW)
     section = _section(queue, QueueSectionKey.BEST_NEW_INTERNSHIPS)
-    assert [spot.count for spot in section.blind_spots] == [0, 0]
+    assert [spot.count for spot in section.blind_spots] == [0, 0, 0]
 
 
 async def test_an_internship_row_names_a_state_and_never_its_score(

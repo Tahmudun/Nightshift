@@ -130,6 +130,13 @@ class Settings(BaseSettings):
     poll_backoff_base_seconds: int = Field(default=900, ge=1)
     poll_backoff_max_seconds: int = Field(default=86_400, ge=60)
 
+    # -- Market scope (ADR 0041, Q14) ------------------------------------------
+    # Which metros the product shows, comma-separated keys from
+    # `nightshift.domain.markets.MARKETS`. New York today; the other tech cities
+    # are already defined, so `MARKETS=nyc,sf-bay-area` is the whole change. It
+    # scopes what is shown, never what is ingested or kept.
+    markets: str = "nyc"
+
     @field_validator("cors_allow_origins", mode="before")
     @classmethod
     def _split_origins(cls, value: object) -> object:
@@ -137,6 +144,18 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             return tuple(part.strip() for part in value.split(",") if part.strip())
         return value
+
+    @field_validator("markets")
+    @classmethod
+    def _known_markets(cls, value: str) -> str:
+        """Refuse to boot on an unknown key rather than show an empty product."""
+        from nightshift.domain.markets import parse_market_keys
+
+        return ",".join(parse_market_keys(value))
+
+    @property
+    def enabled_markets(self) -> tuple[str, ...]:
+        return tuple(self.markets.split(","))
 
     @field_validator("http_user_agent")
     @classmethod

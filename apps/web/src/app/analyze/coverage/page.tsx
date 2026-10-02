@@ -2,8 +2,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 
-import { fetchCoverage } from '@/lib/api';
-import type { BlindSpot } from '@/lib/schemas';
+import { fetchCoverage, fetchStats } from '@/lib/api';
+import type { BlindSpot, MarketScope } from '@/lib/schemas';
 
 /**
  * Coverage — and the reason this page exists, which is the second section.
@@ -105,8 +105,74 @@ export default function CoveragePage() {
           </section>
         </>
       )}
+
+      <MarketsSection />
     </div>
   );
+}
+
+/**
+ * ADR 0041 (Q14): which cities the product shows, and where the rest of what
+ * the boards publish is. Last on the page, so it never pushes "what is not
+ * covered" past a fold. Every role counted here is ingested and kept; the
+ * scope decides only what search, the city, matches and the queue show.
+ */
+function MarketsSection() {
+  const { data } = useQuery({ queryKey: ['stats'], queryFn: fetchStats });
+  const scope = data?.market_scope;
+  if (!scope) return null;
+
+  return (
+    <section aria-labelledby="markets-heading" className="border border-ink-700 bg-ink-900/40 p-5">
+      <h2
+        id="markets-heading"
+        className="font-mono text-[10px] uppercase tracking-[0.16em] text-paper-faint"
+      >
+        Markets
+      </h2>
+      <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-paper-dim">
+        {describeScope(scope)} Roles elsewhere are still polled, kept and scored; set{' '}
+        <code className="font-mono text-[11px] text-signal-400">MARKETS</code> to show another
+        city, and they appear without a re-poll.
+      </p>
+
+      <dl className="mt-4 grid grid-cols-2 gap-x-8 gap-y-3 sm:grid-cols-4">
+        <Stat label="Open roles shown" value={scope.open_in_scope} />
+        <Stat label="Open roles elsewhere" value={scope.open_out_of_scope} />
+      </dl>
+
+      {scope.elsewhere.length > 0 && (
+        <div className="mt-5">
+          <h3 className="text-[11px] uppercase tracking-wide text-paper-faint">Where they are</h3>
+          <dl className="mt-1.5 space-y-1">
+            {scope.elsewhere.map((place) => (
+              <div key={place.label} className="flex justify-between gap-4 text-[13px]">
+                <dt className="text-paper-dim">
+                  {place.label}
+                  {place.market_key && (
+                    <span className="ml-2 font-mono text-[11px] text-paper-faint">
+                      MARKETS={place.market_key}
+                    </span>
+                  )}
+                </dt>
+                <dd className="font-mono text-paper">{place.jobs}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-2 text-[12px] leading-relaxed text-paper-faint">
+            A role naming two of these cities counts under both. A city with no setting beside it
+            has no market defined yet.
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function describeScope(scope: MarketScope): string {
+  if (scope.everywhere) return 'Showing every city (MARKETS=all).';
+  const names = scope.enabled.map((market) => market.name);
+  return `Showing ${names.join(' and ')}, plus remote roles and roles whose location could not be read.`;
 }
 
 function Stat({ label, value }: { label: string; value: number }) {

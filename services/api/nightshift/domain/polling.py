@@ -23,6 +23,8 @@ is :mod:`nightshift.domain.ingestion`, which is where I3 lives.
 
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Protocol, cast
@@ -40,6 +42,7 @@ from nightshift.adapters.lever import LeverAdapter
 from nightshift.config import get_settings
 from nightshift.db.base import BoardTier, SourceType
 from nightshift.db.models import BoardPollState
+from nightshift.db.types import utcnow
 from nightshift.domain.ingestion import get_or_create_source, ingest_boards
 from nightshift.domain.registry import get_registry
 from nightshift.domain.tiers import derive_tier
@@ -299,3 +302,90 @@ async def poll_one_board(
 
     await session.flush()
     return state
+
+
+@dataclass(frozen=True, slots=True)
+class BoardPollReport:
+    """What one board's poll did, read off its row before the transaction closed.
+
+    A snapshot rather than the row itself, because the row's session is gone by
+    the time anything prints it.
+    """
+
+    ats: str
+    token: str
+    #: 200 or 304. None when this poll failed or never reached the provider.
+    status: int | None
+    tier: BoardTier | None
+    consecutive_failures: int
+    error: str | None
+
+    @property
+    def failed(self) -> bool:
+        return self.error is not None
+
+
+async def poll_every_board(
+    boards: Sequence[tuple[str, str]],
+    *,
+    client: PoliteClient,
+    session_scope: Callable[[], AbstractAsyncContextManager[AsyncSession]],
+    make_adapter: Callable[[str, PoliteClient], JobSourceAdapter] = adapter_for,
+    clock: Callable[[], datetime] = utcnow,
+) -> list[BoardPollReport]:
+    """Poll each ``(ats, token)`` once, now, in order. ``make ingest``.
+
+    The same cycle the scheduler runs, :func:`poll_one_board`, so a manual pass
+    reads and writes ``board_poll_state`` exactly as a tick would: conditional
+    requests, tiers and backoff, and a board polled here is not polled again by
+    the next tick until it is due. Every board is polled whether or not it is
+    due; that is what asking for a pass means.
+
+    **One client for the whole pass.** ``PoliteClient`` carries its rate
+    limiter, so a client per board starts every board with a fresh one, and the
+    registry's Ashby boards would be hit back to back as fast as they answer
+    (PROGRESS, 2026-08-24). Adapters are built once per ATS around that one
+    client.
+
+    **One transaction per board.** A board whose write fails rolls back its own
+    poll and nothing else. A board the registry and the poll-state table
+    disagree about (``LookupError``) is reported and the pass goes on: one stale
+    row must not cost every board after it its poll.
+    """
+    adapters: dict[str, JobSourceAdapter] = {}
+    reports: list[BoardPollReport] = []
+    for ats, token in boards:
+        try:
+            if ats not in adapters:
+                adapters[ats] = make_adapter(ats, client)
+            now = clock()
+            async with session_scope() as session:
+                state = await poll_one_board(session, adapters[ats], ats=ats, token=token, now=now)
+                # Success is what `poll_one_board` wrote, not inferred from the
+                # error text: it stamps `last_success_at` with this poll's `now`
+                # only when the board answered.
+                succeeded = state.last_success_at == now
+                reports.append(
+                    BoardPollReport(
+                        ats=ats,
+                        token=token,
+                        status=state.last_status if succeeded else None,
+                        tier=state.tier,
+                        consecutive_failures=state.consecutive_failures,
+                        error=None
+                        if succeeded
+                        else (state.last_error or "the poll failed and recorded no reason"),
+                    )
+                )
+        except LookupError as exc:
+            reports.append(
+                BoardPollReport(
+                    ats=ats,
+                    token=token,
+                    status=None,
+                    tier=None,
+                    consecutive_failures=0,
+                    error=str(exc),
+                )
+            )
+    return reports

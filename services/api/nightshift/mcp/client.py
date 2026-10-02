@@ -14,9 +14,10 @@ from types import TracebackType
 from typing import Any, Self
 
 import httpx
+from mcp.server.mcpserver.exceptions import ToolError
 
 
-class NightshiftUnavailableError(RuntimeError):
+class NightshiftUnavailableError(ToolError):
     """Nightshift could not be reached or could not answer. **Never an empty result.**
 
     This class exists for invariant I3, arriving on a new surface. I3 says a
@@ -31,6 +32,13 @@ class NightshiftUnavailableError(RuntimeError):
 
     So an outage **raises**, the message names the cause and the fix, and MCP
     turns a raised exception into a visible tool error rather than an answer.
+
+    It is a ``ToolError`` because that is what keeps the message. Since mcp 2.2
+    the SDK treats any other exception as a crash and shows the model only
+    "Error executing tool search_jobs", which says nothing about the cause or
+    the fix. ``ToolError`` is the SDK's "a failure you anticipated", and an
+    outage here is exactly that (``test_an_outage_surfaces_to_the_model_as_a_
+    tool_error`` caught the change).
     """
 
 

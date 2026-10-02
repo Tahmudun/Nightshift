@@ -111,6 +111,8 @@ export function JobList() {
               excludedNoSalary={data.excluded_no_salary}
               excludedNoRequirements={data.excluded_no_requirements}
               excludedNoSeason={data.excluded_no_season}
+              excludedOutOfMarket={data.excluded_out_of_market}
+              markets={data.markets}
             />
             <div className="m-5 border border-ink-700 px-4 py-6">
               <p className="text-[14px] text-paper">No roles match these filters.</p>
@@ -137,6 +139,8 @@ export function JobList() {
               excludedNoSalary={data.excluded_no_salary}
               excludedNoRequirements={data.excluded_no_requirements}
               excludedNoSeason={data.excluded_no_season}
+              excludedOutOfMarket={data.excluded_out_of_market}
+              markets={data.markets}
             />
             {data.items.map((job) => (
               <JobRow key={job.id} job={job} />
