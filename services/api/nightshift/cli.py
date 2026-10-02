@@ -23,6 +23,7 @@ import getpass
 import json
 import sys
 import uuid
+from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
@@ -94,6 +95,7 @@ from nightshift.domain.office_loading import LoadReport, load_offices
 from nightshift.domain.polling import (
     ADAPTERS,
     adapter_for,
+    poll_every_board,
     poll_one_board,
     sync_board_poll_state,
 )
@@ -996,7 +998,18 @@ async def cmd_score(args: argparse.Namespace) -> int:
 
 
 async def cmd_ingest(args: argparse.Namespace) -> int:
-    """Run one live ingestion pass against the registry's active boards."""
+    """One live pass over every pollable board in the registry, now.
+
+    Every ATS, not only Greenhouse. Until 2026-10-02 this hardcoded
+    ``pollable(ats="greenhouse")`` and reached 2 of the 23 registered boards;
+    the pass that first filled the corpus had to drive the scheduler's path
+    from a throwaway script instead (PROGRESS, 2026-08-24). It now *is* the
+    scheduler's path: :func:`poll_every_board` runs ``poll_one_board`` per board
+    with one shared ``PoliteClient``. ``--ats`` narrows the pass to one ATS.
+
+    Exits non-zero only when no board answered at all. One dead board in
+    twenty-three is a line in the report, not a failed command.
+    """
     settings = get_settings()
     if not settings.outbound_http_enabled:
         print(
@@ -1007,33 +1020,44 @@ async def cmd_ingest(args: argparse.Namespace) -> int:
         )
         return 1
 
-    boards = [entry.to_ref() for entry in get_registry().pollable(ats="greenhouse")]
-    if not boards:
-        print("no active greenhouse boards in data/board-registry.yaml", file=sys.stderr)
+    entries = get_registry().pollable(ats=args.ats)
+    if not entries:
+        scope = f"active {args.ats} boards" if args.ats else "active boards"
+        print(f"no {scope} in data/board-registry.yaml", file=sys.stderr)
         return 1
 
-    print(f"polling {len(boards)} board(s): {', '.join(b.token for b in boards)}")
-    async with PoliteClient() as client, session_scope() as session:
-        adapter = GreenhouseAdapter(client)
-        source = await get_or_create_source(
-            session,
-            name="greenhouse",
-            source_type=SourceType.ATS_GREENHOUSE,
-            base_url="https://boards-api.greenhouse.io",
+    async with session_scope() as session:
+        await sync_board_poll_state(session, now=utcnow())
+
+    by_ats = Counter(entry.ats for entry in entries)
+    print(
+        f"polling {len(entries)} board(s): "
+        + ", ".join(f"{ats} {count}" for ats, count in sorted(by_ats.items()))
+    )
+    async with PoliteClient() as client:
+        reports = await poll_every_board(
+            [(entry.ats, entry.token) for entry in entries],
+            client=client,
+            session_scope=session_scope,
         )
-        run, stats = await ingest_boards(session, adapter, boards, source=source)
-        print(
-            f"  {run.status.value}: fetched={stats.fetched} created={stats.created} "
-            f"updated={stats.updated} unchanged={stats.unchanged} failed={stats.failed}"
-        )
-        if stats.boards_failed:
-            print(f"  boards failed: {', '.join(stats.boards_failed)}")
-        if stats.errors:
-            for error in stats.errors[:10]:
-                print(f"    ! {error}")
+
+    for report in reports:
+        board = f"{report.ats}:{report.token}"
+        if report.failed:
+            first_line = report.error.splitlines()[0] if report.error else ""
+            print(f"  {board:<34} FAILED  {first_line}")
+        else:
+            tier = report.tier.value if report.tier else "?"
+            print(f"  {board:<34} {report.status}     {tier}")
+    failed = sum(report.failed for report in reports)
+    unchanged = sum(report.status == 304 for report in reports)
+    print(
+        f"  {len(reports) - failed} answered ({unchanged} unchanged, "
+        f"{len(reports) - failed - unchanged} changed), {failed} failed"
+    )
 
     await _print_summary()
-    return 0
+    return 1 if failed == len(reports) else 0
 
 
 async def cmd_enqueue(args: argparse.Namespace) -> int:
@@ -1622,7 +1646,12 @@ def main(argv: list[str] | None = None) -> int:
         help="worksheet file (default: data/company-locations.yaml)",
     )
     subparsers.add_parser("score", help="score every pair due at the current ruleset version")
-    subparsers.add_parser("ingest", help="poll live boards from the registry")
+    ingest = subparsers.add_parser(
+        "ingest", help="poll every pollable board in the registry now, through board_poll_state"
+    )
+    ingest.add_argument(
+        "--ats", default=None, choices=sorted(ADAPTERS), help="only boards on this ATS"
+    )
     poll = subparsers.add_parser(
         "poll", help="poll one board conditionally, through board_poll_state"
     )

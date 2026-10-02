@@ -191,8 +191,8 @@ demo: ## up && migrate && seed && dev — fully offline, no network
 	@$(MAKE) seed
 	@$(MAKE) dev
 
-ingest: setup ## Run one live ingestion pass (requires OUTBOUND_HTTP_ENABLED=true)
-	@$(LOADENV) && $(PY) -m nightshift.cli ingest
+ingest: setup ## Poll every pollable board now, ATS=ashby for one ATS (needs OUTBOUND_HTTP_ENABLED=true)
+	@$(LOADENV) && $(PY) -m nightshift.cli ingest $(if $(ATS),--ats $(ATS))
 
 # ---------------------------------------------------------------------------
 # Board discovery (M1c)
