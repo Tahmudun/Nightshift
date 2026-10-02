@@ -48,6 +48,7 @@ from nightshift.db.base import (
     Seniority,
 )
 from nightshift.db.models import Application, ApplicationEvent, Company, Job, MatchResult
+from nightshift.domain.markets import in_scope_filter, out_of_scope_filter
 from nightshift.domain.matching import band_rank, coverage_weighted_rank, unmet_requirements
 from nightshift.domain.matching_weights import load_weights
 
@@ -372,14 +373,21 @@ def _current_score(user_id: UUID) -> Any:
     )
 
 
-def _new_postings(now: datetime) -> list[Any]:
-    """Open, and first seen inside the window. Shared by the row and its blind
-    spots, so a count can never be taken over a wider corpus than the rows were.
-    """
+def _new_in_window(now: datetime) -> list[Any]:
+    """Open, and first seen inside the window, wherever the posting is."""
     return [
         Job.status == JobStatus.OPEN,
         Job.first_seen_at >= now - timedelta(days=NEW_INTERNSHIP_DAYS),
     ]
+
+
+def _new_postings(now: datetime) -> list[Any]:
+    """In the window and in the enabled markets (ADR 0041). Shared by the row and
+    its blind spots, so a count can never be taken over a wider corpus than the
+    rows were. The one count that looks past the markets is `outside_markets`,
+    and it says so.
+    """
+    return [*_new_in_window(now), in_scope_filter()]
 
 
 def _internships_select(*, user_id: UUID, now: datetime) -> AnySelect:
@@ -606,6 +614,11 @@ _INTERNSHIP_BLIND_SPOTS: tuple[tuple[str, str], ...] = (
         "recent postings whose level could not be read from the title. Some of them are "
         "probably internships. This row cannot tell, so it does not guess either way.",
     ),
+    (
+        "outside_markets",
+        "recent internships in cities outside the markets you have turned on (MARKETS). "
+        "They are kept and scored; they are not shown until their market is enabled.",
+    ),
 )
 
 _INTERNSHIP_NOTE = (
@@ -618,9 +631,9 @@ _INTERNSHIP_NOTE = (
 async def _internship_blind_spots(
     session: AsyncSession, *, user_id: UUID, now: datetime
 ) -> tuple[BlindSpot, ...]:
-    """The two counts, taken against the same window the rows were.
+    """The three counts, taken against the same window the rows were.
 
-    Both exclude postings the reader already tracks, for the same reason the row
+    All exclude postings the reader already tracks, for the same reason the row
     does: a posting they have already decided about is not something this row
     failed to show them.
     """
@@ -636,7 +649,17 @@ async def _internship_blind_spots(
         .select_from(Job)
         .where(*untouched, or_(Job.seniority.is_(None), Job.seniority == Seniority.UNCLEAR))
     )
-    counts = [(await session.execute(stmt)).scalar_one() for stmt in (unscored, unread)]
+    elsewhere = (
+        select(func.count())
+        .select_from(Job)
+        .where(
+            *_new_in_window(now),
+            Job.id.not_in(_already_touched(user_id)),
+            Job.seniority == Seniority.INTERNSHIP,
+            out_of_scope_filter(),
+        )
+    )
+    counts = [(await session.execute(stmt)).scalar_one() for stmt in (unscored, unread, elsewhere)]
     return tuple(
         BlindSpot(name=name, count=int(count), because=because)
         for (name, because), count in zip(_INTERNSHIP_BLIND_SPOTS, counts, strict=True)

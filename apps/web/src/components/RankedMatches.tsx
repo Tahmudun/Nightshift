@@ -152,6 +152,14 @@ export function RankedMatches() {
               from this ordering rather than at the bottom of it.
             </span>
           )}
+          {data.excluded_out_of_market > 0 && (
+            <span data-testid="out-of-market">
+              {' '}
+              <span className="text-paper tnum">{data.excluded_out_of_market}</span> more open
+              postings are in other cities and are left off this list; set{' '}
+              <code className="font-mono text-[11px] text-signal-400">MARKETS</code> to rank them.
+            </span>
+          )}
         </p>
         {data.deferred_components.length > 0 && (
           <p className="mt-2 text-[12px] leading-relaxed text-paper-faint">

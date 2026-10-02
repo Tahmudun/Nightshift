@@ -81,6 +81,15 @@ def _clear_settings_cache() -> Any:
     get_settings.cache_clear()
 
 
+@pytest.fixture(autouse=True)
+def _markets_are_the_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The product's default market scope (ADR 0041), whatever a developer's
+    `.env` says. A suite whose answers changed with `MARKETS=nyc,london` on one
+    laptop would be testing that laptop. A module that needs another scope sets
+    it itself, and says why."""
+    monkeypatch.setenv("MARKETS", "nyc")
+
+
 def load_json_fixture(*parts: str) -> Any:
     return json.loads((FIXTURE_DIR.joinpath(*parts)).read_text())
 

@@ -18,7 +18,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -71,6 +71,7 @@ from nightshift.db.models import (
 from nightshift.db.session import get_db_session
 from nightshift.domain.eligibility import evaluate, profile_from_user
 from nightshift.domain.eligibility_reading import read_posting
+from nightshift.domain.markets import current_scope, in_scope_filter, out_of_scope_filter
 from nightshift.domain.matching import (
     COMPONENT_SCORE_COLUMNS,
     current_result_for,
@@ -209,17 +210,34 @@ async def list_jobs(
         internship_season=internship_season,
         internship_year=internship_year,
     )
-    filters = build_filters(query)
+    # ADR 0041 (Q14): the list shows the enabled markets, and says how many
+    # matching roles it left out for being elsewhere. Every count below is taken
+    # inside the same scope, so each describes this result.
+    scope = current_scope()
+    in_scope = in_scope_filter(scope)
+
+    def scoped(q: JobSearchQuery) -> list[ColumnElement[bool]]:
+        return [*build_filters(q), in_scope]
+
+    filters = scoped(query)
 
     total = (
         await session.execute(select(func.count()).select_from(Job).where(*filters))
+    ).scalar_one()
+
+    excluded_out_of_market = (
+        await session.execute(
+            select(func.count())
+            .select_from(Job)
+            .where(*build_filters(query), out_of_scope_filter(scope))
+        )
     ).scalar_one()
 
     # What the salary floor necessarily removed, counted against the *other*
     # filters so the number describes this result set rather than the corpus.
     excluded_no_salary = 0
     if query.salary_at_least is not None:
-        without_salary = build_filters(query.model_copy(update={"salary_at_least": None}))
+        without_salary = scoped(query.model_copy(update={"salary_at_least": None}))
         excluded_no_salary = (
             await session.execute(
                 select(func.count())
@@ -237,7 +255,7 @@ async def list_jobs(
     # result is noise that teaches people to ignore caveats.
     excluded_no_requirements = 0
     if query.skill and query.skill.strip():
-        without_skill = build_filters(query.model_copy(update={"skill": None}))
+        without_skill = scoped(query.model_copy(update={"skill": None}))
         excluded_no_requirements = (
             await session.execute(
                 select(func.count()).select_from(Job).where(*without_skill, skill_excluded_filter())
@@ -246,7 +264,7 @@ async def list_jobs(
 
     excluded_no_season = 0
     if query.internship_season is not None or query.internship_year is not None:
-        without_season = build_filters(
+        without_season = scoped(
             query.model_copy(update={"internship_season": None, "internship_year": None})
         )
         excluded_no_season = (
@@ -283,6 +301,8 @@ async def list_jobs(
         excluded_no_salary=excluded_no_salary,
         excluded_no_requirements=excluded_no_requirements,
         excluded_no_season=excluded_no_season,
+        excluded_out_of_market=excluded_out_of_market,
+        markets=scope.names,
         deferred_filters=[
             DeferredFilterOut(name=e.name, blocked_on=e.blocked_on, reason=e.reason)
             for e in DEFERRED_FILTERS

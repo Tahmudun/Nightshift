@@ -104,8 +104,11 @@ async def corpus(db_session: AsyncSession, account: User) -> AsyncIterator[Job]:
                 job_id=job.id,
                 raw_text="New York, NY",
                 city="New York",
-                state="NY",
-                country="US",
+                # Spelled the way the location parser writes them: the market
+                # scope (ADR 0041) matches on these, and the parser is the only
+                # thing that writes `job_locations` outside a test.
+                state="New York",
+                country="USA",
                 location_confidence=LocationConfidence.CITY_ONLY,
                 resolution_method=ResolutionMethod.SOURCE_TEXT_PARSE,
                 is_primary=True,
@@ -114,8 +117,8 @@ async def corpus(db_session: AsyncSession, account: User) -> AsyncIterator[Job]:
                 job_id=job.id,
                 raw_text="620 8th Avenue, New York, NY",
                 city="New York",
-                state="NY",
-                country="US",
+                state="New York",
+                country="USA",
                 latitude=40.7561,
                 longitude=-73.9903,
                 location_confidence=LocationConfidence.VERIFIED,

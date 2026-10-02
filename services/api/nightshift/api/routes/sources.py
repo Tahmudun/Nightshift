@@ -20,9 +20,12 @@ from nightshift.api.schemas import (
     BoardCoverageOut,
     BoardPollStateOut,
     CoverageOut,
+    ElsewhereOut,
     IngestionRunOut,
     JobStatusCounts,
     LocationConfidenceBreakdown,
+    MarketOut,
+    MarketScopeOut,
     SourceHealthOut,
     StatsOut,
 )
@@ -40,6 +43,7 @@ from nightshift.db.models import (
 from nightshift.db.session import get_db_session
 from nightshift.discovery.candidates import load_candidates
 from nightshift.discovery.coverage import coverage_summary
+from nightshift.domain.markets import market_scope_report
 from nightshift.domain.registry import BoardStatus, get_registry
 
 router = APIRouter(tags=["sources"])
@@ -239,6 +243,8 @@ async def stats(session: Annotated[AsyncSession, Depends(get_db_session)]) -> St
         )
     ).scalar_one()
 
+    scope = await market_scope_report(session)
+
     return StatsOut(
         total_jobs=total_jobs,
         open_jobs=open_jobs,
@@ -246,6 +252,18 @@ async def stats(session: Annotated[AsyncSession, Depends(get_db_session)]) -> St
         total_source_records=total_records,
         location_confidence=breakdown,
         mappable_locations=mappable,
+        # Corpus counts above are everything ingested; this is how much of it
+        # the market scope shows, and where the rest is (ADR 0041).
+        market_scope=MarketScopeOut(
+            everywhere=scope.scope.everywhere,
+            enabled=[MarketOut(key=m.key, name=m.name) for m in scope.scope.markets],
+            open_in_scope=scope.open_in_scope,
+            open_out_of_scope=scope.open_out_of_scope,
+            elsewhere=[
+                ElsewhereOut(label=e.label, market_key=e.market_key, jobs=e.jobs)
+                for e in scope.elsewhere
+            ],
+        ),
     )
 
 
