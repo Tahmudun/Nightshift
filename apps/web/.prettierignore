@@ -4,3 +4,4 @@ playwright-report
 test-results
 coverage
 e2e-seeded/.auth
+public/maplibre

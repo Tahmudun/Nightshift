@@ -78,6 +78,15 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 let protocolRegistered = false;
 
 /**
+ * Where MapLibre's worker is served from. MapLibre 6 loads its worker by URL,
+ * and Next cannot bundle it (the worker's shared chunk is left behind), so
+ * `scripts/copy-maplibre-worker.mjs` copies both files here before every
+ * `npm run dev` and `npm run build`. Without this the map fails with "Worker
+ * failed to load" and draws nothing.
+ */
+const MAPLIBRE_WORKER_URL = '/maplibre/maplibre-gl-worker.mjs';
+
+/**
  * What a screen reader says this is.
  *
  * The second sentence is the point of it: §5.6 requires every map action to have
@@ -167,9 +176,11 @@ export function CityMap({ children }: { readonly children?: React.ReactNode }) {
       const [maplibregl, pmtiles] = await Promise.all([import('maplibre-gl'), import('pmtiles')]);
       if (cancelled || !container.current) return;
 
-      // The protocol is stateless and global, so one registration serves every
-      // map this page ever creates.
+      // The worker URL and the protocol are both global, so one registration
+      // serves every map this page ever creates. The worker URL has to be set
+      // before the first `new Map`: that is when MapLibre starts its workers.
       if (!protocolRegistered) {
+        maplibregl.setWorkerUrl(MAPLIBRE_WORKER_URL);
         maplibregl.addProtocol('pmtiles', new pmtiles.Protocol().tile);
         protocolRegistered = true;
       }

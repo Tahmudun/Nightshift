@@ -386,9 +386,11 @@ export interface SignalLayer extends CustomLayerInterface {
    * all, and how many frames it has actually drawn on.
    *
    * `available` is false on a WebGL 1 context, where `blitFramebuffer` does not
-   * exist. That is a real machine — MapLibre asks for WebGL 2 and falls back —
-   * and the honest behaviour there is a city with no glow, said out loud,
-   * rather than a city that renders black or an effect that silently does
+   * exist. MapLibre 5 asked for WebGL 2 and fell back to 1, so that was a real
+   * machine; MapLibre 6 requires WebGL 2 and reports the map unavailable
+   * instead, so this layer should never be handed one. The check stays because
+   * the honest behaviour if it ever is remains a city with no glow, said out
+   * loud, rather than a city that renders black or an effect that silently does
    * nothing while the page claims it is on.
    */
   readonly bloom: {

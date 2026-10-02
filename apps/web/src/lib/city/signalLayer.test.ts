@@ -330,7 +330,7 @@ describe('selection', () => {
       .multiply(anchorTransform(ANCHOR).clone().invert())
       .toArray();
     layer.render(
-      null as unknown as WebGLRenderingContext,
+      null as unknown as WebGL2RenderingContext,
       {
         defaultProjectionData: { mainMatrix },
       } as unknown as Parameters<typeof layer.render>[1],

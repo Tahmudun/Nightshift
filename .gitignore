@@ -29,6 +29,10 @@ out/
 # only CI, building from a clean checkout, saw the 404.
 /apps/web/coverage/
 /services/api/coverage/
+# Copied from node_modules by apps/web/scripts/copy-maplibre-worker.mjs on
+# every `npm run dev` / `npm run build`, so it always matches the installed
+# MapLibre. Committed, it would drift from it.
+/apps/web/public/maplibre/
 playwright-report/
 test-results/
 .playwright/
