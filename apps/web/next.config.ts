@@ -11,6 +11,11 @@ const config: NextConfig = {
   typescript: { ignoreBuildErrors: false },
   eslint: { ignoreDuringBuilds: false },
   poweredByHeader: false,
+  // Nothing here renders `next/image`, so the optimizer endpoint
+  // (`/_next/image`) is pure attack surface: it is where Next's 2026 AVIF
+  // remote-code-execution and sharp/libvips advisories live. Off, it serves
+  // nothing, whatever version of sharp is installed underneath it.
+  images: { unoptimized: true },
   /*
    * M5b (ADR 0037): the browser reaches the API through this app's own origin.
    *
