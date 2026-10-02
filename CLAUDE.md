@@ -170,7 +170,9 @@ make test-e2e-seeded   Playwright against a seeded stack (needs make up/migrate/
 make verify            Assert the running stack works; exits 0 or 1
 make acceptance        up && migrate && drift && seed && test-e2e && verify && test-e2e-seeded
 make check             format + lint + typecheck + test. Run before every commit.
-make reset-db          Drop, recreate, migrate, seed
+make reset-db          Back up, ask, then drop, recreate, migrate, seed
+make backup            Verified dump of the database to ~/nightshift-backups
+make restore           Restore the newest dump (or FILE=...), one transaction
 ```
 
 `make demo` working offline from a clean clone is a hard requirement from M0 onward.

@@ -25,7 +25,7 @@ PYTHON    ?= python3.12
 LOADENV := set -a && source .env && set +a
 
 .PHONY: help setup up down migrate migrate-down seed dev demo test test-py test-web \
-        test-e2e check fmt lint typecheck reset-db ingest logs ps clean doctor \
+        test-e2e check fmt lint typecheck reset-db backup restore ingest logs ps clean doctor \
         verify acceptance test-e2e-seeded browsers drift constraints \
         discover registry-validate registry-approve registry-approve-write coverage \
         worksheets score tiles tiles-strict offices
@@ -142,9 +142,23 @@ offices: setup ## Load data/company-locations.yaml -> geocode -> company_locatio
 # breaks silently after this: it still launches, and every tool answers that
 # the token was rejected. Re-mint with `nightshift tokens --create
 # --merge-config`; see docs/runbooks/connecting-claude-desktop.md.
-reset-db: ## Drop, recreate, migrate, seed (destroys MCP tokens — see the note above)
+#
+# It backs up first and asks before deleting anything (scripts/backup.py).
+# FORCE=1 skips the question, not the backup; SKIP_BACKUP=1 skips the backup.
+reset-db: .env ## Back up, then drop, recreate, migrate, seed (asks first; destroys MCP tokens)
+	@$(MAKE) up
+	@$(LOADENV) && NIGHTSHIFT_COMPOSE="$(COMPOSE)" FORCE="$(FORCE)" SKIP_BACKUP="$(SKIP_BACKUP)" $(PYTHON) scripts/backup.py guard-reset
 	@$(COMPOSE) down -v
 	@$(MAKE) up migrate seed
+
+# The database is the only copy of a person's job search — applications,
+# interviews, profile, captures, typed offices. Dumps go to ~/nightshift-backups
+# (NIGHTSHIFT_BACKUP_DIR overrides), outside the repo because they are personal.
+backup: .env ## Write a verified dump of the database to ~/nightshift-backups
+	@$(LOADENV) && NIGHTSHIFT_COMPOSE="$(COMPOSE)" $(PYTHON) scripts/backup.py dump
+
+restore: .env ## Restore the newest backup, or FILE=path (asks first; one transaction)
+	@$(LOADENV) && NIGHTSHIFT_COMPOSE="$(COMPOSE)" FORCE="$(FORCE)" $(PYTHON) scripts/backup.py restore $(FILE)
 
 # The one CI assertion that had no local counterpart, and it cost a session to
 # notice. On 2026-08-05 the migrations job went red on a branch that had touched
