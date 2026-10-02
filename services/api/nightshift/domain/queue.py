@@ -51,6 +51,11 @@ from nightshift.db.models import Application, ApplicationEvent, Company, Job, Ma
 from nightshift.domain.matching import band_rank, coverage_weighted_rank, unmet_requirements
 from nightshift.domain.matching_weights import load_weights
 
+#: A select of any number of columns of any type. SQLAlchemy 2.1 made `Select`
+#: variadic over its column types, so the 2.0 spelling `Select[Any]` now means
+#: "one column" and every multi-column builder here stopped type-checking.
+type AnySelect = Select[*tuple[Any, ...]]
+
 #: Decided by the human on 2026-08-04 (`command-center.md` §7). A week is when
 #: silence after applying starts to mean something; three weeks of a saved job
 #: untouched is genuinely stale; two weeks is far enough ahead to prepare for
@@ -250,11 +255,11 @@ def _row_columns() -> list[Any]:
     ]
 
 
-def _joined(stmt: Select[Any]) -> Select[Any]:
+def _joined(stmt: AnySelect) -> AnySelect:
     return stmt.join(Job, Job.id == Application.job_id).join(Company, Company.id == Job.company_id)
 
 
-def _follow_up_select(*, user_id: UUID, now: datetime) -> Select[Any]:
+def _follow_up_select(*, user_id: UUID, now: datetime) -> AnySelect:
     """Due by date, or silent past the threshold.
 
     Two branches, one row per application — an application matching both is
@@ -287,7 +292,7 @@ def _follow_up_select(*, user_id: UUID, now: datetime) -> Select[Any]:
     )
 
 
-def _interviews_select(*, user_id: UUID, now: datetime) -> Select[Any]:
+def _interviews_select(*, user_id: UUID, now: datetime) -> AnySelect:
     """Scheduled times inside the horizon. One row per interview, not per
     application — two interviews are two appointments to prepare for."""
     horizon = now + timedelta(days=INTERVIEW_HORIZON_DAYS)
@@ -304,7 +309,7 @@ def _interviews_select(*, user_id: UUID, now: datetime) -> Select[Any]:
     )
 
 
-def _stale_saved_select(*, user_id: UUID, now: datetime) -> Select[Any]:
+def _stale_saved_select(*, user_id: UUID, now: datetime) -> AnySelect:
     """Still at ``saved``, untouched past the threshold."""
     activity = _last_user_activity()
     stale_since = now - timedelta(days=STALE_SAVED_DAYS)
@@ -322,7 +327,7 @@ def _stale_saved_select(*, user_id: UUID, now: datetime) -> Select[Any]:
     )
 
 
-def _closed_while_saved_select(*, user_id: UUID, now: datetime) -> Select[Any]:
+def _closed_while_saved_select(*, user_id: UUID, now: datetime) -> AnySelect:
     """The listing is closed *right now*.
 
     §7.2's third rule: membership comes from ``jobs.status``, not from the
@@ -377,7 +382,7 @@ def _new_postings(now: datetime) -> list[Any]:
     ]
 
 
-def _internships_select(*, user_id: UUID, now: datetime) -> Select[Any]:
+def _internships_select(*, user_id: UUID, now: datetime) -> AnySelect:
     """Recent internships this person has a current score for and is not tracking.
 
     **The ordering is imported, not written here** — `matching.band_rank` and
@@ -418,7 +423,7 @@ def _internships_select(*, user_id: UUID, now: datetime) -> Select[Any]:
     )
 
 
-def _gaps_select(*, user_id: UUID, now: datetime) -> Select[Any]:
+def _gaps_select(*, user_id: UUID, now: datetime) -> AnySelect:
     """Live applications with a current score, and everything a gap needs.
 
     Entities rather than columns, because the difference is taken in Python by
@@ -446,7 +451,7 @@ def _gaps_select(*, user_id: UUID, now: datetime) -> Select[Any]:
     )
 
 
-def queue_selects(*, user_id: UUID, now: datetime) -> dict[QueueSectionKey, Select[Any]]:
+def queue_selects(*, user_id: UUID, now: datetime) -> dict[QueueSectionKey, AnySelect]:
     """Exactly what ``build_queue`` runs, exposed for the query-plan test.
 
     Task 2 asserts each of these is servable by an index. It matters that it
@@ -555,7 +560,7 @@ def _to_offered_row(key: QueueSectionKey, *, row: Any, now: datetime) -> QueueRo
     )
 
 
-async def _count(session: AsyncSession, stmt: Select[Any]) -> int:
+async def _count(session: AsyncSession, stmt: AnySelect) -> int:
     """``order_by(None)`` strips the sort before counting — Postgres allows it
     inside the subquery, but sorting rows nobody reads is wasted work."""
     return int(
@@ -569,7 +574,7 @@ async def _build_section(
     session: AsyncSession,
     *,
     key: QueueSectionKey,
-    stmt: Select[Any],
+    stmt: AnySelect,
     now: datetime,
     to_row: Any = _to_application_row,
     blind_spots: tuple[BlindSpot, ...] = (),
@@ -672,7 +677,7 @@ def _gap_sentence(values: list[str]) -> str:
 
 
 async def _build_requirement_gaps(
-    session: AsyncSession, *, user_id: UUID, stmt: Select[Any], now: datetime
+    session: AsyncSession, *, user_id: UUID, stmt: AnySelect, now: datetime
 ) -> QueueSection:
     """Tracked roles with an unanswered hard requirement, worst shortfall first.
 

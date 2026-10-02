@@ -17,7 +17,7 @@ from datetime import datetime
 from typing import Annotated
 
 from pydantic import AfterValidator, BaseModel, Field
-from sqlalchemy import ColumnElement, func, or_, select
+from sqlalchemy import ColumnElement, func, literal, or_, select
 
 from nightshift.db.base import (
     EmploymentType,
@@ -259,10 +259,16 @@ def build_filters(query: JobSearchQuery) -> list[ColumnElement[bool]]:
         # Either bound clearing the floor is enough: a range of 80k-120k does
         # pay at least 90k for somebody. A posting with no salary at all cannot
         # satisfy this and is counted separately rather than silently dropped.
+        #
+        # The floor is bound as the columns' own NUMERIC type. SQLAlchemy 2.1
+        # binds a bare Python float as FLOAT, and `numeric >= float8` makes
+        # Postgres cast the column, which neither salary index can serve
+        # (tests/test_query_plans.py fails when that happens).
+        floor = query.salary_at_least
         filters.append(
             or_(
-                Job.salary_max >= query.salary_at_least,
-                Job.salary_min >= query.salary_at_least,
+                Job.salary_max >= literal(floor, Job.salary_max.type),
+                Job.salary_min >= literal(floor, Job.salary_min.type),
             )
         )
 

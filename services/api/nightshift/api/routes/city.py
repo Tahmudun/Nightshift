@@ -93,7 +93,7 @@ async def _last_verified(
         .where(JobSourceLink.job_id.in_(job_ids))
         .group_by(JobSourceLink.job_id)
     )
-    return dict(rows.all())  # type: ignore[arg-type]
+    return dict(rows.all())
 
 
 async def _captured(session: AsyncSession, job_ids: Sequence[UUID]) -> set[UUID]:
